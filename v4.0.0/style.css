@@ -41,6 +41,23 @@ main{max-width:var(--maxw);margin:0 auto;padding:0 1rem 2rem}
 .start-tips.hide{opacity:0}
 @media (prefers-reduced-motion: reduce){ .start-tips{transition:none} }
 
+/* seletor de modo */
+.modes{max-width:var(--maxw);margin:0 auto .5rem;padding:0 1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.mode-btn{min-height:var(--tap);padding:.4em .9em;font:inherit;font-weight:700;color:var(--ink);background:var(--panel);border:2px solid var(--ink-soft);border-radius:999px;cursor:pointer}
+.mode-btn.is-on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* desafio Soma-Sub (overlay sobre o canvas) */
+.quiz{position:absolute;inset:0;z-index:12;display:grid;place-items:center;background:rgba(0,0,0,.55)}
+.quiz-box{background:#14141f;color:var(--ink);border:3px solid var(--accent);border-radius:12px;padding:1rem 1.1rem;max-width:90%;text-align:center}
+.quiz-shape{color:var(--accent);font-weight:800;text-transform:capitalize}
+.quiz-prob{font-size:1.6rem;font-weight:800;margin:.4rem 0 .8rem}
+.quiz-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem}
+.quiz-choice{min-height:var(--tap);min-width:var(--tap);font:inherit;font-size:1.2rem;font-weight:700;color:var(--ink);background:#131a30;border:2px solid var(--ink-soft);border-radius:8px;cursor:pointer}
+.quiz-choice.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.quiz-choice.reveal{outline:3px solid var(--good);outline-offset:2px}
+.quiz-hint{font-size:.85rem;margin-top:.6rem;color:var(--ink-soft)}
+@media (prefers-contrast: more){ .quiz-box{background:#000} .quiz-choice{background:#000} .quiz-choice.sel{background:#fff;color:#000} }
+
 .help{max-width:var(--maxw);margin:1rem auto 0;color:var(--ink-soft)}
 .help summary{cursor:pointer;font-weight:700;color:var(--ink);min-height:var(--tap);display:flex;align-items:center}
 .help ul{padding-left:1.1rem}

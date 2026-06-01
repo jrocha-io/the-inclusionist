@@ -32,6 +32,11 @@
       <span class="hud__fpsmin">(mín <strong id="hud-fpsmin">–</strong>)</span></p>
   </div>
 
+  <nav class="modes" aria-label="Modo de jogo">
+    <button id="mode-ludico" class="mode-btn is-on" type="button" aria-pressed="true">🪙 Lúdico</button>
+    <button id="mode-somasub" class="mode-btn" type="button" aria-pressed="false">🔷 Soma-Sub</button>
+  </nav>
+
   <main>
     <section
       id="game-region"
@@ -47,6 +52,8 @@
         <p>Aperte <kbd>L</kbd> para pular</p>
         <p>Segure <kbd>P</kbd> para correr e pular mais alto</p>
       </div>
+      <!-- Desafio Soma-Sub (DOM, acessível) -->
+      <div id="quiz" class="quiz" hidden></div>
     </section>
 
     <p id="game-instructions" class="sr-only">

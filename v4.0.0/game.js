@@ -233,17 +233,30 @@ function findCoinCandidates(){
 // RNG semeado p/ reprodutibilidade (testes estáveis); o jogo final pode randomizar.
 let _seed=20260601;
 const rnd=()=>(_seed=(_seed*1103515245+12345)&0x7fffffff)/0x7fffffff;
+const randInt=(lo,hi)=>lo+Math.floor(rnd()*(hi-lo+1));
+const shuffle=(arr)=>{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=(rnd()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
+// modos de jogo
+let MODE='ludico'; // 'ludico' | 'somasub' (silabas vem na E7)
+const SOMASUB_SHAPES=[
+  {id:'circulo',nome:'círculo'},{id:'triangulo',nome:'triângulo'},{id:'quadrado',nome:'quadrado'},
+  {id:'retangulo',nome:'retângulo'},{id:'losango',nome:'losango'},{id:'paralelogramo',nome:'paralelogramo'},
+  {id:'trapezio',nome:'trapézio'},{id:'pentagono',nome:'pentágono'},{id:'hexagono',nome:'hexágono'},{id:'oval',nome:'oval'},
+];
+const somaSubName=(id)=>{const x=SOMASUB_SHAPES.find(z=>z.id===id);return x?x.nome:id;};
 function pickCoins(n){
-  const a=findCoinCandidates();
-  for(let i=a.length-1;i>0;i--){const j=(rnd()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}
-  return a.slice(0,Math.min(n,a.length)).map(p=>({x:p.tx*TILE+3,y:p.ty*TILE+3,taken:false}));
+  const a=shuffle(findCoinCandidates());
+  const shapes = MODE==='somasub' ? shuffle(SOMASUB_SHAPES.map(s=>s.id)) : [];
+  return a.slice(0,Math.min(n,a.length)).map((p,i)=>({
+    x:p.tx*TILE+3, y:p.ty*TILE+3, taken:false,
+    shape: shapes.length ? shapes[i%shapes.length] : '',
+  }));
 }
 
 /* ===================== estado ===================== */
 const $=(s)=>document.querySelector(s);
 const SPAWN_X=2*TILE, SPAWN_Y=24*TILE;
 const player={x:SPAWN_X,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
-  facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0};
+  facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null};
 const BOX={w:10,h:30};
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 
@@ -252,7 +265,14 @@ const keys=new Set(); let jumpEdge=false;
 const KJUMP=['KeyL','Space'], KLEFT=['KeyA','ArrowLeft'], KRIGHT=['KeyD','ArrowRight'],
       KUP=['KeyW','ArrowUp'], KDOWN=['KeyS','ArrowDown'], KRUN=['KeyP','ShiftLeft','ShiftRight'];
 const GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN];
-addEventListener('keydown',(e)=>{ if(GAME_KEYS.includes(e.code))e.preventDefault();
+addEventListener('keydown',(e)=>{
+  if(player.quiz){ // navegação do quiz por teclado
+    if(KLEFT.includes(e.code))quizMove(-1); else if(KRIGHT.includes(e.code))quizMove(1);
+    else if(KUP.includes(e.code))quizMove(-3); else if(KDOWN.includes(e.code))quizMove(3);
+    else if(KJUMP.includes(e.code))quizConfirm();
+    if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
+  }
+  if(GAME_KEYS.includes(e.code))e.preventDefault();
   if(!keys.has(e.code)&&KJUMP.includes(e.code))jumpEdge=true; keys.add(e.code); });
 addEventListener('keyup',(e)=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
@@ -271,7 +291,38 @@ app.view.setAttribute('aria-hidden','true');
 const camera=new PIXI.Container(); app.stage.addChild(camera);
 camera.addChild(new PIXI.Sprite(worldToTexture()));
 const coinTex=coinTexture();
-let coinSprites=coins.map(cn=>{const s=new PIXI.Sprite(coinTex);s.x=cn.x;s.y=cn.y;camera.addChild(s);return s;});
+function shapeTexture(id){
+  const cv=makeCanvas(16,16),c=cv.getContext('2d');
+  c.fillStyle='#7fdcff';c.strokeStyle='#04121a';c.lineWidth=1.5;
+  const cx=8,cy=8,r=6; c.beginPath();
+  switch(id){
+    case 'circulo': c.arc(cx,cy,r,0,7); break;
+    case 'oval': c.ellipse(cx,cy,r,r*0.66,0,0,7); break;
+    case 'quadrado': c.rect(cx-r,cy-r,2*r,2*r); break;
+    case 'retangulo': c.rect(cx-r,cy-r*0.6,2*r,r*1.2); break;
+    case 'triangulo': c.moveTo(cx,cy-r);c.lineTo(cx+r,cy+r);c.lineTo(cx-r,cy+r);c.closePath(); break;
+    case 'losango': c.moveTo(cx,cy-r);c.lineTo(cx+r,cy);c.lineTo(cx,cy+r);c.lineTo(cx-r,cy);c.closePath(); break;
+    case 'paralelogramo': c.moveTo(cx-r+3,cy-r*0.6);c.lineTo(cx+r,cy-r*0.6);c.lineTo(cx+r-3,cy+r*0.6);c.lineTo(cx-r,cy+r*0.6);c.closePath(); break;
+    case 'trapezio': c.moveTo(cx-r*0.5,cy-r*0.7);c.lineTo(cx+r*0.5,cy-r*0.7);c.lineTo(cx+r,cy+r*0.7);c.lineTo(cx-r,cy+r*0.7);c.closePath(); break;
+    case 'pentagono': for(let i=0;i<5;i++){const a=-Math.PI/2+i*2*Math.PI/5;c[i?'lineTo':'moveTo'](cx+r*Math.cos(a),cy+r*Math.sin(a));}c.closePath(); break;
+    case 'hexagono': for(let i=0;i<6;i++){const a=i*2*Math.PI/6;c[i?'lineTo':'moveTo'](cx+r*Math.cos(a),cy+r*Math.sin(a));}c.closePath(); break;
+    default: c.arc(cx,cy,r,0,7);
+  }
+  c.fill();c.stroke(); return tex(cv);
+}
+const SHAPE_TEX={}; SOMASUB_SHAPES.forEach(s=>SHAPE_TEX[s.id]=shapeTexture(s.id));
+const coinContainer=new PIXI.Container(); camera.addChild(coinContainer);
+let coinSprites=[];
+function rebuildCoins(){
+  coinContainer.removeChildren().forEach(s=>s.destroy());
+  coinSprites=coins.map(cn=>{
+    let s;
+    if(MODE==='somasub'&&cn.shape){ s=new PIXI.Sprite(SHAPE_TEX[cn.shape]); s.width=15;s.height=15; s.x=cn.x-3;s.y=cn.y-3; }
+    else { s=new PIXI.Sprite(coinTex); s.x=cn.x;s.y=cn.y; }
+    s.visible=!cn.taken; coinContainer.addChild(s); return s;
+  });
+}
+rebuildCoins();
 // camada de escuridão das áreas secretas (acima de mundo/moedas, ABAIXO do player → player sempre visível)
 const darkLayer=new PIXI.Container(); camera.addChild(darkLayer);
 const darkRegions=buildDarkRegions().map(tiles=>{
@@ -362,7 +413,7 @@ function triggerLava(){
   srAlert('Cuidado! Você tocou na lava. As moedas voltaram para posições aleatórias.');
 }
 function update(dt){
-  if(ended)return;
+  if(ended||player.quiz)return; // congelado durante o desafio
   const run=anyOf(KRUN), dir=(anyOf(KRIGHT)?1:0)-(anyOf(KLEFT)?1:0);
   player.vx=dir*(run?TUNE.hRun:TUNE.hWalk); if(dir!==0)player.facing=dir;
 
@@ -400,10 +451,12 @@ function update(dt){
   // coletar
   const pl={x:player.x-BOX.w/2,y:player.y-BOX.h,w:BOX.w,h:BOX.h};
   coins.forEach((cn,i)=>{ if(cn.taken)return;
-    if(pl.x<cn.x+9&&pl.x+pl.w>cn.x&&pl.y<cn.y+9&&pl.y+pl.h>cn.y){
-      cn.taken=true; coinSprites[i].visible=false; collected++;
-      $('#hud-coins').textContent=String(collected); srSay(`Moeda ${collected} de ${COIN_TARGET}.`);
-      if(collected>=COIN_TARGET)win();
+    const sz=(MODE==='somasub'&&cn.shape)?15:9, ox=(MODE==='somasub'&&cn.shape)?3:0;
+    if(pl.x<cn.x+sz-ox&&pl.x+pl.w>cn.x-ox&&pl.y<cn.y+sz-ox&&pl.y+pl.h>cn.y-ox){
+      if(MODE==='somasub'&&cn.shape){ if(!player.quiz) openQuiz(i,cn.shape); }
+      else { cn.taken=true; coinSprites[i].visible=false; collected++;
+        $('#hud-coins').textContent=String(collected); srSay(`Moeda ${collected} de ${COIN_TARGET}.`);
+        if(collected>=COIN_TARGET)win(); }
     }});
 
   // áreas secretas: revela a região quando o player a toca (não escurece o resto)
@@ -438,19 +491,71 @@ function draw(){
   mmPlayer.drawRect((player.x/TILE)*MM_SCALE-1,((player.y-BOX.h/2)/TILE)*MM_SCALE-1,2.6,2.6); mmPlayer.endFill();
 }
 
+/* ===================== Soma-Sub: quiz (DOM, acessível) ===================== */
+function openQuiz(coinIndex,shapeId){
+  const op=rnd()<0.5?'+':'-'; let a,b,answer;
+  if(op==='+'){a=randInt(0,9);b=randInt(0,10-a);answer=a+b;} else {a=randInt(0,10);b=randInt(0,a);answer=a-b;}
+  const pool=[answer]; while(pool.length<9){const n=randInt(0,10); if(!pool.includes(n))pool.push(n);}
+  player.quiz={coinIndex,shape:shapeId,a,b,op,answer,choices:shuffle(pool),sel:0,tries:0,revealed:false};
+  player.vx=0;player.vy=0;
+  srSay(`${somaSubName(shapeId)}. Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`);
+  renderQuiz();
+}
+function renderQuiz(){
+  const q=player.quiz, ov=$('#quiz'); if(!ov)return; if(!q){ov.hidden=true;return;}
+  const opTxt=q.op==='+'?'+':'−';
+  const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&n===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
+  const hint=q.revealed?'Resposta certa em destaque. Pule (L) para seguir.':(q.tries>0?'Quase! Tente de novo.':'Escolha e pule (L) para confirmar.');
+  ov.innerHTML=`<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Conta de Soma-Sub"><div class="quiz-shape">${somaSubName(q.shape)}</div><div class="quiz-prob">${q.a} ${opTxt} ${q.b} = ?</div><div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
+  ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(player.quiz){player.quiz.sel=+b.dataset.i; quizConfirm();} }));
+  ov.hidden=false;
+}
+function quizMove(d){ const q=player.quiz; if(!q)return; q.sel=Math.max(0,Math.min(q.choices.length-1,q.sel+d)); renderQuiz(); srSay(String(q.choices[q.sel])); }
+function quizConfirm(){
+  const q=player.quiz; if(!q)return;
+  if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(); return; }
+  if(q.choices[q.sel]===q.answer){
+    coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
+    $('#hud-coins').textContent=String(collected); srSay('Acertou!'); closeQuiz();
+    if(collected>=COIN_TARGET)win();
+  } else { q.tries++;
+    if(q.tries>=2){q.revealed=true; srAlert(`A resposta é ${q.answer}. Pule para seguir.`);} else srSay('Tente de novo.');
+    renderQuiz();
+  }
+}
+function closeQuiz(){ player.quiz=null; const ov=$('#quiz'); if(ov)ov.hidden=true; }
+function respawnFigure(i){
+  const occ=new Set(); coins.forEach((c,j)=>{ if(j!==i)occ.add(c.x+','+c.y); });
+  for(const cand of shuffle(findCoinCandidates())){ const x=cand.tx*TILE+3,y=cand.ty*TILE+3;
+    if(!occ.has(x+','+y)){ coins[i].x=x;coins[i].y=y;coins[i].taken=false;
+      const s=coinSprites[i]; s.x=(MODE==='somasub')?x-3:x; s.y=(MODE==='somasub')?y-3:y; s.visible=true; return; } }
+}
+
 /* ===================== vitória ===================== */
 function win(){ ended=true; $('#hud-objective').textContent='Concluído! 🎉';
   $('#win-msg').textContent=`Parabéns! Você coletou as ${COIN_TARGET} moedas.`;
   $('#win-overlay').hidden=false; srAlert(`Você venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
-$('#btn-again').addEventListener('click',()=>{
+function restartGame(){
+  closeQuiz();
   coins=pickCoins(COIN_TARGET);
-  coinSprites.forEach((s,i)=>{ const c=coins[i]; if(c){s.x=c.x;s.y=c.y;s.visible=true;} else s.visible=false; });
+  rebuildCoins();
   darkRegions.forEach(r=>{ r.revealed=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false; player.x=SPAWN_X; player.y=SPAWN_Y; player.vx=player.vy=0; player.hurtTimer=0; playerSprite.alpha=1;
-  $('#hud-coins').textContent='0'; $('#hud-objective').textContent='Colete 10 moedas';
-  $('#win-overlay').hidden=true; $('#game-region').focus(); srSay('Nova rodada. Colete 10 moedas.');
+  $('#hud-coins').textContent='0';
+  $('#hud-objective').textContent = MODE==='somasub' ? 'Resolva 10 contas' : 'Colete 10 moedas';
+  $('#win-overlay').hidden=true;
   const tp=$('#start-tips'); if(tp){ tp.classList.remove('hide'); clearTimeout(tipsTimer); tipsTimer=setTimeout(hideTips,8000); }
-});
+  srSay(MODE==='somasub' ? 'Modo Soma-Sub. Toque nas figuras e resolva as contas.' : 'Nova rodada. Colete 10 moedas.');
+}
+$('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').focus(); });
+function setMode(m){
+  MODE=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>{ const on=b.id==='mode-'+m; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); });
+  restartGame(); $('#game-region').focus();
+}
+const mb1=$('#mode-ludico'), mb2=$('#mode-somasub');
+if(mb1)mb1.addEventListener('click',()=>setMode('ludico'));
+if(mb2)mb2.addEventListener('click',()=>setMode('somasub'));
 
 /* ===================== FPS ===================== */
 let fpsAccum=0,fpsFrames=0,fpsMin=Infinity,fpsWarm=0;
@@ -463,7 +568,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); });
 window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,decoLayer,minimap,
-  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},tileAt,WORLD_W,WORLD_H,TUNE};
+  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
