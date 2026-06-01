@@ -20,7 +20,10 @@
 
   <header class="topbar">
     <h1 class="title">The Inclusionist <span class="ver">· v4.0.0</span></h1>
-    <p class="badge">PixiJS · PWA · 320×180</p>
+    <div class="topbar__right">
+      <button id="btn-pause" class="mode-btn" type="button" aria-pressed="false" aria-label="Pausar ou continuar (tecla Esc)">⏸ Pausar</button>
+      <p class="badge">PixiJS · PWA · 320×180</p>
+    </div>
   </header>
 
   <!-- HUD textual (DOM, contraste AAA) -->
@@ -119,6 +122,28 @@
       <h2 id="win-title">🎉 Você coletou as 10 moedas!</h2>
       <p id="win-msg"></p>
       <button id="btn-again" type="button" class="btn btn--primary">Jogar de novo</button>
+    </div>
+  </div>
+
+  <!-- E14: tela de título / splash (ponto de entrada) -->
+  <div id="title-overlay" class="overlay">
+    <div class="overlay__card title-card" role="dialog" aria-modal="true" aria-labelledby="title-h">
+      <h2 id="title-h" class="title-big">The Inclusionist</h2>
+      <p class="title-by">por Prof. José Rocha · <span>v4.0.0</span></p>
+      <p class="opt-hint">Jogo educativo acessível. Colete 10 moedas. Mova com <kbd>A</kbd>/<kbd>D</kbd> ou setas; pule com <kbd>L</kbd> ou Espaço. Pause com <kbd>Esc</kbd>.</p>
+      <button id="btn-play" class="btn btn--primary" type="button">▶ Jogar</button>
+    </div>
+  </div>
+
+  <!-- E14: tela de pausa -->
+  <div id="pause-overlay" class="overlay" hidden>
+    <div class="overlay__card title-card" role="dialog" aria-modal="true" aria-labelledby="pause-h">
+      <h2 id="pause-h">Pausado</h2>
+      <div class="overlay__actions" style="justify-content:center">
+        <button id="btn-resume" class="mode-btn is-on" type="button">Continuar</button>
+        <button id="btn-pause-restart" class="mode-btn" type="button">Reiniciar</button>
+        <button id="btn-menu" class="mode-btn" type="button">Menu</button>
+      </div>
     </div>
   </div>
 

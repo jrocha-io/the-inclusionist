@@ -286,6 +286,7 @@ function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:fa
 let players=[makePlayer(0)]; let player=players[0];
 let numPlayers=1;
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
+let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
 
 /* ===================== input ===================== */
 const keys=new Set(); let jumpEdge=false, captureAction=null, optionsOpen=false;
@@ -313,6 +314,7 @@ addEventListener('keydown',(e)=>{
     captureAction=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
   }
   if(optionsOpen){ if(e.code==='Escape')closeOptions(); return; } // diálogo aberto: não joga
+  if(!player.quiz && e.code==='Escape' && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
       if(KUP.includes(e.code))announceBraille(); else if(KJUMP.includes(e.code))quizConfirm();
@@ -625,7 +627,7 @@ function stepPlayer(pl,dt){
   if(pl.sprite) pl.sprite.texture=tx;
 }
 function update(dt){
-  if(ended)return;
+  if(ended||phase!=='playing')return; // E14: congelado no título e na pausa
   for(const pl of players) stepPlayer(pl,dt);
   // E1 (corrigido): revela a área secreta ENQUANTO houver jogador dentro e RE-ESCURECE ao sair.
   // Não é inversão — só mostra o que estava escondido e some de novo ao deixar o ambiente.
@@ -893,6 +895,28 @@ addEventListener('resize', layout);
 setInterval(vlTick, 250);
 layout(); requestAnimationFrame(layout); setTimeout(layout, 1500);
 window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
+
+/* ===================== E14: shell — título/splash + pausa ===================== */
+function setPhase(p){
+  phase=p;
+  const t=$('#title-overlay'), pa=$('#pause-overlay');
+  if(t)t.hidden = p!=='title';
+  if(pa)pa.hidden = p!=='paused';
+  const pb=$('#btn-pause'); if(pb)pb.setAttribute('aria-pressed',String(p==='paused'));
+  if(p==='playing'){ const gr=$('#game-region'); if(gr)gr.focus(); }
+  else if(p==='paused'){ const r=$('#btn-resume'); if(r)r.focus(); }
+  else if(p==='title'){ const b=$('#btn-play'); if(b)b.focus(); }
+}
+function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==='paused')setPhase('playing'); }
+(function shellSetup(){
+  const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
+  wire('btn-play', ()=>{ setPhase('playing'); hideTips(); srSay('Jogo iniciado. Colete 10 moedas.'); });
+  wire('btn-pause', togglePause);
+  wire('btn-resume', ()=>setPhase('playing'));
+  wire('btn-pause-restart', ()=>{ restartGame(); setPhase('playing'); });
+  wire('btn-menu', ()=>{ restartGame(); setPhase('title'); });
+  setPhase('title'); // estado inicial: tela de título
+})();
 
 /* ===================== E13: controles de toque (mobile) ===================== */
 (function touchSetup(){

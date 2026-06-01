@@ -95,6 +95,11 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 [hidden]{display:none!important}
 .overlay__card{background:var(--panel);border:3px solid var(--accent);border-radius:12px;padding:1.5rem;max-width:420px;width:100%;text-align:center}
 .overlay__card h2{margin-top:0}
+.topbar__right{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.title-card{text-align:center}
+.title-big{font-size:2rem;margin:.2rem 0;color:var(--accent)}
+.title-by{color:var(--ink-soft);margin:.2rem 0 1rem}
+.title-card .btn{margin-top:.4rem;font-size:1.1rem;padding:.6em 1.6em}
 .overlay__actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;justify-content:flex-end}
 .opt-hint{color:var(--ink-soft);font-size:.9rem;margin:.2rem 0 .8rem}
 .ctrl-list{display:flex;flex-direction:column;gap:.45rem;text-align:left}
