@@ -11,7 +11,7 @@ const COIN_TARGET = 10;
 const TUNE = {
   jumpVel: 3.5, waterJump: 3.5, waterJumpRun: 4, waterStrokeFrames: 30,
   trampBase: 5, trampMax: 8, gravity: 0.15, hWalk: 2, hRun: 3, climbSpeed: 1.5,
-  maxFall: 7, waterMaxFall: 3,
+  maxFall: 7, waterMaxFall: 3, hTurbo: 4.5, ultraJumpVel: 10, // E12: power-ups (valores do José)
 };
 const JUMP_BASE = TUNE.jumpVel * Math.sqrt(8 / 5); // ~4.43 (altura confortável)
 
@@ -124,7 +124,9 @@ const WORLD = buildWorld();
 const WORLD_W = WORLD[0].length, WORLD_H = WORLD.length;
 const WORLD_PX_W = WORLD_W*TILE, WORLD_PX_H = WORLD_H*TILE;
 const tileAt=(tx,ty)=>(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H)?2:WORLD[ty][tx];
-const solidAt=(tx,ty)=>isSolidType(tileAt(tx,ty));
+// E12: portão dinâmico — seus tiles são sólidos enquanto fechado (gateOpen=true ⇒ comporta normal)
+let gateTiles=new Set(), gateOpen=true, gate=null;
+const solidAt=(tx,ty)=>(!gateOpen && gateTiles.has(tx+','+ty)) || isSolidType(tileAt(tx,ty));
 // regiões secretas = componentes conexos de tiles 0 (escuridão). Acendem ao entrar.
 function buildDarkRegions(){
   const seen=Array.from({length:WORLD_H},()=>new Array(WORLD_W).fill(false)),regions=[];
@@ -279,7 +281,8 @@ const SPAWN_X=2*TILE, SPAWN_Y=24*TILE;
 const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
-  facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null}; }
+  facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
+  powerRun:false,powerJump:false,hasKey:false}; }
 let players=[makePlayer(0)]; let player=players[0];
 let numPlayers=1;
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
@@ -342,6 +345,9 @@ const SFX={
   place:{f:640,d:0.08,t:'sine',cap:''},
   correct:{f:990,d:0.18,t:'triangle',cap:'🔊 Acertou!'},
   wrong:{f:180,d:0.15,t:'square',cap:'🔊 Tente de novo'},
+  power:{f:760,d:0.18,t:'triangle',cap:'🔊 Power-up!'},
+  key:{f:990,d:0.16,t:'sine',cap:'🔊 Chave'},
+  gate:{f:300,d:0.30,t:'sawtooth',cap:'🔊 Portão abriu'},
 };
 let audioCtx=null, soundOn=true, captionsOn=true, assist=false, volume=0.6, capTimer=null;
 function showCaption(txt){ const el=$('#caption'); if(!el||!txt)return; el.textContent=txt; el.classList.add('show'); clearTimeout(capTimer); capTimer=setTimeout(()=>{el.classList.remove('show'); el.textContent='';},1300); }
@@ -432,6 +438,42 @@ const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
     }
   }
 })();
+/* ===================== E12: power-ups + chave/portão ===================== */
+function powerupTexture(kind){
+  const cv=makeCanvas(12,12),c=cv.getContext('2d');
+  const col = kind==='run'?'#34e29b':kind==='jump'?'#7fdcff':'#ffd23f';
+  c.fillStyle='#04121a'; c.beginPath(); if(c.roundRect)c.roundRect(0.5,0.5,11,11,3); else c.rect(0.5,0.5,11,11); c.fill();
+  c.fillStyle=col;
+  if(kind==='run'){ c.beginPath();c.moveTo(2,3);c.lineTo(7,6);c.lineTo(2,9);c.closePath();c.moveTo(6,3);c.lineTo(11,6);c.lineTo(6,9);c.closePath();c.fill(); } // » super-corrida
+  else if(kind==='jump'){ c.beginPath();c.moveTo(6,2);c.lineTo(10,7);c.lineTo(2,7);c.closePath();c.fill();c.fillRect(4,7,4,3); }          // ▲ ultra-pulo
+  else { c.beginPath();c.arc(4,6,3,0,7);c.fill();c.fillRect(6,5,5,2);c.fillRect(9,5,2,4); }                                              // ⚷ chave
+  return tex(cv);
+}
+const PUP_TEX={run:powerupTexture('run'),jump:powerupTexture('jump'),key:powerupTexture('key')};
+const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups + portão (atrás do player)
+let powerups=[];
+function rebuildExtras(){
+  extraLayer.removeChildren().forEach(s=>s.destroy());
+  powerups.forEach(pu=>{ const s=new PIXI.Sprite(PUP_TEX[pu.kind]); s.x=pu.x; s.y=pu.y; s.visible=!pu.taken; extraLayer.addChild(s); pu.sprite=s; });
+  if(gate && !gateOpen){ const g=new PIXI.Graphics();
+    for(const k of gateTiles){ const [tx,ty]=k.split(',').map(Number); const X=tx*TILE,Y=ty*TILE;
+      g.beginFill(0x8a5a2b).drawRect(X,Y,TILE,TILE).endFill();
+      g.beginFill(0x5a3a1b); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
+    }
+    extraLayer.addChild(g);
+  }
+}
+function setupExtras(){
+  const occ=new Set(coins.map(c=>Math.floor(c.x/TILE)+','+Math.floor(c.y/TILE)));
+  const cands=shuffle(findCoinCandidates()).filter(c=>c.tx>5 && !occ.has(c.tx+','+c.ty));
+  powerups=[]; const kinds=['run','jump','key'];
+  for(let i=0;i<kinds.length && i<cands.length;i++){ const c=cands[i]; powerups.push({x:c.tx*TILE+2,y:c.ty*TILE+2,kind:kinds[i],taken:false,sprite:null}); }
+  const gc=cands[3]; gateTiles=new Set();
+  if(gc){ for(let dy=0;dy<3;dy++)gateTiles.add(gc.tx+','+(gc.ty-dy)); gate={tx:gc.tx,ty:gc.ty}; } else gate=null;
+  gateOpen=false; rebuildExtras();
+}
+setupExtras();
+
 const playerSprite=new PIXI.Sprite(TEX.idle); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
@@ -524,7 +566,7 @@ function triggerLava(pl){
 function stepPlayer(pl,dt){
   if(pl.quiz)return; // P1 em desafio (Soma-Sub/Sílabas; MP é Lúdico)
   const run=held(pl,'run'), dir=(held(pl,'right')?1:0)-(held(pl,'left')?1:0);
-  pl.vx=dir*(run?TUNE.hRun:TUNE.hWalk); if(dir!==0)pl.facing=dir;
+  pl.vx=dir*(run?(pl.powerRun?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk); if(dir!==0)pl.facing=dir; // E12: super-corrida
   const feat=sampleFeatures(pl); pl.inWater=feat.water; pl.onLadder=feat.ladder;
   if(pl.hurtTimer>0)pl.hurtTimer-=dt;
   if(feat.lava && !assist) triggerLava(pl);
@@ -533,7 +575,7 @@ function stepPlayer(pl,dt){
   if(pl.onLadder){
     pl.vy=0;
     if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
-    if(pl.jumpBuffer>0){ pl.vy=-JUMP_BASE; pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+    if(pl.jumpBuffer>0){ pl.vy=-(pl.powerJump?TUNE.ultraJumpVel:JUMP_BASE); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
   } else {
     const g = pl.inWater?0.10:TUNE.gravity;
     if(!(pl.onGround&&pl.vy>=0)) pl.vy += g*dt;
@@ -544,7 +586,7 @@ function stepPlayer(pl,dt){
       pl.vy=Math.min(pl.vy,TUNE.waterMaxFall);
     } else {
       pl.waterStroke=0;
-      if(pl.onGround&&pl.jumpBuffer>0){ pl.vy=-JUMP_BASE; pl.onGround=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+      if(pl.onGround&&pl.jumpBuffer>0){ pl.vy=-(pl.powerJump?TUNE.ultraJumpVel:JUMP_BASE); pl.onGround=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
       pl.vy=Math.min(pl.vy,TUNE.maxFall);
     }
   }
@@ -562,6 +604,18 @@ function stepPlayer(pl,dt){
         updateHud(); srSay((numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`);
         if(pl.collected>=COIN_TARGET)win(pl); }
     }});
+  // E12: power-ups + chave (por jogador) e portão (compartilhado)
+  powerups.forEach(pu=>{ if(pu.taken)return;
+    if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
+      pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
+      if(pu.kind==='run'){ pl.powerRun=true; sfx('power'); srSay(who+'super-corrida ativada! Segure correr para ir mais rápido.'); }
+      else if(pu.kind==='jump'){ pl.powerJump=true; sfx('power'); srSay(who+'ultra-pulo ativado!'); }
+      else { pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
+    }});
+  if(gate && !gateOpen && pl.hasKey){
+    const gx=gate.tx*TILE, gtop=(gate.ty-2)*TILE, gbot=gate.ty*TILE+TILE;
+    if(box.x<gx+TILE && box.x+box.w>gx && box.y<gbot && box.y+box.h>gtop){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); }
+  }
   // áreas secretas (qualquer jogador revela)
   const rtx0=Math.floor((pl.x-BOX.w/2)/TILE),rtx1=Math.floor((pl.x+BOX.w/2-0.01)/TILE);
   const rty0=Math.floor((pl.y-BOX.h)/TILE),rty1=Math.floor((pl.y-0.01)/TILE);
@@ -716,9 +770,10 @@ function restartGame(){
   closeQuiz();
   coins=pickCoins(COIN_TARGET);
   rebuildCoins();
+  setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.revealed=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
-  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; if(p.sprite)p.sprite.alpha=1; });
+  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.powerRun=false; p.powerJump=false; p.hasKey=false; if(p.sprite)p.sprite.alpha=1; });
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
@@ -794,7 +849,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2)*(assist?0.6:1); update(dt); draw(); fpsTick(); });
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},darkRegions,decoLayer,minimap,
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,darkRegions,decoLayer,minimap,
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 

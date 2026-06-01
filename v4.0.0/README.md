@@ -53,8 +53,14 @@ compartilhada — todos se veem no mesmo mundo (corrida pelas moedas). Layout: 1
 2 telas 640×180 (lado a lado) · 3–4 telas 640×360 (grade 2×2). Keysets sem conflito —
 **P1** WASD+Espaço, **P2** setas+Enter, **P3** FTGH+R, **P4** IJKL+U. MP só no **Lúdico**.
 
+### Power-ups + chave/portão (E12)
+Itens-bônus (não obrigatórios p/ vencer): 🟢 **super-corrida** (correr = `hTurbo`), 🔵 **ultra-pulo**
+(`ultraJumpVel`) e 🔑 **chave** que abre o 🚪 **portão** (barreira sólida dinâmica). Power-ups são
+**por jogador** (cada um pega o seu em MP); o portão é **compartilhado**. Feedback por som+legenda
+(E9) e narração para leitor de tela. Resetam a cada rodada.
+
 ## Limites desta build (propositais)
 - Mundo **gerado** (representativo p/ teste de perf), não o `buildWorld()` final.
-- **Sem** temas múltiplos, power-ups/chaves-portões, toque mobile, telemetria — entram depois (E12–E13).
+- **Sem** temas múltiplos, toque mobile, telemetria — entram depois (E13+).
 - Aparência do personagem **fixa** (recolor/customização Mii-like = próxima fase); em MP, distinção por **tint** por jogador.
 - VLibras: encaixe pixel-exato adiado ao motor zdog (ver acima).
