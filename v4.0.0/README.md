@@ -59,8 +59,14 @@ Itens-bônus (não obrigatórios p/ vencer): 🟢 **super-corrida** (correr = `h
 **por jogador** (cada um pega o seu em MP); o portão é **compartilhado**. Feedback por som+legenda
 (E9) e narração para leitor de tela. Resetam a cada rodada.
 
+### Toque mobile + auditoria (E13)
+**Controles de toque** (D-pad + correr/pular, alvos 56px ≥ AAA 2.5.5) que aparecem só em telas de
+toque e não cobrem o centro. **Auditoria axe-core: 0 violações WCAG A/AA** no nosso app — ver
+[`AUDITORIA-E13.md`](AUDITORIA-E13.md) (inclui o status dos 5 gates do ADR-001; gates de hardware
+real / leitores de tela / crianças são `[JOSE]`).
+
 ## Limites desta build (propositais)
 - Mundo **gerado** (representativo p/ teste de perf), não o `buildWorld()` final.
-- **Sem** temas múltiplos, toque mobile, telemetria — entram depois (E13+).
+- **Sem** temas múltiplos, telemetria — entram depois. Selo "AAA + GAG complete" só após os 5 gates.
 - Aparência do personagem **fixa** (recolor/customização Mii-like = próxima fase); em MP, distinção por **tint** por jogador.
 - VLibras: encaixe pixel-exato adiado ao motor zdog (ver acima).

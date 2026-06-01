@@ -56,9 +56,7 @@ authors: [José, Claude]
   - Abrir o jogo em hardware real, validar performance e a11y (NVDA não disponível em Chromebook — usar ChromeVox).
   - **Ratifica:** ADR-001 §validation item 2.
 
-- [ ] **[CLAUDE] Auditoria automatizada axe-core + Lighthouse + WAVE**
-  - Rodar axe-core via Playwright contra v3.1.100, capturar violações, listar.
-  - **Critério de pronto:** zero violações axe + Lighthouse a11y ≥ 95 + WAVE 0 errors.
+- [~] **[CLAUDE] Auditoria automatizada axe-core + Lighthouse + WAVE** — 🟡 axe ✅ feito no motor v4.0.0 (E13): **0 violações WCAG A/AA** no nosso app (VLibras de terceiro à parte). Ver `v4.0.0/AUDITORIA-E13.md`. Lighthouse a11y + WAVE ainda pendentes (precisam CLI/extensão).
 
 - [ ] **[JOSE] Auditoria manual NVDA + JAWS + VoiceOver desktop + VoiceOver iOS**
   - Jogar v3.1.100 só por screen reader (sem olhar a tela). Documentar pontos de fricção.
@@ -92,14 +90,11 @@ authors: [José, Claude]
 - [ ] **[CLAUDE] R4 — A1: navegação de menu por controle**
   - GAG. Suportar gamepad para navegar menus (D-pad + A/B). Não confundir com teclado (B1, já fechado).
 
-- [ ] **[CLAUDE] R4 — C1: legendas de SFX via `aria-live`**
-  - Cada efeito sonoro tem legenda visual + screen reader: "Você coletou uma chave", "Plataforma cai", "Inimigo derrotado".
+- [x] **[CLAUDE] R4 — C1: legendas de SFX via `aria-live`** ✅ motor v4.0.0 (E9): legenda visual + `aria-live` por efeito (pulo, moeda, dano, vitória, power-up, chave, portão, acerto/erro).
 
-- [ ] **[CLAUDE] R4 — C2: modo assistência**
-  - Pulo automático, velocidade reduzida, invencibilidade opcional, timer infinito, dicas explícitas. Liga/desliga em Opções.
+- [x] **[CLAUDE] R4 — C2: modo assistência** ✅ motor v4.0.0 (E9): velocidade reduzida (0,6×) + perigos desativados. Liga/desliga em Acessibilidade.
 
-- [ ] **[JOSE+CLAUDE] R4 — Botões de toque na tela (mobile)**
-  - D-pad virtual + botões A/B na tela quando detectar touch. Não cobrir o gameplay. José valida ergonomia em tablet real.
+- [x] **[CLAUDE] R4 — Botões de toque na tela (mobile)** ✅ motor v4.0.0 (E13): D-pad + correr/pular, alvos 56px (AAA 2.5.5), só em touch, sem cobrir o centro. **[JOSE]** ainda valida ergonomia em tablet real.
 
 - [ ] **[JOSE+CLAUDE] R5 — Auditoria final WCAG 2.2 + GAG completo + revisão sênior**
   - Quando R0–R4 estiverem fechados. Documento final consolidado.

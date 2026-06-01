@@ -883,5 +883,23 @@ setInterval(vlTick, 250);
 layout(); requestAnimationFrame(layout); setTimeout(layout, 1500);
 window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
 
+/* ===================== E13: controles de toque (mobile) ===================== */
+(function touchSetup(){
+  const tc=$('#touch-controls'); if(!tc)return;
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints>0 || /[?&]touch=1/.test(location.search);
+  if(isTouch) tc.hidden=false;
+  const codeFor=(act)=>(controls[act]&&controls[act][0])||null; // mapeia p/ a 1ª tecla de P1 (remapeável)
+  const press=(act)=>{ const c=codeFor(act); if(!c)return; if(!keys.has(c)){ keys.add(c); if(act==='jump')players.forEach(p=>{ if(p.ctrl&&p.ctrl.jump.includes(c))p.jumpEdge=true; }); } if(act==='jump')hideTips(); };
+  const release=(act)=>{ const c=codeFor(act); if(c)keys.delete(c); };
+  tc.querySelectorAll('.touch-btn').forEach(b=>{ const act=b.dataset.act;
+    const down=(e)=>{ e.preventDefault(); press(act); };
+    const up=(e)=>{ e.preventDefault(); release(act); };
+    b.addEventListener('pointerdown',down); b.addEventListener('pointerup',up);
+    b.addEventListener('pointerleave',up); b.addEventListener('pointercancel',up);
+    b.addEventListener('contextmenu',(e)=>e.preventDefault());
+  });
+  window.__incl.showTouch=()=>{ tc.hidden=false; }; // p/ testes em desktop
+})();
+
 /* ===================== PWA ===================== */
 if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));

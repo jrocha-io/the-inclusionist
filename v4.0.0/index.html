@@ -20,7 +20,7 @@
 
   <header class="topbar">
     <h1 class="title">The Inclusionist <span class="ver">· v4.0.0</span></h1>
-    <p class="badge" aria-label="Pilha técnica">PixiJS · PWA · 320×180</p>
+    <p class="badge">PixiJS · PWA · 320×180</p>
   </header>
 
   <!-- HUD textual (DOM, contraste AAA) -->
@@ -75,6 +75,19 @@
       <div id="quiz" class="quiz" hidden></div>
       <!-- Legenda de efeitos sonoros (C1): visual + aria-live -->
       <div id="caption" class="caption" role="status" aria-live="polite"></div>
+      <!-- E13: controles de toque (mobile) — só aparecem em telas de toque; não cobrem o centro do jogo -->
+      <div id="touch-controls" class="touch" role="group" aria-label="Controles de toque" hidden>
+        <div class="touch-pad">
+          <button class="touch-btn" type="button" data-act="left" aria-label="Mover para a esquerda">◀</button>
+          <button class="touch-btn" type="button" data-act="up" aria-label="Subir / escada">▲</button>
+          <button class="touch-btn" type="button" data-act="down" aria-label="Descer / escada">▼</button>
+          <button class="touch-btn" type="button" data-act="right" aria-label="Mover para a direita">▶</button>
+        </div>
+        <div class="touch-pad">
+          <button class="touch-btn touch-run" type="button" data-act="run" aria-label="Correr">»</button>
+          <button class="touch-btn touch-jump" type="button" data-act="jump" aria-label="Pular">⤒</button>
+        </div>
+      </div>
     </section>
       <div id="libras-slot" class="libras-slot" aria-hidden="true"></div>
      </div>
