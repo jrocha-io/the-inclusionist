@@ -1,0 +1,15 @@
+{
+  "name": "The Inclusionist",
+  "short_name": "Inclusionist",
+  "description": "Jogo educativo acessível (esqueleto PixiJS v4.0.0).",
+  "lang": "pt-BR",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

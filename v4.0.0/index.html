@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- The Inclusionist v4.0.0 — esqueleto PixiJS (validação-primeiro). Código: GPL-3.0. -->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="description" content="The Inclusionist — jogo educativo acessível (esqueleto PixiJS v4.0.0)." />
+  <title>The Inclusionist · v4.0.0 (PixiJS)</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-theme="cave">
+  <a class="skip-link" href="#game-region">Pular para o jogo</a>
+
+  <!-- Narração para leitores de tela (estado do jogo vive aqui, não no canvas) -->
+  <div id="sr-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="sr-alert" class="sr-only" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+  <header class="topbar">
+    <h1 class="title">The Inclusionist <span class="ver">· v4.0.0</span></h1>
+    <p class="badge" aria-label="Pilha técnica">PixiJS · PWA · 320×180</p>
+  </header>
+
+  <!-- HUD textual (DOM, contraste AAA) -->
+  <div class="hud">
+    <p class="hud__item"><span aria-hidden="true">🪙</span> Moedas:
+      <strong id="hud-coins" aria-live="off">0</strong> / <span id="hud-total">10</span></p>
+    <p class="hud__item"><span aria-hidden="true">🎯</span> <span id="hud-objective">Colete 10 moedas</span></p>
+    <p class="hud__item hud__fps" aria-hidden="true">FPS: <strong id="hud-fps">–</strong>
+      <span class="hud__fpsmin">(mín <strong id="hud-fpsmin">–</strong>)</span></p>
+  </div>
+
+  <main>
+    <section
+      id="game-region"
+      class="game-region"
+      tabindex="0"
+      role="application"
+      aria-roledescription="jogo de plataforma"
+      aria-label="Área de jogo. Mova com A e D ou setas; pule com L ou Espaço; suba e desça escadas (e nade na água) com W e S ou setas; corra com P ou Shift. Colete 10 moedas."
+      aria-describedby="game-instructions">
+      <div id="pixi-mount" class="pixi-mount"></div>
+    </section>
+
+    <p id="game-instructions" class="sr-only">
+      Mova o personagem pela caverna e colete 10 moedas. Sem limite de tempo.
+      Controles: A e D ou setas movem; L ou Espaço pulam; W e S (ou setas cima/baixo) sobem/descem escadas e nadam; P ou Shift correm.
+    </p>
+
+    <details class="help">
+      <summary>Controles &amp; notas desta build</summary>
+      <ul>
+        <li><strong>Mover:</strong> A / D ou ← / →</li>
+        <li><strong>Pular:</strong> L ou Espaço</li>
+        <li><strong>Subir/descer escada · nadar:</strong> W / S ou ↑ / ↓</li>
+        <li><strong>Correr:</strong> P ou Shift</li>
+        <li>Esta é a <strong>v4.0.0</strong> — esqueleto PixiJS para <em>validar performance</em> no hardware-alvo
+          (tablets Positivo, Chromebook). Observe o <strong>FPS</strong> no topo.</li>
+        <li>Renderer: PixiJS v7 (WebGL com fallback Canvas) · texto/UI no DOM (acessibilidade) · offline via PWA.</li>
+      </ul>
+    </details>
+  </main>
+
+  <!-- Banner de vitória -->
+  <div id="win-overlay" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="win-title">
+      <h2 id="win-title">🎉 Você coletou as 10 moedas!</h2>
+      <p id="win-msg"></p>
+      <button id="btn-again" type="button" class="btn btn--primary">Jogar de novo</button>
+    </div>
+  </div>
+
+  <noscript><p style="padding:1rem">Este jogo precisa de JavaScript ativado.</p></noscript>
+
+  <script src="vendor/pixi.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
