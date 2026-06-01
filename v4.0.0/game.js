@@ -310,7 +310,7 @@ function update(dt){
   if(player.onLadder){
     player.vy=0;
     if(anyOf(KUP))player.vy=-TUNE.climbSpeed; else if(anyOf(KDOWN))player.vy=TUNE.climbSpeed;
-    if(player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onLadder=false; player.jumpBuffer=0; }
+    if(player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onLadder=false; player.jumpBuffer=0; hideTips(); }
   } else {
     const g = player.inWater?0.10:TUNE.gravity;
     if(!(player.onGround&&player.vy>=0)) player.vy += g*dt;
@@ -321,7 +321,7 @@ function update(dt){
       player.vy=Math.min(player.vy,TUNE.waterMaxFall);
     } else {
       player.waterStroke=0;
-      if(player.onGround&&player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onGround=false; player.jumpBuffer=0; }
+      if(player.onGround&&player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onGround=false; player.jumpBuffer=0; hideTips(); }
       player.vy=Math.min(player.vy,TUNE.maxFall);
     }
   }
@@ -376,6 +376,7 @@ $('#btn-again').addEventListener('click',()=>{
   collected=0; ended=false; player.x=SPAWN_X; player.y=SPAWN_Y; player.vx=player.vy=0;
   $('#hud-coins').textContent='0'; $('#hud-objective').textContent='Colete 10 moedas';
   $('#win-overlay').hidden=true; $('#game-region').focus(); srSay('Nova rodada. Colete 10 moedas.');
+  const tp=$('#start-tips'); if(tp){ tp.classList.remove('hide'); clearTimeout(tipsTimer); tipsTimer=setTimeout(hideTips,8000); }
 });
 
 /* ===================== FPS ===================== */
@@ -390,6 +391,10 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); });
 window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
+
+/* dicas de início: somem ao pular ou após 8s */
+let tipsTimer=setTimeout(hideTips,8000);
+function hideTips(){ const el=$('#start-tips'); if(el)el.classList.add('hide'); clearTimeout(tipsTimer); }
 
 /* ===================== PWA ===================== */
 if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));

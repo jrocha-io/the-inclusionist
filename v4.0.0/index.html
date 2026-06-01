@@ -42,6 +42,11 @@
       aria-label="Área de jogo. Mova com A e D ou setas; pule com L ou Espaço; suba e desça escadas (e nade na água) com W e S ou setas; corra com P ou Shift. Colete 10 moedas."
       aria-describedby="game-instructions">
       <div id="pixi-mount" class="pixi-mount"></div>
+      <!-- Dicas de início (DOM, acessível; somem ao pular ou após alguns segundos) -->
+      <div id="start-tips" class="start-tips" role="status" aria-live="polite">
+        <p>Aperte <kbd>L</kbd> para pular</p>
+        <p>Segure <kbd>P</kbd> para correr e pular mais alto</p>
+      </div>
     </section>
 
     <p id="game-instructions" class="sr-only">
