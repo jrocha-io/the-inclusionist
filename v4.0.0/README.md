@@ -60,8 +60,8 @@ Itens-bônus (não obrigatórios p/ vencer): 🟢 **super-corrida** (correr = `h
 (E9) e narração para leitor de tela. Resetam a cada rodada.
 
 ### Toque mobile + auditoria (E13)
-**Controles de toque** (D-pad + correr/pular, alvos 56px ≥ AAA 2.5.5) que aparecem só em telas de
-toque e não cobrem o centro. **Auditoria axe-core: 0 violações WCAG A/AA** no nosso app — ver
+**Controles de toque** (joystick digital — círculo-base + manopla deslizante, 8 direções — + botões
+correr/pular, alvos ≥ 44px AAA 2.5.5) que aparecem só em telas de toque e não cobrem o centro. **Auditoria axe-core: 0 violações WCAG A/AA** no nosso app — ver
 [`AUDITORIA-E13.md`](AUDITORIA-E13.md) (inclui o status dos 5 gates do ADR-001; gates de hardware
 real / leitores de tela / crianças são `[JOSE]`).
 

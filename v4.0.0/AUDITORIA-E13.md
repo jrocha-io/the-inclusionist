@@ -6,9 +6,10 @@
 
 ## 1. Controles de toque (mobile) — feito
 
-- **D-pad** (◀ ▲ ▼ ▶) no canto inferior esquerdo + **correr** (») e **pular** (⤒) no canto inferior
-  direito. **Não cobrem o centro** do gameplay (overlay só nas bordas).
-- Alvos de **56×56 px** → cumprem **WCAG 2.5.5 Target Size (AAA, 44×44)**.
+- **Joystick digital** (círculo-base 124px + manopla 58px que desliza para a direção tocada → 8
+  direções, com zona morta) no canto inferior esquerdo + **correr** (») e **pular** (⤒) no canto
+  inferior direito. **Não cobrem o centro** do gameplay (overlay só nas bordas).
+- Botões de ação **56×56 px** e base do joystick **124px** → cumprem **WCAG 2.5.5 Target Size (AAA, 44×44)**.
 - Aparecem só em **telas de toque** (`ontouchstart`/`maxTouchPoints`); em desktop ficam ocultos
   (forçar com `?touch=1` ou `window.__incl.showTouch()`).
 - Mapeiam para as teclas de **P1** (remapeáveis, E10) via o mesmo `keys` Set → `pointerdown/up`,

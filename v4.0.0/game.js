@@ -891,13 +891,30 @@ window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
   const codeFor=(act)=>(controls[act]&&controls[act][0])||null; // mapeia p/ a 1ª tecla de P1 (remapeável)
   const press=(act)=>{ const c=codeFor(act); if(!c)return; if(!keys.has(c)){ keys.add(c); if(act==='jump')players.forEach(p=>{ if(p.ctrl&&p.ctrl.jump.includes(c))p.jumpEdge=true; }); } if(act==='jump')hideTips(); };
   const release=(act)=>{ const c=codeFor(act); if(c)keys.delete(c); };
-  tc.querySelectorAll('.touch-btn').forEach(b=>{ const act=b.dataset.act;
+  tc.querySelectorAll('.touch-btn').forEach(b=>{ const act=b.dataset.act;       // correr / pular
     const down=(e)=>{ e.preventDefault(); press(act); };
     const up=(e)=>{ e.preventDefault(); release(act); };
     b.addEventListener('pointerdown',down); b.addEventListener('pointerup',up);
     b.addEventListener('pointerleave',up); b.addEventListener('pointercancel',up);
     b.addEventListener('contextmenu',(e)=>e.preventDefault());
   });
+  // joystick digital: base (círculo grande) + manopla (círculo menor) que desliza p/ a direção tocada → 8 direções
+  const stick=$('#touch-stick'), knob=stick&&stick.querySelector('.touch-knob');
+  if(stick&&knob){
+    const R=42, DEAD=12; let pid=null;
+    const dirState={left:false,right:false,up:false,down:false};
+    const setDir=(d,on)=>{ if(dirState[d]===on)return; dirState[d]=on; on?press(d):release(d); };
+    const move=(px,py)=>{ const r=stick.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+      let dx=px-cx, dy=py-cy; const m=Math.hypot(dx,dy)||1; const f=m>R?R/m:1;
+      knob.style.transform=`translate(${dx*f}px,${dy*f}px)`;
+      setDir('left',dx<-DEAD); setDir('right',dx>DEAD); setDir('up',dy<-DEAD); setDir('down',dy>DEAD); };
+    const reset=()=>{ knob.style.transform='translate(0,0)'; ['left','right','up','down'].forEach(d=>setDir(d,false)); pid=null; };
+    stick.addEventListener('pointerdown',(e)=>{ e.preventDefault(); pid=e.pointerId; try{stick.setPointerCapture(pid);}catch(_){} move(e.clientX,e.clientY); });
+    stick.addEventListener('pointermove',(e)=>{ if(pid!==e.pointerId)return; e.preventDefault(); move(e.clientX,e.clientY); });
+    const end=(e)=>{ if(pid!==e.pointerId)return; e.preventDefault(); reset(); };
+    stick.addEventListener('pointerup',end); stick.addEventListener('pointercancel',end);
+    stick.addEventListener('lostpointercapture',reset); stick.addEventListener('contextmenu',(e)=>e.preventDefault());
+  }
   window.__incl.showTouch=()=>{ tc.hidden=false; }; // p/ testes em desktop
 })();
 

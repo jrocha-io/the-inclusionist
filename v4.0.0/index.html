@@ -78,10 +78,9 @@
       <!-- E13: controles de toque (mobile) — só aparecem em telas de toque; não cobrem o centro do jogo -->
       <div id="touch-controls" class="touch" role="group" aria-label="Controles de toque" hidden>
         <div class="touch-pad">
-          <button class="touch-btn" type="button" data-act="left" aria-label="Mover para a esquerda">◀</button>
-          <button class="touch-btn" type="button" data-act="up" aria-label="Subir / escada">▲</button>
-          <button class="touch-btn" type="button" data-act="down" aria-label="Descer / escada">▼</button>
-          <button class="touch-btn" type="button" data-act="right" aria-label="Mover para a direita">▶</button>
+          <div id="touch-stick" class="touch-stick" role="group" aria-label="Direcional: mover, subir e descer">
+            <span class="touch-knob" aria-hidden="true"></span>
+          </div>
         </div>
         <div class="touch-pad">
           <button class="touch-btn touch-run" type="button" data-act="run" aria-label="Correr">»</button>
