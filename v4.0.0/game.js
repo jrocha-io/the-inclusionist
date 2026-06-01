@@ -118,6 +118,8 @@ function buildWorld(){
     for(let cx=0;cx<W;cx++) row[cx]=src[cx]===undefined?0:src[cx]; world.push(row); }
   expandNarrowPassages(world);
   if(world[42]&&world[42][53]!==undefined) world[42][53]=1; // playability fix
+  // E18: itens injetados (fiel à v3 ITEM_PLACEMENTS): 12=super-corrida, 13=ultra-pulo, 14=ventosa
+  for(const [x,y,to] of [[13,8,12],[55,37,13],[13,26,14]]) if(world[y]&&world[y][x]!==undefined) world[y][x]=to;
   return world;
 }
 const WORLD = buildWorld();
@@ -131,10 +133,13 @@ const solidAt=(tx,ty)=>(!gateOpen && gateTiles.has(tx+','+ty)) || isSolidType(ti
 // Removemos o tile do grid (vira ar) e o item/barreira é desenhado/colidido à parte; some ao pegar/abrir.
 const MAP_ITEMS=[], MAP_GATE=[];
 for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x];
-  if(t===7){ MAP_ITEMS.push({tx:x,ty:y,kind:'turbo'}); WORLD[y][x]=1; }
-  else if(t===8){ MAP_ITEMS.push({tx:x,ty:y,kind:'fly'}); WORLD[y][x]=1; }
-  else if(t===11){ MAP_ITEMS.push({tx:x,ty:y,kind:'key'}); WORLD[y][x]=1; }
-  else if(t===10){ MAP_GATE.push({tx:x,ty:y}); WORLD[y][x]=1; }
+  if(t===7){ MAP_ITEMS.push({tx:x,ty:y,kind:'superjump'}); WORLD[y][x]=1; }  // super-pulo (máximo)
+  else if(t===8){ MAP_ITEMS.push({tx:x,ty:y,kind:'fly'}); WORLD[y][x]=1; }    // voo
+  else if(t===11){ MAP_ITEMS.push({tx:x,ty:y,kind:'key'}); WORLD[y][x]=1; }   // chave
+  else if(t===12){ MAP_ITEMS.push({tx:x,ty:y,kind:'turbo'}); WORLD[y][x]=1; } // super-corrida
+  else if(t===13){ MAP_ITEMS.push({tx:x,ty:y,kind:'ultrajump'}); WORLD[y][x]=1; } // ultra-pulo
+  else if(t===14){ MAP_ITEMS.push({tx:x,ty:y,kind:'wallcling'}); WORLD[y][x]=1; } // ventosa
+  else if(t===10){ MAP_GATE.push({tx:x,ty:y}); WORLD[y][x]=1; } // portão
 }
 // regiões secretas = componentes conexos de tiles 0 (escuridão). Acendem ao entrar.
 function buildDarkRegions(){
@@ -291,7 +296,11 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  powerRun:false,powerJump:false,powerFly:false,hasKey:false}; }
+  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,runEdge:false}; }
+const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Voo ativado! Cima e baixo sobem e descem.',wallcling:'Ventosa! No ar, aperte Correr perto da parede para grudar; Pular solta.'};
+function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
+function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
+function touchingWall(pl){ const y0=Math.floor((pl.y-BOX.h)/TILE),y1=Math.floor((pl.y-1)/TILE),lx=Math.floor((pl.x-BOX.w/2-1)/TILE),rx=Math.floor((pl.x+BOX.w/2+1)/TILE); for(let ty=y0;ty<=y1;ty++) if(solidAt(lx,ty)||solidAt(rx,ty))return true; return false; }
 let players=[makePlayer(0)]; let player=players[0];
 let numPlayers=1;
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
@@ -336,7 +345,7 @@ addEventListener('keydown',(e)=>{
   }
   const isGameKey = GAME_KEYS.includes(e.code) || players.some(p=>p.ctrl && Object.values(p.ctrl).some(arr=>arr.includes(e.code)));
   if(isGameKey){ e.preventDefault(); hideTouchControls('teclado'); } // E13: jogar no teclado oculta os botões de toque
-  if(!keys.has(e.code)){ for(const p of players){ if(p.ctrl && p.ctrl.jump.includes(e.code)) p.jumpEdge=true; } }
+  if(!keys.has(e.code)){ for(const p of players){ if(p.ctrl && p.ctrl.jump.includes(e.code)) p.jumpEdge=true; if(p.ctrl && p.ctrl.run.includes(e.code)) p.runEdge=true; } }
   keys.add(e.code); });
 addEventListener('keyup',(e)=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
@@ -452,16 +461,18 @@ const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 /* ===================== E12: power-ups + chave/portão ===================== */
 function powerupTexture(kind){
   const cv=makeCanvas(12,12),c=cv.getContext('2d');
-  const col = kind==='turbo'?'#7fdcff':kind==='fly'?'#c8a2ff':kind==='key'?'#ffd23f':kind==='run'?'#34e29b':'#7fdcff';
+  const COL={superjump:'#7fdcff',ultrajump:'#b388ff',turbo:'#34e29b',fly:'#c8a2ff',wallcling:'#ff9a4d',key:'#ffd23f'};
   c.fillStyle='#04121a'; c.beginPath(); if(c.roundRect)c.roundRect(0.5,0.5,11,11,3); else c.rect(0.5,0.5,11,11); c.fill();
-  c.fillStyle=col;
-  if(kind==='turbo'||kind==='jump'){ c.beginPath();c.moveTo(6,1.5);c.lineTo(10,5);c.lineTo(2,5);c.closePath();c.moveTo(6,6);c.lineTo(10,9.5);c.lineTo(2,9.5);c.closePath();c.fill(); } // ▲▲ pulo-turbo
-  else if(kind==='fly'){ c.beginPath();c.moveTo(6,3);c.lineTo(11,9);c.lineTo(6,7);c.lineTo(1,9);c.closePath();c.fill(); }                 // asa = voo
-  else if(kind==='run'){ c.beginPath();c.moveTo(2,3);c.lineTo(7,6);c.lineTo(2,9);c.closePath();c.moveTo(6,3);c.lineTo(11,6);c.lineTo(6,9);c.closePath();c.fill(); } // » super-corrida
-  else { c.beginPath();c.arc(4,6,3,0,7);c.fill();c.fillRect(6,5,5,2);c.fillRect(9,5,2,4); }                                              // ⚷ chave
+  c.fillStyle=COL[kind]||'#7fdcff';
+  if(kind==='superjump'){ c.beginPath();c.moveTo(6,1.5);c.lineTo(10,5);c.lineTo(2,5);c.closePath();c.moveTo(6,6);c.lineTo(10,9.5);c.lineTo(2,9.5);c.closePath();c.fill(); }      // ▲▲ super-pulo
+  else if(kind==='ultrajump'){ c.beginPath();c.moveTo(6,1);c.lineTo(10,6);c.lineTo(7.5,6);c.lineTo(7.5,11);c.lineTo(4.5,11);c.lineTo(4.5,6);c.lineTo(2,6);c.closePath();c.fill(); } // ↑ ultra-pulo
+  else if(kind==='turbo'){ c.beginPath();c.moveTo(2,3);c.lineTo(7,6);c.lineTo(2,9);c.closePath();c.moveTo(6,3);c.lineTo(11,6);c.lineTo(6,9);c.closePath();c.fill(); }              // » super-corrida
+  else if(kind==='fly'){ c.beginPath();c.moveTo(6,3);c.lineTo(11,9);c.lineTo(6,7);c.lineTo(1,9);c.closePath();c.fill(); }                                                          // asa = voo
+  else if(kind==='wallcling'){ c.beginPath();c.arc(6,7,3.5,0,7);c.fill(); c.fillStyle='#04121a'; c.beginPath();c.arc(6,7,1.4,0,7);c.fill(); }                                       // ventosa
+  else { c.beginPath();c.arc(4,6,3,0,7);c.fill();c.fillRect(6,5,5,2);c.fillRect(9,5,2,4); }                                                                                        // ⚷ chave
   return tex(cv);
 }
-const PUP_TEX={turbo:powerupTexture('turbo'),fly:powerupTexture('fly'),key:powerupTexture('key'),run:powerupTexture('run'),jump:powerupTexture('jump')};
+const PUP_TEX={superjump:powerupTexture('superjump'),ultrajump:powerupTexture('ultrajump'),turbo:powerupTexture('turbo'),fly:powerupTexture('fly'),wallcling:powerupTexture('wallcling'),key:powerupTexture('key')};
 const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups + portão (atrás do player)
 let powerups=[];
 function rebuildExtras(){
@@ -577,20 +588,28 @@ function triggerLava(pl){
 function stepPlayer(pl,dt){
   if(pl.quiz)return; // P1 em desafio (Soma-Sub/Sílabas; MP é Lúdico)
   const run=held(pl,'run'), dir=(held(pl,'right')?1:0)-(held(pl,'left')?1:0);
-  pl.vx=dir*(run?(pl.powerRun?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk); if(dir!==0)pl.facing=dir; // E12: super-corrida
+  const turbo=pl.activePower==='turbo';
+  pl.vx=dir*(run?(turbo?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk); if(dir!==0)pl.facing=dir; // E18: super-corrida (turbo)
   const feat=sampleFeatures(pl); pl.inWater=feat.water; pl.onLadder=feat.ladder;
   if(pl.hurtTimer>0)pl.hurtTimer-=dt;
   if(feat.lava && !assist) triggerLava(pl);
   if(pl.jumpEdge)pl.jumpBuffer=7; else if(pl.jumpBuffer>0)pl.jumpBuffer--;
-  pl.jumpEdge=false;
-  if(pl.onLadder){
+  // E18: ventosa (homem-aranha) — gruda na parede ao apertar Correr no ar; solta com Pular
+  if(pl.clinging && (pl.onGround||pl.onLadder||pl.inWater||pl.activePower!=='wallcling')) pl.clinging=false;
+  if(pl.activePower==='wallcling' && !pl.clinging && pl.runEdge && !pl.onGround && !pl.onLadder && !pl.inWater && touchingWall(pl)){ pl.clinging=true; pl.vy=0; pl.jumpBuffer=0; sfx('power'); srSay('Grudou na parede! Cima/baixo movem; Pular solta.'); }
+  if(pl.clinging && pl.jumpBuffer>0){ pl.clinging=false; pl.jumpBuffer=0; pl.vy=-JUMP_BASE; sfx('jump'); }
+  pl.jumpEdge=false; pl.runEdge=false;
+  let fired=false;
+  if(pl.clinging){
+    if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed; else pl.vy=0;
+  } else if(pl.onLadder){
     pl.vy=0;
     if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
-    if(pl.jumpBuffer>0){ pl.vy=-(pl.powerJump?TUNE.ultraJumpVel:JUMP_BASE); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
-  } else if(pl.powerFly){ // voo (item tile 8): sobe com pular/cima, desce com baixo, plana parado
-    pl.waterStroke=0;
-    if(held(pl,'jump')||held(pl,'up')) pl.vy=-2.6; else if(held(pl,'down')) pl.vy=2.6; else pl.vy*=0.8;
-    pl.vy=Math.max(-3,Math.min(3,pl.vy));
+    if(pl.jumpBuffer>0){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+  } else if(pl.activePower==='fly'){ // voo (item tile 8): cima/baixo sobem/descem, plana parado
+    pl.waterStroke=0; const fs=turbo?3.9:2.6;
+    if(held(pl,'jump')||held(pl,'up')) pl.vy=-fs; else if(held(pl,'down')) pl.vy=fs; else pl.vy*=0.7;
+    pl.vy=Math.max(-fs,Math.min(fs,pl.vy));
   } else {
     const g = pl.inWater?0.10:TUNE.gravity;
     if(!(pl.onGround&&pl.vy>=0)) pl.vy += g*dt;
@@ -601,12 +620,17 @@ function stepPlayer(pl,dt){
       pl.vy=Math.min(pl.vy,TUNE.waterMaxFall);
     } else {
       pl.waterStroke=0;
-      if(pl.onGround&&pl.jumpBuffer>0){ pl.vy=-(pl.powerJump?TUNE.ultraJumpVel:JUMP_BASE); pl.onGround=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+      if(pl.onGround&&pl.jumpBuffer>0){ // E18: pulo encadeado (bunny-hop 5→8→9 correndo) + super(9)/ultra(22)
+        if(run && isBouncyGroundBelow(pl) && pl.jumpChain>0) pl.jumpChain=Math.min(pl.jumpChain+1,3); else pl.jumpChain=1;
+        pl.vy = (pl.activePower==='ultrajump') ? -TUNE.ultraJumpVel : jumpVel(pl, pl.activePower==='superjump'?9:[0,5,8,9][pl.jumpChain]);
+        pl.onGround=false; pl.jumpBuffer=0; fired=true; sfx('jump'); hideTips();
+      }
       pl.vy=Math.min(pl.vy,TUNE.maxFall);
     }
   }
   pl.x+=pl.vx*dt; resolveX(pl);
   pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
+  if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
   // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico)
   const box={x:pl.x-BOX.w/2,y:pl.y-BOX.h,w:BOX.w,h:BOX.h};
@@ -623,15 +647,12 @@ function stepPlayer(pl,dt){
   powerups.forEach(pu=>{ if(pu.taken)return;
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
-      if(pu.kind==='turbo'){ pl.powerJump=true; sfx('power'); srSay(who+'Pulo-turbo! Você pula bem mais alto.'); }
-      else if(pu.kind==='fly'){ pl.powerFly=true; sfx('power'); srSay(who+'Voo ativado! Suba segurando pular ou para cima.'); }
-      else if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
-      else if(pu.kind==='run'){ pl.powerRun=true; sfx('power'); srSay(who+'Super-corrida!'); }
-      else if(pu.kind==='jump'){ pl.powerJump=true; sfx('power'); srSay(who+'Ultra-pulo!'); }
+      if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
+      else { pl.activePower=pu.kind; pl.clinging=false; sfx('power'); srSay(who+(POWER_MSG[pu.kind]||'Poder ativado!')); } // poderes mutuamente exclusivos
     }});
-  if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se um portador da chave o toca
-    for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
-      if(box.x<X+TILE && box.x+box.w>X && box.y<Y+TILE && box.y+box.h>Y){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); break; } }
+  if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
+    const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
+      if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); break; } }
   }
   // animação
   const moving=Math.abs(pl.vx)>0.1;
@@ -801,7 +822,7 @@ function restartGame(){
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
-  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.powerRun=false; p.powerJump=false; p.powerFly=false; p.hasKey=false; if(p.sprite)p.sprite.alpha=1; });
+  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.activePower='off'; p.hasKey=false; p.jumpChain=0; p.groundIdle=0; p.clinging=false; if(p.sprite)p.sprite.alpha=1; });
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
