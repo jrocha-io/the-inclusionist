@@ -255,6 +255,13 @@ const SILABA_POOL=(()=>{const cons='bcdfgjlmnprstv'.split(''),vow='aeiou'.split(
 const WORD_INITIALS=[...new Set(SILABAS_WORDS.map(w=>w.w[0]))];
 let letterCase='lower'; // 'lower' | 'upper' (E7: selecionável)
 const disp=(s)=> letterCase==='upper'?String(s).toUpperCase():String(s).toLowerCase();
+// E8: Braille (modo pessoa cega). Padrão de pontos da cela por letra (Grau 1, PT).
+const BRAILLE={a:[1],b:[1,2],c:[1,4],d:[1,4,5],e:[1,5],f:[1,2,4],g:[1,2,4,5],h:[1,2,5],i:[2,4],j:[2,4,5],
+  k:[1,3],l:[1,2,3],m:[1,3,4],n:[1,3,4,5],o:[1,3,5],p:[1,2,3,4],q:[1,2,3,4,5],r:[1,2,3,5],s:[2,3,4],t:[2,3,4,5],
+  u:[1,3,6],v:[1,2,3,6],w:[2,4,5,6],x:[1,3,4,6],y:[1,3,4,5,6],z:[1,3,5,6]};
+const NUMW={1:'um',2:'dois',3:'três',4:'quatro',5:'cinco',6:'seis'};
+const brailleText=(ch)=>{const d=BRAILLE[String(ch).toLowerCase()]; return d?d.map(n=>NUMW[n]).join(' '):'';};
+let blindMode=false; // modo pessoa cega: no Sílabas, dita os pontos Braille
 function pickCoins(n){
   const a=shuffle(findCoinCandidates());
   const shapes = MODE==='somasub' ? shuffle(SOMASUB_SHAPES.map(s=>s.id)) : [];
@@ -281,6 +288,10 @@ const KJUMP=['KeyL','Space'], KLEFT=['KeyA','ArrowLeft'], KRIGHT=['KeyD','ArrowR
 const GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN];
 addEventListener('keydown',(e)=>{
   if(player.quiz){ // navegação do quiz por teclado
+    if(player.quiz.kind==='braille'){
+      if(KUP.includes(e.code))announceBraille(); else if(KJUMP.includes(e.code))quizConfirm();
+      if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
+    }
     if(KLEFT.includes(e.code))quizMove(-1); else if(KRIGHT.includes(e.code))quizMove(1);
     else if(KUP.includes(e.code))quizMove(-3); else if(KDOWN.includes(e.code))quizMove(3);
     else if(KJUMP.includes(e.code))quizConfirm();
@@ -525,6 +536,7 @@ function openQuiz(coinIndex,shapeId){
   renderQuiz();
 }
 function openSilabas(coinIndex,letter){
+  if(blindMode){ openBraille(coinIndex,letter); return; } // E8: ditado de Braille
   const pool=SILABAS_WORDS.filter(w=>w.w[0]===letter);
   const item=pool.length?pool[randInt(0,pool.length-1)]:SILABAS_WORDS[randInt(0,SILABAS_WORDS.length-1)];
   const correct=item.s.slice(), distract=[];
@@ -536,6 +548,16 @@ function openSilabas(coinIndex,letter){
 }
 function placeSilaba(sy){ const q=player.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; srSay(disp(sy)); renderQuiz(); }
 function eraseLastSilaba(){ const q=player.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(); }
+// E8: ditado de Braille (modo pessoa cega) — dita os pontos da cela por letra
+function openBraille(coinIndex,letter){
+  const pool=SILABAS_WORDS.filter(w=>w.w[0]===letter);
+  const item=pool.length?pool[randInt(0,pool.length-1)]:SILABAS_WORDS[randInt(0,SILABAS_WORDS.length-1)];
+  const cells=item.w.split('').map(ch=>({l:ch,dots:BRAILLE[ch]||[],text:brailleText(ch)}));
+  player.quiz={kind:'braille',coinIndex,letter,word:item.w,emoji:item.e,cells,revealed:false};
+  player.vx=0;player.vy=0; renderQuiz(); announceBraille();
+}
+function announceBraille(){ const q=player.quiz; if(!q||q.kind!=='braille')return;
+  srAlert(`${q.word}. `+q.cells.map(c=>`${c.l}: ${c.text}.`).join(' ')+' Pule para coletar.'); }
 function somasubHtml(q){
   const opTxt=q.op==='+'?'+':'−';
   const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&n===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
@@ -550,9 +572,16 @@ function silabaHtml(q){
   const hint=q.revealed?`A palavra é "${disp(q.word)}". Pule (L) para seguir.`:'Monte a palavra. Pule (L) coloca/confirma.';
   return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Monte a palavra"><div class="quiz-emoji" aria-label="${q.word}">${q.emoji}</div><div class="quiz-letter">letra: ${disp(q.letter)}</div>${boxes}<div class="quiz-grid">${opts}</div><div class="silaba-actions">${acts}</div><div class="quiz-hint">${hint}</div></div>`;
 }
+function brailleHtml(q){
+  const cells=q.cells.map(c=>{
+    const dots=[1,4,2,5,3,6].map(n=>`<span class="bdot${c.dots.includes(n)?' on':''}"></span>`).join('');
+    return `<div class="bcell"><div class="bcell-grid">${dots}</div><div class="bcell-l">${disp(c.l)}</div></div>`;
+  }).join('');
+  return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Braille da palavra ${q.word}"><div class="quiz-emoji" aria-hidden="true">${q.emoji}</div><div class="quiz-letter">palavra: ${disp(q.word)}</div><div class="bcells">${cells}</div><div class="quiz-hint">Ouça os pontos. Pule (L) para coletar. (Cima repete)</div></div>`;
+}
 function renderQuiz(){
   const q=player.quiz, ov=$('#quiz'); if(!ov)return; if(!q){ov.hidden=true;return;}
-  ov.innerHTML = q.kind==='silabas' ? silabaHtml(q) : somasubHtml(q);
+  ov.innerHTML = q.kind==='braille' ? brailleHtml(q) : q.kind==='silabas' ? silabaHtml(q) : somasubHtml(q);
   ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(player.quiz){player.quiz.sel=+b.dataset.i; quizConfirm();} }));
   ov.hidden=false;
 }
@@ -565,6 +594,8 @@ function quizMove(d){ const q=player.quiz; if(!q)return;
 function quizConfirm(){
   const q=player.quiz; if(!q)return;
   if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(); return; }
+  if(q.kind==='braille'){ coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
+    $('#hud-coins').textContent=String(collected); srSay('Coletado!'); closeQuiz(); if(collected>=COIN_TARGET)win(); return; }
   if(q.kind==='silabas'){
     const N=q.options.length;
     if(q.sel<N){ placeSilaba(q.options[q.sel]); return; }
@@ -631,6 +662,12 @@ if(caseBtn)caseBtn.addEventListener('click',()=>{
   if(player.quiz) renderQuiz();
   srSay('Letras em '+(letterCase==='upper'?'maiúsculas':'minúsculas')+'.');
 });
+const blindBtn=$('#opt-blind');
+if(blindBtn)blindBtn.addEventListener('click',()=>{
+  blindMode=!blindMode;
+  blindBtn.setAttribute('aria-pressed',String(blindMode)); blindBtn.classList.toggle('is-on',blindMode);
+  srSay('Modo Braille '+(blindMode?'ligado. No modo Sílabas, o jogo dita os pontos da cela.':'desligado.'));
+});
 
 /* ===================== FPS ===================== */
 let fpsAccum=0,fpsFrames=0,fpsMin=Infinity,fpsWarm=0;
@@ -643,7 +680,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); });
 window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,decoLayer,minimap,
-  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},tileAt,WORLD_W,WORLD_H,TUNE};
+  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
