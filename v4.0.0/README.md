@@ -40,7 +40,21 @@ Ao abrir o VLibras, reserva-se espaço à direita: o jogo desloca à esquerda e 
 difícil com o widget de terceiros (ele resiste a reposicionar); a versão exata virá no **motor
 próprio em zdog** (painel 420×180, P2/P5).
 
+## O que já tem (E1–E11)
+Mundo Clarity portado · iluminação de área secreta · prompts de início · perigos/susto/respawn ·
+decoração de fundo · minimapa Metroid · modos **Soma-Sub** e **Sílabas** (maiúsc/minúsc) ·
+modo **Braille** (ditado de cela) · **áudio + legendas (C1) + assistência (C2)** · **remap de
+controles + persistência (B2)** · **multiplayer 1–4 telas lado a lado** (render-to-texture,
+física por jogador) · **VLibras** interino.
+
+### Multiplayer (E11)
+Uma única página, **N viewports 320×180** independentes (render-to-texture), simulação
+compartilhada — todos se veem no mesmo mundo (corrida pelas moedas). Layout: 1 tela 320×180 ·
+2 telas 640×180 (lado a lado) · 3–4 telas 640×360 (grade 2×2). Keysets sem conflito —
+**P1** WASD+Espaço, **P2** setas+Enter, **P3** FTGH+R, **P4** IJKL+U. MP só no **Lúdico**.
+
 ## Limites desta build (propositais)
 - Mundo **gerado** (representativo p/ teste de perf), não o `buildWorld()` final.
-- **Sem** inversão de escuridão, temas, 2 jogadores, Libras, telemetria — entram depois.
-- Aparência do personagem **fixa** (recolor/customização Mii-like = próxima fase).
+- **Sem** temas múltiplos, power-ups/chaves-portões, toque mobile, telemetria — entram depois (E12–E13).
+- Aparência do personagem **fixa** (recolor/customização Mii-like = próxima fase); em MP, distinção por **tint** por jogador.
+- VLibras: encaixe pixel-exato adiado ao motor zdog (ver acima).

@@ -276,9 +276,12 @@ function pickCoins(n){
 /* ===================== estado ===================== */
 const $=(s)=>document.querySelector(s);
 const SPAWN_X=2*TILE, SPAWN_Y=24*TILE;
-const player={x:SPAWN_X,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
-  facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null};
 const BOX={w:10,h:30};
+// E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
+function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
+  facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null}; }
+let players=[makePlayer(0)]; let player=players[0];
+let numPlayers=1;
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 
 /* ===================== input ===================== */
@@ -290,7 +293,17 @@ function saveControls(){ try{localStorage.setItem(CKEY,JSON.stringify(controls))
 let controls=loadControls();
 let KJUMP=controls.jump, KLEFT=controls.left, KRIGHT=controls.right, KUP=controls.up, KDOWN=controls.down, KRUN=controls.run;
 let GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN];
-function applyControls(){ KJUMP=controls.jump;KLEFT=controls.left;KRIGHT=controls.right;KUP=controls.up;KDOWN=controls.down;KRUN=controls.run; GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN]; }
+function applyControls(){ KJUMP=controls.jump;KLEFT=controls.left;KRIGHT=controls.right;KUP=controls.up;KDOWN=controls.down;KRUN=controls.run; GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN]; if(numPlayers<=1)players[0].ctrl=controls; }
+// E11: keysets fixos para multiplayer (P1=WASD+Espaço, P2=setas+Enter, P3=FTGH+R, P4=IJKL+U) — sem conflito de teclas
+const MP_CTRL=[
+  {left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'],jump:['Space'],run:['ShiftLeft']},
+  {left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'],jump:['Enter','NumpadEnter'],run:['ShiftRight']},
+  {left:['KeyF'],right:['KeyH'],up:['KeyT'],down:['KeyG'],jump:['KeyR'],run:['KeyY']},
+  {left:['KeyJ'],right:['KeyL'],up:['KeyI'],down:['KeyK'],jump:['KeyU'],run:['KeyO']},
+];
+const PCOLOR=[0xffffff,0xff9a9a,0x8affc0,0xffe08a]; // tint distintivo por jogador (P1 = normal)
+function assignControls(){ if(numPlayers<=1){players[0].ctrl=controls;} else players.forEach((p,i)=>p.ctrl=MP_CTRL[i]||MP_CTRL[0]); }
+players[0].ctrl=controls;
 addEventListener('keydown',(e)=>{
   if(captureAction){ // remap: a próxima tecla vira o novo controle
     if(e.code!=='Escape'){ controls[captureAction]=[e.code]; saveControls(); applyControls(); }
@@ -307,11 +320,14 @@ addEventListener('keydown',(e)=>{
     else if(KJUMP.includes(e.code))quizConfirm();
     if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
   }
-  if(GAME_KEYS.includes(e.code))e.preventDefault();
-  if(!keys.has(e.code)&&KJUMP.includes(e.code))jumpEdge=true; keys.add(e.code); });
+  const isGameKey = GAME_KEYS.includes(e.code) || players.some(p=>p.ctrl && Object.values(p.ctrl).some(arr=>arr.includes(e.code)));
+  if(isGameKey)e.preventDefault();
+  if(!keys.has(e.code)){ for(const p of players){ if(p.ctrl && p.ctrl.jump.includes(e.code)) p.jumpEdge=true; } }
+  keys.add(e.code); });
 addEventListener('keyup',(e)=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 const anyOf=(arr)=>arr.some(k=>keys.has(k));
+const held=(pl,act)=>pl.ctrl[act].some(k=>keys.has(k));
 
 /* ===================== a11y ===================== */
 const srSay=(t)=>{const el=$('#sr-status');el.textContent='';requestAnimationFrame(()=>el.textContent=t);};
@@ -417,6 +433,31 @@ const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
   }
 })();
 const playerSprite=new PIXI.Sprite(TEX.idle); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
+players[0].sprite=playerSprite;
+/* E11: sprites por jogador + render multi-viewport (render-to-texture) */
+let allPSprites=[playerSprite];
+function ensureSprites(){
+  for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX.idle); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
+  allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
+}
+let vpTex=[], vpSpr=[];
+function configureRender(){
+  vpSpr.forEach(s=>s.destroy()); vpSpr=[]; vpTex.forEach(t=>t.destroy(true)); vpTex=[];
+  if(numPlayers<=1){
+    if(camera.parent!==app.stage) app.stage.addChildAt(camera,0);
+    minimap.visible=true; app.renderer.resize(LOGICAL_W,LOGICAL_H);
+  } else {
+    if(camera.parent) camera.parent.removeChild(camera); // câmera renderizada manualmente nas RTs
+    minimap.visible=false;
+    const cols=numPlayers<=2?numPlayers:2, rows=numPlayers<=2?1:2;
+    app.renderer.resize(LOGICAL_W*cols, LOGICAL_H*rows);
+    for(let i=0;i<numPlayers;i++){
+      const rt=PIXI.RenderTexture.create({width:LOGICAL_W,height:LOGICAL_H}); rt.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST;
+      const s=new PIXI.Sprite(rt); s.x=(i%cols)*LOGICAL_W; s.y=Math.floor(i/cols)*LOGICAL_H;
+      app.stage.addChild(s); vpTex.push(rt); vpSpr.push(s);
+    }
+  }
+}
 
 // E5: minimapa estilo Metroid (canto inferior esquerdo, fixo na tela, fog-of-war)
 const MM_SCALE=0.8, MM_PAD=4, mmW=WORLD_W*MM_SCALE, mmH=WORLD_H*MM_SCALE;
@@ -442,10 +483,9 @@ function redrawMinimap(){
   mmDirty=false;
 }
 
-/* ===================== física ===================== */
-// amostra tiles sob a caixa do player → água/escada
-function sampleFeatures(){
-  const l=player.x-BOX.w/2,r=player.x+BOX.w/2,t=player.y-BOX.h,b=player.y;
+/* ===================== física (por jogador — E11) ===================== */
+function sampleFeatures(pl){
+  const l=pl.x-BOX.w/2,r=pl.x+BOX.w/2,t=pl.y-BOX.h,b=pl.y;
   let water=false,ladder=false,lava=false;
   for(let ty=Math.floor(t/TILE);ty<=Math.floor((b-0.01)/TILE);ty++)
     for(let tx=Math.floor(l/TILE);tx<=Math.floor((r-0.01)/TILE);tx++){
@@ -453,114 +493,112 @@ function sampleFeatures(){
     }
   return {water,ladder,lava};
 }
-function resolveX(){
-  const l=player.x-BOX.w/2,r=player.x+BOX.w/2,t=player.y-BOX.h,b=player.y;
+function resolveX(pl){
+  const l=pl.x-BOX.w/2,r=pl.x+BOX.w/2,t=pl.y-BOX.h,b=pl.y;
   const c0=Math.floor(l/TILE),c1=Math.floor((r-0.01)/TILE),r0=Math.floor(t/TILE),r1=Math.floor((b-0.01)/TILE);
   for(let row=r0;row<=r1;row++)for(let col=c0;col<=c1;col++){ if(!solidAt(col,row))continue;
     const tl=col*TILE;
-    if(player.vx>0)player.x=tl-BOX.w/2-0.01; else if(player.vx<0)player.x=tl+TILE+BOX.w/2+0.01;
-    player.vx=0; return;
+    if(pl.vx>0)pl.x=tl-BOX.w/2-0.01; else if(pl.vx<0)pl.x=tl+TILE+BOX.w/2+0.01;
+    pl.vx=0; return;
   }
 }
-function resolveY(){
-  const l=player.x-BOX.w/2,r=player.x+BOX.w/2,t=player.y-BOX.h,b=player.y;
+function resolveY(pl){
+  const l=pl.x-BOX.w/2,r=pl.x+BOX.w/2,t=pl.y-BOX.h,b=pl.y;
   const c0=Math.floor(l/TILE),c1=Math.floor((r-0.01)/TILE),r0=Math.floor(t/TILE),r1=Math.floor((b-0.01)/TILE);
   for(let row=r0;row<=r1;row++)for(let col=c0;col<=c1;col++){ if(!solidAt(col,row))continue;
     const tt=row*TILE,type=tileAt(col,row);
-    if(player.vy>0){ player.y=tt-0.01;
-      if(type===5){ player.vy=-(anyOf(KJUMP)?TUNE.trampMax:TUNE.trampBase); } // trampolim
-      else { player.vy=0; player.onGround=true; }
-    } else if(player.vy<0){ player.y=tt+TILE+BOX.h+0.01; player.vy=0; }
+    if(pl.vy>0){ pl.y=tt-0.01;
+      if(type===5){ pl.vy=-(held(pl,'jump')?TUNE.trampMax:TUNE.trampBase); }
+      else { pl.vy=0; pl.onGround=true; }
+    } else if(pl.vy<0){ pl.y=tt+TILE+BOX.h+0.01; pl.vy=0; }
     return;
   }
 }
-// lava: perde todas as moedas (reposiciona), atordoa 1s, lança pra cima + lateral (fiel ao original)
-function triggerLava(){
-  if(player.hurtTimer>0)return;
-  coins=pickCoins(COIN_TARGET);
-  coinSprites.forEach((s,i)=>{ const c=coins[i]; if(c){s.x=c.x;s.y=c.y;s.visible=true;} else s.visible=false; });
-  collected=0; $('#hud-coins').textContent='0';
-  sfx('hurt'); player.hurtTimer=60; player.vy=-10; player.vx=(rnd()<0.5?-1:1)*5;
-  srAlert('Cuidado! Você tocou na lava. As moedas voltaram para posições aleatórias.');
+function triggerLava(pl){
+  if(pl.hurtTimer>0)return;
+  coins=pickCoins(COIN_TARGET); rebuildCoins();
+  players.forEach(p=>p.collected=0); collected=0; updateHud();
+  sfx('hurt'); pl.hurtTimer=60; pl.vy=-10; pl.vx=(rnd()<0.5?-1:1)*5;
+  srAlert('Cuidado! Tocou na lava. As moedas voltaram para posições aleatórias.');
 }
-function update(dt){
-  if(ended||player.quiz)return; // congelado durante o desafio
-  const run=anyOf(KRUN), dir=(anyOf(KRIGHT)?1:0)-(anyOf(KLEFT)?1:0);
-  player.vx=dir*(run?TUNE.hRun:TUNE.hWalk); if(dir!==0)player.facing=dir;
-
-  const feat=sampleFeatures(); player.inWater=feat.water; player.onLadder=feat.ladder;
-  if(player.hurtTimer>0)player.hurtTimer-=dt;
-  if(feat.lava && !assist) triggerLava();   // assistência desativa perigos
-
-  if(jumpEdge)player.jumpBuffer=7; else if(player.jumpBuffer>0)player.jumpBuffer--;
-  jumpEdge=false;
-
-  if(player.onLadder){
-    player.vy=0;
-    if(anyOf(KUP))player.vy=-TUNE.climbSpeed; else if(anyOf(KDOWN))player.vy=TUNE.climbSpeed;
-    if(player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onLadder=false; player.jumpBuffer=0; sfx('jump'); hideTips(); }
+function stepPlayer(pl,dt){
+  if(pl.quiz)return; // P1 em desafio (Soma-Sub/Sílabas; MP é Lúdico)
+  const run=held(pl,'run'), dir=(held(pl,'right')?1:0)-(held(pl,'left')?1:0);
+  pl.vx=dir*(run?TUNE.hRun:TUNE.hWalk); if(dir!==0)pl.facing=dir;
+  const feat=sampleFeatures(pl); pl.inWater=feat.water; pl.onLadder=feat.ladder;
+  if(pl.hurtTimer>0)pl.hurtTimer-=dt;
+  if(feat.lava && !assist) triggerLava(pl);
+  if(pl.jumpEdge)pl.jumpBuffer=7; else if(pl.jumpBuffer>0)pl.jumpBuffer--;
+  pl.jumpEdge=false;
+  if(pl.onLadder){
+    pl.vy=0;
+    if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
+    if(pl.jumpBuffer>0){ pl.vy=-JUMP_BASE; pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
   } else {
-    const g = player.inWater?0.10:TUNE.gravity;
-    if(!(player.onGround&&player.vy>=0)) player.vy += g*dt;
-    if(player.inWater){
-      if(anyOf(KJUMP)){ if(player.waterStroke<=0){ player.vy-=run?TUNE.waterJumpRun:TUNE.waterJump; player.waterStroke=TUNE.waterStrokeFrames; } }
-      else player.waterStroke=0;
-      if(player.waterStroke>0)player.waterStroke-=dt;
-      player.vy=Math.min(player.vy,TUNE.waterMaxFall);
+    const g = pl.inWater?0.10:TUNE.gravity;
+    if(!(pl.onGround&&pl.vy>=0)) pl.vy += g*dt;
+    if(pl.inWater){
+      if(held(pl,'jump')){ if(pl.waterStroke<=0){ pl.vy-=run?TUNE.waterJumpRun:TUNE.waterJump; pl.waterStroke=TUNE.waterStrokeFrames; } }
+      else pl.waterStroke=0;
+      if(pl.waterStroke>0)pl.waterStroke-=dt;
+      pl.vy=Math.min(pl.vy,TUNE.waterMaxFall);
     } else {
-      player.waterStroke=0;
-      if(player.onGround&&player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onGround=false; player.jumpBuffer=0; sfx('jump'); hideTips(); }
-      player.vy=Math.min(player.vy,TUNE.maxFall);
+      pl.waterStroke=0;
+      if(pl.onGround&&pl.jumpBuffer>0){ pl.vy=-JUMP_BASE; pl.onGround=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+      pl.vy=Math.min(pl.vy,TUNE.maxFall);
     }
   }
-
-  player.x+=player.vx*dt; resolveX();
-  player.onGround=false; player.y+=player.vy*dt; resolveY();
-
-  if(player.y-BOX.h>WORLD_PX_H+40){ player.x=SPAWN_X; player.y=SPAWN_Y; player.vx=player.vy=0; }
-
-  // coletar
-  const pl={x:player.x-BOX.w/2,y:player.y-BOX.h,w:BOX.w,h:BOX.h};
+  pl.x+=pl.vx*dt; resolveX(pl);
+  pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
+  if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
+  // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico)
+  const box={x:pl.x-BOX.w/2,y:pl.y-BOX.h,w:BOX.w,h:BOX.h};
   coins.forEach((cn,i)=>{ if(cn.taken)return;
     const big=(MODE!=='ludico'); const sz=big?15:9, ox=big?3:0;
-    if(pl.x<cn.x+sz-ox&&pl.x+pl.w>cn.x-ox&&pl.y<cn.y+sz-ox&&pl.y+pl.h>cn.y-ox){
-      if(MODE==='somasub'&&cn.shape){ if(!player.quiz) openQuiz(i,cn.shape); }
-      else if(MODE==='silabas'&&cn.letter){ if(!player.quiz) openSilabas(i,cn.letter); }
-      else { cn.taken=true; coinSprites[i].visible=false; collected++; sfx('coin');
-        $('#hud-coins').textContent=String(collected); srSay(`Moeda ${collected} de ${COIN_TARGET}.`);
-        if(collected>=COIN_TARGET)win(); }
+    if(box.x<cn.x+sz-ox&&box.x+box.w>cn.x-ox&&box.y<cn.y+sz-ox&&box.y+box.h>cn.y-ox){
+      if(MODE==='somasub'&&cn.shape){ if(pl===player&&!player.quiz) openQuiz(i,cn.shape); }
+      else if(MODE==='silabas'&&cn.letter){ if(pl===player&&!player.quiz) openSilabas(i,cn.letter); }
+      else { cn.taken=true; coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin');
+        updateHud(); srSay((numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`);
+        if(pl.collected>=COIN_TARGET)win(pl); }
     }});
-
-  // áreas secretas: revela a região quando o player a toca (não escurece o resto)
-  const rtx0=Math.floor((player.x-BOX.w/2)/TILE),rtx1=Math.floor((player.x+BOX.w/2-0.01)/TILE);
-  const rty0=Math.floor((player.y-BOX.h)/TILE),rty1=Math.floor((player.y-0.01)/TILE);
-  for(const reg of darkRegions){
-    if(!reg.revealed){ for(let ty=rty0;ty<=rty1&&!reg.revealed;ty++)for(let tx=rtx0;tx<=rtx1;tx++) if(reg.set.has(tx+','+ty)){reg.revealed=true;srSay('Área secreta revelada.');break;} }
-    if(reg.revealed&&reg.gfx.alpha>0){ reg.gfx.alpha=Math.max(0,reg.gfx.alpha-0.08*dt); if(reg.gfx.alpha<=0)reg.gfx.visible=false; }
+  // áreas secretas (qualquer jogador revela)
+  const rtx0=Math.floor((pl.x-BOX.w/2)/TILE),rtx1=Math.floor((pl.x+BOX.w/2-0.01)/TILE);
+  const rty0=Math.floor((pl.y-BOX.h)/TILE),rty1=Math.floor((pl.y-0.01)/TILE);
+  for(const reg of darkRegions){ if(reg.revealed)continue;
+    for(let ty=rty0;ty<=rty1&&!reg.revealed;ty++)for(let tx=rtx0;tx<=rtx1;tx++) if(reg.set.has(tx+','+ty)){reg.revealed=true;break;}
   }
-
   // animação
-  const moving=Math.abs(player.vx)>0.1;
-  player.anim += (moving&&player.onGround)||(player.onLadder&&player.vy!==0) ? dt : 0;
-  let t=TEX.idle;
-  if(player.hurtTimer>0) t=TEX.hurt;
-  else if(player.onLadder) t=TEX.climb;
-  else if(moving&&player.onGround&&Math.floor(player.anim/8)%2===0) t=TEX.walk;
-  playerSprite.texture=t;
+  const moving=Math.abs(pl.vx)>0.1;
+  pl.anim += (moving&&pl.onGround)||(pl.onLadder&&pl.vy!==0) ? dt : 0;
+  let tx=TEX.idle;
+  if(pl.hurtTimer>0) tx=TEX.hurt; else if(pl.onLadder) tx=TEX.climb;
+  else if(moving&&pl.onGround&&Math.floor(pl.anim/8)%2===0) tx=TEX.walk;
+  if(pl.sprite) pl.sprite.texture=tx;
+}
+function update(dt){
+  if(ended)return;
+  for(const pl of players) stepPlayer(pl,dt);
+  for(const reg of darkRegions){ if(reg.revealed&&reg.gfx.alpha>0){ reg.gfx.alpha=Math.max(0,reg.gfx.alpha-0.08*dt); if(reg.gfx.alpha<=0)reg.gfx.visible=false; } }
+}
+function placeCam(pl){
+  let camX=pl.x-LOGICAL_W/2, camY=(pl.y-BOX.h/2)-LOGICAL_H/2;
+  camX=Math.max(0,Math.min(camX,WORLD_PX_W-LOGICAL_W)); camY=Math.max(0,Math.min(camY,WORLD_PX_H-LOGICAL_H));
+  camera.x=-Math.round(camX); camera.y=-Math.round(camY); return {camX,camY};
 }
 function draw(){
-  playerSprite.x=player.x; playerSprite.y=player.y+1;
-  playerSprite.scale.x=player.facing<0?-1:1;
-  playerSprite.alpha = player.hurtTimer>0 ? (Math.floor(player.hurtTimer/4)%2?0.4:1) : 1; // pisca nos i-frames
-  let camX=player.x-LOGICAL_W/2, camY=(player.y-BOX.h/2)-LOGICAL_H/2;
-  camX=Math.max(0,Math.min(camX,WORLD_PX_W-LOGICAL_W));
-  camY=Math.max(0,Math.min(camY,WORLD_PX_H-LOGICAL_H));
-  camera.x=-Math.round(camX); camera.y=-Math.round(camY);
-  // E5: minimapa — marca tiles vistos (fog) e a posição do jogador
-  markSeen(camX,camY);
-  if(mmDirty) redrawMinimap();
-  mmPlayer.clear(); mmPlayer.beginFill(0xffd23f,1);
-  mmPlayer.drawRect((player.x/TILE)*MM_SCALE-1,((player.y-BOX.h/2)/TILE)*MM_SCALE-1,2.6,2.6); mmPlayer.endFill();
+  for(const pl of players){ if(!pl.sprite)continue;
+    pl.sprite.x=pl.x; pl.sprite.y=pl.y+1; pl.sprite.scale.x=(pl.facing<0?-1:1)*Math.abs(pl.sprite.scale.x||1);
+    pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
+  }
+  if(numPlayers<=1){
+    const {camX,camY}=placeCam(players[0]);
+    markSeen(camX,camY); if(mmDirty) redrawMinimap();
+    mmPlayer.clear(); mmPlayer.beginFill(0xffd23f,1);
+    mmPlayer.drawRect((players[0].x/TILE)*MM_SCALE-1,((players[0].y-BOX.h/2)/TILE)*MM_SCALE-1,2.6,2.6); mmPlayer.endFill();
+  } else {
+    for(let i=0;i<numPlayers;i++){ placeCam(players[i]); app.renderer.render(camera,{renderTexture:vpTex[i]}); }
+  }
 }
 
 /* ===================== Soma-Sub: quiz (DOM, acessível) ===================== */
@@ -666,31 +704,51 @@ function respawnFigure(i){
 }
 
 /* ===================== vitória ===================== */
-function win(){ ended=true; sfx('win'); $('#hud-objective').textContent='Concluído! 🎉';
-  $('#win-msg').textContent=`Parabéns! Você coletou as ${COIN_TARGET} moedas.`;
-  $('#win-overlay').hidden=false; srAlert(`Você venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
+function updateHud(){
+  if(numPlayers<=1) $('#hud-coins').textContent=String(players[0].collected);
+  else $('#hud-coins').textContent=players.map((p,i)=>`P${i+1}:${p.collected}`).join('  ');
+}
+function win(pl){ ended=true; sfx('win'); $('#hud-objective').textContent='Concluído! 🎉';
+  const who = numPlayers>1 ? `Jogador ${(pl?pl.i:0)+1} venceu! ` : '';
+  $('#win-msg').textContent=`${who}Coletou as ${COIN_TARGET} moedas.`;
+  $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
 function restartGame(){
   closeQuiz();
   coins=pickCoins(COIN_TARGET);
   rebuildCoins();
   darkRegions.forEach(r=>{ r.revealed=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
-  collected=0; ended=false; player.x=SPAWN_X; player.y=SPAWN_Y; player.vx=player.vy=0; player.hurtTimer=0; playerSprite.alpha=1;
-  $('#hud-coins').textContent='0';
-  $('#hud-objective').textContent = MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
+  collected=0; ended=false;
+  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; if(p.sprite)p.sprite.alpha=1; });
+  updateHud();
+  $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
-  const tp=$('#start-tips'); if(tp){ tp.classList.remove('hide'); clearTimeout(tipsTimer); tipsTimer=setTimeout(hideTips,8000); }
-  srSay(MODE==='somasub' ? 'Modo Soma-Sub. Toque nas figuras e resolva as contas.' : MODE==='silabas' ? 'Modo Sílabas. Toque nas letras e monte as palavras.' : 'Nova rodada. Colete 10 moedas.');
+  const tp=$('#start-tips'); if(tp){ if(numPlayers>1){ tp.classList.add('hide'); } else { tp.classList.remove('hide'); clearTimeout(tipsTimer); tipsTimer=setTimeout(hideTips,8000); } }
+  srSay(numPlayers>1 ? `${numPlayers} jogadores, cada um na sua tela. Corram pelas moedas.` : MODE==='somasub' ? 'Modo Soma-Sub. Toque nas figuras e resolva as contas.' : MODE==='silabas' ? 'Modo Sílabas. Toque nas letras e monte as palavras.' : 'Nova rodada. Colete 10 moedas.');
 }
 $('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').focus(); });
 function setMode(m){
+  if(numPlayers>1)m='ludico'; // multiplayer só no Lúdico
   MODE=m;
-  document.querySelectorAll('.mode-btn').forEach(b=>{ const on=b.id==='mode-'+m; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); });
+  document.querySelectorAll('.mode-btn[id^="mode-"]').forEach(b=>{ const on=b.id==='mode-'+m; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); });
   restartGame(); $('#game-region').focus();
 }
 const mb1=$('#mode-ludico'), mb2=$('#mode-somasub'), mb3=$('#mode-silabas');
 if(mb1)mb1.addEventListener('click',()=>setMode('ludico'));
 if(mb2)mb2.addEventListener('click',()=>setMode('somasub'));
 if(mb3)mb3.addEventListener('click',()=>setMode('silabas'));
+/* E11: nº de jogadores (1–4 telas lado a lado, simulação compartilhada) */
+function setNumPlayers(n){
+  n=Math.max(1,Math.min(4,n|0));
+  if(n>players.length){ for(let i=players.length;i<n;i++)players.push(makePlayer(i)); }
+  else if(n<players.length){ players.length=n; }
+  player=players[0]; numPlayers=n;
+  assignControls(); ensureSprites();
+  if(n>1){ MODE='ludico'; document.querySelectorAll('.mode-btn[id^="mode-"]').forEach(b=>{ const on=b.id==='mode-ludico'; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); }); }
+  ['mode-somasub','mode-silabas','opt-case','opt-blind'].forEach(id=>{ const b=$('#'+id); if(b){ b.disabled=n>1; b.style.opacity=n>1?0.45:1; } });
+  document.querySelectorAll('.mp-btn').forEach(b=>{ const on=b.id==='mp-'+n; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); });
+  configureRender(); restartGame(); layout(); $('#game-region').focus();
+}
+document.querySelectorAll('.mp-btn').forEach(b=>b.addEventListener('click',()=>setNumPlayers(parseInt(b.id.split('-')[1],10))));
 const caseBtn=$('#opt-case');
 if(caseBtn)caseBtn.addEventListener('click',()=>{
   letterCase = letterCase==='upper'?'lower':'upper';
@@ -736,7 +794,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2)*(assist?0.6:1); update(dt); draw(); fpsTick(); });
-window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,decoLayer,minimap,
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},darkRegions,decoLayer,minimap,
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
@@ -758,8 +816,11 @@ function layout(){
   wrap.style.paddingRight = librasOpen ? LIBRAS_RESERVE+'px' : '0px';
   const availW=(wrap.clientWidth||320) - (librasOpen?LIBRAS_RESERVE:0); // clientWidth inclui padding → descontar
   const availH=wrap.clientHeight||180;
-  const k=Math.max(1,Math.floor(Math.min(availW/320, availH/180)));  // sempre múltiplo inteiro de 320x180
-  const gr=$('#game-region'); if(gr){ gr.style.width=(320*k)+'px'; gr.style.height=(180*k)+'px'; }
+  // E11: a grade de telas define a base (1=320×180, 2=640×180, 3-4=640×360)
+  const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
+  const baseW=320*cols, baseH=180*rows;
+  const k=Math.max(1,Math.floor(Math.min(availW/baseW, availH/baseH)));  // múltiplo inteiro da base
+  const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; }
 }
 function vlTick(){ const o=vlibrasOpen(); if(o!==librasOpen){ librasOpen=o; layout(); } }
 addEventListener('resize', layout);
