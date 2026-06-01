@@ -85,3 +85,8 @@ main{max-width:var(--maxw);margin:0 auto;padding:0 1rem 2rem}
 .overlay__card h2{margin-top:0}
 
 @media (max-width:560px){.title{font-size:1.1rem}.hud{gap:1rem}}
+
+/* VLibras AO LADO: reserva uma faixa à direita; o conteúdo desloca p/ a esquerda e o
+   painel fixo do VLibras (canto direito da viewport) fica na faixa, sem cobrir o jogo.
+   Em telas estreitas (sem espaço lateral) o widget volta a flutuar sobre a tela. */
+@media (min-width:920px){ body{ padding-right:360px } }
