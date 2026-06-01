@@ -170,6 +170,16 @@ const PLAYER_CLIMB = [
   '................','................','................','................',
   '................','................','................','................',
 ];
+const PLAYER_HURT = [
+  '................','................','.....HHHHHH.....','....HHHHHHHH....',
+  '....HHSSSSHH....','....HSSSSSSH....','....HSWWWWSH....','....HSWKKWSH....',
+  '....HSSSSSSH....','....HSKKKKSH....','.....HSSSSH.....','......SSSS......',
+  '.....RRRRRR.....','....RRRRRRRR....','...RRRRRRRRRR...','..SRRRRRRRRRRS..',
+  '..SRRRRRRRRR.S..','..SRRRRRRRR.SS..','...RRRRRRRRSS...','...RRRRRRRRRR...',
+  '...RRRRRRRRRR...','....RRRRRRRR....','....BBBBBBBB....','....BBBBBBBB....',
+  '....BBB..BBB....','....BBB..BBB....','....BBB..BBB....','....BBB..BBB....',
+  '....BBB..BBB....','....BBB..BBB....','...KKKK..KKKK...','...KKKK..KKKK...',
+];
 const APP = { H:'#6b4423', S:'#f1c27d', K:'#101018', W:'#ffffff', R:'#3a86ff', B:'#2b2d42' };
 
 /* ===================== canvas → textura ===================== */
@@ -225,7 +235,7 @@ function pickCoins(n){
 const $=(s)=>document.querySelector(s);
 const SPAWN_X=2*TILE, SPAWN_Y=24*TILE;
 const player={x:SPAWN_X,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
-  facing:1,anim:0,jumpBuffer:0,waterStroke:0};
+  facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0};
 const BOX={w:10,h:30};
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 
@@ -262,19 +272,19 @@ const darkRegions=buildDarkRegions().map(tiles=>{
   gfx.endFill(); darkLayer.addChild(gfx);
   return { set:new Set(tiles.map(([tx,ty])=>tx+','+ty)), gfx, revealed:false };
 });
-const TEX={idle:tex(spriteToCanvas(PLAYER_IDLE)),walk:tex(spriteToCanvas(PLAYER_WALK)),climb:tex(spriteToCanvas(PLAYER_CLIMB))};
+const TEX={idle:tex(spriteToCanvas(PLAYER_IDLE)),walk:tex(spriteToCanvas(PLAYER_WALK)),climb:tex(spriteToCanvas(PLAYER_CLIMB)),hurt:tex(spriteToCanvas(PLAYER_HURT))};
 const playerSprite=new PIXI.Sprite(TEX.idle); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 
 /* ===================== física ===================== */
 // amostra tiles sob a caixa do player → água/escada
 function sampleFeatures(){
   const l=player.x-BOX.w/2,r=player.x+BOX.w/2,t=player.y-BOX.h,b=player.y;
-  let water=false,ladder=false;
+  let water=false,ladder=false,lava=false;
   for(let ty=Math.floor(t/TILE);ty<=Math.floor((b-0.01)/TILE);ty++)
     for(let tx=Math.floor(l/TILE);tx<=Math.floor((r-0.01)/TILE);tx++){
-      const tt=tileAt(tx,ty); if(tt===3)water=true; if(tt===4)ladder=true;
+      const tt=tileAt(tx,ty); if(tt===3)water=true; if(tt===4)ladder=true; if(tt===9)lava=true;
     }
-  return {water,ladder};
+  return {water,ladder,lava};
 }
 function resolveX(){
   const l=player.x-BOX.w/2,r=player.x+BOX.w/2,t=player.y-BOX.h,b=player.y;
@@ -297,12 +307,23 @@ function resolveY(){
     return;
   }
 }
+// lava: perde todas as moedas (reposiciona), atordoa 1s, lança pra cima + lateral (fiel ao original)
+function triggerLava(){
+  if(player.hurtTimer>0)return;
+  coins=pickCoins(COIN_TARGET);
+  coinSprites.forEach((s,i)=>{ const c=coins[i]; if(c){s.x=c.x;s.y=c.y;s.visible=true;} else s.visible=false; });
+  collected=0; $('#hud-coins').textContent='0';
+  player.hurtTimer=60; player.vy=-10; player.vx=(rnd()<0.5?-1:1)*5;
+  srAlert('Cuidado! Você tocou na lava. As moedas voltaram para posições aleatórias.');
+}
 function update(dt){
   if(ended)return;
   const run=anyOf(KRUN), dir=(anyOf(KRIGHT)?1:0)-(anyOf(KLEFT)?1:0);
   player.vx=dir*(run?TUNE.hRun:TUNE.hWalk); if(dir!==0)player.facing=dir;
 
   const feat=sampleFeatures(); player.inWater=feat.water; player.onLadder=feat.ladder;
+  if(player.hurtTimer>0)player.hurtTimer-=dt;
+  if(feat.lava) triggerLava();
 
   if(jumpEdge)player.jumpBuffer=7; else if(player.jumpBuffer>0)player.jumpBuffer--;
   jumpEdge=false;
@@ -352,13 +373,15 @@ function update(dt){
   const moving=Math.abs(player.vx)>0.1;
   player.anim += (moving&&player.onGround)||(player.onLadder&&player.vy!==0) ? dt : 0;
   let t=TEX.idle;
-  if(player.onLadder) t=TEX.climb;
+  if(player.hurtTimer>0) t=TEX.hurt;
+  else if(player.onLadder) t=TEX.climb;
   else if(moving&&player.onGround&&Math.floor(player.anim/8)%2===0) t=TEX.walk;
   playerSprite.texture=t;
 }
 function draw(){
   playerSprite.x=player.x; playerSprite.y=player.y+1;
   playerSprite.scale.x=player.facing<0?-1:1;
+  playerSprite.alpha = player.hurtTimer>0 ? (Math.floor(player.hurtTimer/4)%2?0.4:1) : 1; // pisca nos i-frames
   let camX=player.x-LOGICAL_W/2, camY=(player.y-BOX.h/2)-LOGICAL_H/2;
   camX=Math.max(0,Math.min(camX,WORLD_PX_W-LOGICAL_W));
   camY=Math.max(0,Math.min(camY,WORLD_PX_H-LOGICAL_H));
@@ -373,7 +396,7 @@ $('#btn-again').addEventListener('click',()=>{
   coins=pickCoins(COIN_TARGET);
   coinSprites.forEach((s,i)=>{ const c=coins[i]; if(c){s.x=c.x;s.y=c.y;s.visible=true;} else s.visible=false; });
   darkRegions.forEach(r=>{ r.revealed=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
-  collected=0; ended=false; player.x=SPAWN_X; player.y=SPAWN_Y; player.vx=player.vy=0;
+  collected=0; ended=false; player.x=SPAWN_X; player.y=SPAWN_Y; player.vx=player.vy=0; player.hurtTimer=0; playerSprite.alpha=1;
   $('#hud-coins').textContent='0'; $('#hud-objective').textContent='Colete 10 moedas';
   $('#win-overlay').hidden=true; $('#game-region').focus(); srSay('Nova rodada. Colete 10 moedas.');
   const tp=$('#start-tips'); if(tp){ tp.classList.remove('hide'); clearTimeout(tipsTimer); tipsTimer=setTimeout(hideTips,8000); }
@@ -389,7 +412,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); });
-window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,WORLD_W,WORLD_H,TUNE};
+window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
