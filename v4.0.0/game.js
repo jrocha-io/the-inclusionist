@@ -282,11 +282,21 @@ const BOX={w:10,h:30};
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 
 /* ===================== input ===================== */
-const keys=new Set(); let jumpEdge=false;
-const KJUMP=['KeyL','Space'], KLEFT=['KeyA','ArrowLeft'], KRIGHT=['KeyD','ArrowRight'],
-      KUP=['KeyW','ArrowUp'], KDOWN=['KeyS','ArrowDown'], KRUN=['KeyP','ShiftLeft','ShiftRight'];
-const GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN];
+const keys=new Set(); let jumpEdge=false, captureAction=null, optionsOpen=false;
+const CKEY='inclusionist.controls.v1';
+const CTRL_DEFAULTS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:['KeyL','Space'],run:['KeyP','ShiftLeft','ShiftRight'],up:['KeyW','ArrowUp'],down:['KeyS','ArrowDown']};
+function loadControls(){ try{const s=JSON.parse(localStorage.getItem(CKEY)); if(s)return Object.assign(JSON.parse(JSON.stringify(CTRL_DEFAULTS)),s);}catch(e){} return JSON.parse(JSON.stringify(CTRL_DEFAULTS)); }
+function saveControls(){ try{localStorage.setItem(CKEY,JSON.stringify(controls));}catch(e){} }
+let controls=loadControls();
+let KJUMP=controls.jump, KLEFT=controls.left, KRIGHT=controls.right, KUP=controls.up, KDOWN=controls.down, KRUN=controls.run;
+let GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN];
+function applyControls(){ KJUMP=controls.jump;KLEFT=controls.left;KRIGHT=controls.right;KUP=controls.up;KDOWN=controls.down;KRUN=controls.run; GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN]; }
 addEventListener('keydown',(e)=>{
+  if(captureAction){ // remap: a próxima tecla vira o novo controle
+    if(e.code!=='Escape'){ controls[captureAction]=[e.code]; saveControls(); applyControls(); }
+    captureAction=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
+  }
+  if(optionsOpen){ if(e.code==='Escape')closeOptions(); return; } // diálogo aberto: não joga
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
       if(KUP.includes(e.code))announceBraille(); else if(KJUMP.includes(e.code))quizConfirm();
@@ -702,6 +712,19 @@ const soundBtn=$('#opt-sound'), capBtn=$('#opt-captions'), assistBtn=$('#opt-ass
 if(soundBtn) soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; toggleBtn(soundBtn,soundOn); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 if(capBtn) capBtn.addEventListener('click',()=>{ captionsOn=!captionsOn; toggleBtn(capBtn,captionsOn); srSay('Legendas '+(captionsOn?'ligadas.':'desligadas.')); });
 if(assistBtn) assistBtn.addEventListener('click',()=>{ assist=!assist; toggleBtn(assistBtn,assist); srSay('Modo assistência '+(assist?'ligado: velocidade reduzida e sem perigos.':'desligado.')); });
+
+/* E10: remap de controles + persistência (B2) */
+const ACT_LABEL={left:'Esquerda',right:'Direita',jump:'Pular',run:'Correr',up:'Subir / escada',down:'Descer / escada'};
+function keyName(code){ return String(code).replace('Arrow','↔').replace('Key','').replace('Space','Espaço').replace('ShiftLeft','Shift').replace('ShiftRight','Shift'); }
+function renderControls(){ const el=$('#ctrl-list'); if(!el)return;
+  el.innerHTML=Object.keys(ACT_LABEL).map(a=>`<div class="ctrl-row"><span>${ACT_LABEL[a]}: ${(controls[a]||[]).map(keyName).map(k=>`<kbd>${k}</kbd>`).join(' ')}</span><button class="mode-btn" data-act="${a}" type="button" aria-label="Alterar tecla de ${ACT_LABEL[a]}">Alterar</button></div>`).join('');
+  el.querySelectorAll('button[data-act]').forEach(b=>b.addEventListener('click',()=>{ captureAction=b.dataset.act; b.textContent='Pressione…'; srAlert('Pressione a nova tecla para '+ACT_LABEL[b.dataset.act]+', ou Esc para cancelar.'); }));
+}
+function openOptions(){ const ov=$('#options'); if(!ov)return; renderControls(); ov.hidden=false; optionsOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function closeOptions(){ const ov=$('#options'); if(!ov)return; ov.hidden=true; optionsOpen=false; captureAction=null; const b=$('#opt-controls'); if(b)b.focus(); }
+const ctrlBtn=$('#opt-controls'); if(ctrlBtn)ctrlBtn.addEventListener('click',openOptions);
+const ctrlClose=$('#ctrl-close'); if(ctrlClose)ctrlClose.addEventListener('click',closeOptions);
+const ctrlReset=$('#ctrl-reset'); if(ctrlReset)ctrlReset.addEventListener('click',()=>{ try{localStorage.removeItem(CKEY);}catch(e){} controls=JSON.parse(JSON.stringify(CTRL_DEFAULTS)); applyControls(); renderControls(); srSay('Controles restaurados ao padrão.'); });
 
 /* ===================== FPS ===================== */
 let fpsAccum=0,fpsFrames=0,fpsMin=Infinity,fpsWarm=0;

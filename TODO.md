@@ -24,7 +24,7 @@ authors: [José, Claude]
 
 ## 🔥 Crítico (bloqueador)
 
-- [ ] **[JOSE+CLAUDE] B2 — persistir remap de controle via localStorage**
+- [x] **[CLAUDE] B2 — persistir remap de controle via localStorage** ✅ RESOLVIDO no motor v4.0.0 (E10): `loadControls()` no init + `saveControls()` após cada remap + try/catch + chave `inclusionist.controls.v1` + "Restaurar padrões". Validado: persiste após F5.
   - **Por que crítico:** UI funciona mas remap perde a cada reload. Crianças com NEE motor que usam mapping adaptado precisam reconfigurar a cada sessão. Em sala com tablets compartilhados, é proibitivo.
   - **Patch sugerido:** ver [[../../Documentation/audit-2026-05-23-r0-bugs-a11y#b2-—-remap-de-controle-·-falha-real|auditoria B2]] — `loadControls()` no init + `saveControls()` após cada remap + try/catch (Chromebook pode ter Storage desabilitado) + chave versionada `inclusionist.controls.v1` + limpeza no botão "Restaurar padrão".
   - **Versão alvo:** v3.1.101

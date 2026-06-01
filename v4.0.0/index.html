@@ -44,6 +44,7 @@
     <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true">🔊 Som</button>
     <button id="opt-captions" class="mode-btn is-on" type="button" aria-pressed="true">💬 Legendas</button>
     <button id="opt-assist" class="mode-btn" type="button" aria-pressed="false" aria-label="Modo assistência: velocidade reduzida e sem perigos">♿ Assistência</button>
+    <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Controles</button>
   </nav>
 
   <main>
@@ -97,6 +98,19 @@
       <h2 id="win-title">🎉 Você coletou as 10 moedas!</h2>
       <p id="win-msg"></p>
       <button id="btn-again" type="button" class="btn btn--primary">Jogar de novo</button>
+    </div>
+  </div>
+
+  <!-- E10: diálogo de controles (remap + persistência B2) -->
+  <div id="options" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="opt-title">
+      <h2 id="opt-title">Controles (Jogador 1)</h2>
+      <p class="opt-hint">Clique em “Alterar” e pressione a nova tecla. As escolhas ficam salvas no navegador.</p>
+      <div id="ctrl-list" class="ctrl-list"></div>
+      <div class="overlay__actions">
+        <button id="ctrl-reset" class="mode-btn" type="button">Restaurar padrões</button>
+        <button id="ctrl-close" class="mode-btn is-on" type="button">Fechar</button>
+      </div>
     </div>
   </div>
 
