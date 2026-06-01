@@ -127,6 +127,15 @@ const tileAt=(tx,ty)=>(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H)?2:WORLD[ty][tx];
 // E12: portão dinâmico — seus tiles são sólidos enquanto fechado (gateOpen=true ⇒ comporta normal)
 let gateTiles=new Set(), gateOpen=true, gate=null;
 const solidAt=(tx,ty)=>(!gateOpen && gateTiles.has(tx+','+ty)) || isSolidType(tileAt(tx,ty));
+// Itens do mapa Clarity → viram ITENS/barreira (não tiles): 7=pulo-turbo, 8=voo, 11=chave; 10=portão.
+// Removemos o tile do grid (vira ar) e o item/barreira é desenhado/colidido à parte; some ao pegar/abrir.
+const MAP_ITEMS=[], MAP_GATE=[];
+for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x];
+  if(t===7){ MAP_ITEMS.push({tx:x,ty:y,kind:'turbo'}); WORLD[y][x]=1; }
+  else if(t===8){ MAP_ITEMS.push({tx:x,ty:y,kind:'fly'}); WORLD[y][x]=1; }
+  else if(t===11){ MAP_ITEMS.push({tx:x,ty:y,kind:'key'}); WORLD[y][x]=1; }
+  else if(t===10){ MAP_GATE.push({tx:x,ty:y}); WORLD[y][x]=1; }
+}
 // regiões secretas = componentes conexos de tiles 0 (escuridão). Acendem ao entrar.
 function buildDarkRegions(){
   const seen=Array.from({length:WORLD_H},()=>new Array(WORLD_W).fill(false)),regions=[];
@@ -162,15 +171,15 @@ const PLAYER_WALK = [
   '..BBB....BBB....','.BBB.....BBB....','KKKK.....KKKK...','................',
   '................','................','................','................',
 ];
-const PLAYER_CLIMB = [
+const PLAYER_CLIMB = [ // vista de costas, ALTURA CHEIA (pés na base) — corrige o "encolhimento" na escada
   '................','................','.....HHHHHH.....','....HHHHHHHH....',
   '....HHHHHHHH....','....HHHHHHHH....','....HHHHHHHH....','....HHHHHHHH....',
-  '....HHHHHHHH....','.....HHHHHH.....','..S..RRRRRR..S..','..SRRRRRRRRRRS..',
-  '...RRRRRRRRRR...','...RRRRRRRRRR...','....RRRRRRRR....','....BBBBBBBB....',
+  '....HHHHHHHH....','....HHHHHHHH....','.....HHHHHH.....','......SSSS......',
+  '.....RRRRRR.....','....RRRRRRRR....','...RRRRRRRRRR...','..SRRRRRRRRRRS..',
+  '..SRRRRRRRRRRS..','..SRRRRRRRRRRS..','..SRRRRRRRRRRS..','...RRRRRRRRRR...',
+  '...RRRRRRRRRR...','....RRRRRRRR....','....BBBBBBBB....','....BBBBBBBB....',
   '....BBB..BBB....','....BBB..BBB....','....BBB..BBB....','....BBB..BBB....',
-  '...KKKK..KKKK...','................','................','................',
-  '................','................','................','................',
-  '................','................','................','................',
+  '....BBB..BBB....','....BBB..BBB....','...KKKK..KKKK...','...KKKK..KKKK...',
 ];
 const PLAYER_HURT = [
   '................','................','.....HHHHHH.....','....HHHHHHHH....',
@@ -282,7 +291,7 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  powerRun:false,powerJump:false,hasKey:false}; }
+  powerRun:false,powerJump:false,powerFly:false,hasKey:false}; }
 let players=[makePlayer(0)]; let player=players[0];
 let numPlayers=1;
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
@@ -326,7 +335,7 @@ addEventListener('keydown',(e)=>{
     if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
   }
   const isGameKey = GAME_KEYS.includes(e.code) || players.some(p=>p.ctrl && Object.values(p.ctrl).some(arr=>arr.includes(e.code)));
-  if(isGameKey)e.preventDefault();
+  if(isGameKey){ e.preventDefault(); hideTouchControls('teclado'); } // E13: jogar no teclado oculta os botões de toque
   if(!keys.has(e.code)){ for(const p of players){ if(p.ctrl && p.ctrl.jump.includes(e.code)) p.jumpEdge=true; } }
   keys.add(e.code); });
 addEventListener('keyup',(e)=>keys.delete(e.code));
@@ -443,15 +452,16 @@ const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 /* ===================== E12: power-ups + chave/portão ===================== */
 function powerupTexture(kind){
   const cv=makeCanvas(12,12),c=cv.getContext('2d');
-  const col = kind==='run'?'#34e29b':kind==='jump'?'#7fdcff':'#ffd23f';
+  const col = kind==='turbo'?'#7fdcff':kind==='fly'?'#c8a2ff':kind==='key'?'#ffd23f':kind==='run'?'#34e29b':'#7fdcff';
   c.fillStyle='#04121a'; c.beginPath(); if(c.roundRect)c.roundRect(0.5,0.5,11,11,3); else c.rect(0.5,0.5,11,11); c.fill();
   c.fillStyle=col;
-  if(kind==='run'){ c.beginPath();c.moveTo(2,3);c.lineTo(7,6);c.lineTo(2,9);c.closePath();c.moveTo(6,3);c.lineTo(11,6);c.lineTo(6,9);c.closePath();c.fill(); } // » super-corrida
-  else if(kind==='jump'){ c.beginPath();c.moveTo(6,2);c.lineTo(10,7);c.lineTo(2,7);c.closePath();c.fill();c.fillRect(4,7,4,3); }          // ▲ ultra-pulo
+  if(kind==='turbo'||kind==='jump'){ c.beginPath();c.moveTo(6,1.5);c.lineTo(10,5);c.lineTo(2,5);c.closePath();c.moveTo(6,6);c.lineTo(10,9.5);c.lineTo(2,9.5);c.closePath();c.fill(); } // ▲▲ pulo-turbo
+  else if(kind==='fly'){ c.beginPath();c.moveTo(6,3);c.lineTo(11,9);c.lineTo(6,7);c.lineTo(1,9);c.closePath();c.fill(); }                 // asa = voo
+  else if(kind==='run'){ c.beginPath();c.moveTo(2,3);c.lineTo(7,6);c.lineTo(2,9);c.closePath();c.moveTo(6,3);c.lineTo(11,6);c.lineTo(6,9);c.closePath();c.fill(); } // » super-corrida
   else { c.beginPath();c.arc(4,6,3,0,7);c.fill();c.fillRect(6,5,5,2);c.fillRect(9,5,2,4); }                                              // ⚷ chave
   return tex(cv);
 }
-const PUP_TEX={run:powerupTexture('run'),jump:powerupTexture('jump'),key:powerupTexture('key')};
+const PUP_TEX={turbo:powerupTexture('turbo'),fly:powerupTexture('fly'),key:powerupTexture('key'),run:powerupTexture('run'),jump:powerupTexture('jump')};
 const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups + portão (atrás do player)
 let powerups=[];
 function rebuildExtras(){
@@ -466,13 +476,12 @@ function rebuildExtras(){
   }
 }
 function setupExtras(){
-  const occ=new Set(coins.map(c=>Math.floor(c.x/TILE)+','+Math.floor(c.y/TILE)));
-  const cands=shuffle(findCoinCandidates()).filter(c=>c.tx>5 && !occ.has(c.tx+','+c.ty));
-  powerups=[]; const kinds=['run','jump','key'];
-  for(let i=0;i<kinds.length && i<cands.length;i++){ const c=cands[i]; powerups.push({x:c.tx*TILE+2,y:c.ty*TILE+2,kind:kinds[i],taken:false,sprite:null}); }
-  const gc=cands[3]; gateTiles=new Set();
-  if(gc){ for(let dy=0;dy<3;dy++)gateTiles.add(gc.tx+','+(gc.ty-dy)); gate={tx:gc.tx,ty:gc.ty}; } else gate=null;
-  gateOpen=false; rebuildExtras();
+  // itens e portão vêm das posições REAIS do mapa Clarity (não mais aleatórios)
+  powerups = MAP_ITEMS.map(it=>({ x:it.tx*TILE+2, y:it.ty*TILE+2, kind:it.kind, taken:false, sprite:null }));
+  gateTiles = new Set(MAP_GATE.map(g=>g.tx+','+g.ty));
+  gate = MAP_GATE.length ? MAP_GATE : null;
+  gateOpen = MAP_GATE.length===0; // havendo portão, começa FECHADO (abre com a chave)
+  rebuildExtras();
 }
 setupExtras();
 
@@ -578,6 +587,10 @@ function stepPlayer(pl,dt){
     pl.vy=0;
     if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
     if(pl.jumpBuffer>0){ pl.vy=-(pl.powerJump?TUNE.ultraJumpVel:JUMP_BASE); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+  } else if(pl.powerFly){ // voo (item tile 8): sobe com pular/cima, desce com baixo, plana parado
+    pl.waterStroke=0;
+    if(held(pl,'jump')||held(pl,'up')) pl.vy=-2.6; else if(held(pl,'down')) pl.vy=2.6; else pl.vy*=0.8;
+    pl.vy=Math.max(-3,Math.min(3,pl.vy));
   } else {
     const g = pl.inWater?0.10:TUNE.gravity;
     if(!(pl.onGround&&pl.vy>=0)) pl.vy += g*dt;
@@ -610,13 +623,15 @@ function stepPlayer(pl,dt){
   powerups.forEach(pu=>{ if(pu.taken)return;
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
-      if(pu.kind==='run'){ pl.powerRun=true; sfx('power'); srSay(who+'super-corrida ativada! Segure correr para ir mais rápido.'); }
-      else if(pu.kind==='jump'){ pl.powerJump=true; sfx('power'); srSay(who+'ultra-pulo ativado!'); }
-      else { pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
+      if(pu.kind==='turbo'){ pl.powerJump=true; sfx('power'); srSay(who+'Pulo-turbo! Você pula bem mais alto.'); }
+      else if(pu.kind==='fly'){ pl.powerFly=true; sfx('power'); srSay(who+'Voo ativado! Suba segurando pular ou para cima.'); }
+      else if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
+      else if(pu.kind==='run'){ pl.powerRun=true; sfx('power'); srSay(who+'Super-corrida!'); }
+      else if(pu.kind==='jump'){ pl.powerJump=true; sfx('power'); srSay(who+'Ultra-pulo!'); }
     }});
-  if(gate && !gateOpen && pl.hasKey){
-    const gx=gate.tx*TILE, gtop=(gate.ty-2)*TILE, gbot=gate.ty*TILE+TILE;
-    if(box.x<gx+TILE && box.x+box.w>gx && box.y<gbot && box.y+box.h>gtop){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); }
+  if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se um portador da chave o toca
+    for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
+      if(box.x<X+TILE && box.x+box.w>X && box.y<Y+TILE && box.y+box.h>Y){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); break; } }
   }
   // animação
   const moving=Math.abs(pl.vx)>0.1;
@@ -786,7 +801,7 @@ function restartGame(){
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
-  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.powerRun=false; p.powerJump=false; p.hasKey=false; if(p.sprite)p.sprite.alpha=1; });
+  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.powerRun=false; p.powerJump=false; p.powerFly=false; p.hasKey=false; if(p.sprite)p.sprite.alpha=1; });
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
@@ -919,15 +934,14 @@ function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==
 })();
 
 /* ===================== E13: controles de toque (mobile) ===================== */
+// oculta os botões de toque (chamado quando o jogador usa teclado/controle, p/ não atrapalhar)
+function hideTouchControls(){ const tc=document.querySelector('#touch-controls'); if(tc && !tc.hidden) tc.hidden=true; }
 (function touchSetup(){
   const tc=$('#touch-controls'); if(!tc)return;
-  // os controles só aparecem DEPOIS do primeiro toque/clique na tela (não preemptivamente)
+  // alternância por modalidade: toque/clique MOSTRA; teclado/controle OCULTA (hideTouchControls).
   if(/[?&]touch=1/.test(location.search)){ tc.hidden=false; }
-  else {
-    const reveal=()=>{ tc.hidden=false; removeEventListener('pointerdown',reveal,true); removeEventListener('touchstart',reveal,true); };
-    addEventListener('pointerdown',reveal,true);
-    addEventListener('touchstart',reveal,{capture:true,passive:true});
-  }
+  addEventListener('pointerdown',()=>{ tc.hidden=false; }, true); // qualquer toque/clique revela
+  addEventListener('touchstart',()=>{ tc.hidden=false; }, {capture:true,passive:true});
   const codeFor=(act)=>(controls[act]&&controls[act][0])||null; // mapeia p/ a 1ª tecla de P1 (remapeável)
   const press=(act)=>{ const c=codeFor(act); if(!c)return; if(!keys.has(c)){ keys.add(c); if(act==='jump')players.forEach(p=>{ if(p.ctrl&&p.ctrl.jump.includes(c))p.jumpEdge=true; }); } if(act==='jump')hideTips(); };
   const release=(act)=>{ const c=codeFor(act); if(c)keys.delete(c); };
