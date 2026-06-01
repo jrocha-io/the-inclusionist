@@ -422,7 +422,7 @@ const darkRegions=buildDarkRegions().map(tiles=>{
   const gfx=new PIXI.Graphics(); gfx.beginFill(0x04060d,1);
   for(const [tx,ty] of tiles) gfx.drawRect(tx*TILE,ty*TILE,TILE,TILE);
   gfx.endFill(); darkLayer.addChild(gfx);
-  return { set:new Set(tiles.map(([tx,ty])=>tx+','+ty)), gfx, revealed:false };
+  return { set:new Set(tiles.map(([tx,ty])=>tx+','+ty)), gfx, announced:false };
 });
 const TEX={idle:tex(spriteToCanvas(PLAYER_IDLE)),walk:tex(spriteToCanvas(PLAYER_WALK)),climb:tex(spriteToCanvas(PLAYER_CLIMB)),hurt:tex(spriteToCanvas(PLAYER_HURT))};
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
@@ -616,12 +616,6 @@ function stepPlayer(pl,dt){
     const gx=gate.tx*TILE, gtop=(gate.ty-2)*TILE, gbot=gate.ty*TILE+TILE;
     if(box.x<gx+TILE && box.x+box.w>gx && box.y<gbot && box.y+box.h>gtop){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); }
   }
-  // áreas secretas (qualquer jogador revela)
-  const rtx0=Math.floor((pl.x-BOX.w/2)/TILE),rtx1=Math.floor((pl.x+BOX.w/2-0.01)/TILE);
-  const rty0=Math.floor((pl.y-BOX.h)/TILE),rty1=Math.floor((pl.y-0.01)/TILE);
-  for(const reg of darkRegions){ if(reg.revealed)continue;
-    for(let ty=rty0;ty<=rty1&&!reg.revealed;ty++)for(let tx=rtx0;tx<=rtx1;tx++) if(reg.set.has(tx+','+ty)){reg.revealed=true;break;}
-  }
   // animação
   const moving=Math.abs(pl.vx)>0.1;
   pl.anim += (moving&&pl.onGround)||(pl.onLadder&&pl.vy!==0) ? dt : 0;
@@ -633,7 +627,24 @@ function stepPlayer(pl,dt){
 function update(dt){
   if(ended)return;
   for(const pl of players) stepPlayer(pl,dt);
-  for(const reg of darkRegions){ if(reg.revealed&&reg.gfx.alpha>0){ reg.gfx.alpha=Math.max(0,reg.gfx.alpha-0.08*dt); if(reg.gfx.alpha<=0)reg.gfx.visible=false; } }
+  // E1 (corrigido): revela a área secreta ENQUANTO houver jogador dentro e RE-ESCURECE ao sair.
+  // Não é inversão — só mostra o que estava escondido e some de novo ao deixar o ambiente.
+  for(const reg of darkRegions){
+    let occ=false;
+    for(const pl of players){
+      const tx0=Math.floor((pl.x-BOX.w/2)/TILE),tx1=Math.floor((pl.x+BOX.w/2-0.01)/TILE);
+      const ty0=Math.floor((pl.y-BOX.h)/TILE),ty1=Math.floor((pl.y-0.01)/TILE);
+      for(let ty=ty0;ty<=ty1&&!occ;ty++)for(let tx=tx0;tx<=tx1;tx++){ if(reg.set.has(tx+','+ty)){occ=true;break;} }
+      if(occ)break;
+    }
+    const target=occ?0:1, step=0.08*dt;
+    if(reg.gfx.alpha!==target){
+      reg.gfx.alpha = target>reg.gfx.alpha ? Math.min(target,reg.gfx.alpha+step) : Math.max(target,reg.gfx.alpha-step);
+      reg.gfx.visible = reg.gfx.alpha>0.001;
+    }
+    if(occ && !reg.announced){ reg.announced=true; srSay('Área secreta revelada.'); }
+    else if(!occ && reg.gfx.alpha>=1) reg.announced=false; // re-anuncia na próxima entrada
+  }
 }
 function placeCam(pl){
   let camX=pl.x-LOGICAL_W/2, camY=(pl.y-BOX.h/2)-LOGICAL_H/2;
@@ -771,7 +782,7 @@ function restartGame(){
   coins=pickCoins(COIN_TARGET);
   rebuildCoins();
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
-  darkRegions.forEach(r=>{ r.revealed=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
+  darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
   players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.powerRun=false; p.powerJump=false; p.hasKey=false; if(p.sprite)p.sprite.alpha=1; });
   updateHud();
@@ -886,8 +897,13 @@ window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
 /* ===================== E13: controles de toque (mobile) ===================== */
 (function touchSetup(){
   const tc=$('#touch-controls'); if(!tc)return;
-  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints>0 || /[?&]touch=1/.test(location.search);
-  if(isTouch) tc.hidden=false;
+  // os controles só aparecem DEPOIS do primeiro toque/clique na tela (não preemptivamente)
+  if(/[?&]touch=1/.test(location.search)){ tc.hidden=false; }
+  else {
+    const reveal=()=>{ tc.hidden=false; removeEventListener('pointerdown',reveal,true); removeEventListener('touchstart',reveal,true); };
+    addEventListener('pointerdown',reveal,true);
+    addEventListener('touchstart',reveal,{capture:true,passive:true});
+  }
   const codeFor=(act)=>(controls[act]&&controls[act][0])||null; // mapeia p/ a 1ª tecla de P1 (remapeável)
   const press=(act)=>{ const c=codeFor(act); if(!c)return; if(!keys.has(c)){ keys.add(c); if(act==='jump')players.forEach(p=>{ if(p.ctrl&&p.ctrl.jump.includes(c))p.jumpEdge=true; }); } if(act==='jump')hideTips(); };
   const release=(act)=>{ const c=codeFor(act); if(c)keys.delete(c); };

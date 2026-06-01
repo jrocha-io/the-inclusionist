@@ -68,11 +68,16 @@ Persistência de controles em localStorage (B2 do projeto) · multiplayer **1–
 **VLibras** · modo **Braille** · modo **assistência** · **legendas de SFX** · modo maiúscula/minúscula ·
 HUD de FPS · skip-link/landmarks · auditoria axe (0 violações).
 
-## ⚠️ Divergência crítica a auditar
+## ✅ Auditoria do mapa — RESOLVIDA (2026-06-01): mapa IDÊNTICO
 
-O **`CLARITY_MAP` da v4 foi re-digitado** e suas dimensões **não batem** com a v3 (`WORLD_W=56`,
-`WORLD_H=58`). Antes de portar mais mecânicas amarradas a coordenadas (power-ups no mapa, itens
-12/13/14), vale uma **auditoria byte-a-byte do mapa** para decidir qual é a fonte canônica.
+Auditoria byte-a-byte do `CLARITY_MAP` (script Node): **v3 e v4 são idênticos** — ambos **62 linhas**,
+largura 13–56, **0 células diferentes**, histogramas de tile iguais. A suposta "divergência" foi um
+**engano do agente** (leu o comentário desatualizado `// 58`; o array real tem 62 linhas em ambas).
+Não há erro de mapa nem re-port necessário.
+
+**Porém:** o mapa contém tiles **7 (pulo-turbo ×1), 8 (voo ×1), 10 (portão ×7), 11 (chave ×1)** que a
+v4 **não usa** como mecânica (trata 7/8 como inertes; o portão/chave da E12 são spawns dinâmicos
+separados, não os tiles do mapa). Isso é a lacuna de física/itens (A8–A10/E18), não um defeito do mapa.
 
 ---
 
