@@ -209,6 +209,14 @@ function coinTexture(){
   c.fillStyle='#fff7c8';c.fillRect(3,2,2,5);
   return tex(cv);
 }
+function treeTexture(){
+  const cv=makeCanvas(26,46),c=cv.getContext('2d');
+  c.fillStyle='#5c4033';c.fillRect(11,28,4,18);                 // tronco
+  c.fillStyle='#1f7a4d';c.beginPath();c.arc(13,17,12,0,7);c.fill(); // copa
+  c.fillStyle='#2fa35f';c.beginPath();c.arc(8,15,7,0,7);c.fill();
+  c.fillStyle='#46b06a';c.beginPath();c.arc(18,13,6,0,7);c.fill();
+  return tex(cv);
+}
 
 /* ===================== moedas (spawn real) ===================== */
 function findCoinCandidates(){
@@ -274,6 +282,19 @@ const darkRegions=buildDarkRegions().map(tiles=>{
 });
 const TEX={idle:tex(spriteToCanvas(PLAYER_IDLE)),walk:tex(spriteToCanvas(PLAYER_WALK)),climb:tex(spriteToCanvas(PLAYER_CLIMB)),hurt:tex(spriteToCanvas(PLAYER_HURT))};
 const playerSprite=new PIXI.Sprite(TEX.idle); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
+// E4: decoração de fundo (árvores) em PRIMEIRO PLANO que some (fade) quando o jogador pula
+const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
+(function placeTrees(){
+  const tt=treeTexture(); let last=-99;
+  for(let tx=2;tx<WORLD_W-2;tx++){
+    for(let ty=3;ty<WORLD_H-1;ty++){
+      if(tileAt(tx,ty)===1 && solidAt(tx,ty+1) && tileAt(tx,ty-1)===1){
+        if(tx-last>=5){ const s=new PIXI.Sprite(tt); s.anchor.set(0.5,1); s.x=tx*TILE+TILE/2; s.y=(ty+1)*TILE; decoLayer.addChild(s); last=tx; }
+        break;
+      }
+    }
+  }
+})();
 
 /* ===================== física ===================== */
 // amostra tiles sob a caixa do player → água/escada
@@ -386,6 +407,9 @@ function draw(){
   camX=Math.max(0,Math.min(camX,WORLD_PX_W-LOGICAL_W));
   camY=Math.max(0,Math.min(camY,WORLD_PX_H-LOGICAL_H));
   camera.x=-Math.round(camX); camera.y=-Math.round(camY);
+  // E4: árvores de primeiro plano somem ao pular (no ar), reaparecem no chão
+  const targetDeco = player.onGround ? 1 : 0.15;
+  decoLayer.alpha += (targetDeco - decoLayer.alpha) * 0.2;
 }
 
 /* ===================== vitória ===================== */
@@ -412,7 +436,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); });
-window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,tileAt,WORLD_W,WORLD_H,TUNE};
+window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,decoLayer,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
