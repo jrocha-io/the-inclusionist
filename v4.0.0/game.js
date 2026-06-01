@@ -196,7 +196,9 @@ const PLAYER_HURT = [
   '....BBB..BBB....','....BBB..BBB....','....BBB..BBB....','....BBB..BBB....',
   '....BBB..BBB....','....BBB..BBB....','...KKKK..KKKK...','...KKKK..KKKK...',
 ];
-const APP = { H:'#6b4423', S:'#f1c27d', K:'#101018', W:'#ffffff', R:'#3a86ff', B:'#2b2d42' };
+// Paleta UNIFICADA (E15) — luz de cima-esquerda, contorno escuro. H cabelo · S pele · D pele-sombra
+// · K contorno/olho · W branco · R camisa · T camisa-sombra · B calça · P calça-sombra.
+const APP = { H:'#403020', S:'#c08070', D:'#9a5f50', K:'#1a1420', W:'#e8eef0', R:'#3090d0', T:'#2566a0', B:'#303050', P:'#20203a' };
 
 /* ===================== canvas → textura ===================== */
 const makeCanvas=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
@@ -295,7 +297,7 @@ const SPAWN_X=2*TILE, SPAWN_Y=24*TILE;
 const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
-  facing:1,anim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
+  facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
   activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,runEdge:false}; }
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Voo ativado! Cima e baixo sobem e descem.',wallcling:'Ventosa! No ar, aperte Correr perto da parede para grudar; Pular solta.'};
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
@@ -445,6 +447,26 @@ const darkRegions=buildDarkRegions().map(tiles=>{
   return { set:new Set(tiles.map(([tx,ty])=>tx+','+ty)), gfx, announced:false };
 });
 const TEX={idle:tex(spriteToCanvas(PLAYER_IDLE)),walk:tex(spriteToCanvas(PLAYER_WALK)),climb:tex(spriteToCanvas(PLAYER_CLIMB)),hurt:tex(spriteToCanvas(PLAYER_HURT))};
+/* E15: personagem em PERFIL (convertido de referência PixelLab → procedural, paleta unificada).
+   Idle (4f, respiração) + Andar (6f). Olha p/ a última direção (flip no draw). */
+const SIDE_IDLE=[
+  ['................','................','................','.....HHHHHH.....','....HHHHHHHH....','...HHHHHHHSHH...','...HHHHHHHSS....','...HHHHHHSHH....','...HHHSHHSSH....','...HHHSSSSSSS...','...HHHHSSSSSS...','....HHHSSSSS....','.....HHSSSSS....','......TTSS......','......TRRS......','.....RRRRR......','.....TRRRRR.....','.....TRRRRR.....','.....TTSRRR.....','.....TTSRRR.....','.....TTSRRR.....','.....TTSSRR.....','.....TTSSRR.....','.....BBSSSR.....','......BDSSB.....','......BBBB......','......BBBB......','......PBBB......','.....BBBBB......','.....BBBB.......','.....BHBHH......','.....HHHHHH.....'],
+  ['................','................','................','.....HHHHHH.....','....HHHHHHHH....','...HHHHHHHSHH...','...HHHHHHHSS....','...HHHHHHSHH....','...HHHSHHSSH....','...HHHSSSSSSS...','...HHHHSSSSSS...','....HHHSSSSS....','.....HHSSSSS....','......TTSS......','......TRRR......','.....TTRRR......','.....TRRRTR.....','.....TRRRTR.....','.....TTSRRR.....','.....TTSRRR.....','.....TTSRRR.....','.....TTSSRR.....','.....TTSSRR.....','.....BBSSSR.....','......BBSSB.....','......BBBB......','......BBBB......','.....BBBBB......','.....BBBBB......','.....BBBB.......','.....BHHBH......','.....HHHHHH.....'],
+  ['................','................','.....HHHHH......','....HHHHHHH.....','...HHHHHHHHH....','..HHHHHHHSSH....','..HHHHHHSSHS....','..HHHHHHSSWS....','..HHHSSHSSWS....','...HHHSSSSSS....','...HHHHSSSSS....','....HHSSSSS.....','......SSSSS.....','.....RTTS.......','.....TRRR.......','.....TRRRR......','....TRRRRR......','....TRRRRR......','....TRSSRRR.....','....TTSSRRR.....','....TTSSRRR.....','....TTSSRRR.....','....TTTSRRR.....','.....BBSSR......','.....BBSSB......','.....BBBBB......','.....BPBBB......','.....BPBB.......','.....PBBT.......','.....BBB........','.....HHHH.......','.....HHHHH......'],
+  ['................','................','......HHHH......','....HHHHHHHH....','...HHHHHHHHH....','...HHHHHHHSSH...','...HHHHHHSHH....','...HHHHHHSSH....','...HHHSSHSSH....','...HHHHSSSSSS...','....HHHSSSSS....','.....HHSSSSS....','.......SSSS.....','......TTSS......','.....TTRRR......','.....TTRRR......','.....RRRRTR.....','.....RRRRTR.....','.....RRSRRR.....','.....RTSRRR.....','.....RTSRRR.....','.....RTSSRR.....','.....RRSSRR.....','.....BBSSSR.....','......BSSSB.....','......BBBB......','......BBBB......','.....BBBBB......','.....BPBBB......','.....BBBB.......','.....HHHHH......','.....HHHHHH.....'],
+];
+const SIDE_WALK=[
+  ['................','................','................','....HHHHHH......','...HHHHHHHH.....','...HHHHHHSHH....','..HHHHHHHSSS....','..HHHHHHHSWS....','..HHHHSHHSWS....','..HHHHSHSSSS....','...HHHHSSSSS....','....HHHSSSS.....','.....HSSSS......','......TRS.......','......TRR.......','.....TRRRR......','.....TRRRR......','.....TRRRR......','.....TTSSRR.....','.....TTSSSR.....','.....TTTSSR.....','.....TTTTSS.....','.....TTTTSS.....','.....PPBBBS.....','......PBBB......','......PBBB......','......PBBB......','.....PBBB.......','.....PBBB.......','.....BBB........','.....HHHHH......','................'],
+  ['................','................','................','....HHHHHH......','...HHHHHHHH.....','...HHHHHHSSH....','..HHHHHHHSSS....','..HHHHHHHSWS....','..HHHHSHHSWS....','..HHHHSHSSSS....','...HHHHSSSSS....','....HHHSSSSS....','.....HSSSS......','......TTS.......','......TRR.......','.....TRRRR......','.....TRRRR......','.....TRRRR......','.....TTSSS......','.....TTTSSS.....','.....TTTTSS.....','.....TTTTTSSS...','.....TTTTTSSS...','.....BBBBBS.....','.....BBBBPB.....','.....BBBBPB.....','....BBBB.PB.....','....BBB..PBB....','...BBB...PBB....','..HBB.....PHHH..','..HHH.....HH....','....HH..........'],
+  ['................','................','................','....HHHHHH......','...HHHHHHHH.....','...HHHHHHSHH....','..HHHHHHHSS.....','..HHHHHHSSB.....','..HHHSHHSSH.....','..HHHSSSSSSS....','...HHHSSSSSS....','....HHSSSSS.....','......SSSS......','......TSS.......','......TRR.......','.....TRRR.......','.....TRRRR......','.....TRRRR......','.....TTSSR......','.....TTSSS......','.....TTSSS......','.....TTTTSS.....','.....TTTTSS.....','.....BBBBB......','.....PBBBB......','....PPPBBBB.....','....PPPPBBB.....','..BPPPPPPBB.....','.BHBP..PBB......','..HH...PBB......','...H...HHHHH....','................'],
+  ['................','................','......HHH.......','....HHHHHHH.....','...HHHHHHHHH....','..HHHHHHHSSH....','..HHHHHHHSHS....','..HHHHSHHSWS....','..HHHHSHHSWS....','..HHHHSSSSSS....','...HHHHSSSSS....','....HHSSSSS.....','......DSS.......','.....RRRR.......','.....TRRR.......','.....TRRRR......','.....TRRRR......','.....TRRRR......','.....TSSRRR.....','.....TSSRRR.....','.....TSSRRR.....','.....TSSSRR.....','.....TTSSRR.....','.....PPSSB......','......PPBB......','......PBBB......','......PBBB......','.....PBBB.......','.....PBBB.......','.....PBB........','.....HHHHH......','................'],
+  ['................','................','.....HHHH.......','....HHHHHHH.....','...HHHHHHHH.....','..HHHHHHHSSH....','..HHHHHHHSHS....','..HHHHDHHS.S....','..HHHHSHHS.S....','..HHHHSSSSSS....','...HHHHSSSS.....','....HHSSSSS.....','......SSS.......','......RRR.......','.....TRRR.......','.....TRRRR......','.....TRRTR......','.....TRRRR......','.....TSTRR......','.....TSTRRS.....','.....TSTRRS.....','.....TSRRRSS....','.....TSSRRS.....','.....PSSBB......','.....PPPBBB.....','....PPP.BBB.....','....PPP.BBB.....','...PPP...BB.....','..HPP....PBB....','..HB.....PBHHH..','...HH.....HHH...','................'],
+  ['................','................','.....HHHH.......','...HHHHHHHH.....','..BHHHHHHHH.....','..HHHHHHHSHH....','..HHHHHHSHH.....','..HHHSHHSSH.....','..HHHSHHSSH.....','..HHHHSSSSSS....','..HHHHSSSSSS....','....HHSSSSS.....','.....TTSS.......','.....TRRR.......','.....TRRR.......','.....TRRR.......','.....TRRTR......','.....TRRRR......','.....TSSRR......','.....TSSRRS.....','.....TSSRRS.....','.....TSSRRSS....','.....TSSSRS.....','.....PSSSB......','.....PPPPB......','....PPPPPBB.....','...PPPPPPBB.....','..HPPP.PPBB.....','..HH...PBBB.....','...HH..PBB......','.......HHHHH....','................'],
+];
+function silhouetteCanvas(art){ const cv=makeCanvas(16,32),c=cv.getContext('2d'); c.fillStyle='#ffe600'; for(let y=0;y<32;y++){const row=art[y];if(!row)continue;for(let x=0;x<16;x++){const ch=row[x];if(ch&&ch!=='.')c.fillRect(x,y,1,1);}} return cv; }
+const TEX_IDLE=SIDE_IDLE.map(f=>tex(spriteToCanvas(f))), TEX_WALK=SIDE_WALK.map(f=>tex(spriteToCanvas(f)));
+const TEX_HC_IDLE=SIDE_IDLE.map(f=>tex(silhouetteCanvas(f))), TEX_HC_WALK=SIDE_WALK.map(f=>tex(silhouetteCanvas(f))); // fallback alto-contraste (silhueta chapada)
+let hcMode = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 (function placeTrees(){
@@ -496,12 +518,12 @@ function setupExtras(){
 }
 setupExtras();
 
-const playerSprite=new PIXI.Sprite(TEX.idle); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
+const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
 let allPSprites=[playerSprite];
 function ensureSprites(){
-  for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX.idle); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
+  for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
 let vpTex=[], vpSpr=[];
@@ -654,12 +676,14 @@ function stepPlayer(pl,dt){
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
       if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); break; } }
   }
-  // animação
-  const moving=Math.abs(pl.vx)>0.1;
-  pl.anim += (moving&&pl.onGround)||(pl.onLadder&&pl.vy!==0) ? dt : 0;
-  let tx=TEX.idle;
-  if(pl.hurtTimer>0) tx=TEX.hurt; else if(pl.onLadder) tx=TEX.climb;
-  else if(moving&&pl.onGround&&Math.floor(pl.anim/8)%2===0) tx=TEX.walk;
+  // animação por frames (E15): idle SEMPRE respira; andar = ciclo de 6; HC = silhueta chapada
+  const moving=Math.abs(pl.vx)>0.1 && pl.onGround && !pl.clinging;
+  pl.anim += dt;                                   // idle nunca congela (respiração)
+  pl.walkAnim = moving ? pl.walkAnim+dt : 0;
+  const II=hcMode?TEX_HC_IDLE:TEX_IDLE, WW=hcMode?TEX_HC_WALK:TEX_WALK;
+  let tx;
+  if(moving) tx=WW[Math.floor(pl.walkAnim/5)%WW.length];
+  else tx=II[Math.floor(pl.anim/16)%II.length];    // idle/escada/voo/ventosa → idle respirando (perfil)
   if(pl.sprite) pl.sprite.texture=tx;
 }
 function update(dt){
@@ -898,7 +922,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2)*(assist?0.6:1); update(dt); draw(); fpsTick(); });
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,darkRegions,decoLayer,minimap,
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){hcMode=v;},darkRegions,decoLayer,minimap,
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
