@@ -21,7 +21,7 @@ power-ups ficam mais tarde (mais risco, menor prioridade de sala — conforme o 
 | **E1** | **Iluminação de área secreta** (acende tile `0` ao entrar; não escurece o resto) | feat | — |
 | **E2** | **Prompts de início** ("Aperte L para pular", "Segure P para correr e pular mais alto") | feat | — |
 | **E3** | **Perigos + susto + respawn** (lava `9`, HURT, invuln) | feat | — |
-| **E4** | **Decoração de background** (árvores/arbustos) que **somem ao pular** | feat | — |
+| **E4** | **Decoração de fundo** (árvores/arbustos) — **atrás do jogador, sempre visível** (corrigido: NÃO some ao pular) | feat | — |
 | **E5** | **Minimapa estilo Metroid** (canto inferior esquerdo; tiles explorados) | feat | — |
 | **E6** | **Modo Soma-Sub** (moedas = figuras geométricas; quiz) | feat | — |
 | **E7** | **Modo Sílabas** + **maiúsc/minúsc** + **letra = inicial da palavra a escrever** | feat | — |

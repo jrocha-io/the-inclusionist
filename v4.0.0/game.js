@@ -281,8 +281,7 @@ const darkRegions=buildDarkRegions().map(tiles=>{
   return { set:new Set(tiles.map(([tx,ty])=>tx+','+ty)), gfx, revealed:false };
 });
 const TEX={idle:tex(spriteToCanvas(PLAYER_IDLE)),walk:tex(spriteToCanvas(PLAYER_WALK)),climb:tex(spriteToCanvas(PLAYER_CLIMB)),hurt:tex(spriteToCanvas(PLAYER_HURT))};
-const playerSprite=new PIXI.Sprite(TEX.idle); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
-// E4: decoração de fundo (árvores) em PRIMEIRO PLANO que some (fade) quando o jogador pula
+// E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 (function placeTrees(){
   const tt=treeTexture(); let last=-99;
@@ -295,6 +294,7 @@ const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
     }
   }
 })();
+const playerSprite=new PIXI.Sprite(TEX.idle); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 
 /* ===================== física ===================== */
 // amostra tiles sob a caixa do player → água/escada
@@ -407,9 +407,6 @@ function draw(){
   camX=Math.max(0,Math.min(camX,WORLD_PX_W-LOGICAL_W));
   camY=Math.max(0,Math.min(camY,WORLD_PX_H-LOGICAL_H));
   camera.x=-Math.round(camX); camera.y=-Math.round(camY);
-  // E4: árvores de primeiro plano somem ao pular (no ar), reaparecem no chão
-  const targetDeco = player.onGround ? 1 : 0.15;
-  decoLayer.alpha += (targetDeco - decoLayer.alpha) * 0.2;
 }
 
 /* ===================== vitória ===================== */
