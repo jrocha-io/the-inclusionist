@@ -307,6 +307,34 @@ const anyOf=(arr)=>arr.some(k=>keys.has(k));
 const srSay=(t)=>{const el=$('#sr-status');el.textContent='';requestAnimationFrame(()=>el.textContent=t);};
 const srAlert=(t)=>{const el=$('#sr-alert');el.textContent='';requestAnimationFrame(()=>el.textContent=t);};
 
+/* ===== E9: áudio (WebAudio) + legendas (C1) + assistência (C2) ===== */
+const SFX={
+  jump:{f:520,d:0.12,t:'square',cap:'🔊 Pulo'},
+  coin:{f:880,d:0.14,t:'triangle',cap:'🔊 Coletou'},
+  hurt:{f:120,d:0.25,t:'sawtooth',cap:'🔊 Ai! Dano'},
+  win:{f:700,d:0.5,t:'triangle',cap:'🔊 Vitória!'},
+  place:{f:640,d:0.08,t:'sine',cap:''},
+  correct:{f:990,d:0.18,t:'triangle',cap:'🔊 Acertou!'},
+  wrong:{f:180,d:0.15,t:'square',cap:'🔊 Tente de novo'},
+};
+let audioCtx=null, soundOn=true, captionsOn=true, assist=false, volume=0.6, capTimer=null;
+function showCaption(txt){ const el=$('#caption'); if(!el||!txt)return; el.textContent=txt; el.classList.add('show'); clearTimeout(capTimer); capTimer=setTimeout(()=>{el.classList.remove('show'); el.textContent='';},1300); }
+function sfx(name){
+  const c=SFX[name]; if(!c)return;
+  if(captionsOn && c.cap) showCaption(c.cap);   // legenda (visual + aria-live via role=status)
+  if(!soundOn || volume<=0) return;
+  try{
+    if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC)audioCtx=new AC(); }
+    if(!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type=c.t; o.frequency.value=c.f; g.gain.value=0.0001; o.connect(g).connect(audioCtx.destination);
+    const t=audioCtx.currentTime;
+    g.gain.exponentialRampToValueAtTime(Math.max(0.02,0.25*volume), t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+c.d);
+    o.start(t); o.stop(t+c.d+0.02);
+  }catch(e){}
+}
+
 /* ===================== Pixi ===================== */
 PIXI.settings.ROUND_PIXELS=true;
 const app=new PIXI.Application({width:LOGICAL_W,height:LOGICAL_H,backgroundColor:0x05070f,
@@ -442,7 +470,7 @@ function triggerLava(){
   coins=pickCoins(COIN_TARGET);
   coinSprites.forEach((s,i)=>{ const c=coins[i]; if(c){s.x=c.x;s.y=c.y;s.visible=true;} else s.visible=false; });
   collected=0; $('#hud-coins').textContent='0';
-  player.hurtTimer=60; player.vy=-10; player.vx=(rnd()<0.5?-1:1)*5;
+  sfx('hurt'); player.hurtTimer=60; player.vy=-10; player.vx=(rnd()<0.5?-1:1)*5;
   srAlert('Cuidado! Você tocou na lava. As moedas voltaram para posições aleatórias.');
 }
 function update(dt){
@@ -452,7 +480,7 @@ function update(dt){
 
   const feat=sampleFeatures(); player.inWater=feat.water; player.onLadder=feat.ladder;
   if(player.hurtTimer>0)player.hurtTimer-=dt;
-  if(feat.lava) triggerLava();
+  if(feat.lava && !assist) triggerLava();   // assistência desativa perigos
 
   if(jumpEdge)player.jumpBuffer=7; else if(player.jumpBuffer>0)player.jumpBuffer--;
   jumpEdge=false;
@@ -460,7 +488,7 @@ function update(dt){
   if(player.onLadder){
     player.vy=0;
     if(anyOf(KUP))player.vy=-TUNE.climbSpeed; else if(anyOf(KDOWN))player.vy=TUNE.climbSpeed;
-    if(player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onLadder=false; player.jumpBuffer=0; hideTips(); }
+    if(player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onLadder=false; player.jumpBuffer=0; sfx('jump'); hideTips(); }
   } else {
     const g = player.inWater?0.10:TUNE.gravity;
     if(!(player.onGround&&player.vy>=0)) player.vy += g*dt;
@@ -471,7 +499,7 @@ function update(dt){
       player.vy=Math.min(player.vy,TUNE.waterMaxFall);
     } else {
       player.waterStroke=0;
-      if(player.onGround&&player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onGround=false; player.jumpBuffer=0; hideTips(); }
+      if(player.onGround&&player.jumpBuffer>0){ player.vy=-JUMP_BASE; player.onGround=false; player.jumpBuffer=0; sfx('jump'); hideTips(); }
       player.vy=Math.min(player.vy,TUNE.maxFall);
     }
   }
@@ -488,7 +516,7 @@ function update(dt){
     if(pl.x<cn.x+sz-ox&&pl.x+pl.w>cn.x-ox&&pl.y<cn.y+sz-ox&&pl.y+pl.h>cn.y-ox){
       if(MODE==='somasub'&&cn.shape){ if(!player.quiz) openQuiz(i,cn.shape); }
       else if(MODE==='silabas'&&cn.letter){ if(!player.quiz) openSilabas(i,cn.letter); }
-      else { cn.taken=true; coinSprites[i].visible=false; collected++;
+      else { cn.taken=true; coinSprites[i].visible=false; collected++; sfx('coin');
         $('#hud-coins').textContent=String(collected); srSay(`Moeda ${collected} de ${COIN_TARGET}.`);
         if(collected>=COIN_TARGET)win(); }
     }});
@@ -546,7 +574,7 @@ function openSilabas(coinIndex,letter){
   srSay(`Letra ${disp(letter)}. Monte a palavra: ${item.w}.`);
   renderQuiz();
 }
-function placeSilaba(sy){ const q=player.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; srSay(disp(sy)); renderQuiz(); }
+function placeSilaba(sy){ const q=player.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place'); srSay(disp(sy)); renderQuiz(); }
 function eraseLastSilaba(){ const q=player.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(); }
 // E8: ditado de Braille (modo pessoa cega) — dita os pontos da cela por letra
 function openBraille(coinIndex,letter){
@@ -595,27 +623,27 @@ function quizConfirm(){
   const q=player.quiz; if(!q)return;
   if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(); return; }
   if(q.kind==='braille'){ coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
-    $('#hud-coins').textContent=String(collected); srSay('Coletado!'); closeQuiz(); if(collected>=COIN_TARGET)win(); return; }
+    $('#hud-coins').textContent=String(collected); sfx('coin'); srSay('Coletado!'); closeQuiz(); if(collected>=COIN_TARGET)win(); return; }
   if(q.kind==='silabas'){
     const N=q.options.length;
     if(q.sel<N){ placeSilaba(q.options[q.sel]); return; }
     if(q.sel===N){ eraseLastSilaba(); return; }
     if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){
       coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
-      $('#hud-coins').textContent=String(collected); srSay('Acertou!'); closeQuiz(); if(collected>=COIN_TARGET)win();
+      $('#hud-coins').textContent=String(collected); sfx('correct'); srSay('Acertou!'); closeQuiz(); if(collected>=COIN_TARGET)win();
     } else { q.tries++;
       if(q.tries>=2){ q.revealed=true; q.boxes=q.correct.slice(); srAlert(`A palavra é ${disp(q.word)}. Pule para seguir.`); }
-      else { q.boxes=[null,null]; srSay('Tente de novo.'); }
+      else { q.boxes=[null,null]; sfx('wrong'); srSay('Tente de novo.'); }
       renderQuiz();
     }
     return;
   }
   if(q.choices[q.sel]===q.answer){
     coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
-    $('#hud-coins').textContent=String(collected); srSay('Acertou!'); closeQuiz();
+    $('#hud-coins').textContent=String(collected); sfx('correct'); srSay('Acertou!'); closeQuiz();
     if(collected>=COIN_TARGET)win();
   } else { q.tries++;
-    if(q.tries>=2){q.revealed=true; srAlert(`A resposta é ${q.answer}. Pule para seguir.`);} else srSay('Tente de novo.');
+    if(q.tries>=2){q.revealed=true; srAlert(`A resposta é ${q.answer}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
     renderQuiz();
   }
 }
@@ -628,7 +656,7 @@ function respawnFigure(i){
 }
 
 /* ===================== vitória ===================== */
-function win(){ ended=true; $('#hud-objective').textContent='Concluído! 🎉';
+function win(){ ended=true; sfx('win'); $('#hud-objective').textContent='Concluído! 🎉';
   $('#win-msg').textContent=`Parabéns! Você coletou as ${COIN_TARGET} moedas.`;
   $('#win-overlay').hidden=false; srAlert(`Você venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
 function restartGame(){
@@ -668,6 +696,12 @@ if(blindBtn)blindBtn.addEventListener('click',()=>{
   blindBtn.setAttribute('aria-pressed',String(blindMode)); blindBtn.classList.toggle('is-on',blindMode);
   srSay('Modo Braille '+(blindMode?'ligado. No modo Sílabas, o jogo dita os pontos da cela.':'desligado.'));
 });
+// E9: toggles de Som / Legendas / Assistência
+function toggleBtn(b,on){ b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); }
+const soundBtn=$('#opt-sound'), capBtn=$('#opt-captions'), assistBtn=$('#opt-assist');
+if(soundBtn) soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; toggleBtn(soundBtn,soundOn); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
+if(capBtn) capBtn.addEventListener('click',()=>{ captionsOn=!captionsOn; toggleBtn(capBtn,captionsOn); srSay('Legendas '+(captionsOn?'ligadas.':'desligadas.')); });
+if(assistBtn) assistBtn.addEventListener('click',()=>{ assist=!assist; toggleBtn(assistBtn,assist); srSay('Modo assistência '+(assist?'ligado: velocidade reduzida e sem perigos.':'desligado.')); });
 
 /* ===================== FPS ===================== */
 let fpsAccum=0,fpsFrames=0,fpsMin=Infinity,fpsWarm=0;
@@ -678,7 +712,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 }
 
 /* ===================== loop ===================== */
-app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); });
+app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2)*(assist?0.6:1); update(dt); draw(); fpsTick(); });
 window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,decoLayer,minimap,
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');

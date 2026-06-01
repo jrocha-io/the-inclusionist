@@ -40,6 +40,12 @@
     <button id="opt-blind" class="mode-btn" type="button" aria-pressed="false" aria-label="Modo pessoa cega: ditado de Braille no modo Sílabas">⠿ Braille</button>
   </nav>
 
+  <nav class="opts" aria-label="Acessibilidade">
+    <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true">🔊 Som</button>
+    <button id="opt-captions" class="mode-btn is-on" type="button" aria-pressed="true">💬 Legendas</button>
+    <button id="opt-assist" class="mode-btn" type="button" aria-pressed="false" aria-label="Modo assistência: velocidade reduzida e sem perigos">♿ Assistência</button>
+  </nav>
+
   <main>
     <div id="stage-wrap" class="stage-wrap">
      <div id="stage" class="stage">
@@ -59,6 +65,8 @@
       </div>
       <!-- Desafio Soma-Sub (DOM, acessível) -->
       <div id="quiz" class="quiz" hidden></div>
+      <!-- Legenda de efeitos sonoros (C1): visual + aria-live -->
+      <div id="caption" class="caption" role="status" aria-live="polite"></div>
     </section>
       <div id="libras-slot" class="libras-slot" aria-hidden="true"></div>
      </div>
