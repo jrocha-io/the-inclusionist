@@ -11,3 +11,6 @@ node_modules/
 # Sistema operacional
 .DS_Store
 Thumbs.db
+
+# Referências PixelLab (design only; licença != GPL — não embutir no jogo)
+assets-ref/
