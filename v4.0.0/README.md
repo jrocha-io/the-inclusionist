@@ -33,7 +33,12 @@ Application → Service Workers → *Update on reload* / *Unregister* + *Clear s
 ## Libras
 **Interino:** widget **VLibras** (gov.br) embutido (online, carregado sob demanda). Traduz o
 texto do DOM (HUD, instruções, quizzes) para Libras. **Offline** o widget não carrega e o jogo
-segue normal. **Futuro:** motor próprio em **zdog** (painel 420×180, P2/P5).
+segue normal.
+**Layout:** o jogo escala em **múltiplos inteiros de 320×180** e fica **centralizado** (H e V).
+Ao abrir o VLibras, reserva-se espaço à direita: o jogo desloca à esquerda e o intérprete fica
+**ao lado, sem cobrir** o jogo. **Limite honesto:** o encaixe *pixel-exato* 16:9+5:9 (21:9) é
+difícil com o widget de terceiros (ele resiste a reposicionar); a versão exata virá no **motor
+próprio em zdog** (painel 420×180, P2/P5).
 
 ## Limites desta build (propositais)
 - Mundo **gerado** (representativo p/ teste de perf), não o `buildWorld()` final.

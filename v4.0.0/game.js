@@ -687,5 +687,28 @@ srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pu
 let tipsTimer=setTimeout(hideTips,8000);
 function hideTips(){ const el=$('#start-tips'); if(el)el.classList.add('hide'); clearTimeout(tipsTimer); }
 
+/* ===== Layout: jogo em múltiplos inteiros de 320x180, centralizado; VLibras = 5:9 ao lado =====
+   Usa o BOTÃO NATIVO do VLibras (reposicionado à direita do jogo). Detecta abertura/fechamento
+   por polling e, ao abrir, reserva o slot 5:9 (jogo desloca à esquerda, conjunto 21:9 centraliza)
+   e encaixa+escala o painel no slot. */
+let librasOpen=false;
+const vwBtn=()=>document.querySelector('[vw-access-button]');
+function vlibrasOpen(){ const b=vwBtn(); if(!b)return false; const r=b.getBoundingClientRect(); return r.width===0||r.height===0||b.offsetParent===null; }
+const LIBRAS_RESERVE=380; // px reservados p/ o painel do VLibras quando aberto
+function layout(){
+  const wrap=$('#stage-wrap'); if(!wrap)return;
+  // ao abrir o VLibras, reserva espaço à direita → o jogo desloca p/ a esquerda e o conjunto centraliza
+  wrap.style.paddingRight = librasOpen ? LIBRAS_RESERVE+'px' : '0px';
+  const availW=(wrap.clientWidth||320) - (librasOpen?LIBRAS_RESERVE:0); // clientWidth inclui padding → descontar
+  const availH=wrap.clientHeight||180;
+  const k=Math.max(1,Math.floor(Math.min(availW/320, availH/180)));  // sempre múltiplo inteiro de 320x180
+  const gr=$('#game-region'); if(gr){ gr.style.width=(320*k)+'px'; gr.style.height=(180*k)+'px'; }
+}
+function vlTick(){ const o=vlibrasOpen(); if(o!==librasOpen){ librasOpen=o; layout(); } }
+addEventListener('resize', layout);
+setInterval(vlTick, 250);
+layout(); requestAnimationFrame(layout); setTimeout(layout, 1500);
+window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
+
 /* ===================== PWA ===================== */
 if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
