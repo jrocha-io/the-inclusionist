@@ -243,12 +243,26 @@ const SOMASUB_SHAPES=[
   {id:'trapezio',nome:'trapézio'},{id:'pentagono',nome:'pentágono'},{id:'hexagono',nome:'hexágono'},{id:'oval',nome:'oval'},
 ];
 const somaSubName=(id)=>{const x=SOMASUB_SHAPES.find(z=>z.id===id);return x?x.nome:id;};
+// Sílabas: palavras de 2 sílabas + emoji (glifo Unicode = zero imagens binárias)
+const SILABAS_WORDS=[
+  {w:'gato',e:'🐱',s:['ga','to']},{w:'bola',e:'⚽',s:['bo','la']},{w:'casa',e:'🏠',s:['ca','sa']},
+  {w:'pato',e:'🦆',s:['pa','to']},{w:'sapo',e:'🐸',s:['sa','po']},{w:'vaca',e:'🐄',s:['va','ca']},
+  {w:'rato',e:'🐀',s:['ra','to']},{w:'lua',e:'🌙',s:['lu','a']},{w:'uva',e:'🍇',s:['u','va']},
+  {w:'dado',e:'🎲',s:['da','do']},{w:'fogo',e:'🔥',s:['fo','go']},{w:'bolo',e:'🎂',s:['bo','lo']},
+  {w:'ovo',e:'🥚',s:['o','vo']},{w:'gelo',e:'🧊',s:['ge','lo']},{w:'rosa',e:'🌹',s:['ro','sa']},
+];
+const SILABA_POOL=(()=>{const cons='bcdfgjlmnprstv'.split(''),vow='aeiou'.split(''),o=[];for(const c of cons)for(const v of vow)o.push(c+v);return o;})();
+const WORD_INITIALS=[...new Set(SILABAS_WORDS.map(w=>w.w[0]))];
+let letterCase='lower'; // 'lower' | 'upper' (E7: selecionável)
+const disp=(s)=> letterCase==='upper'?String(s).toUpperCase():String(s).toLowerCase();
 function pickCoins(n){
   const a=shuffle(findCoinCandidates());
   const shapes = MODE==='somasub' ? shuffle(SOMASUB_SHAPES.map(s=>s.id)) : [];
+  const letters = MODE==='silabas' ? shuffle(WORD_INITIALS) : []; // letra = inicial da palavra
   return a.slice(0,Math.min(n,a.length)).map((p,i)=>({
     x:p.tx*TILE+3, y:p.ty*TILE+3, taken:false,
     shape: shapes.length ? shapes[i%shapes.length] : '',
+    letter: letters.length ? letters[i%letters.length] : '',
   }));
 }
 
@@ -311,6 +325,13 @@ function shapeTexture(id){
   c.fill();c.stroke(); return tex(cv);
 }
 const SHAPE_TEX={}; SOMASUB_SHAPES.forEach(s=>SHAPE_TEX[s.id]=shapeTexture(s.id));
+function letterTexture(ch){
+  const cv=makeCanvas(16,16),c=cv.getContext('2d');
+  c.fillStyle='#ffd23f';c.strokeStyle='#1a1400';c.lineWidth=1.5;
+  c.beginPath(); if(c.roundRect)c.roundRect(2,2,12,12,3); else c.rect(2,2,12,12); c.fill(); c.stroke();
+  c.fillStyle='#1a1400';c.font='bold 11px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';
+  c.fillText(disp(ch),8,9); return tex(cv);
+}
 const coinContainer=new PIXI.Container(); camera.addChild(coinContainer);
 let coinSprites=[];
 function rebuildCoins(){
@@ -318,6 +339,7 @@ function rebuildCoins(){
   coinSprites=coins.map(cn=>{
     let s;
     if(MODE==='somasub'&&cn.shape){ s=new PIXI.Sprite(SHAPE_TEX[cn.shape]); s.width=15;s.height=15; s.x=cn.x-3;s.y=cn.y-3; }
+    else if(MODE==='silabas'&&cn.letter){ s=new PIXI.Sprite(letterTexture(cn.letter)); s.width=14;s.height=14; s.x=cn.x-2;s.y=cn.y-2; }
     else { s=new PIXI.Sprite(coinTex); s.x=cn.x;s.y=cn.y; }
     s.visible=!cn.taken; coinContainer.addChild(s); return s;
   });
@@ -451,9 +473,10 @@ function update(dt){
   // coletar
   const pl={x:player.x-BOX.w/2,y:player.y-BOX.h,w:BOX.w,h:BOX.h};
   coins.forEach((cn,i)=>{ if(cn.taken)return;
-    const sz=(MODE==='somasub'&&cn.shape)?15:9, ox=(MODE==='somasub'&&cn.shape)?3:0;
+    const big=(MODE!=='ludico'); const sz=big?15:9, ox=big?3:0;
     if(pl.x<cn.x+sz-ox&&pl.x+pl.w>cn.x-ox&&pl.y<cn.y+sz-ox&&pl.y+pl.h>cn.y-ox){
       if(MODE==='somasub'&&cn.shape){ if(!player.quiz) openQuiz(i,cn.shape); }
+      else if(MODE==='silabas'&&cn.letter){ if(!player.quiz) openSilabas(i,cn.letter); }
       else { cn.taken=true; coinSprites[i].visible=false; collected++;
         $('#hud-coins').textContent=String(collected); srSay(`Moeda ${collected} de ${COIN_TARGET}.`);
         if(collected>=COIN_TARGET)win(); }
@@ -496,24 +519,66 @@ function openQuiz(coinIndex,shapeId){
   const op=rnd()<0.5?'+':'-'; let a,b,answer;
   if(op==='+'){a=randInt(0,9);b=randInt(0,10-a);answer=a+b;} else {a=randInt(0,10);b=randInt(0,a);answer=a-b;}
   const pool=[answer]; while(pool.length<9){const n=randInt(0,10); if(!pool.includes(n))pool.push(n);}
-  player.quiz={coinIndex,shape:shapeId,a,b,op,answer,choices:shuffle(pool),sel:0,tries:0,revealed:false};
+  player.quiz={kind:'somasub',coinIndex,shape:shapeId,a,b,op,answer,choices:shuffle(pool),sel:0,tries:0,revealed:false};
   player.vx=0;player.vy=0;
   srSay(`${somaSubName(shapeId)}. Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`);
   renderQuiz();
 }
-function renderQuiz(){
-  const q=player.quiz, ov=$('#quiz'); if(!ov)return; if(!q){ov.hidden=true;return;}
+function openSilabas(coinIndex,letter){
+  const pool=SILABAS_WORDS.filter(w=>w.w[0]===letter);
+  const item=pool.length?pool[randInt(0,pool.length-1)]:SILABAS_WORDS[randInt(0,SILABAS_WORDS.length-1)];
+  const correct=item.s.slice(), distract=[];
+  for(const sy of shuffle(SILABA_POOL)){ if(distract.length>=7)break; if(!correct.includes(sy)&&!distract.includes(sy))distract.push(sy); }
+  player.quiz={kind:'silabas',coinIndex,letter,word:item.w,emoji:item.e,correct,options:shuffle(correct.concat(distract)),boxes:[null,null],sel:0,tries:0,revealed:false};
+  player.vx=0;player.vy=0;
+  srSay(`Letra ${disp(letter)}. Monte a palavra: ${item.w}.`);
+  renderQuiz();
+}
+function placeSilaba(sy){ const q=player.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; srSay(disp(sy)); renderQuiz(); }
+function eraseLastSilaba(){ const q=player.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(); }
+function somasubHtml(q){
   const opTxt=q.op==='+'?'+':'−';
   const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&n===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
   const hint=q.revealed?'Resposta certa em destaque. Pule (L) para seguir.':(q.tries>0?'Quase! Tente de novo.':'Escolha e pule (L) para confirmar.');
-  ov.innerHTML=`<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Conta de Soma-Sub"><div class="quiz-shape">${somaSubName(q.shape)}</div><div class="quiz-prob">${q.a} ${opTxt} ${q.b} = ?</div><div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
+  return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Conta de Soma-Sub"><div class="quiz-shape">${somaSubName(q.shape)}</div><div class="quiz-prob">${q.a} ${opTxt} ${q.b} = ?</div><div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
+}
+function silabaHtml(q){
+  const N=q.options.length;
+  const boxes=`<div class="silaba-boxes">`+q.boxes.map(b=>`<span class="silaba-box${b!==null?' filled':''}">${b!==null?disp(b):''}</span>`).join('')+`</div>`;
+  const opts=q.options.map((sy,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}" data-i="${i}" type="button">${disp(sy)}</button>`).join('');
+  const acts=`<button class="quiz-choice${q.sel===N?' sel':''}" data-i="${N}" type="button">Apagar</button><button class="quiz-choice${q.sel===N+1?' sel':''}" data-i="${N+1}" type="button">OK</button>`;
+  const hint=q.revealed?`A palavra é "${disp(q.word)}". Pule (L) para seguir.`:'Monte a palavra. Pule (L) coloca/confirma.';
+  return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Monte a palavra"><div class="quiz-emoji" aria-label="${q.word}">${q.emoji}</div><div class="quiz-letter">letra: ${disp(q.letter)}</div>${boxes}<div class="quiz-grid">${opts}</div><div class="silaba-actions">${acts}</div><div class="quiz-hint">${hint}</div></div>`;
+}
+function renderQuiz(){
+  const q=player.quiz, ov=$('#quiz'); if(!ov)return; if(!q){ov.hidden=true;return;}
+  ov.innerHTML = q.kind==='silabas' ? silabaHtml(q) : somasubHtml(q);
   ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(player.quiz){player.quiz.sel=+b.dataset.i; quizConfirm();} }));
   ov.hidden=false;
 }
-function quizMove(d){ const q=player.quiz; if(!q)return; q.sel=Math.max(0,Math.min(q.choices.length-1,q.sel+d)); renderQuiz(); srSay(String(q.choices[q.sel])); }
+function quizMove(d){ const q=player.quiz; if(!q)return;
+  const max = q.kind==='silabas' ? q.options.length+1 : q.choices.length-1;
+  q.sel=Math.max(0,Math.min(max,q.sel+d)); renderQuiz();
+  if(q.kind==='silabas'){ const N=q.options.length; srSay(q.sel<N?disp(q.options[q.sel]):(q.sel===N?'apagar':'ok')); }
+  else srSay(String(q.choices[q.sel]));
+}
 function quizConfirm(){
   const q=player.quiz; if(!q)return;
   if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(); return; }
+  if(q.kind==='silabas'){
+    const N=q.options.length;
+    if(q.sel<N){ placeSilaba(q.options[q.sel]); return; }
+    if(q.sel===N){ eraseLastSilaba(); return; }
+    if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){
+      coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
+      $('#hud-coins').textContent=String(collected); srSay('Acertou!'); closeQuiz(); if(collected>=COIN_TARGET)win();
+    } else { q.tries++;
+      if(q.tries>=2){ q.revealed=true; q.boxes=q.correct.slice(); srAlert(`A palavra é ${disp(q.word)}. Pule para seguir.`); }
+      else { q.boxes=[null,null]; srSay('Tente de novo.'); }
+      renderQuiz();
+    }
+    return;
+  }
   if(q.choices[q.sel]===q.answer){
     coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
     $('#hud-coins').textContent=String(collected); srSay('Acertou!'); closeQuiz();
@@ -542,10 +607,10 @@ function restartGame(){
   darkRegions.forEach(r=>{ r.revealed=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false; player.x=SPAWN_X; player.y=SPAWN_Y; player.vx=player.vy=0; player.hurtTimer=0; playerSprite.alpha=1;
   $('#hud-coins').textContent='0';
-  $('#hud-objective').textContent = MODE==='somasub' ? 'Resolva 10 contas' : 'Colete 10 moedas';
+  $('#hud-objective').textContent = MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
   const tp=$('#start-tips'); if(tp){ tp.classList.remove('hide'); clearTimeout(tipsTimer); tipsTimer=setTimeout(hideTips,8000); }
-  srSay(MODE==='somasub' ? 'Modo Soma-Sub. Toque nas figuras e resolva as contas.' : 'Nova rodada. Colete 10 moedas.');
+  srSay(MODE==='somasub' ? 'Modo Soma-Sub. Toque nas figuras e resolva as contas.' : MODE==='silabas' ? 'Modo Sílabas. Toque nas letras e monte as palavras.' : 'Nova rodada. Colete 10 moedas.');
 }
 $('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').focus(); });
 function setMode(m){
@@ -553,9 +618,19 @@ function setMode(m){
   document.querySelectorAll('.mode-btn').forEach(b=>{ const on=b.id==='mode-'+m; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); });
   restartGame(); $('#game-region').focus();
 }
-const mb1=$('#mode-ludico'), mb2=$('#mode-somasub');
+const mb1=$('#mode-ludico'), mb2=$('#mode-somasub'), mb3=$('#mode-silabas');
 if(mb1)mb1.addEventListener('click',()=>setMode('ludico'));
 if(mb2)mb2.addEventListener('click',()=>setMode('somasub'));
+if(mb3)mb3.addEventListener('click',()=>setMode('silabas'));
+const caseBtn=$('#opt-case');
+if(caseBtn)caseBtn.addEventListener('click',()=>{
+  letterCase = letterCase==='upper'?'lower':'upper';
+  caseBtn.textContent = letterCase==='upper'?'ABC':'abc';
+  caseBtn.setAttribute('aria-pressed', String(letterCase==='upper'));
+  if(MODE==='silabas') rebuildCoins();
+  if(player.quiz) renderQuiz();
+  srSay('Letras em '+(letterCase==='upper'?'maiúsculas':'minúsculas')+'.');
+});
 
 /* ===================== FPS ===================== */
 let fpsAccum=0,fpsFrames=0,fpsMin=Infinity,fpsWarm=0;
@@ -568,7 +643,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); });
 window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,decoLayer,minimap,
-  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},tileAt,WORLD_W,WORLD_H,TUNE};
+  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */

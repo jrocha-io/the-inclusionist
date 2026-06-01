@@ -56,6 +56,12 @@ main{max-width:var(--maxw);margin:0 auto;padding:0 1rem 2rem}
 .quiz-choice.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .quiz-choice.reveal{outline:3px solid var(--good);outline-offset:2px}
 .quiz-hint{font-size:.85rem;margin-top:.6rem;color:var(--ink-soft)}
+.quiz-emoji{font-size:2.4rem;line-height:1}
+.quiz-letter{font-size:.8rem;color:var(--ink-soft);margin:.1rem 0 .4rem}
+.silaba-boxes{display:flex;gap:.4rem;justify-content:center;margin-bottom:.5rem}
+.silaba-box{min-width:34px;min-height:28px;border:2px dashed var(--ink-soft);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.15rem}
+.silaba-box.filled{border-style:solid;border-color:var(--accent);background:rgba(255,255,255,.08)}
+.silaba-actions{display:flex;gap:.4rem;justify-content:center;margin-top:.4rem}
 @media (prefers-contrast: more){ .quiz-box{background:#000} .quiz-choice{background:#000} .quiz-choice.sel{background:#fff;color:#000} }
 
 .help{max-width:var(--maxw);margin:1rem auto 0;color:var(--ink-soft)}
