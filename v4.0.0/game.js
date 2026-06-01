@@ -125,6 +125,19 @@ const WORLD_W = WORLD[0].length, WORLD_H = WORLD.length;
 const WORLD_PX_W = WORLD_W*TILE, WORLD_PX_H = WORLD_H*TILE;
 const tileAt=(tx,ty)=>(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H)?2:WORLD[ty][tx];
 const solidAt=(tx,ty)=>isSolidType(tileAt(tx,ty));
+// regiões secretas = componentes conexos de tiles 0 (escuridão). Acendem ao entrar.
+function buildDarkRegions(){
+  const seen=Array.from({length:WORLD_H},()=>new Array(WORLD_W).fill(false)),regions=[];
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){
+    if(tileAt(x,y)!==0||seen[y][x])continue;
+    const stack=[[x,y]],tiles=[]; seen[y][x]=true;
+    while(stack.length){ const [cx,cy]=stack.pop(); tiles.push([cx,cy]);
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nx=cx+dx,ny=cy+dy;
+        if(nx>=0&&nx<WORLD_W&&ny>=0&&ny<WORLD_H&&!seen[ny][nx]&&tileAt(nx,ny)===0){seen[ny][nx]=true;stack.push([nx,ny]);}}}
+    if(tiles.length>=2) regions.push(tiles); // ignora bolsões minúsculos
+  }
+  return regions;
+}
 
 /* ===================== sprite do personagem ===================== */
 const PLAYER_IDLE = [
@@ -241,6 +254,14 @@ const camera=new PIXI.Container(); app.stage.addChild(camera);
 camera.addChild(new PIXI.Sprite(worldToTexture()));
 const coinTex=coinTexture();
 let coinSprites=coins.map(cn=>{const s=new PIXI.Sprite(coinTex);s.x=cn.x;s.y=cn.y;camera.addChild(s);return s;});
+// camada de escuridão das áreas secretas (acima de mundo/moedas, ABAIXO do player → player sempre visível)
+const darkLayer=new PIXI.Container(); camera.addChild(darkLayer);
+const darkRegions=buildDarkRegions().map(tiles=>{
+  const gfx=new PIXI.Graphics(); gfx.beginFill(0x04060d,1);
+  for(const [tx,ty] of tiles) gfx.drawRect(tx*TILE,ty*TILE,TILE,TILE);
+  gfx.endFill(); darkLayer.addChild(gfx);
+  return { set:new Set(tiles.map(([tx,ty])=>tx+','+ty)), gfx, revealed:false };
+});
 const TEX={idle:tex(spriteToCanvas(PLAYER_IDLE)),walk:tex(spriteToCanvas(PLAYER_WALK)),climb:tex(spriteToCanvas(PLAYER_CLIMB))};
 const playerSprite=new PIXI.Sprite(TEX.idle); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 
@@ -319,6 +340,14 @@ function update(dt){
       if(collected>=COIN_TARGET)win();
     }});
 
+  // áreas secretas: revela a região quando o player a toca (não escurece o resto)
+  const rtx0=Math.floor((player.x-BOX.w/2)/TILE),rtx1=Math.floor((player.x+BOX.w/2-0.01)/TILE);
+  const rty0=Math.floor((player.y-BOX.h)/TILE),rty1=Math.floor((player.y-0.01)/TILE);
+  for(const reg of darkRegions){
+    if(!reg.revealed){ for(let ty=rty0;ty<=rty1&&!reg.revealed;ty++)for(let tx=rtx0;tx<=rtx1;tx++) if(reg.set.has(tx+','+ty)){reg.revealed=true;srSay('Área secreta revelada.');break;} }
+    if(reg.revealed&&reg.gfx.alpha>0){ reg.gfx.alpha=Math.max(0,reg.gfx.alpha-0.08*dt); if(reg.gfx.alpha<=0)reg.gfx.visible=false; }
+  }
+
   // animação
   const moving=Math.abs(player.vx)>0.1;
   player.anim += (moving&&player.onGround)||(player.onLadder&&player.vy!==0) ? dt : 0;
@@ -342,8 +371,8 @@ function win(){ ended=true; $('#hud-objective').textContent='Concluído! 🎉';
   $('#win-overlay').hidden=false; srAlert(`Você venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
 $('#btn-again').addEventListener('click',()=>{
   coins=pickCoins(COIN_TARGET);
-  coinSprites.forEach(s=>s.destroy()); coinSprites=coins.map(cn=>{const s=new PIXI.Sprite(coinTex);s.x=cn.x;s.y=cn.y;camera.addChild(s);return s;});
-  camera.addChild(playerSprite);
+  coinSprites.forEach((s,i)=>{ const c=coins[i]; if(c){s.x=c.x;s.y=c.y;s.visible=true;} else s.visible=false; });
+  darkRegions.forEach(r=>{ r.revealed=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false; player.x=SPAWN_X; player.y=SPAWN_Y; player.vx=player.vy=0;
   $('#hud-coins').textContent='0'; $('#hud-objective').textContent='Colete 10 moedas';
   $('#win-overlay').hidden=true; $('#game-region').focus(); srSay('Nova rodada. Colete 10 moedas.');
@@ -359,7 +388,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); });
-window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},WORLD_W,WORLD_H,TUNE};
+window.__incl={app,player,get coins(){return coins;},get collected(){return collected;},darkRegions,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* ===================== PWA ===================== */
