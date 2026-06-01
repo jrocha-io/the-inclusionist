@@ -32,7 +32,8 @@ Avaliar **Tauri** (≈3–10 MB, usa o webview do SO) como alternativa leve ao E
 
 ## P2 — Acessibilidade (WCAG 2.2 AAA + GAG)
 **Regra:** AAA aspiracional honesto (marcar onde só dá AA) + GAG completo. **Libras roda
-em motor à parte (zdog)**, não acoplado ao jogo.
+em motor à parte (zdog)**, não acoplado ao jogo. **Interino:** enquanto o motor zdog não existe,
+usa-se o **widget VLibras** (gov.br) — **online**, sob demanda; offline o jogo segue sem ele.
 **Implicação:** **DOM-first** para texto/UI (contraste/zoom AAA difíceis em pixel no canvas);
 canvas com `role=img` + fallback; teclado 100% por `e.code`; `prefers-*` respeitados.
 **⚠️ Tensão com P5 (320×180):** texto AAA (1.4.4 zoom 200%, 1.4.6 contraste 7:1) é

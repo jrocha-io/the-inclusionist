@@ -91,5 +91,14 @@
 
   <script src="vendor/pixi.min.js"></script>
   <script src="game.js"></script>
+
+  <!-- VLibras — tradução para Libras (interina; online). Futuro: motor próprio em zdog (P2/P5). -->
+  <div vw class="enabled">
+    <div vw-access-button class="active"></div>
+    <div vw-plugin-wrapper><div class="vw-plugin-top-wrapper"></div></div>
+  </div>
+  <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+  <script>try{ if(window.VLibras) new window.VLibras.Widget('https://vlibras.gov.br/app'); }
+    catch(e){ console.warn('VLibras indisponível (offline?).', e); }</script>
 </body>
 </html>

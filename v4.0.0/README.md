@@ -30,6 +30,11 @@ pode ver a **versão antiga**. Soluções: (a) **bumpar `CACHE`** em `sw.js` a c
 `activate` apaga caches antigos automaticamente — já implementado); (b) em dev, DevTools →
 Application → Service Workers → *Update on reload* / *Unregister* + *Clear storage*.
 
+## Libras
+**Interino:** widget **VLibras** (gov.br) embutido (online, carregado sob demanda). Traduz o
+texto do DOM (HUD, instruções, quizzes) para Libras. **Offline** o widget não carrega e o jogo
+segue normal. **Futuro:** motor próprio em **zdog** (painel 420×180, P2/P5).
+
 ## Limites desta build (propositais)
 - Mundo **gerado** (representativo p/ teste de perf), não o `buildWorld()` final.
 - **Sem** inversão de escuridão, temas, 2 jogadores, Libras, telemetria — entram depois.

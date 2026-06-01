@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Service worker — cache do app-shell para rodar 100% offline (PWA).
-const CACHE = 'inclusionist-v4.0.0-11'; // bump invalida cache antigo (dev gotcha)
+const CACHE = 'inclusionist-v4.0.0-12'; // bump invalida cache antigo (dev gotcha)
 const SHELL = [
   './', 'index.html', 'game.js', 'style.css',
   'manifest.webmanifest', 'icon.svg', 'vendor/pixi.min.js',
@@ -14,6 +14,8 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // só gerencia o próprio app-shell; cross-origin (ex.: VLibras) passa direto ao navegador
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
       const copy = res.clone();
