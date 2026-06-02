@@ -525,10 +525,10 @@ const ANIM={ walkHold:6, runHold:4, idleHold:16, swimHold:24, clingHold:10, clim
 const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const TEX_IDLE=[pngTex('idle0.png')];                             // idle ESTÁTICO (respiração é procedural — escala vertical suave, sem trocar quadros)
 const TEX_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'.png'));   // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
-const TEX_RUN=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'.png'));    // CORRER = provisório (mesmos quadros) até a sprint AGRESSIVA chegar
+const TEX_RUN=[0,1,2,3].map(i=>pngTex('sprint'+i+'.png'));         // CORRER = sprint AGRESSIVA (inclinada, braços grandes) — 4 quadros
 const TEX_HC_IDLE=[pngTex('idle0_hc.png')];
 const TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'_hc.png'));
-const TEX_HC_RUN=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'_hc.png'));
+const TEX_HC_RUN=[0,1,2,3].map(i=>pngTex('sprint'+i+'_hc.png'));
 // E16: pulo — pose aérea estática (sobe=pernas recolhidas / cai=pernas estendidas), recortadas do jumping-1 SE
 const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
 const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
