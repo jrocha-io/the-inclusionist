@@ -298,7 +298,7 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,runEdge:false}; }
+  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,runEdge:false,airTime:99}; }
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Voo ativado! Cima e baixo sobem e descem.',wallcling:'Ventosa! No ar, aperte Correr perto da parede para grudar; Pular solta.'};
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
@@ -661,6 +661,7 @@ function stepPlayer(pl,dt){
   pl.x+=pl.vx*dt; resolveX(pl);
   pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
+  if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
   if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
   // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico)
   const box={x:pl.x-BOX.w/2,y:pl.y-BOX.h,w:BOX.w,h:BOX.h};
@@ -686,8 +687,11 @@ function stepPlayer(pl,dt){
   }
   // animação por frames (E15). 'moving' baseado no INPUT (direção segurada), NÃO em vx — a colisão
   // zera vx por frames e isso resetava o ciclo (só apareciam 2 quadros). Assim os 8 quadros tocam contínuos.
-  const airborne=!pl.onGround && !pl.clinging;     // E16: no ar (não na escada/ventosa)
-  const moving=(dir!==0) && pl.onGround && !pl.clinging;
+  // E16: estado aéreo ESTÁVEL — subindo (vy<0) entra na hora; cair/sair de borda só após coyote-time.
+  // Evita o flicker walk↔jump no pouso (onGround pisca 1 frame ao repousar). 'grounded' p/ anim.
+  const COYOTE=5, grounded = pl.airTime<=COYOTE;
+  const airborne = !pl.clinging && ((pl.vy<0 && !pl.onGround) || !grounded);
+  const moving=(dir!==0) && grounded && !pl.clinging;
   pl.anim += dt;                                   // idle (1 quadro; clock contínuo)
   pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
   const II=hcMode?TEX_HC_IDLE:TEX_IDLE, WW=hcMode?TEX_HC_WALK:TEX_WALK;
