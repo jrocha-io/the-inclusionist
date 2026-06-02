@@ -181,7 +181,7 @@ arr=np.asarray(src).astype(int)
 * **R3 — Silhuetas:** ver §6 (tarefa imediata).
 * **R4 — Lacunas GAG:** botões de toque na tela, navegação de menu por controle (A1), legendas de SFX (C1), modo assistência (C2).
 * **R5 — Auditoria final:** WCAG 2.2 (AAA aspiracional, marcado honestamente), GAG completo, revisão contra boas práticas sênior.
-* **Árvores da Floresta Brasileira (pausado):** decoração de background, plantadas só em colunas de chão com sólido abaixo (sem bloco de ar `1` embaixo, considerando a coluna). Grupo 1 (2–3 de cada): Cerejeira rosa 20 blocos · Jacarandá roxo 20 · Salgueiro chorão verde-amarelado 23 · Sumaúma raízes-largas (6 blocos de raiz, 60 de altura). Grupo 2 (denso o suficiente): Canafístula verde+flores-amarelas 25 · Araucária 35 · Castanheira do Pará 40 · Ipê (amarelo/roxo/rosa/branco) 24 · Quaresmeira roxa 11 · Pau-Ferro 20 · Aroeira-Salsa 13 · Peroba rosa 30 · Guapuruvu amarelo 25. Abordagem decidida: renderizador paramétrico (estilos round/flowering/weeping/conifer/kapok) + tabela de espécies + posicionamento pré-computado (varrer o mundo estático achando colunas válidas) + desenhar em `drawFloraBack` (sobre o ar, atrás do player), só no tema Floresta, e renomear o tema p/ "Floresta Brasileira". Catálogo de arte já rendrizado (`catalogo-arvores-floresta-v1.png`). Pendências do José: (a) ajustes de arte por espécie? (b) alturas literais (troncos no chão, copas altas) ou "copas visíveis no chão" (reduzir alturas proporcionalmente)? Integrar só após resposta.
+* **Árvores da Floresta Brasileira (pausado):** decoração de background, plantadas só em colunas de chão com sólido abaixo (sem bloco de ar `1` embaixo, considerando a coluna). Grupo 1 (2–3 de cada): Cerejeira rosa 20 blocos · Jacarandá roxo 20 · Salgueiro chorão verde-amarelado 23 · Sumaúma raízes-largas (6 blocos de raiz, 60 de altura). Grupo 2 (denso o suficiente): Canafístula verde+flores-amarelas 25 · Araucária 35 · Castanheira do Pará 40 · Ipê (amarelo/roxo/rosa/branco) 24 · Quaresmeira roxa 11 · Pau-Ferro 20 · Aroeira-Salsa 13 · Peroba rosa 30 · Guapuruvu amarelo 25. Abordagem decidida: renderizador paramétrico (estilos round/flowering/weeping/conifer/kapok) + tabela de espécies + posicionamento pré-computado (varrer o mundo estático achando colunas válidas) + desenhar em `drawFloraBack` (sobre o ar, atrás do player), só no tema Floresta, e renomear o tema p/ "Floresta Brasileira". Catálogo de arte já rendrizado (`docs/imagens-ref/catalogo-arvores-floresta-v1.png`). Pendências do José: (a) ajustes de arte por espécie? (b) alturas literais (troncos no chão, copas altas) ou "copas visíveis no chão" (reduzir alturas proporcionalmente)? Integrar só após resposta.
 * **Caverna (enriquecer, opcional):** vigas de madeira (escoramento de mina), cristais maiores, brilho de lanterna.
 * **VLibras:** José deve reportar qual toast aparece no site hospedado (diagnostica a integração).
 * **Painel `?debug`:** cravar os valores do TUNE (§4) como padrão quando ele fechar os números.
@@ -201,7 +201,7 @@ arr=np.asarray(src).astype(int)
 
 * `file.svg` — fonte vetorial do elenco (16 crianças; do próprio José, autorizado). Melhor fonte para a extração.
 * `elenco-extraido-v3-svg.png` — melhor extração até agora (alvo da cópia fiel).
-* `catalogo-arvores-floresta-v1.png` — arte das 13 espécies de árvore (background da Floresta).
+* `docs/imagens-ref/catalogo-arvores-floresta-v1.png` — arte das 13 espécies de árvore (background da Floresta).
 * `pixel-art-sem-imagens-v3.1.100.html` — versão atual do jogo (trabalhe sobre a maior).
 
 ---
