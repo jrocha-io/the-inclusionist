@@ -2,6 +2,28 @@
 
 > Objetivo: consolidar ou propor alterações ao conjunto de fontes do projeto. **Onde o estudo converge com a escolha atual, a fonte fica oficial**; onde diverge, segue uma **proposta** para decisão do José. Data: 2026-06-02.
 
+## 0. ROSTER OFICIAL (decisão do José, 2026-06-02)
+
+> Decidido após o estudo. Quase tudo é **OFL/Apache (libre, self-hostável)**; exceções: **Ubuntu (UFL)** e **Kindergarten Pro (comercial)**.
+
+**Interface / acessibilidade (seletor):**
+- **Andika** — **fonte PADRÃO** do jogo (SIL OFL; desenhada p/ alfabetização e leitores iniciantes).
+- **Atkinson Hyperlegible** — **padrão no Alto Contraste**; selecionável a qualquer momento (OFL).
+- **OpenDyslexic** — **opcional**; selecionável a qualquer momento (OFL). **Mantida a pedido de quem prefere essa fonte, apesar da evidência fraca/negativa** (ver §4.2 e `PESQUISA-FONTES-CONDICOES-LETRAMENTO.md`). Decisão: oferecer como escolha, sem alegar eficácia.
+
+**Momentos especiais (papéis):**
+- **Textos em telas:** **Ubuntu** (padrão, UFL) · variações **Lato** (OFL), **Roboto Flex** (Apache-2.0), **Open Sans** (OFL).
+- **Títulos / placas / logotipos:** **Montserrat** (padrão, OFL) · alternativas **Poppins** (OFL), **Plus Jakarta Sans** (OFL).
+- **Textos pequenos:** **Inter** (padrão, OFL) · alternativa **Geist** (OFL, Vercel).
+- **Quase-monoespaçada (escritas longas):** **iA Writer Quattro** (SIL OFL — a iA liberou) — escolha do José por astigmatismo/miopia/fadiga de tela.
+- **Textos longos (livros):** **Literata** (padrão, OFL) · **Merriweather** (2º, OFL) · **Lora** (3º, OFL) · **Bitter** (4º, OFL).
+- **Manuscrita pedagógica:** **Kindergarten Pro** (BR — comercial, licenciar embedding §6) · **Learning Curve** (EU/CA/US — **gratuita p/ uso comercial** §6.1).
+- **Caligráfica:** **Great Vibes**, **Pinyon Script** (OFL). **Blackletter:** **UnifrakturCook**, **UnifrakturMaguntia** (OFL). **Amigável/informal:** **Comic Neue** (OFL).
+
+**Ressalvas de licença a confirmar antes de embarcar:** Ubuntu = UFL (empacotável, atrito menor — §4.5); Kindergarten Pro = licença comercial de embedding + subset (§6.2). Todas as demais: self-host woff2 subsetado, sem custo.
+
+*A §3 abaixo é o estudo comparativo que embasou estas escolhas; mantida para auditoria.*
+
 ## 1. Restrições do projeto (pilares que pesam na escolha)
 
 - **A11y primeiro (WCAG 2.2 AAA + GAG).** Critério dominante: legibilidade real e diferenciação de caracteres (I/l/1, O/0, rn/m), não estética.
