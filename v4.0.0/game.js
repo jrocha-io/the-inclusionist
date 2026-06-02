@@ -298,8 +298,8 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,airTime:99,flyGrace:0}; }
-const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Voo ativado! Cima e baixo sobem e descem.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
+  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,airTime:99,flying:false}; }
+const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
 function touchingWall(pl){ const y0=Math.floor((pl.y-BOX.h)/TILE),y1=Math.floor((pl.y-1)/TILE),lx=Math.floor((pl.x-BOX.w/2-1)/TILE),rx=Math.floor((pl.x+BOX.w/2+1)/TILE); for(let ty=y0;ty<=y1;ty++) if(solidAt(lx,ty)||solidAt(rx,ty))return true; return false; }
@@ -316,12 +316,46 @@ function firstClingSide(pl){ const s=clingSides(pl); return s.R?'R':s.L?'L':s.U?
 // e CONVEXA (a face atual sumiu → contorna para uma face perpendicular disponível); senão, cola na quina.
 function spiderReattach(pl,preX,preY){ const s=clingSides(pl),N=pl.clingN,onWall=(N==='R'||N==='L');
   const up=pl.vy<0,dn=pl.vy>0,lf=pl.vx<0,rt=pl.vx>0;
-  if(onWall){ if(up&&s.U){pl.clingN='U';pl.vy=0;return;} if(dn&&s.D){pl.clingN='D';pl.vy=0;return;} }
-  else      { if(rt&&s.R){pl.clingN='R';pl.vx=0;return;} if(lf&&s.L){pl.clingN='L';pl.vx=0;return;} }
+  if(onWall){ if(up&&s.U){pl.clingN='U';pl.vy=0;return;} if(dn&&s.D){pl.clingN='D';pl.vy=0;return;} }   // CÔNCAVA (parede→teto/chão)
+  else      { if(rt&&s.R){pl.clingN='R';pl.vx=0;return;} if(lf&&s.L){pl.clingN='L';pl.vx=0;return;} }   // CÔNCAVA (teto→parede)
   if(s[N]) return;                               // ainda na mesma face
-  const perp = onWall ? (s.U?'U':s.D?'D':null) : (s.R?'R':s.L?'L':null); // convexa: contorna a quina
+  const perp = onWall ? (s.U?'U':s.D?'D':null) : (s.R?'R':s.L?'L':null); // CONVEXA: face perpendicular já adjacente
   if(perp){ pl.clingN=perp; pl.vx=0; pl.vy=0; return; }
-  pl.x=preX; pl.y=preY; pl.vx=0; pl.vy=0;        // sem face para contornar → fica colado na quina
+  wrapConvex(pl,N,{up,dn,lf,rt},preX,preY);      // CONVEXA "de ponta": reposiciona contornando a quina (dar a volta)
+}
+// Contorna a quina convexa (ponta): a face atual acabou e não há face perpendicular adjacente.
+// Acha a borda da face e reposiciona a caixa do outro lado da quina, na face perpendicular externa.
+function wrapConvex(pl,N,mv,preX,preY){ const T=TILE,hw=BOX.w/2,bh=BOX.h;
+  const tryland=(nN,nx,ny)=>{ const ox=pl.x,oy=pl.y,oN=pl.clingN; pl.x=nx;pl.y=ny;pl.clingN=nN;
+    if(clingSides(pl)[nN]){ pl.vx=0;pl.vy=0; return true; } pl.x=ox;pl.y=oy;pl.clingN=oN; return false; };
+  if(N==='U'||N==='D'){                          // estava no teto/chão andando na horizontal → desce/sobe pela face externa
+    const d = mv.rt?1:mv.lf?-1:0; if(d){
+      const srow = N==='U' ? Math.floor((preY-bh-1)/T) : Math.floor((preY+1)/T);
+      let edge=Math.floor(preX/T),guard=0;       // acha a ÚLTIMA coluna sólida da face (a borda), mesmo já tendo passado dela
+      if(solidAt(edge,srow)){ while(solidAt(edge+d,srow)&&guard++<64) edge+=d; }
+      else { while(!solidAt(edge,srow)&&guard++<64) edge-=d; }
+      if(solidAt(edge,srow)){
+        const nN = d>0?'L':'R';                  // bloco fica do lado de onde viemos
+        const nx = d>0 ? (edge+1)*T+hw+0.6 : edge*T-hw-0.6;
+        const ny = N==='U' ? srow*T+bh : (srow+1)*T; // encosta a caixa ao lado da face (na altura do bloco)
+        if(tryland(nN,nx,ny)) return;
+      }
+    }
+  } else {                                       // estava na parede subindo/descendo → contorna para o topo/fundo
+    const d = mv.up?-1:mv.dn?1:0; if(d){
+      const scol = N==='R' ? Math.floor((pl.x+hw+1)/T) : Math.floor((pl.x-hw-1)/T);
+      let edge=Math.floor((preY-1)/T),guard=0;   // acha a ÚLTIMA linha sólida da parede (a borda)
+      if(solidAt(scol,edge)){ while(solidAt(scol,edge+d)&&guard++<64) edge+=d; }
+      else { while(!solidAt(scol,edge)&&guard++<64) edge-=d; }
+      if(solidAt(scol,edge)){
+        const nN = d<0?'D':'U';                  // sobe→pousa no topo (D); desce→pendura no fundo (U)
+        const nx = scol*T+T/2;
+        const ny = d<0 ? edge*T-0.6 : (edge+1)*T+bh+0.6;
+        if(tryland(nN,nx,ny)) return;
+      }
+    }
+  }
+  pl.x=preX; pl.y=preY; pl.vx=0; pl.vy=0;        // sem como contornar → fica colado na quina
 }
 let players=[makePlayer(0)]; let player=players[0];
 let numPlayers=1;
@@ -653,9 +687,10 @@ function stepPlayer(pl,dt){
   else if(pl.clinging && pl.runEdge){ pl.clinging=false; sfx('power'); srSay('Soltou da superfície.'); } // E18b: CANCELA só com Correr (não com Pular); a caixa não larga a superfície antes disso
   if(!pl.clinging) pl.clingN=null;
   pl.jumpEdge=false; pl.runEdge=false;
-  // E16b: voo encerra ao Pular, tocar a água, ou tocar o solo (após um curto grace p/ não cancelar no mesmo frame da coleta)
-  if(pl.flyGrace>0)pl.flyGrace-=dt;
-  if(pl.activePower==='fly' && (pl.jumpBuffer>0 || pl.inWater || (pl.onGround&&pl.flyGrace<=0))){ pl.activePower='off'; pl.jumpBuffer=0; sfx('power'); srSay('Voo encerrado.'); }
+  // E16c: voo é ALTERNADO pelo Pulo NO AR (com o poder ativo): pula no ar → liga; pula voando → desliga.
+  // Tocar o solo ou a água também encerra. (Antes ligava ao coletar; agora exige o pulo no ar.)
+  if(pl.activePower==='fly' && pl.jumpBuffer>0 && !pl.onGround){ pl.flying=!pl.flying; pl.jumpBuffer=0; sfx('power'); srSay(pl.flying?'Voo ativado! Cima/Baixo sobem e descem; Pular encerra.':'Voo encerrado.'); }
+  if(pl.flying && (pl.onGround||pl.inWater||pl.activePower!=='fly')) pl.flying=false;
   let fired=false;
   if(pl.clinging){
     const sp=TUNE.climbSpeed; // E18c: movimento TANGENTE à face; a caixa fica colada até cancelar com Correr
@@ -665,7 +700,7 @@ function stepPlayer(pl,dt){
     pl.vy=0;
     if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
     if(pl.jumpBuffer>0){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
-  } else if(pl.activePower==='fly'){ // voo (item tile 8): Cima sobe / Baixo desce / plana parado. Pular CANCELA (tratado acima)
+  } else if(pl.flying){ // voo ATIVO: Cima sobe / Baixo desce / plana parado. Pular alterna (tratado acima)
     pl.waterStroke=0; const fs=turbo?3.9:2.6;
     if(held(pl,'up')) pl.vy=-fs; else if(held(pl,'down')) pl.vy=fs; else pl.vy*=0.7;
     pl.vy=Math.max(-fs,Math.min(fs,pl.vy));
@@ -710,7 +745,7 @@ function stepPlayer(pl,dt){
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
       if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
-      else { pl.activePower=pu.kind; pl.clinging=false; if(pu.kind==='fly')pl.flyGrace=12; sfx('power'); srSay(who+(POWER_MSG[pu.kind]||'Poder ativado!')); } // poderes mutuamente exclusivos
+      else { pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); srSay(who+(POWER_MSG[pu.kind]||'Poder ativado!')); } // poderes mutuamente exclusivos
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
@@ -731,7 +766,7 @@ function stepPlayer(pl,dt){
   if(pl.clinging)                 tx = hcMode?TEX_HC_CLING:TEX_CLING;
   else if(pl.onLadder)            tx = hcMode?TEX_HC_CLIMB:TEX_CLIMB;
   else if(pl.inWater)             tx = hcMode?TEX_HC_SWIM:TEX_SWIM;
-  else if(pl.activePower==='fly') tx = hcMode?TEX_HC_FLY:TEX_FLY;
+  else if(pl.flying)              tx = hcMode?TEX_HC_FLY:TEX_FLY;
   else if(airborne) tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)     // subindo: pernas recolhidas
                                  : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); // caindo: pernas estendidas
   else if(moving) tx=WW[Math.floor(pl.walkAnim/ANIM.walkHold)%WW.length];
@@ -899,7 +934,7 @@ function restartGame(){
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
-  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.activePower='off'; p.hasKey=false; p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; if(p.sprite)p.sprite.alpha=1; });
+  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.activePower='off'; p.hasKey=false; p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; if(p.sprite)p.sprite.alpha=1; });
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
