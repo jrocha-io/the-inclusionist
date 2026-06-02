@@ -12,11 +12,25 @@
 - **Opcional (dislexia/discalculia/TDAH):** **Lexend** (OFL) — selecionável a qualquer momento.
 - **Matemática (contas em pé/tabelas):** **Atkinson Hyperlegible Mono** (OFL) — dígitos claros + largura fixa; fórmulas via **STIX Two Math** (MathJax) ou **KaTeX**.
 - **Braille (embarcar):** **Braille CC0** (domínio público) — sem dor de licença.
-- **OpenDyslexic / Dyslexie:** **apenas escolha do usuário** — evidência fraca/negativa; **mantidas a pedido de quem prefere**, sem alegar eficácia.
-- **Demais papéis** (telas, títulos, pequenos, livros, redação, código, química, ícones, caligráficas) → **conforme necessidade, pelas ordens de preferência da v6**.
+- **Demais fontes do estudo** (telas, títulos, pequenos, livros, redação, código, química, ícones, caligráficas, **e OpenDyslexic/Dyslexie**) → **NÃO são canônicas**; usadas **somente quando necessário**, pelas ordens de preferência da v6. (A acessibilidade à dislexia é resolvida por **espaçamento**, não por troca de fonte — ver abaixo.)
 
-### Princípio que pesa mais que a fonte (v6 §1 / §7)
-Cor e contraste (**fundo creme/pastel**, não branco puro) + **espaçamento ajustável** a partir dos mínimos da WCAG 2.2 §1.4.12 (entrelinha ≥1,5 · entre-letras ≥0,12 · entre-palavras ≥0,16 · parágrafo ≥2,0) + economia de famílias. *O ganho real de leitura vem do espaçamento, não da "fonte mágica".*
+### Espaçamento — o que de fato resolve (v6 §1/§7)
+*O ganho real de leitura vem do espaçamento, não da "fonte mágica".* Por isso o **"modo dislexia" do jogo é um TOGGLE DE ESPAÇAMENTO**, não uma troca de fonte.
+
+**Espaçamento PADRÃO (mínimos WCAG 2.2 §1.4.12):**
+| Medida | Valor |
+|---|---|
+| Entrelinha (line-height) | **1,5×** (150%) |
+| Entre letras (letter-spacing) | **0,12em** |
+| Entre palavras (word-spacing) | **0,16em** |
+| Entre parágrafos | **2,0×** |
+
+**Toggle DISLEXIA (British Dyslexia Association + estudos de espaçamento):**
+- Regra: **espaço entre palavras ≥ 3,5× o espaço entre letras**; entrelinha 1,5/150% (ideal); entre-letras **≈35% da largura média da letra**, **sem exagerar** (excesso reduz legibilidade).
+- Para as sans do núcleo (Atkinson, Inter, Andika), largura média ≈ **0,5em** → 35% ≈ **0,17–0,18em**.
+- **Valores do toggle:** `letter-spacing: 0.18em` · `word-spacing: 0.63em` (= 3,5×0,18) · `line-height: 1.5`.
+
+**Cor/contraste:** fundo **creme/pastel** (não branco puro), texto escuro. **Economia de famílias** (poucas famílias, muitos pesos).
 
 ### Licenças que exigem ação antes de embarcar (v6 §6)
 Clash Display (ITF), APHont/Luciole (restritivas), Bembo/Plantin Infant + Sassoon (Monotype pagas), **Kindergarten Pro** (BR, paga, mira impresso → confirmar uso em app com a Just in Type), Braille Neue (sem licença aberta → usar Braille CC0), iA Writer Quattro/MonoLisa/Victor Mono (conferir termos). Pista livre p/ cursiva BR: **Letra Escolar Brasileira (UFRGS)** — verificar licença (pode poupar a Kindergarten).
