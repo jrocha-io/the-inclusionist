@@ -521,7 +521,7 @@ function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getCon
 // FASE ATUAL: usa o PIXEL ART do PixelLab DIRETO (PNG, tamanho NATIVO de cada frame — aspect ratio
 // próprio, sem padronizar). A conversão procedural (PIP_* acima) fica para uma fase posterior.
 // E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true
-const ANIM={ walkHold:6, runHold:4, idleHold:16, swimHold:24, clingHold:10 };  // andar 6 (passada calma); correr 4 (~15fps); swim 24 (~3fps); cling 10
+const ANIM={ walkHold:6, runHold:4, idleHold:16, swimHold:24, clingHold:10, climbHold:8 };  // andar 6; correr 4; swim 24; cling 10; escada 8
 const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const TEX_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'.png')); // idle = respiração suave (4 quadros)
 const TEX_WALK=[0,1,2,3,4,5].map(i=>pngTex('walk'+i+'.png'));      // ANDAR: passada curta (6 quadros)
@@ -533,8 +533,8 @@ const TEX_HC_RUN=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'_hc.png'));
 const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
 const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
 // E17: poses de estado (vista SE do EXP7) — escada, água, voo, ventosa
-const TEX_CLIMB=pngTex('climb.png'), TEX_FLY=pngTex('fly.png');
-const TEX_HC_CLIMB=pngTex('climb_hc.png'), TEX_HC_FLY=pngTex('fly_hc.png');
+const TEX_CLIMB=[pngTex('climb.png'),pngTex('climb1.png')], TEX_FLY=pngTex('fly.png'); // escada: ciclo de 2 quadros (passos alternados)
+const TEX_HC_CLIMB=[pngTex('climb_hc.png'),pngTex('climb1_hc.png')], TEX_HC_FLY=pngTex('fly_hc.png');
 const TEX_CLING=[pngTex('cling.png'),pngTex('cling1.png')], TEX_HC_CLING=[pngTex('cling_hc.png'),pngTex('cling1_hc.png')]; // aranha: ciclo de 2 quadros (rastejar mão-sobre-mão)
 const TEX_SWIM=[0,1].map(i=>pngTex('swim'+i+'.png')), TEX_HC_SWIM=[0,1].map(i=>pngTex('swim'+i+'_hc.png')); // nado MOVENDO: braçada + pernas
 const TEX_SWIMIDLE=[pngTex('swimidle0.png'),pngTex('swimidle1.png')], TEX_HC_SWIMIDLE=[pngTex('swimidle0_hc.png'),pngTex('swimidle1_hc.png')]; // nado PARADO: só pernas batendo
@@ -772,7 +772,8 @@ function stepPlayer(pl,dt){
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
   if(pl.clinging){ const CL=hcMode?TEX_HC_CLING:TEX_CLING; const crawl=(pl.vx!==0||pl.vy!==0); // rastejo só ao mover; parado = agarrado (quadro 0)
     tx = crawl ? CL[Math.floor(pl.walkAnim/ANIM.clingHold)%CL.length] : CL[0]; }
-  else if(pl.onLadder)            tx = hcMode?TEX_HC_CLIMB:TEX_CLIMB;
+  else if(pl.onLadder){ const CB=hcMode?TEX_HC_CLIMB:TEX_CLIMB; const climbing=(pl.vy!==0); // sobe/desce = passos alternados; parado na escada = agarrado (quadro 0)
+    tx = climbing ? CB[Math.floor(pl.walkAnim/ANIM.climbHold)%CB.length] : CB[0]; }
   else if(pl.inWater){ const stroking=(dir!==0)||held(pl,'jump'); // movendo = braçada+pernas; parado = só pernas (sempre batendo)
     const SW = stroking ? (hcMode?TEX_HC_SWIM:TEX_SWIM) : (hcMode?TEX_HC_SWIMIDLE:TEX_SWIMIDLE);
     tx = SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
