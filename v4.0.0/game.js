@@ -818,9 +818,7 @@ function placeCam(pl){
 function draw(){
   for(const pl of players){ if(!pl.sprite)continue;
     pl.sprite.x=pl.x; pl.sprite.y=pl.y+1;
-    // E19b: respiração procedural — escala vertical sutil só no idle (âncora na base = pés plantados, peito/cabeça sobem ~2%)
-    const breath = pl.idleNow ? (1 + 0.02*Math.sin(pl.anim*0.12)) : 1;
-    pl.sprite.scale.set((pl.facing<0?-1:1), breath);
+    pl.sprite.scale.set((pl.facing<0?-1:1), 1); // sem escala procedural (parecia mastigar) — respiração agora é por FRAMES
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
   if(numPlayers<=1){
