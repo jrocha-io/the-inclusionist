@@ -521,10 +521,14 @@ function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getCon
 // FASE ATUAL: usa o PIXEL ART do PixelLab DIRETO (PNG, tamanho NATIVO de cada frame — aspect ratio
 // próprio, sem padronizar). A conversão procedural (PIP_* acima) fica para uma fase posterior.
 // E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true
-const ANIM={ walkHold:4, idleHold:16, swimHold:24, clingHold:10 };  // walkHold=4 (~15fps); swimHold=24 (~3fps); clingHold=10 (rastejo)
+const ANIM={ walkHold:6, runHold:4, idleHold:16, swimHold:24, clingHold:10 };  // andar 6 (passada calma); correr 4 (~15fps); swim 24 (~3fps); cling 10
 const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
-const TEX_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'.png')), TEX_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('walk'+i+'.png')); // idle = respiração suave (4 quadros)
-const TEX_HC_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'_hc.png')), TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('walk'+i+'_hc.png'));
+const TEX_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'.png')); // idle = respiração suave (4 quadros)
+const TEX_WALK=[0,1,2,3,4,5].map(i=>pngTex('walk'+i+'.png'));      // ANDAR: passada curta (6 quadros)
+const TEX_RUN=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'.png'));    // CORRER: passada grande (8 quadros)
+const TEX_HC_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'_hc.png'));
+const TEX_HC_WALK=[0,1,2,3,4,5].map(i=>pngTex('walk'+i+'_hc.png'));
+const TEX_HC_RUN=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'_hc.png'));
 // E16: pulo — pose aérea estática (sobe=pernas recolhidas / cai=pernas estendidas), recortadas do jumping-1 SE
 const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
 const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
@@ -763,7 +767,7 @@ function stepPlayer(pl,dt){
   const moving=(dir!==0) && grounded && !pl.clinging;
   pl.anim += dt;                                   // idle (1 quadro; clock contínuo)
   pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
-  const II=hcMode?TEX_HC_IDLE:TEX_IDLE, WW=hcMode?TEX_HC_WALK:TEX_WALK;
+  const II=hcMode?TEX_HC_IDLE:TEX_IDLE;
   let tx;
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
   if(pl.clinging){ const CL=hcMode?TEX_HC_CLING:TEX_CLING; const crawl=(pl.vx!==0||pl.vy!==0); // rastejo só ao mover; parado = agarrado (quadro 0)
@@ -775,7 +779,10 @@ function stepPlayer(pl,dt){
   else if(pl.flying)              tx = hcMode?TEX_HC_FLY:TEX_FLY;
   else if(airborne) tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)     // subindo: pernas recolhidas
                                  : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); // caindo: pernas estendidas
-  else if(moving) tx=WW[Math.floor(pl.walkAnim/ANIM.walkHold)%WW.length];
+  else if(moving){ const running=held(pl,'run');                 // E19: correr (Correr segurado) ≠ andar — passada/cadência distintas
+    const M = running ? (hcMode?TEX_HC_RUN:TEX_RUN) : (hcMode?TEX_HC_WALK:TEX_WALK);
+    const hold = running ? ANIM.runHold : ANIM.walkHold;
+    tx = M[Math.floor(pl.walkAnim/hold)%M.length]; }
   else tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length];
   if(pl.sprite) pl.sprite.texture=tx;
 }
@@ -1115,7 +1122,8 @@ function hideTouchControls(){ const tc=document.querySelector('#touch-controls')
 (function debugPanel(){
   if(!/[?&]debug=true/.test(location.search)) return;
   const KNOBS=[
-    {label:'Cadência do passo (ticks/quadro — menor = mais rápido)', get:()=>ANIM.walkHold, set:v=>ANIM.walkHold=v, min:1, max:20, step:1},
+    {label:'Cadência do andar (ticks/quadro — menor = mais rápido)', get:()=>ANIM.walkHold, set:v=>ANIM.walkHold=v, min:1, max:20, step:1},
+    {label:'Cadência do correr (ticks/quadro)', get:()=>ANIM.runHold, set:v=>ANIM.runHold=v, min:1, max:20, step:1},
     {label:'Cadência do idle (ticks/quadro)', get:()=>ANIM.idleHold, set:v=>ANIM.idleHold=v, min:2, max:40, step:1},
     {label:'Cadência do nado (ticks/quadro)', get:()=>ANIM.swimHold, set:v=>ANIM.swimHold=v, min:2, max:24, step:1},
   ];
