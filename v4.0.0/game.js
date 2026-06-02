@@ -471,6 +471,9 @@ const ANIM={ walkHold:4, idleHold:16 };  // walkHold=4 (~15fps): cadência aprov
 const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const TEX_IDLE=[pngTex('idle.png')], TEX_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('walk'+i+'.png'));
 const TEX_HC_IDLE=[pngTex('idle_hc.png')], TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('walk'+i+'_hc.png'));
+// E16: pulo — pose aérea estática (sobe=pernas recolhidas / cai=pernas estendidas), recortadas do jumping-1 SE
+const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
+const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
 let hcMode = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
@@ -683,12 +686,15 @@ function stepPlayer(pl,dt){
   }
   // animação por frames (E15). 'moving' baseado no INPUT (direção segurada), NÃO em vx — a colisão
   // zera vx por frames e isso resetava o ciclo (só apareciam 2 quadros). Assim os 8 quadros tocam contínuos.
+  const airborne=!pl.onGround && !pl.clinging;     // E16: no ar (não na escada/ventosa)
   const moving=(dir!==0) && pl.onGround && !pl.clinging;
   pl.anim += dt;                                   // idle (1 quadro; clock contínuo)
   pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
   const II=hcMode?TEX_HC_IDLE:TEX_IDLE, WW=hcMode?TEX_HC_WALK:TEX_WALK;
   let tx;
-  if(moving) tx=WW[Math.floor(pl.walkAnim/ANIM.walkHold)%WW.length];
+  if(airborne) tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)     // subindo: pernas recolhidas
+                            : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); // caindo: pernas estendidas
+  else if(moving) tx=WW[Math.floor(pl.walkAnim/ANIM.walkHold)%WW.length];
   else tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length];    // idle/escada/voo/ventosa (perfil)
   if(pl.sprite) pl.sprite.texture=tx;
 }
