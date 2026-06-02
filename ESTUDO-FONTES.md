@@ -4,25 +4,24 @@
 
 ## 0. ROSTER OFICIAL (decisão do José, 2026-06-02)
 
-> Decidido após o estudo. Quase tudo é **OFL/Apache (libre, self-hostável)**; exceções: **Ubuntu (UFL)** e **Kindergarten Pro (comercial)**.
+> ⭐ **Documento CANÔNICO:** `referencia-tipografica-projeto-v6.md` (pesquisa completa do José — ordens de preferência por papel, evidência empírica e referências ABNT/DOI). Este `ESTUDO-FONTES.md` e a `PESQUISA-FONTES-CONDICOES-LETRAMENTO.md` foram **rascunhos que alimentaram a v6** — em caso de conflito, **vale a v6**.
 
-**Interface / acessibilidade (seletor):**
-- **Andika** — **fonte PADRÃO** do jogo (SIL OFL; desenhada p/ alfabetização e leitores iniciantes).
-- **Atkinson Hyperlegible** — **padrão no Alto Contraste**; selecionável a qualquer momento (OFL).
-- **OpenDyslexic** — **opcional**; selecionável a qualquer momento (OFL). **Mantida a pedido de quem prefere essa fonte, apesar da evidência fraca/negativa** (ver §4.2 e `PESQUISA-FONTES-CONDICOES-LETRAMENTO.md`). Decisão: oferecer como escolha, sem alegar eficácia.
+### Núcleo de defaults (o que entra como padrão no jogo)
+- **Padrão geral:** **Atkinson Hyperlegible** (OFL) — legibilidade/baixa visão; "0" com traço próprio, 1/l/I distintos.
+- **Alfabetização:** **Andika** (SIL OFL) — leitores iniciantes; formas alternativas de a/g/t conforme a BNCC.
+- **Opcional (dislexia/discalculia/TDAH):** **Lexend** (OFL) — selecionável a qualquer momento.
+- **Matemática (contas em pé/tabelas):** **Atkinson Hyperlegible Mono** (OFL) — dígitos claros + largura fixa; fórmulas via **STIX Two Math** (MathJax) ou **KaTeX**.
+- **Braille (embarcar):** **Braille CC0** (domínio público) — sem dor de licença.
+- **OpenDyslexic / Dyslexie:** **apenas escolha do usuário** — evidência fraca/negativa; **mantidas a pedido de quem prefere**, sem alegar eficácia.
+- **Demais papéis** (telas, títulos, pequenos, livros, redação, código, química, ícones, caligráficas) → **conforme necessidade, pelas ordens de preferência da v6**.
 
-**Momentos especiais (papéis):**
-- **Textos em telas:** **Ubuntu** (padrão, UFL) · variações **Lato** (OFL), **Roboto Flex** (Apache-2.0), **Open Sans** (OFL).
-- **Títulos / placas / logotipos:** **Montserrat** (padrão, OFL) · alternativas **Poppins** (OFL), **Plus Jakarta Sans** (OFL).
-- **Textos pequenos:** **Inter** (padrão, OFL) · alternativa **Geist** (OFL, Vercel).
-- **Quase-monoespaçada (escritas longas):** **iA Writer Quattro** (SIL OFL — a iA liberou) — escolha do José por astigmatismo/miopia/fadiga de tela.
-- **Textos longos (livros):** **Literata** (padrão, OFL) · **Merriweather** (2º, OFL) · **Lora** (3º, OFL) · **Bitter** (4º, OFL).
-- **Manuscrita pedagógica:** **Kindergarten Pro** (BR — comercial, licenciar embedding §6) · **Learning Curve** (EU/CA/US — **gratuita p/ uso comercial** §6.1).
-- **Caligráfica:** **Great Vibes**, **Pinyon Script** (OFL). **Blackletter:** **UnifrakturCook**, **UnifrakturMaguntia** (OFL). **Amigável/informal:** **Comic Neue** (OFL).
+### Princípio que pesa mais que a fonte (v6 §1 / §7)
+Cor e contraste (**fundo creme/pastel**, não branco puro) + **espaçamento ajustável** a partir dos mínimos da WCAG 2.2 §1.4.12 (entrelinha ≥1,5 · entre-letras ≥0,12 · entre-palavras ≥0,16 · parágrafo ≥2,0) + economia de famílias. *O ganho real de leitura vem do espaçamento, não da "fonte mágica".*
 
-**Ressalvas de licença a confirmar antes de embarcar:** Ubuntu = UFL (empacotável, atrito menor — §4.5); Kindergarten Pro = licença comercial de embedding + subset (§6.2). Todas as demais: self-host woff2 subsetado, sem custo.
+### Licenças que exigem ação antes de embarcar (v6 §6)
+Clash Display (ITF), APHont/Luciole (restritivas), Bembo/Plantin Infant + Sassoon (Monotype pagas), **Kindergarten Pro** (BR, paga, mira impresso → confirmar uso em app com a Just in Type), Braille Neue (sem licença aberta → usar Braille CC0), iA Writer Quattro/MonoLisa/Victor Mono (conferir termos). Pista livre p/ cursiva BR: **Letra Escolar Brasileira (UFRGS)** — verificar licença (pode poupar a Kindergarten).
 
-*A §3 abaixo é o estudo comparativo que embasou estas escolhas; mantida para auditoria.*
+*A §3 abaixo é o estudo comparativo inicial (rascunho); a referência viva é a v6.*
 
 ## 1. Restrições do projeto (pilares que pesam na escolha)
 
