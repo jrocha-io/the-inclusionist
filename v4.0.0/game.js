@@ -464,10 +464,12 @@ const PIP_WALK=[
 const isPix=(ch)=>ch>='0'&&ch<='9'&&ch!=='7'; // dígito de cor válido (7 = fundo vazado, ignora); robusto p/ linhas curtas
 function indexedToCanvas(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getContext('2d'); for(let y=0;y<PIP_H;y++){const r=rows[y];if(!r)continue;for(let x=0;x<PIP_W;x++){const ch=r[x];if(!isPix(ch))continue;c.fillStyle=PIP_PAL[+ch];c.fillRect(x,y,1,1);}} return cv; }
 function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getContext('2d'); c.fillStyle='#ffe600'; for(let y=0;y<PIP_H;y++){const r=rows[y];if(!r)continue;for(let x=0;x<PIP_W;x++){if(isPix(r[x]))c.fillRect(x,y,1,1);}} return cv; }
-const TEX_IDLE=[tex(indexedToCanvas(PIP_IDLE))], TEX_WALK=PIP_WALK.map(f=>tex(indexedToCanvas(f)));
-const TEX_HC_IDLE=[tex(silhouetteCanvasIdx(PIP_IDLE))], TEX_HC_WALK=PIP_WALK.map(f=>tex(silhouetteCanvasIdx(f)));
+// FASE ATUAL: usa o PIXEL ART do PixelLab DIRETO (PNG, tamanho NATIVO de cada frame — aspect ratio
+// próprio, sem padronizar). A conversão procedural (PIP_* acima) fica para uma fase posterior.
+const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
+const TEX_IDLE=[pngTex('idle.png')], TEX_WALK=[0,1,2,3,4,5].map(i=>pngTex('walk'+i+'.png'));
+const TEX_HC_IDLE=[pngTex('idle_hc.png')], TEX_HC_WALK=[0,1,2,3,4,5].map(i=>pngTex('walk'+i+'_hc.png'));
 let hcMode = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
-const JUICE={breath:true}; // E-juice: respiração do idle (desligável no debug, futuramente)
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 (function placeTrees(){
@@ -717,9 +719,7 @@ function placeCam(pl){
 function draw(){
   for(const pl of players){ if(!pl.sprite)continue;
     pl.sprite.x=pl.x; pl.sprite.y=pl.y+1;
-    const idleNow = Math.abs(pl.vx)<0.1 && pl.onGround && !pl.clinging;
-    const breath = (JUICE.breath && idleNow) ? 1+0.045*Math.sin(pl.anim*0.16) : 1; // respiração do idle (juice)
-    pl.sprite.scale.set((pl.facing<0?-1:1), breath);
+    pl.sprite.scale.set((pl.facing<0?-1:1), 1); // só flip por direção (sem respiração procedural por enquanto)
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
   if(numPlayers<=1){
