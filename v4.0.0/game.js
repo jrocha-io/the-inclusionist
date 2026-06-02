@@ -298,7 +298,7 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,airTime:99,flying:false}; }
+  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0}; }
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
@@ -521,7 +521,7 @@ function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getCon
 // FASE ATUAL: usa o PIXEL ART do PixelLab DIRETO (PNG, tamanho NATIVO de cada frame — aspect ratio
 // próprio, sem padronizar). A conversão procedural (PIP_* acima) fica para uma fase posterior.
 // E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true
-const ANIM={ walkHold:6, runHold:4, idleHold:20, swimHold:24, clingHold:10, climbHold:8 };  // andar 6; correr 4; swim 24; cling 10; escada 8
+const ANIM={ walkHold:6, runHold:4, idleHold:20, swimHold:24, clingHold:10, climbHold:8, flavorDelay:360 };  // andar 6; correr 4; swim 24; cling 10; escada 8; flavorDelay ~6s p/ gracinha
 const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const TEX_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'.png'));         // idle = RESPIRAÇÃO por frames (cabeça congelada → sem 'mastigar'; só o tronco respira)
 const TEX_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'.png'));   // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
@@ -529,6 +529,15 @@ const TEX_RUN=[0,1,2,3].map(i=>pngTex('sprint'+i+'.png'));         // CORRER = s
 const TEX_HC_IDLE=[pngTex('idle0_hc.png')];
 const TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'_hc.png'));
 const TEX_HC_RUN=[0,1,2,3].map(i=>pngTex('sprint'+i+'_hc.png'));
+// E20: idles ocasionais ("gracinhas") — parado um tempo, toca uma e volta a respirar
+const TEX_JOINHA=[0,1].map(i=>pngTex('joinha'+i+'.png')), TEX_HC_JOINHA=[0,1].map(i=>pngTex('joinha'+i+'_hc.png'));
+const TEX_ESPREG=[0,1].map(i=>pngTex('espreg'+i+'.png')), TEX_HC_ESPREG=[0,1].map(i=>pngTex('espreg'+i+'_hc.png'));
+const TEX_AQUECER=[pngTex('aquecer0.png')], TEX_HC_AQUECER=[pngTex('aquecer0_hc.png')];
+const FLAVORS=[
+  {tex:TEX_JOINHA, hc:TEX_HC_JOINHA, seq:[0,1,0,1,0,1], hold:12}, // joínha (bounce do polegar)
+  {tex:TEX_ESPREG, hc:TEX_HC_ESPREG, seq:[0,1,1,1,1,0], hold:16}, // espreguiçar (sobe, segura, desce)
+  {tex:TEX_AQUECER, hc:TEX_HC_AQUECER, seq:[0,0,0], hold:40},     // aquecer (segura a pose)
+];
 // E16: pulo — pose aérea estática (sobe=pernas recolhidas / cai=pernas estendidas), recortadas do jumping-1 SE
 const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
 const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
@@ -785,7 +794,12 @@ function stepPlayer(pl,dt){
     const M = running ? (hcMode?TEX_HC_RUN:TEX_RUN) : (hcMode?TEX_HC_WALK:TEX_WALK);
     const hold = running ? ANIM.runHold : ANIM.walkHold;
     tx = M[Math.floor(pl.walkAnim/hold)%M.length]; }
-  else { tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; pl.idleNow=true; } // parado → respiração procedural no draw()
+  else { pl.idleNow=true; pl.idleTime+=dt;                       // E20: parado → respira; após flavorDelay, toca uma gracinha
+    if(pl.flavor<0 && pl.idleTime>ANIM.flavorDelay){ pl.flavor=Math.floor(rnd()*FLAVORS.length); pl.flavorT=0; }
+    if(pl.flavor>=0){ const F=FLAVORS[pl.flavor]; const step=Math.floor(pl.flavorT/F.hold); pl.flavorT+=dt;
+      if(step>=F.seq.length){ pl.flavor=-1; pl.idleTime=0; } else { const arr=hcMode?F.hc:F.tex; tx=arr[F.seq[step]]; } }
+    if(pl.flavor<0) tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } // respiração por frames
+  if(!pl.idleNow){ pl.idleTime=0; pl.flavor=-1; }                 // saiu do idle → zera gracinha
   if(pl.sprite) pl.sprite.texture=tx;
 }
 function update(dt){
@@ -949,7 +963,7 @@ function restartGame(){
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
-  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.activePower='off'; p.hasKey=false; p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; if(p.sprite)p.sprite.alpha=1; });
+  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.activePower='off'; p.hasKey=false; p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; p.idleTime=0; p.flavor=-1; if(p.sprite)p.sprite.alpha=1; });
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
