@@ -298,7 +298,7 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,runEdge:false,airTime:99}; }
+  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,runEdge:false,airTime:99,flyGrace:0}; }
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Voo ativado! Cima e baixo sobem e descem.',wallcling:'Ventosa! No ar, aperte Correr perto da parede para grudar; Pular solta.'};
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
@@ -474,6 +474,9 @@ const TEX_HC_IDLE=[pngTex('idle_hc.png')], TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>
 // E16: pulo — pose aérea estática (sobe=pernas recolhidas / cai=pernas estendidas), recortadas do jumping-1 SE
 const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
 const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
+// E17: poses de estado (vista SE do EXP7) — escada, água, voo, ventosa
+const TEX_CLIMB=pngTex('climb.png'), TEX_SWIM=pngTex('swim.png'), TEX_FLY=pngTex('fly.png'), TEX_CLING=pngTex('cling.png');
+const TEX_HC_CLIMB=pngTex('climb_hc.png'), TEX_HC_SWIM=pngTex('swim_hc.png'), TEX_HC_FLY=pngTex('fly_hc.png'), TEX_HC_CLING=pngTex('cling_hc.png');
 let hcMode = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
@@ -625,20 +628,24 @@ function stepPlayer(pl,dt){
   if(feat.lava && !assist) triggerLava(pl);
   if(pl.jumpEdge)pl.jumpBuffer=7; else if(pl.jumpBuffer>0)pl.jumpBuffer--;
   // E18: ventosa (homem-aranha) — gruda na parede ao apertar Correr no ar; solta com Pular
-  if(pl.clinging && (pl.onGround||pl.onLadder||pl.inWater||pl.activePower!=='wallcling')) pl.clinging=false;
-  if(pl.activePower==='wallcling' && !pl.clinging && pl.runEdge && !pl.onGround && !pl.onLadder && !pl.inWater && touchingWall(pl)){ pl.clinging=true; pl.vy=0; pl.jumpBuffer=0; sfx('power'); srSay('Grudou na parede! Cima/baixo movem; Pular solta.'); }
-  if(pl.clinging && pl.jumpBuffer>0){ pl.clinging=false; pl.jumpBuffer=0; pl.vy=-JUMP_BASE; sfx('jump'); }
+  if(pl.clinging && (pl.onGround||pl.onLadder||pl.inWater||pl.activePower!=='wallcling')) pl.clinging=false; // auto-solta
+  if(pl.activePower==='wallcling' && !pl.clinging && pl.runEdge && !pl.onGround && !pl.onLadder && !pl.inWater && touchingWall(pl)){ pl.clinging=true; pl.vy=0; pl.jumpBuffer=0; sfx('power'); srSay('Grudou na parede! Cima/baixo sobem/descem; Correr solta.'); }
+  else if(pl.clinging && pl.runEdge){ pl.clinging=false; sfx('power'); srSay('Soltou da parede.'); } // E18b: CANCELA só com Correr (não com Pular); a caixa não larga a parede antes disso
   pl.jumpEdge=false; pl.runEdge=false;
+  // E16b: voo encerra ao Pular, tocar a água, ou tocar o solo (após um curto grace p/ não cancelar no mesmo frame da coleta)
+  if(pl.flyGrace>0)pl.flyGrace-=dt;
+  if(pl.activePower==='fly' && (pl.jumpBuffer>0 || pl.inWater || (pl.onGround&&pl.flyGrace<=0))){ pl.activePower='off'; pl.jumpBuffer=0; sfx('power'); srSay('Voo encerrado.'); }
   let fired=false;
   if(pl.clinging){
+    pl.vx=0; // E18b: não desliza para fora da parede — a caixa fica colada até cancelar com Correr
     if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed; else pl.vy=0;
   } else if(pl.onLadder){
     pl.vy=0;
     if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
     if(pl.jumpBuffer>0){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
-  } else if(pl.activePower==='fly'){ // voo (item tile 8): cima/baixo sobem/descem, plana parado
+  } else if(pl.activePower==='fly'){ // voo (item tile 8): Cima sobe / Baixo desce / plana parado. Pular CANCELA (tratado acima)
     pl.waterStroke=0; const fs=turbo?3.9:2.6;
-    if(held(pl,'jump')||held(pl,'up')) pl.vy=-fs; else if(held(pl,'down')) pl.vy=fs; else pl.vy*=0.7;
+    if(held(pl,'up')) pl.vy=-fs; else if(held(pl,'down')) pl.vy=fs; else pl.vy*=0.7;
     pl.vy=Math.max(-fs,Math.min(fs,pl.vy));
   } else {
     const g = pl.inWater?0.10:TUNE.gravity;
@@ -659,7 +666,9 @@ function stepPlayer(pl,dt){
     }
   }
   pl.x+=pl.vx*dt; resolveX(pl);
+  const _preY=pl.y;
   pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
+  if(pl.clinging && !touchingWall(pl)){ pl.y=_preY; pl.vy=0; } // E18b: não sobe/desce para além da parede (mantém contato)
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
   if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
@@ -679,7 +688,7 @@ function stepPlayer(pl,dt){
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
       if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
-      else { pl.activePower=pu.kind; pl.clinging=false; sfx('power'); srSay(who+(POWER_MSG[pu.kind]||'Poder ativado!')); } // poderes mutuamente exclusivos
+      else { pl.activePower=pu.kind; pl.clinging=false; if(pu.kind==='fly')pl.flyGrace=12; sfx('power'); srSay(who+(POWER_MSG[pu.kind]||'Poder ativado!')); } // poderes mutuamente exclusivos
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
@@ -696,10 +705,15 @@ function stepPlayer(pl,dt){
   pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
   const II=hcMode?TEX_HC_IDLE:TEX_IDLE, WW=hcMode?TEX_HC_WALK:TEX_WALK;
   let tx;
-  if(airborne) tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)     // subindo: pernas recolhidas
-                            : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); // caindo: pernas estendidas
+  // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
+  if(pl.clinging)                 tx = hcMode?TEX_HC_CLING:TEX_CLING;
+  else if(pl.onLadder)            tx = hcMode?TEX_HC_CLIMB:TEX_CLIMB;
+  else if(pl.inWater)             tx = hcMode?TEX_HC_SWIM:TEX_SWIM;
+  else if(pl.activePower==='fly') tx = hcMode?TEX_HC_FLY:TEX_FLY;
+  else if(airborne) tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)     // subindo: pernas recolhidas
+                                 : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); // caindo: pernas estendidas
   else if(moving) tx=WW[Math.floor(pl.walkAnim/ANIM.walkHold)%WW.length];
-  else tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length];    // idle/escada/voo/ventosa (perfil)
+  else tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length];
   if(pl.sprite) pl.sprite.texture=tx;
 }
 function update(dt){
