@@ -681,10 +681,11 @@ function stepPlayer(pl,dt){
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
       if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); break; } }
   }
-  // animação por frames (E15): idle SEMPRE respira; andar = ciclo de 6; HC = silhueta chapada
-  const moving=Math.abs(pl.vx)>0.1 && pl.onGround && !pl.clinging;
-  pl.anim += dt;                                   // idle nunca congela (respiração)
-  pl.walkAnim = moving ? pl.walkAnim+dt : 0;
+  // animação por frames (E15). 'moving' baseado no INPUT (direção segurada), NÃO em vx — a colisão
+  // zera vx por frames e isso resetava o ciclo (só apareciam 2 quadros). Assim os 8 quadros tocam contínuos.
+  const moving=(dir!==0) && pl.onGround && !pl.clinging;
+  pl.anim += dt;                                   // idle (1 quadro; clock contínuo)
+  pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
   const II=hcMode?TEX_HC_IDLE:TEX_IDLE, WW=hcMode?TEX_HC_WALK:TEX_WALK;
   let tx;
   if(moving) tx=WW[Math.floor(pl.walkAnim/ANIM.walkHold)%WW.length];
