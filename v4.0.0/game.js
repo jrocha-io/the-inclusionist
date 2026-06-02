@@ -466,6 +466,8 @@ function indexedToCanvas(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getContext
 function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getContext('2d'); c.fillStyle='#ffe600'; for(let y=0;y<PIP_H;y++){const r=rows[y];if(!r)continue;for(let x=0;x<PIP_W;x++){if(isPix(r[x]))c.fillRect(x,y,1,1);}} return cv; }
 // FASE ATUAL: usa o PIXEL ART do PixelLab DIRETO (PNG, tamanho NATIVO de cada frame — aspect ratio
 // próprio, sem padronizar). A conversão procedural (PIP_* acima) fica para uma fase posterior.
+// E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true
+const ANIM={ walkHold:5, idleHold:16 };
 const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const TEX_IDLE=[pngTex('idle.png')], TEX_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('walk'+i+'.png'));
 const TEX_HC_IDLE=[pngTex('idle_hc.png')], TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('walk'+i+'_hc.png'));
@@ -685,8 +687,8 @@ function stepPlayer(pl,dt){
   pl.walkAnim = moving ? pl.walkAnim+dt : 0;
   const II=hcMode?TEX_HC_IDLE:TEX_IDLE, WW=hcMode?TEX_HC_WALK:TEX_WALK;
   let tx;
-  if(moving) tx=WW[Math.floor(pl.walkAnim/5)%WW.length];
-  else tx=II[Math.floor(pl.anim/16)%II.length];    // idle/escada/voo/ventosa → idle respirando (perfil)
+  if(moving) tx=WW[Math.floor(pl.walkAnim/ANIM.walkHold)%WW.length];
+  else tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length];    // idle/escada/voo/ventosa (perfil)
   if(pl.sprite) pl.sprite.texture=tx;
 }
 function update(dt){
@@ -1019,6 +1021,31 @@ function hideTouchControls(){ const tc=document.querySelector('#touch-controls')
     stick.addEventListener('lostpointercapture',reset); stick.addEventListener('contextmenu',(e)=>e.preventDefault());
   }
   window.__incl.showTouch=()=>{ tc.hidden=false; }; // p/ testes em desktop
+})();
+
+/* ===================== ?debug=true: painel de afinação ao vivo (cadência etc.) ===================== */
+(function debugPanel(){
+  if(!/[?&]debug=true/.test(location.search)) return;
+  const KNOBS=[
+    {label:'Cadência do passo (ticks/quadro — menor = mais rápido)', get:()=>ANIM.walkHold, set:v=>ANIM.walkHold=v, min:1, max:20, step:1},
+    {label:'Cadência do idle (ticks/quadro)', get:()=>ANIM.idleHold, set:v=>ANIM.idleHold=v, min:2, max:40, step:1},
+  ];
+  const p=document.createElement('div'); p.id='debug-panel'; p.setAttribute('role','group'); p.setAttribute('aria-label','Painel de depuração');
+  p.style.cssText='position:fixed;top:8px;right:8px;z-index:200;background:rgba(11,16,32,.96);color:#fff;border:2px solid #ffd23f;border-radius:8px;padding:.6rem .7rem;font:13px/1.45 system-ui,sans-serif;max-width:250px;box-shadow:0 4px 16px rgba(0,0,0,.5)';
+  p.innerHTML='<strong>🔧 ?debug — afinação</strong>';
+  KNOBS.forEach(k=>{
+    const row=document.createElement('div'); row.style.cssText='margin-top:.55rem';
+    const lab=document.createElement('label'); lab.style.cssText='display:block;font-size:12px;margin-bottom:2px';
+    const val=document.createElement('strong'); val.style.cssText='color:#ffd23f;float:right';
+    const fps=()=>Math.round(60/k.get())+'fps'; // ciclo aprox. (1 tick ≈ 1/60s)
+    const upd=()=>{ val.textContent=k.get()+' ('+fps()+')'; };
+    lab.textContent=k.label; lab.appendChild(val);
+    const inp=document.createElement('input'); inp.type='range'; inp.min=k.min;inp.max=k.max;inp.step=k.step;inp.value=k.get(); inp.style.cssText='width:100%';
+    inp.setAttribute('aria-label',k.label);
+    inp.addEventListener('input',()=>{ k.set(parseFloat(inp.value)); upd(); });
+    row.appendChild(lab); row.appendChild(inp); p.appendChild(row); upd();
+  });
+  document.body.appendChild(p);
 })();
 
 /* ===================== PWA ===================== */
