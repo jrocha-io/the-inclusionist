@@ -521,7 +521,7 @@ function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getCon
 // FASE ATUAL: usa o PIXEL ART do PixelLab DIRETO (PNG, tamanho NATIVO de cada frame — aspect ratio
 // próprio, sem padronizar). A conversão procedural (PIP_* acima) fica para uma fase posterior.
 // E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true
-const ANIM={ walkHold:4, idleHold:16 };  // walkHold=4 (~15fps): cadência aprovada pelo José
+const ANIM={ walkHold:4, idleHold:16, swimHold:8 };  // walkHold=4 (~15fps): cadência aprovada pelo José; swimHold=8 (braçada mais lenta)
 const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const TEX_IDLE=[pngTex('idle.png')], TEX_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('walk'+i+'.png'));
 const TEX_HC_IDLE=[pngTex('idle_hc.png')], TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('walk'+i+'_hc.png'));
@@ -529,8 +529,9 @@ const TEX_HC_IDLE=[pngTex('idle_hc.png')], TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>
 const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
 const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
 // E17: poses de estado (vista SE do EXP7) — escada, água, voo, ventosa
-const TEX_CLIMB=pngTex('climb.png'), TEX_SWIM=pngTex('swim.png'), TEX_FLY=pngTex('fly.png'), TEX_CLING=pngTex('cling.png');
-const TEX_HC_CLIMB=pngTex('climb_hc.png'), TEX_HC_SWIM=pngTex('swim_hc.png'), TEX_HC_FLY=pngTex('fly_hc.png'), TEX_HC_CLING=pngTex('cling_hc.png');
+const TEX_CLIMB=pngTex('climb.png'), TEX_FLY=pngTex('fly.png'), TEX_CLING=pngTex('cling.png');
+const TEX_HC_CLIMB=pngTex('climb_hc.png'), TEX_HC_FLY=pngTex('fly_hc.png'), TEX_HC_CLING=pngTex('cling_hc.png');
+const TEX_SWIM=[0,1].map(i=>pngTex('swim'+i+'.png')), TEX_HC_SWIM=[0,1].map(i=>pngTex('swim'+i+'_hc.png')); // nado: ciclo de 2 quadros (braçada + pernas)
 let hcMode = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
@@ -765,7 +766,7 @@ function stepPlayer(pl,dt){
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
   if(pl.clinging)                 tx = hcMode?TEX_HC_CLING:TEX_CLING;
   else if(pl.onLadder)            tx = hcMode?TEX_HC_CLIMB:TEX_CLIMB;
-  else if(pl.inWater)             tx = hcMode?TEX_HC_SWIM:TEX_SWIM;
+  else if(pl.inWater){ const SW=hcMode?TEX_HC_SWIM:TEX_SWIM; tx=SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; } // nado animado (pernas batendo + braçada)
   else if(pl.flying)              tx = hcMode?TEX_HC_FLY:TEX_FLY;
   else if(airborne) tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)     // subindo: pernas recolhidas
                                  : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); // caindo: pernas estendidas
@@ -1111,6 +1112,7 @@ function hideTouchControls(){ const tc=document.querySelector('#touch-controls')
   const KNOBS=[
     {label:'Cadência do passo (ticks/quadro — menor = mais rápido)', get:()=>ANIM.walkHold, set:v=>ANIM.walkHold=v, min:1, max:20, step:1},
     {label:'Cadência do idle (ticks/quadro)', get:()=>ANIM.idleHold, set:v=>ANIM.idleHold=v, min:2, max:40, step:1},
+    {label:'Cadência do nado (ticks/quadro)', get:()=>ANIM.swimHold, set:v=>ANIM.swimHold=v, min:2, max:24, step:1},
   ];
   const p=document.createElement('div'); p.id='debug-panel'; p.setAttribute('role','group'); p.setAttribute('aria-label','Painel de depuração');
   p.style.cssText='position:fixed;top:8px;right:8px;z-index:200;background:rgba(11,16,32,.96);color:#fff;border:2px solid #ffd23f;border-radius:8px;padding:.6rem .7rem;font:13px/1.45 system-ui,sans-serif;max-width:250px;box-shadow:0 4px 16px rgba(0,0,0,.5)';
