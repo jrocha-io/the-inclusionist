@@ -523,18 +523,18 @@ function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getCon
 // E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true
 const ANIM={ walkHold:6, runHold:4, idleHold:16, swimHold:24, clingHold:10, climbHold:8 };  // andar 6; correr 4; swim 24; cling 10; escada 8
 const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
-const TEX_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'.png')); // idle = respiração suave (4 quadros)
-const TEX_WALK=[0,1,2,3,4,5].map(i=>pngTex('walk'+i+'.png'));      // ANDAR: passada curta (6 quadros)
-const TEX_RUN=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'.png'));    // CORRER: passada grande (8 quadros)
-const TEX_HC_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'_hc.png'));
-const TEX_HC_WALK=[0,1,2,3,4,5].map(i=>pngTex('walk'+i+'_hc.png'));
+const TEX_IDLE=[pngTex('idle0.png')];                             // idle ESTÁTICO (respiração é procedural — escala vertical suave, sem trocar quadros)
+const TEX_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'.png'));   // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
+const TEX_RUN=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'.png'));    // CORRER = provisório (mesmos quadros) até a sprint AGRESSIVA chegar
+const TEX_HC_IDLE=[pngTex('idle0_hc.png')];
+const TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'_hc.png'));
 const TEX_HC_RUN=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'_hc.png'));
 // E16: pulo — pose aérea estática (sobe=pernas recolhidas / cai=pernas estendidas), recortadas do jumping-1 SE
 const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
 const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
 // E17: poses de estado (vista SE do EXP7) — escada, água, voo, ventosa
-const TEX_CLIMB=[pngTex('climb.png'),pngTex('climb1.png')], TEX_FLY=pngTex('fly.png'); // escada: ciclo de 2 quadros (passos alternados)
-const TEX_HC_CLIMB=[pngTex('climb_hc.png'),pngTex('climb1_hc.png')], TEX_HC_FLY=pngTex('fly_hc.png');
+const TEX_CLIMB=[pngTex('climbback0.png'),pngTex('climbback1.png')], TEX_FLY=pngTex('fly.png'); // ESCADA: vista de COSTAS (rotação norte), 2 quadros alternados
+const TEX_HC_CLIMB=[pngTex('climbback0_hc.png'),pngTex('climbback1_hc.png')], TEX_HC_FLY=pngTex('fly_hc.png');
 const TEX_CLING=[pngTex('cling.png'),pngTex('cling1.png')], TEX_HC_CLING=[pngTex('cling_hc.png'),pngTex('cling1_hc.png')]; // aranha: ciclo de 2 quadros (rastejar mão-sobre-mão)
 const TEX_SWIM=[0,1].map(i=>pngTex('swim'+i+'.png')), TEX_HC_SWIM=[0,1].map(i=>pngTex('swim'+i+'_hc.png')); // nado MOVENDO: braçada + pernas
 const TEX_SWIMIDLE=[pngTex('swimidle0.png'),pngTex('swimidle1.png')], TEX_HC_SWIMIDLE=[pngTex('swimidle0_hc.png'),pngTex('swimidle1_hc.png')]; // nado PARADO: só pernas batendo
@@ -768,7 +768,7 @@ function stepPlayer(pl,dt){
   pl.anim += dt;                                   // idle (1 quadro; clock contínuo)
   pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
   const II=hcMode?TEX_HC_IDLE:TEX_IDLE;
-  let tx;
+  let tx; pl.idleNow=false;
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
   if(pl.clinging){ const CL=hcMode?TEX_HC_CLING:TEX_CLING; const crawl=(pl.vx!==0||pl.vy!==0); // rastejo só ao mover; parado = agarrado (quadro 0)
     tx = crawl ? CL[Math.floor(pl.walkAnim/ANIM.clingHold)%CL.length] : CL[0]; }
@@ -784,7 +784,7 @@ function stepPlayer(pl,dt){
     const M = running ? (hcMode?TEX_HC_RUN:TEX_RUN) : (hcMode?TEX_HC_WALK:TEX_WALK);
     const hold = running ? ANIM.runHold : ANIM.walkHold;
     tx = M[Math.floor(pl.walkAnim/hold)%M.length]; }
-  else tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length];
+  else { tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; pl.idleNow=true; } // parado → respiração procedural no draw()
   if(pl.sprite) pl.sprite.texture=tx;
 }
 function update(dt){
@@ -817,7 +817,9 @@ function placeCam(pl){
 function draw(){
   for(const pl of players){ if(!pl.sprite)continue;
     pl.sprite.x=pl.x; pl.sprite.y=pl.y+1;
-    pl.sprite.scale.set((pl.facing<0?-1:1), 1); // só flip por direção (sem respiração procedural por enquanto)
+    // E19b: respiração procedural — escala vertical sutil só no idle (âncora na base = pés plantados, peito/cabeça sobem ~2%)
+    const breath = pl.idleNow ? (1 + 0.02*Math.sin(pl.anim*0.12)) : 1;
+    pl.sprite.scale.set((pl.facing<0?-1:1), breath);
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
   if(numPlayers<=1){
