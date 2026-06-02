@@ -701,7 +701,8 @@ function stepPlayer(pl,dt){
   let fired=false;
   if(pl.clinging){
     const sp=TUNE.climbSpeed; // E18c: movimento TANGENTE à face; a caixa fica colada até cancelar com Correr
-    if(pl.clingN==='U'||pl.clingN==='D'){ pl.vy=0; pl.vx = held(pl,'left')?-sp : held(pl,'right')?sp : 0; }   // teto/chão: anda na horizontal
+    if(pl.clingN==='R')pl.facing=1; else if(pl.clingN==='L')pl.facing=-1;   // E18e: ALPINISMO — vira de frente PARA a parede
+    if(pl.clingN==='U'||pl.clingN==='D'){ pl.vy=0; const h=held(pl,'left')?-1:held(pl,'right')?1:0; pl.vx=h*sp; if(h)pl.facing=h; } // teto/chão: anda na horizontal
     else { pl.vx=0; pl.vy = held(pl,'up')?-sp : held(pl,'down')?sp : 0; }                                        // parede: sobe/desce
   } else if(pl.onLadder){
     pl.vy=0;
