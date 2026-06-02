@@ -298,7 +298,7 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0}; }
+  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0}; }
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
@@ -544,7 +544,9 @@ const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_dow
 // E17: poses de estado (vista SE do EXP7) — escada, água, voo, ventosa
 const TEX_CLIMB=[pngTex('climbback0.png'),pngTex('climbback1.png')], TEX_FLY=pngTex('fly.png'); // ESCADA: vista de COSTAS (rotação norte), 2 quadros alternados
 const TEX_HC_CLIMB=[pngTex('climbback0_hc.png'),pngTex('climbback1_hc.png')], TEX_HC_FLY=pngTex('fly_hc.png');
-const TEX_CLING=[pngTex('cling.png'),pngTex('cling1.png')], TEX_HC_CLING=[pngTex('cling_hc.png'),pngTex('cling1_hc.png')]; // aranha: ciclo de 2 quadros (rastejar mão-sobre-mão)
+// E18f: aranha — ANDAR NA PAREDE e ANDAR NO TETO são ciclos distintos (4 quadros cada)
+const TEX_CLING_WALL=[0,1,2,3].map(i=>pngTex('clingwall'+i+'.png')), TEX_HC_CLING_WALL=[0,1,2,3].map(i=>pngTex('clingwall'+i+'_hc.png'));
+const TEX_CLING_CEIL=[0,1,2,3].map(i=>pngTex('clingceil'+i+'.png')), TEX_HC_CLING_CEIL=[0,1,2,3].map(i=>pngTex('clingceil'+i+'_hc.png'));
 const TEX_SWIM=[0,1].map(i=>pngTex('swim'+i+'.png')), TEX_HC_SWIM=[0,1].map(i=>pngTex('swim'+i+'_hc.png')); // nado MOVENDO: braçada + pernas
 const TEX_SWIMIDLE=[pngTex('swimidle0.png'),pngTex('swimidle1.png')], TEX_HC_SWIMIDLE=[pngTex('swimidle0_hc.png'),pngTex('swimidle1_hc.png')]; // nado PARADO: só pernas batendo
 let hcMode = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
@@ -780,8 +782,10 @@ function stepPlayer(pl,dt){
   const II=hcMode?TEX_HC_IDLE:TEX_IDLE;
   let tx; pl.idleNow=false;
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
-  if(pl.clinging){ const CL=hcMode?TEX_HC_CLING:TEX_CLING; const crawl=(pl.vx!==0||pl.vy!==0); // rastejo só ao mover; parado = agarrado (quadro 0)
-    tx = crawl ? CL[Math.floor(pl.walkAnim/ANIM.clingHold)%CL.length] : CL[0]; }
+  if(pl.clinging){ const ceil=(pl.clingN==='U'); // E18f: teto e parede usam ciclos distintos
+    const CL = ceil ? (hcMode?TEX_HC_CLING_CEIL:TEX_CLING_CEIL) : (hcMode?TEX_HC_CLING_WALL:TEX_CLING_WALL);
+    if(pl.vx!==0||pl.vy!==0) pl.climbFrame=(Math.floor(pl.walkAnim/ANIM.clingHold))%CL.length; // só avança ao mover; parado MANTÉM o quadro
+    tx = CL[(pl.climbFrame||0)%CL.length]; }
   else if(pl.onLadder){ const CB=hcMode?TEX_HC_CLIMB:TEX_CLIMB; const climbing=(pl.vy!==0); // sobe/desce = passos alternados; parado na escada = agarrado (quadro 0)
     tx = climbing ? CB[Math.floor(pl.walkAnim/ANIM.climbHold)%CB.length] : CB[0]; }
   else if(pl.inWater){ const stroking=(dir!==0)||held(pl,'jump'); // movendo = braçada+pernas; parado = só pernas (sempre batendo)
