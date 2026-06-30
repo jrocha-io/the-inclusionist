@@ -111,6 +111,7 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 .btn--primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 
 .overlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(0,0,0,.7);padding:1rem}
+#visual{background:rgba(0,0,0,.28);align-items:start;padding-top:3.5rem} /* cor: fundo translúcido p/ ver o efeito imediato no jogo */
 [hidden]{display:none!important}
 /* menus nunca ultrapassam a tela: limitados à altura do viewport e roláveis (rodapé de ações fica fixo embaixo) */
 .overlay__card{background:var(--panel);border:3px solid var(--accent);border-radius:12px;padding:1.5rem;max-width:420px;width:100%;text-align:center;

@@ -439,7 +439,7 @@ let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
 
 /* ===================== input ===================== */
-const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false;
+const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false;
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
 const KB_DEFAULTS={
@@ -475,6 +475,7 @@ addEventListener('keydown',(e)=>{
   if(optionsOpen){ if(e.code==='Escape')closeOptions(); return; } // diálogo aberto: não joga
   if(movementOpen){ if(e.code==='Escape')closeMovement(); return; }
   if(animationOpen){ if(e.code==='Escape')closeAnimation(); return; }
+  if(visualOpen){ if(e.code==='Escape')closeVisual(); return; }
   if(!player.quiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
@@ -644,11 +645,11 @@ const PALETTES={
 // sim-*=SIMULAÇÃO de daltonismo via filtro SVG na <canvas> (auditoria + demo; preserva a arte, transformação linear na GPU).
 // Grupos por importância: G1 (personagem/itens/NPC especial), G2 (plataforma/escada/porta/secundário), G3 (fundo).
 const VIZ_MODES=[
-  {key:'normal',     label:'🎨 Cores normais'},
-  {key:'bordas',     label:'🎨 Normal AA: bordas'},
-  {key:'sim-deuter', label:'👁 Simular: Deuteranopia', filter:'url(#cvd-deuter)'},
-  {key:'sim-protan', label:'👁 Simular: Protanopia',   filter:'url(#cvd-protan)'},
-  {key:'sim-tritan', label:'👁 Simular: Tritanopia',   filter:'url(#cvd-tritan)'},
+  {key:'normal',     label:'🎨 Cores normais',        nome:'Cores normais',          desc:'Arte original do jogo.'},
+  {key:'bordas',     label:'🎨 Normal AA: bordas',    nome:'Contorno (Normal AA)',   desc:'Contorno escuro em personagem, itens e bordas das plataformas (WCAG AA).'},
+  {key:'sim-deuter', label:'👁 Simular: Deuteranopia',nome:'Simular Deuteranopia',   desc:'Como vê quem não enxerga o verde (mais comum).', filter:'url(#cvd-deuter)'},
+  {key:'sim-protan', label:'👁 Simular: Protanopia',  nome:'Simular Protanopia',     desc:'Como vê quem não enxerga o vermelho.', filter:'url(#cvd-protan)'},
+  {key:'sim-tritan', label:'👁 Simular: Tritanopia',  nome:'Simular Tritanopia',     desc:'Como vê quem não enxerga o azul.', filter:'url(#cvd-tritan)'},
 ];
 const VIZ_FILTER=Object.fromEntries(VIZ_MODES.map(m=>[m.key, m.filter||'']));
 const VIZ_CYCLE=VIZ_MODES.map(m=>m.key);
@@ -1310,9 +1311,19 @@ function applyViz(mode){
   parallaxLayers.forEach((ts,i)=>{ ts.texture=parallaxTexFor(i,mode); });
   decoSprites.forEach(s=>{ s.texture=treeTexFor(mode); });
   rebuildExtras(); rebuildCoins();                  // itens ganham contorno só no modo bordas
-  const b=$('#opt-viz'); if(b){ b.textContent=VIZ_LABEL[mode]; b.classList.toggle('is-on',hcMode); b.setAttribute('aria-label','Modo de cor: '+VIZ_LABEL[mode].replace(/^🎨 /,'')+'. Clique para alternar.'); }
+  const b=$('#opt-visual'); if(b)b.classList.toggle('is-on',mode!=='normal'); // botão da barra realça quando ≠ normal
+  if(typeof renderVisual==='function') renderVisual();
 }
-const vizBtn=$('#opt-viz'); if(vizBtn) vizBtn.addEventListener('click',()=>{ const i=VIZ_CYCLE.indexOf(vizMode); applyViz(VIZ_CYCLE[(i+1)%VIZ_CYCLE.length]); srSay(VIZ_LABEL[vizMode].replace(/^🎨 /,'')+' ativado.'); });
+// MENU Acessibilidade visual: seleção (radio) da configuração de cor, efeito imediato
+function renderVisual(){ const el=$('#visual-list'); if(!el)return;
+  el.innerHTML=VIZ_MODES.map(m=>{ const sel=m.key===vizMode; return `<div class="ctrl-row"><span><strong>${m.nome}</strong><br><span class="opt-hint" style="margin:0">${m.desc}</span></span>`+
+    `<button class="mode-btn${sel?' is-on':''}" role="radio" aria-checked="${sel}" data-viz="${m.key}" type="button">${sel?'✓ Selecionado':'Selecionar'}</button></div>`; }).join('');
+  el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ applyViz(btn.dataset.viz); srSay(VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+' aplicado.'); }));
+}
+function openVisual(){ const ov=$('#visual'); if(!ov)return; renderVisual(); ov.hidden=false; visualOpen=true; const f=ov.querySelector('button[data-viz]')||ov.querySelector('button'); if(f)f.focus(); }
+function closeVisual(){ const ov=$('#visual'); if(!ov)return; ov.hidden=true; visualOpen=false; const b=$('#opt-visual'); if(b)b.focus(); }
+const visualBtn=$('#opt-visual'); if(visualBtn)visualBtn.addEventListener('click',openVisual);
+const visualClose=$('#visual-close'); if(visualClose)visualClose.addEventListener('click',closeVisual);
 vizReady=true; applyViz(vizMode); // estado inicial (ex.: prefers-contrast liga alto contraste)
 
 /* Fonte de leitura (canônicas EdSP): Padrão (Atkinson) | Alfabetização (Andika) | Dislexia/TDAH (Lexend + espaçamento BDA). Persistida. */
