@@ -232,17 +232,15 @@ function gradientMapTexture(srcTex,pal){
   return dst;
 }
 
-/* ===== Contorno bicolor (Normal AA · Bordas) =====
-   Preserva a arte: só adiciona um contorno claro+escuro ao redor do elemento → visível sobre QUALQUER fundo
-   (sobre fundo escuro o fio claro aparece; sobre claro, o escuro). G1=contorno mais grosso, G2=fino. */
-const OUTLINE_LIGHT='#F2F5EF', OUTLINE_DARK='#11100C'; // claro≈P1, escuro≈P13
+/* ===== Contorno ESCURO único (Normal AA · Bordas) =====
+   Preserva a arte: só adiciona um contorno escuro atrás do elemento. Sem anel claro (cortava o personagem
+   nos vãos). O contorno é desenhado ATRÁS e a arte por cima → só aparece nas bordas externas. */
+const OUTLINE_DARK='#0a0a08'; // contorno escuro (José refará o gráfico visando 3:1 depois)
 function _silhouette(src,color){ const cv=makeCanvas(src.width,src.height),c=cv.getContext('2d'); c.drawImage(src,0,0); c.globalCompositeOperation='source-in'; c.fillStyle=color; c.fillRect(0,0,cv.width,cv.height); return cv; }
-// desenha o contorno (anel) carimbando a silhueta em deslocamentos; mesmo tamanho (sprites têm margem transparente)
 function outlineCanvas(src,thick){ const cv=makeCanvas(src.width,src.height),c=cv.getContext('2d');
-  const dark=_silhouette(src,OUTLINE_DARK), light=_silhouette(src,OUTLINE_LIGHT), r=thick>=2?2:1;
-  for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){ if(!dx&&!dy)continue; c.drawImage(dark,dx,dy); } // anel externo escuro
-  for(let a=0;a<8;a++){ c.drawImage(light, Math.round(Math.cos(a*Math.PI/4)), Math.round(Math.sin(a*Math.PI/4))); } // anel interno claro (raio 1)
-  c.drawImage(src,0,0); return cv; }
+  const dark=_silhouette(src,OUTLINE_DARK), r=thick>=2?2:1;
+  for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){ if(!dx&&!dy)continue; c.drawImage(dark,dx,dy); } // anel escuro
+  c.drawImage(src,0,0); return cv; }                                                                  // arte por cima → sem corte interno
 function outlineTexture(srcTex,thick){ const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
   const paint=()=>{ const s=srcTex.baseTexture.resource&&srcTex.baseTexture.resource.source; if(!s||!s.width)return;
     const o=outlineCanvas(s,thick); cv.width=o.width; cv.height=o.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(o,0,0); dst.update(); };
@@ -280,14 +278,13 @@ function worldToTextureBordas(srcCanvas){
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
   const air=(x,y)=>{ const t=tileAt(x,y); return t===0||t===1; };
   const full=t=> t===4||t===10||t===9; // escada/porta/perigo: contorna o tile inteiro
-  const px=(col,X,Y,w,h)=>{ c.fillStyle=col; c.fillRect(X,Y,w,h); };
+  c.fillStyle=OUTLINE_DARK;
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue;
     const X=x*TILE,Y=y*TILE, F=full(t);
-    // cada lado adjacente ao ar (ou todos, se item) ganha fio claro na borda + fio escuro 1px p/ dentro
-    if(F||air(x,y-1)){ px(OUTLINE_LIGHT,X,Y,TILE,1);   px(OUTLINE_DARK,X,Y+1,TILE,1); }
-    if(F||air(x,y+1)){ px(OUTLINE_LIGHT,X,Y+TILE-1,TILE,1); px(OUTLINE_DARK,X,Y+TILE-2,TILE,1); }
-    if(F||air(x-1,y)){ px(OUTLINE_LIGHT,X,Y,1,TILE);   px(OUTLINE_DARK,X+1,Y,1,TILE); }
-    if(F||air(x+1,y)){ px(OUTLINE_LIGHT,X+TILE-1,Y,1,TILE); px(OUTLINE_DARK,X+TILE-2,Y,1,TILE); }
+    if(F||air(x,y-1)) c.fillRect(X,Y,TILE,1);          // fio escuro 1px na borda voltada ao ar
+    if(F||air(x,y+1)) c.fillRect(X,Y+TILE-1,TILE,1);
+    if(F||air(x-1,y)) c.fillRect(X,Y,1,TILE);
+    if(F||air(x+1,y)) c.fillRect(X+TILE-1,Y,1,TILE);
   }
   return tex(cv);
 }
@@ -656,7 +653,7 @@ const coinTex=tex(coinCanvasNormal);
 // caches de modos acessíveis (preguiçosos), invalidados ao trocar de cenário (worldCanvasNormal muda)
 let _worldTexHC={}, _coinTexHC={};
 function worldTexFor(mode){ if(mode==='normal')return worldTexNormal; if(!_worldTexHC[mode])_worldTexHC[mode]=worldToTextureBordas(worldCanvasNormal); return _worldTexHC[mode]; }
-function coinTexFor(mode){ if(mode==='normal')return coinTex; if(!_coinTexHC[mode])_coinTexHC[mode]=tex(outlineCanvas(coinCanvasNormal,2)); return _coinTexHC[mode]; } // G1: contorno grosso
+function coinTexFor(mode){ if(mode==='normal')return coinTex; if(!_coinTexHC[mode])_coinTexHC[mode]=tex(outlineCanvas(coinCanvasNormal,1)); return _coinTexHC[mode]; }
 function shapeTexture(id){
   const cv=makeCanvas(16,16),c=cv.getContext('2d');
   c.fillStyle='#7fdcff';c.strokeStyle='#04121a';c.lineWidth=1.5;
@@ -742,7 +739,7 @@ const SPR='assets/sprites/menino/';
 const pngTex=(f)=>{ const t=PIXI.Texture.from(SPR+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const A=(anim,n)=>Array.from({length:n},(_,i)=>pngTex(anim+'/'+i+'.png'));        // frames de cor
 const _playerHC=new Map(); // cache: player (G1) com contorno bicolor grosso — independe da variação
-function playerHCTex(srcTex){ if(!hcMode)return srcTex; if(!_playerHC.has(srcTex)) _playerHC.set(srcTex, outlineTexture(srcTex,2)); return _playerHC.get(srcTex); }
+function playerHCTex(srcTex){ if(!hcMode)return srcTex; if(!_playerHC.has(srcTex)) _playerHC.set(srcTex, outlineTexture(srcTex,1)); return _playerHC.get(srcTex); }
 const TEX_IDLE=A('idle',4);          // idle = RESPIRAÇÃO por frames (cabeça congelada → sem 'mastigar'; só o tronco respira)
 const TEX_WALK=A('andar',8);         // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
 const TEX_RUN=A('correr',4);         // CORRER = sprint AGRESSIVA (inclinada, braços grandes) — 4 quadros
@@ -796,19 +793,18 @@ function powerupCanvas(kind){
 const PUP_CANVAS={}, PUP_TEX={};
 ['superjump','ultrajump','turbo','fly','wallcling','key'].forEach(k=>{ PUP_CANVAS[k]=powerupCanvas(k); PUP_TEX[k]=tex(PUP_CANVAS[k]); });
 const _pupTexHC={}; // power-up (G1) com contorno grosso
-function pupTexFor(kind,mode){ if(mode==='normal')return PUP_TEX[kind]; if(!_pupTexHC[kind])_pupTexHC[kind]=tex(outlineCanvas(PUP_CANVAS[kind],2)); return _pupTexHC[kind]; }
+function pupTexFor(kind,mode){ if(mode==='normal')return PUP_TEX[kind]; if(!_pupTexHC[kind])_pupTexHC[kind]=tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[kind]; }
 const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups + portão (atrás do player)
 let powerups=[];
 function rebuildExtras(){
   extraLayer.removeChildren().forEach(s=>s.destroy());
   powerups.forEach(pu=>{ const s=new PIXI.Sprite(pupTexFor(pu.kind,vizMode)); s.x=pu.x; s.y=pu.y; s.visible=!pu.taken; extraLayer.addChild(s); pu.sprite=s; });
   if(gate && !gateOpen){ const g=new PIXI.Graphics();
-    const LIGHT=parseInt(OUTLINE_LIGHT.slice(1),16), DARK=parseInt(OUTLINE_DARK.slice(1),16);
+    const DARK=parseInt(OUTLINE_DARK.slice(1),16);
     for(const k of gateTiles){ const [tx,ty]=k.split(',').map(Number); const X=tx*TILE,Y=ty*TILE;
       g.beginFill(0x8a5a2b).drawRect(X,Y,TILE,TILE).endFill();
       g.beginFill(0x5a3a1b); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
-      if(hcMode){ g.beginFill(DARK).drawRect(X,Y,TILE,1).drawRect(X,Y+TILE-1,TILE,1).drawRect(X,Y,1,TILE).drawRect(X+TILE-1,Y,1,TILE).endFill(); // porta (G1): contorno
-        g.beginFill(LIGHT).drawRect(X+1,Y+1,TILE-2,1).drawRect(X+1,Y+TILE-2,TILE-2,1).drawRect(X+1,Y+1,1,TILE-2).drawRect(X+TILE-2,Y+1,1,TILE-2).endFill(); }
+      if(hcMode) g.beginFill(DARK).drawRect(X,Y,TILE,1).drawRect(X,Y+TILE-1,TILE,1).drawRect(X,Y,1,TILE).drawRect(X+TILE-1,Y,1,TILE).endFill(); // porta: contorno escuro
     }
     extraLayer.addChild(g);
   }
