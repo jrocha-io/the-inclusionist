@@ -30,7 +30,8 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 - **Pulo é momentâneo e NÃO interrompe a caminhada** (aperta pular perto do obstáculo, pula pra frente e segue andando).
 - Acoplado ao **Fácil** (herda proteção de borda + gravidade menor + coyote-time → pulo de fosso tolerante). GAG-OK (sem exigir segurar+mover simultâneos). Sequencial multi-botão basta (não precisa varredura/scanning).
 
-## Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2)
+## Animação reduzida (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2)
+> Terminologia: **Movimento** = como o jogador anda (GAG, alternância). **Animação** = movimento na tela (WCAG, redução). Painel "Mov./Anim." separa as duas seções.
 - Reduced-motion **ligado por padrão** (respeita `prefers-reduced-motion`).
 - 7 toggles: **parallax · fundo decorativo (nuvens/grama) · itens (moedas) · personagem em movimento · respiração · gracinhas · partículas/cintilação**.
   - **Personagem em movimento** congela TODA a locomoção num quadro único: andar/correr, escalar parede (ventosa), subir escada, nadar e pular.

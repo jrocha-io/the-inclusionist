@@ -55,7 +55,7 @@
     <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true">🔊 Som</button>
     <button id="opt-captions" class="mode-btn is-on" type="button" aria-pressed="true">💬 Legendas</button>
     <button id="opt-facil" class="mode-btn" type="button" aria-pressed="false" aria-label="Modo Fácil: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais">♿ Fácil</button>
-    <button id="opt-motion" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Movimento reduzido: pausar ou congelar animações">🎞 Movimento</button>
+    <button id="opt-motion" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Movimento e animação: modo de andar (alternância) e redução de animações">🎞 Mov./Anim.</button>
     <button id="opt-viz" class="mode-btn" type="button" aria-label="Modo de cor: normal ou alto contraste. Clique para alternar.">🎨 Cores normais</button>
     <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Controles</button>
     <button id="opt-fonte" class="mode-btn" type="button" aria-label="Trocar a fonte de leitura">🔤 Atkinson (legibilidade)</button>
@@ -170,14 +170,14 @@
   <!-- Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2) -->
   <div id="motion" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="motion-title">
-      <h2 id="motion-title">Movimento</h2>
-      <p class="opt-hint">Modo de andar e controle das animações. As escolhas ficam salvas no navegador.</p>
-      <div class="ctrl-list" role="group" aria-label="Modo de andar">
+      <h2 id="motion-title">Movimento e animação</h2>
+      <h3 class="panel-sub">Movimento <span class="panel-sub__tag">como você anda · GAG</span></h3>
+      <div class="ctrl-list" role="group" aria-label="Movimento">
         <div class="ctrl-row"><span><strong>Movimento por alternância</strong> — toque a direção para andar sem segurar (1 dedo); toque de novo para parar; segure para ir mais rápido. O pulo não interrompe a caminhada.</span>
           <button id="opt-altmove" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
       </div>
-      <p class="opt-hint" style="margin-top:.6rem">Animações (movimento reduzido):</p>
-      <div class="overlay__actions" style="justify-content:center;margin-bottom:.6rem">
+      <h3 class="panel-sub">Animação <span class="panel-sub__tag">movimento reduzido · WCAG 2.3.3</span></h3>
+      <div style="text-align:center;margin:.2rem 0 .6rem">
         <button id="motion-master" class="mode-btn" type="button">⏸ Parar todas as animações</button>
       </div>
       <div id="motion-list" class="ctrl-list" role="group" aria-label="Animações"></div>
