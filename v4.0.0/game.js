@@ -439,7 +439,7 @@ let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
 
 /* ===================== input ===================== */
-const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, motionOpen=false;
+const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false;
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
 const KB_DEFAULTS={
@@ -473,7 +473,8 @@ addEventListener('keydown',(e)=>{
     captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
   }
   if(optionsOpen){ if(e.code==='Escape')closeOptions(); return; } // diálogo aberto: não joga
-  if(motionOpen){ if(e.code==='Escape')closeMotion(); return; }
+  if(movementOpen){ if(e.code==='Escape')closeMovement(); return; }
+  if(animationOpen){ if(e.code==='Escape')closeAnimation(); return; }
   if(!player.quiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
@@ -1355,15 +1356,21 @@ function renderMotion(){ const el=$('#motion-list'); if(!el)return;
 }
 function updateMotionMaster(){ reflectMotionBtn(); const m=$('#motion-master'); if(!m)return; const allOn=RM_KEYS.every(k=>rm[k]);
   m.textContent=allOn?'▶ Retomar todas as animações':'⏸ Parar todas as animações'; toggleBtn(m,allOn); }
-function reflectAltMove(){ const b=$('#opt-altmove'); if(b){ b.classList.toggle('is-on',toggleMove); b.setAttribute('aria-pressed',String(toggleMove)); b.textContent=toggleMove?'❚❚ Ligado':'▶ Desligado'; } }
+function reflectAltMove(){ const b=$('#opt-altmove'); if(b){ b.classList.toggle('is-on',toggleMove); b.setAttribute('aria-pressed',String(toggleMove)); b.textContent=toggleMove?'❚❚ Ligado':'▶ Desligado'; }
+  const t=$('#opt-movement'); if(t)t.classList.toggle('is-on',toggleMove); } // botão da barra reflete on/off
 const altMoveBtn=$('#opt-altmove'); if(altMoveBtn)altMoveBtn.addEventListener('click',()=>{ setToggleMove(!toggleMove); reflectAltMove(); });
 reflectAltMove();
-function openMotion(){ const ov=$('#motion'); if(!ov)return; renderMotion(); reflectAltMove(); ov.hidden=false; motionOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
-function closeMotion(){ const ov=$('#motion'); if(!ov)return; ov.hidden=true; motionOpen=false; const b=$('#opt-motion'); if(b)b.focus(); }
-const motionBtn=$('#opt-motion'); if(motionBtn)motionBtn.addEventListener('click',openMotion);
-const motionClose=$('#motion-close'); if(motionClose)motionClose.addEventListener('click',closeMotion);
+// MENU Movimento (GAG: alternância) — separado do menu Animação (WCAG: movimento reduzido)
+function openMovement(){ const ov=$('#movement'); if(!ov)return; reflectAltMove(); ov.hidden=false; movementOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function closeMovement(){ const ov=$('#movement'); if(!ov)return; ov.hidden=true; movementOpen=false; const b=$('#opt-movement'); if(b)b.focus(); }
+function openAnimation(){ const ov=$('#animation'); if(!ov)return; renderMotion(); ov.hidden=false; animationOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function closeAnimation(){ const ov=$('#animation'); if(!ov)return; ov.hidden=true; animationOpen=false; const b=$('#opt-animation'); if(b)b.focus(); }
+const movBtn=$('#opt-movement'); if(movBtn)movBtn.addEventListener('click',openMovement);
+const movClose=$('#movement-close'); if(movClose)movClose.addEventListener('click',closeMovement);
+const animBtn=$('#opt-animation'); if(animBtn)animBtn.addEventListener('click',openAnimation);
+const animClose=$('#animation-close'); if(animClose)animClose.addEventListener('click',closeAnimation);
 const motionMaster=$('#motion-master'); if(motionMaster)motionMaster.addEventListener('click',()=>{ const allOn=RM_KEYS.every(k=>rm[k]); const v=!allOn; RM_KEYS.forEach(k=>rm[k]=v); saveRM(); renderMotion(); srSay(v?'Todas as animações paradas.':'Todas as animações retomadas.'); });
-function reflectMotionBtn(){ const b=$('#opt-motion'); if(b)b.classList.toggle('is-on',RM_KEYS.some(k=>rm[k])); } // realça quando há animação reduzida
+function reflectMotionBtn(){ const b=$('#opt-animation'); if(b)b.classList.toggle('is-on',RM_KEYS.some(k=>rm[k])); } // realça o botão Animação quando há redução ativa
 reflectMotionBtn(); // estado inicial (ex.: prefers-reduced-motion liga por padrão)
 const ctrlReset=$('#ctrl-reset'); if(ctrlReset)ctrlReset.addEventListener('click',()=>{ try{localStorage.removeItem(CKEY);}catch(e){} KB=JSON.parse(JSON.stringify(KB_DEFAULTS)); applyControls(); assignControls(); renderControls(); srSay('Controles restaurados ao padrão.'); });
 
