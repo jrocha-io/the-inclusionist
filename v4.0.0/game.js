@@ -384,7 +384,7 @@ const BOX={w:10,h:30};
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
   activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0,
-  walkDir:0,leftEdge:false,rightEdge:false}; } // walkDir = direção travada (movimento por alternância)
+  walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null}; } // walkDir = alternância; viz = modo de cor por jogador; _tx = quadro base p/ recolor por viewport
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Ventosa'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
@@ -633,8 +633,8 @@ function setCenario(theme){
     const t=PIXI.Texture.from('assets/cenarios/'+theme+'/c'+n+'.png');
     t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; parallaxTexNormal[i]=t; if(vizMode==='normal') ts.texture=t; });
   loadTileImages(theme).then(tiles=>{ worldCanvasNormal=worldCanvas(tiles); worldTexNormal=tex(worldCanvasNormal); _worldTexHC={}; // reconstrói o chão com o tileset do tema; invalida cache HC
-    if(vizReady) applyViz(vizMode); else if(vizMode==='normal'&&worldSprite) worldSprite.texture=worldTexNormal; });
-  if(vizReady) applyViz(vizMode); // reaplica parallax recolorido do novo tema (só após o init montar tudo)
+    if(vizReady) reapplyVizAll(); else if(worldSprite) worldSprite.texture=worldTexNormal; });
+  if(vizReady) reapplyVizAll(); // reaplica o cenário recolorido (só após o init montar tudo)
   try{ localStorage.setItem('incl_cenario',theme); }catch(e){}
 }
 // ===== Paletas do José: 13 tiers de luminância (cada um é um leque de matizes). Verificadas: gap 5≈3:1, 7≈4.5:1, 9≈7:1. =====
@@ -876,10 +876,11 @@ function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
-let vpTex=[], vpSpr=[], vpFrames=null;
+let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 function configureRender(){
   vpSpr.forEach(s=>s.destroy()); vpSpr=[]; vpTex.forEach(t=>t.destroy(true)); vpTex=[];
   if(vpFrames){ vpFrames.destroy(); vpFrames=null; }
+  vpDots.forEach(g=>g.destroy()); vpDots=[];
   if(numPlayers<=1){
     if(camera.parent!==app.stage) app.stage.addChildAt(camera,0);
     minimap.visible=true; app.renderer.resize(LOGICAL_W,LOGICAL_H);
@@ -900,6 +901,8 @@ function configureRender(){
     vpFrames=new PIXI.Graphics();
     for(const [x,y] of positions){ vpFrames.lineStyle(1,0xcdd6f2,0.95); vpFrames.drawRect(x+0.5,y+0.5,LOGICAL_W-1,LOGICAL_H-1); }
     app.stage.addChild(vpFrames);
+    vpDots=positions.map(([x,y])=>{ const g=new PIXI.Graphics(); g.x=x+LOGICAL_W-9; g.y=y+9; g.visible=false; app.stage.addChild(g); return g; }); // bolinhas por viewport (acima de tudo, sem filtro)
+    applyVpFilters(); updateVpDots();
   }
 }
 
@@ -1106,8 +1109,8 @@ function stepPlayer(pl,dt){
     } else pl.flavor=-1;
     if(pl.flavor<0) tx = rm.breath ? II[0] : II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } // respiração: congela (quadro 0) ou cicla
   if(!pl.idleNow){ pl.idleTime=0; pl.flavor=-1; }                 // saiu do idle → zera gracinha
-  if(hcMode) tx=playerHCTex(tx);                                 // alto contraste: recolore o quadro p/ a paleta do jogador
-  if(pl.sprite) pl.sprite.texture=tx;
+  pl._tx=tx;                                                     // quadro base (cor) p/ recolor por viewport
+  if(pl.sprite) pl.sprite.texture=playerVizTex(tx, pl.viz);      // solo/default; no MP o draw troca por viewport
 }
 function update(dt){
   if(ended||phase!=='playing')return; // E14: congelado no título e na pausa
@@ -1152,7 +1155,11 @@ function draw(){
     mmPlayer.clear(); mmPlayer.beginFill(0xffd23f,1);
     mmPlayer.drawRect((players[0].x/TILE)*MM_SCALE-1,((players[0].y-BOX.h/2)/TILE)*MM_SCALE-1,2.6,2.6); mmPlayer.endFill();
   } else {
-    for(let i=0;i<numPlayers;i++){ placeCam(players[i]); app.renderer.render(camera,{renderTexture:vpTex[i]}); }
+    for(let i=0;i<numPlayers;i++){ const viz=players[i].viz;
+      applySharedTextures(viz);                                  // troca texturas compartilhadas p/ o modo deste jogador
+      placeCam(players[i]); app.renderer.render(camera,{renderTexture:vpTex[i]});
+      renderVpOverlay(i,viz);                                    // baixa visão (overlay) + bolinha, dentro da render-texture
+    }
   }
 }
 
@@ -1296,14 +1303,16 @@ if(optModeBtn)optModeBtn.addEventListener('click',()=>{
 /* E11: nº de jogadores (1–4 telas lado a lado, simulação compartilhada) */
 function setNumPlayers(n){
   n=Math.max(1,Math.min(4,n|0));
-  if(n>players.length){ for(let i=players.length;i<n;i++)players.push(makePlayer(i)); }
+  if(n>players.length){ for(let i=players.length;i<n;i++){ const p=makePlayer(i); try{ const v=localStorage.getItem('incl_viz_p'+i); if(v&&VIZ_BY_KEY[v])p.viz=v; }catch(e){} players.push(p); } }
   else if(n<players.length){ players.length=n; }
   player=players[0]; numPlayers=n;
   assignControls(); ensureSprites();
   const TEL=['👤 1 tela','👥 2 telas','👨‍👧 3 telas','👨‍👩‍👧‍👦 4 telas'];
   const tb=$('#opt-telas'); if(tb){ tb.textContent=TEL[n-1]; tb.setAttribute('aria-label','Telas: '+n+'. Toque para trocar.'); }
   if(n>1) hideTouchControls(); // E13: várias telas → sem controle por toque (ambíguo)
-  configureRender(); restartGame(); layout(); $('#game-region').focus();
+  configureRender();
+  if(typeof reapplyVizAll==='function') reapplyVizAll(); // solo: filtro/overlay/bolinha global; MP: limpa global + filtros por viewport
+  restartGame(); layout(); $('#game-region').focus();
 }
 const optTelasBtn=$('#opt-telas'); // botão único: cicla 1→2→3→4 telas
 if(optTelasBtn)optTelasBtn.addEventListener('click',()=>{ setNumPlayers((numPlayers%4)+1); srSay(numPlayers+(numPlayers>1?' telas.':' tela.')); });
@@ -1334,7 +1343,52 @@ function setEasy(on){ easy=on; reflectFacil(); rebuildCoins(); srSay('Modo Fáci
 
 /* Modos de visualização (C): Normal → Alto contraste (forma) → Alto contraste (4.5:1) */
 function parallaxTexFor(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='hc')return parallaxTexNormal[i]; (_parallaxTexHC[mode]=_parallaxTexHC[mode]||[]); if(!_parallaxTexHC[mode][i])_parallaxTexHC[mode][i]=gradientMapTexture(parallaxTexNormal[i],hcPal(m).bg); return _parallaxTexHC[mode][i]; } // HC recolore o fundo
-function applyViz(mode){
+/* ===== Cor POR JOGADOR (E11): cada viewport do multiplayer renderiza no modo do seu jogador.
+   - solo: filtro CSS na canvas + texturas globais + overlay DOM + bolinha (applyVizGlobal).
+   - MP: filtro PIXI por viewport + troca das texturas compartilhadas antes de cada render (no draw). */
+const _vpFilterCache={};
+function pixiFilterFor(mode){ if(mode in _vpFilterCache)return _vpFilterCache[mode]; let f=null;
+  const CM=PIXI.ColorMatrixFilter, BL=PIXI.BlurFilter;
+  const cvd={'sim-deuter':[0.625,0.375,0,0,0, 0.7,0.3,0,0,0, 0,0.3,0.7,0,0, 0,0,0,1,0],
+             'sim-protan':[0.567,0.433,0,0,0, 0.558,0.442,0,0,0, 0,0.242,0.758,0,0, 0,0,0,1,0],
+             'sim-tritan':[0.95,0.05,0,0,0, 0,0.433,0.567,0,0, 0,0.475,0.525,0,0, 0,0,0,1,0]};
+  if(cvd[mode]&&CM){ const c=new CM(); c.matrix=cvd[mode]; f=[c]; }
+  else if(mode==='blind'&&CM){ const c=new CM(); c.brightness(0,false); f=[c]; }
+  else if(mode==='lv-blur'&&BL){ f=[new BL(5)]; }
+  else if(mode==='lv-haze'&&CM){ const c=new CM(); c.contrast(-0.45,false); c.brightness(1.12,true); f=[c]; }
+  else if((mode==='lv-tunnel'||mode==='lv-diabetic'||mode==='lv-macular')&&BL){ f=[new BL(mode==='lv-tunnel'?1.5:2)]; }
+  return _vpFilterCache[mode]=f;
+}
+// overlay de baixa visão como TEXTURA (renderizada no viewport por cima da cena)
+function lvOverlayCanvas(lv){ const W=LOGICAL_W,H=LOGICAL_H,cv=makeCanvas(W,H),c=cv.getContext('2d'),cx=W/2,cy=H/2;
+  if(lv==='haze'){ c.fillStyle='rgba(244,246,250,0.42)'; c.fillRect(0,0,W,H); }
+  else if(lv==='tunnel'){ const g=c.createRadialGradient(cx,cy,H*0.12,cx,cy,H*0.6); g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.5,'rgba(0,0,0,.55)');g.addColorStop(1,'rgba(0,0,0,.99)'); c.fillStyle=g; c.fillRect(0,0,W,H); }
+  else if(lv==='macular'){ const g=c.createRadialGradient(cx,cy,2,cx,cy,H*0.34); g.addColorStop(0,'rgba(12,12,15,.95)');g.addColorStop(.55,'rgba(12,12,15,.5)');g.addColorStop(1,'rgba(12,12,15,0)'); c.fillStyle=g; c.fillRect(0,0,W,H); }
+  else if(lv==='diabetic'){ for(const[fx,fy,fr]of[[.22,.3,.1],[.64,.22,.075],[.8,.58,.11],[.4,.7,.085],[.16,.8,.07],[.54,.48,.06]]){ const x=fx*W,y=fy*H,r=fr*W,g=c.createRadialGradient(x,y,1,x,y,r); g.addColorStop(0,'rgba(10,10,14,.95)');g.addColorStop(.5,'rgba(10,10,14,.7)');g.addColorStop(1,'rgba(10,10,14,0)'); c.fillStyle=g; c.fillRect(x-r,y-r,2*r,2*r); } }
+  return cv; }
+const _lvOverlayTex={}; function lvOverlayTex(lv){ if(lv==='blur')return null; if(!_lvOverlayTex[lv])_lvOverlayTex[lv]=tex(lvOverlayCanvas(lv)); return _lvOverlayTex[lv]; }
+const lvOverlaySpr=new PIXI.Sprite(PIXI.Texture.EMPTY), vpDot=new PIXI.Graphics();
+function playerVizTex(base,mode){ if(!base)return base; const m=VIZ_BY_KEY[mode]; if(m&&m.kind==='hc'){ const mm=(_playerHC[mode]=_playerHC[mode]||new Map()); if(!mm.has(base))mm.set(base,gradientMapTexture(base,hcPal(m).player)); return mm.get(base); } return base; }
+function applySharedTextures(mode){ // troca as texturas compartilhadas para o modo do viewport (antes de renderizá-lo)
+  worldSprite.texture=worldTexFor(mode);
+  parallaxLayers.forEach((ts,j)=>ts.texture=parallaxTexFor(j,mode));
+  decoSprites.forEach(s=>s.texture=treeTexFor(mode));
+  for(const s of coinSprites){ if(s)s.texture=coinTexFor(mode); }
+  for(const pu of powerups){ if(pu.sprite)pu.sprite.texture=pupTexFor(pu.kind,mode); }
+  for(const pl of players){ if(pl.sprite&&pl._tx)pl.sprite.texture=playerVizTex(pl._tx,mode); }
+}
+function renderVpOverlay(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='lowvision')return; // overlay de baixa visão DENTRO da render-texture (a bolinha fica por cima, fora do filtro)
+  const t=lvOverlayTex(m.lv); if(t){ lvOverlaySpr.texture=t; app.renderer.render(lvOverlaySpr,{renderTexture:vpTex[i],clear:false}); }
+}
+// bolinhas indicadoras por viewport (sobre os sprites de saída → NÃO sofrem o filtro do viewport, ex. cegueira)
+function updateVpDots(){ for(let i=0;i<vpDots.length;i++){ const g=vpDots[i], m=VIZ_BY_KEY[players[i]&&players[i].viz]; if(!g)continue;
+  const on=m&&(m.kind==='blind'||m.kind==='lowvision'); g.visible=!!on; if(on){ g.clear(); g.lineStyle(1,0x000000,.6); g.beginFill(m.kind==='blind'?0xffffff:0x36d36a); g.drawCircle(0,0,5); g.endFill(); } } }
+function applyVpFilters(){ for(let i=0;i<numPlayers;i++){ if(vpSpr[i])vpSpr[i].filters=pixiFilterFor(players[i].viz); } }
+function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; players[i].viz=m.key; try{localStorage.setItem('incl_viz_p'+i,m.key);}catch(e){}
+  if(numPlayers<=1 && i===0){ applyVizGlobal(m.key); } else { applyVpFilters(); updateVpDots(); }
+  const b=$('#opt-visual'); if(b)b.classList.toggle('is-on',players.some(p=>p.viz!=='normal'));
+  if(typeof renderVisual==='function')renderVisual(); }
+function applyVizGlobal(mode){
   const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; mode=m.key;
   vizMode=mode; hcMode=(m.kind==='bordas'||m.kind==='hc'); try{localStorage.setItem('incl_viz',mode);}catch(e){}
   if(app&&app.view) app.view.style.filter=VIZ_FILTER[mode]||''; // sim. daltonismo/baixa-visão/cegueira = filtro na canvas
@@ -1356,11 +1410,17 @@ function updateVizIndicator(kind){ const el=$('#viz-indicator'); if(!el)return;
   const on=(kind==='blind'||kind==='lowvision'); el.hidden=!on;
   el.classList.toggle('blind',kind==='blind'); el.classList.toggle('low',kind==='lowvision');
   el.setAttribute('aria-label',(kind==='blind'?'Modo cegueira total':'Modo baixa visão')+'. Toque duas vezes para voltar às cores normais.'); }
-// MENU Acessibilidade visual: seleção (radio) da configuração de cor, efeito imediato
-function renderVisual(){ const el=$('#visual-list'); if(!el)return;
-  el.innerHTML=VIZ_MODES.map(m=>{ const sel=m.key===vizMode; return `<div class="ctrl-row"><span><strong>${m.nome}</strong><br><span class="opt-hint" style="margin:0">${m.desc}</span></span>`+
+function reapplyVizAll(){ if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=''); document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
+// MENU Acessibilidade visual: por JOGADOR (abas) — seleção (radio) da configuração de cor, efeito imediato
+let selVizPlayer=0;
+function renderVisual(){ const el=$('#visual-list'); if(!el)return; if(selVizPlayer>=numPlayers)selVizPlayer=0;
+  const tabs=$('#visual-players'); if(tabs){ tabs.hidden=(numPlayers<=1);
+    tabs.innerHTML = numPlayers<=1 ? '' : Array.from({length:numPlayers},(_,p)=>`<button class="mode-btn${p===selVizPlayer?' is-on':''}" data-vp="${p}" type="button">Jogador ${p+1}</button>`).join('');
+    tabs.querySelectorAll('button[data-vp]').forEach(b=>b.addEventListener('click',()=>{ selVizPlayer=+b.dataset.vp; renderVisual(); })); }
+  const cur=players[selVizPlayer]?players[selVizPlayer].viz:'normal';
+  el.innerHTML=VIZ_MODES.map(m=>{ const sel=m.key===cur; return `<div class="ctrl-row"><span><strong>${m.nome}</strong><br><span class="opt-hint" style="margin:0">${m.desc}</span></span>`+
     `<button class="mode-btn${sel?' is-on':''}" role="radio" aria-checked="${sel}" data-viz="${m.key}" type="button">${sel?'✓ Selecionado':'Selecionar'}</button></div>`; }).join('');
-  el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ applyViz(btn.dataset.viz); srSay(VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+' aplicado.'); }));
+  el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ setPlayerViz(selVizPlayer,btn.dataset.viz); srSay((numPlayers>1?'Jogador '+(selVizPlayer+1)+': ':'')+VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+'.'); }));
 }
 function openVisual(){ const ov=$('#visual'); if(!ov)return; renderVisual(); ov.hidden=false; visualOpen=true; const f=ov.querySelector('button[data-viz]')||ov.querySelector('button'); if(f)f.focus(); }
 function closeVisual(){ const ov=$('#visual'); if(!ov)return; ov.hidden=true; visualOpen=false; const b=$('#opt-visual'); if(b)b.focus(); }
@@ -1368,8 +1428,11 @@ const visualBtn=$('#opt-visual'); if(visualBtn)visualBtn.addEventListener('click
 const visualClose=$('#visual-close'); if(visualClose)visualClose.addEventListener('click',closeVisual);
 // bolinha indicadora: duplo toque/clique → volta às cores normais (em cegueira é a única saída visível)
 (function vizIndicator(){ const el=$('#viz-indicator'); if(!el)return; let last=-9999;
-  el.addEventListener('pointerdown',(e)=>{ e.preventDefault(); const t=e.timeStamp||0; if(t-last<450){ applyViz('normal'); last=-9999; srSay('Cores normais reativadas.'); } else last=t; }); })();
-vizReady=true; applyViz(vizMode); // estado inicial
+  el.addEventListener('pointerdown',(e)=>{ e.preventDefault(); const t=e.timeStamp||0; if(t-last<450){ setPlayerViz(0,'normal'); last=-9999; srSay('Cores normais reativadas.'); } else last=t; }); })();
+// init por jogador: carrega viz persistido; migra o incl_viz antigo para o jogador 1
+try{ const old=localStorage.getItem('incl_viz'); if(old&&VIZ_BY_KEY[old])players[0].viz=old; }catch(e){}
+try{ const v0=localStorage.getItem('incl_viz_p0'); if(v0&&VIZ_BY_KEY[v0])players[0].viz=v0; }catch(e){}
+vizReady=true; applyVizGlobal(players[0].viz); // estado inicial (solo)
 
 /* Fonte de leitura (canônicas EdSP): Padrão (Atkinson) | Alfabetização (Andika) | Dislexia/TDAH (Lexend + espaçamento BDA). Persistida. */
 const FONT_MODES=[
@@ -1442,7 +1505,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); }); // Fácil agora ajusta física por eixo (gravidade/pulo/velocidade), não o tempo global
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){applyViz(v?'bordas':'normal');},get vizMode(){return vizMode;},applyViz,VIZ_MODES,PALETTES,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
