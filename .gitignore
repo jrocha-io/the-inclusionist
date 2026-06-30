@@ -14,3 +14,6 @@ Thumbs.db
 
 # Referências PixelLab (design only; licença != GPL — não embutir no jogo)
 assets-ref/
+
+# imagens de revisão (local, servidas para o José)
+v4.0.0/_review/
