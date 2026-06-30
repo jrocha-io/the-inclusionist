@@ -2,20 +2,18 @@
 
 Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 
-## Modos de visualização (4)
-1. **Normal**
-2. **CB-safe** (Okabe–Ito, daltonismo)
-3. **Alto contraste** — **4 variações** (ciclo `🎨 Cores`: claro/médio/escuro/noturno) para o jogador escolher. Fundo **escuro porém colorido** (não preto — preto vira "buraco" assustador). Recolor **procedural por PALETA**: cada elemento mantém seu claro-escuro (sombreado) e tem as cores remapeadas para o **matiz mais próximo** dentro da PALETA do seu grupo (jogador/item/fundo) — preserva a riqueza de cor.
-   - Baseado nas **13 paletas do José** (tiers de luminância; gap 5≈3:1, 7≈4.5:1, 9≈7:1). Por variação: Fundo P_n, Jogador P_(n−9) (**7:1**), Itens P_(n−7) (**4.5:1**), n∈{10,11,12,13}.
-   - Jogador↔itens ~1.5:1 de luminância → resolvido por **forma + matiz + contorno** (1.4.1/1.4.11 OK). Plataformas no grupo fundo (textura do tileset + contraste do player dão legibilidade).
-   - `PALETTES` e `HC_VARIATIONS` em game.js. **Achado WCAG:** ≥7:1 entre os 3 grupos é impossível (luminância apenas) → por isso player↔itens vai por forma/matiz, não luminância.
-   - ⚠️ A 1ª troca para um modo HC tem pico de FPS (mapeamento por matiz, HSL por pixel); cacheado depois. Otimizar se incomodar no hardware-alvo.
-   - HUD: **7:1 contra o próprio fundo** (1.4.6 AAA de texto, já no DOM).
-4. **Pessoa cega** = **tela apagada + pistas sonoras** (para jogadores enxergarem como é jogar cego). Áudio é ortogonal: liga as pistas; a tela apaga neste modo.
+## Estratégia de cor (revisada com o José)
+**Grupos por importância** (não por luminância): **G1** personagem/HUD/itens/NPC especial · **G2** plataforma/chão onde piso/escada/porta/secundário · **G3** fundo.
+**Conformidade WCAG 2.2 AA via CONTORNO** (preserva a arte, não repinta): contorno **G1↔fundo 7:1**, **G2↔fundo 4.5:1**, condução de caminho **3:1**, **texto↔fundo 7:1** (HUD no DOM). Contorno **bicolor** (claro+escuro) → visível sobre qualquer fundo. As 4 variações de repintura dark foram **removidas** (repintar não é exigência WCAG); as 13 paletas + motor de matiz ficam para os modos de cor abaixo.
 
-### Pendências de cor (próximas)
-- **Normal (cores normais) = WCAG 2.2 AA (3:1)**: garantir 3:1 entre grupos adjacentes (personagem/itens/escada/perigo/NPC/fundo/plataforma). Correção do José: o requisito real p/ componentes/ícones é **3:1** (1.4.11), não 7:1 (7:1 é texto×fundo, 1.4.6 AAA). Grupos-base: **P1×P6×P11**, **P2×P7×P12**, **P3×P8×P13** (pares adjacentes ~3:1); intermediárias quando a adjacência não atrapalha.
-- **CB-safe**: paleta p/ daltonismo derivada de **Okabe–Ito** (pequena; começar nela e expandir), também gerida por contraste.
+## Modos de cor (menu)
+1. **Normal** — arte crua.
+2. **Normal AA · Bordas** — ✅ feito: adiciona contornos de contraste (G1 grosso, G2 fino) em player/itens/power-ups/porta e nas bordas das plataformas. Arte e fundo intactos.
+3. **Normal AA · Cores** — (a fazer) deslocamento **leve**: fundo + escuro/lavado, G1/G2 + vivos.
+4. **CB-safe** (Okabe–Ito, daltonismo) — (a fazer) 3 variações: cores (recolor procedural), bordas (contornos CB-safe), contraste (G1/G2 saturados + fundo lavado + contornos 3:1).
+5. **Pessoa cega** = **tela apagada + pistas sonoras** (Fase F) — para enxergantes sentirem como é jogar cego.
+
+**Papéis das paletas (José):** P1 luz direta · P2 muito claras · P3 claras · P4–P5 lavadas · P6 vivas/saturadas · P7 quentes vivas + apagadas · P8 azul/rosa/vermelho vivos + resto apagado · P9–P10 escuras · P11–P13 bem escuras. Uso: contorno claro de P1/P2 (sobre fundo escuro) ou escuro de P12/P13 (sobre claro); interiores vivos de P6; fundo lavado de P4/P5. Grupos-base para o modo Cores: **P1×P6×P11**, **P2×P7×P12**, **P3×P8×P13** (adjacentes ~3:1).
 
 ## Modo Fácil (deficiência motora)
 - Gravidade **×2/3**; pulo **×8/7**; andar/escada/nado **×0.7** (ajuste fino depois).
