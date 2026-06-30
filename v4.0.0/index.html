@@ -54,8 +54,7 @@
     <button id="opt-telas" class="mode-btn" type="button" aria-label="Trocar o número de telas (jogadores)">👤 1 tela</button>
     <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true">🔊 Som</button>
     <button id="opt-captions" class="mode-btn is-on" type="button" aria-pressed="true">💬 Legendas</button>
-    <button id="opt-facil" class="mode-btn" type="button" aria-pressed="false" aria-label="Modo Fácil: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais">♿ Fácil</button>
-    <button id="opt-movement" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Movimento: modo de andar (alternância)">🚶 Movimento</button>
+    <button id="opt-movement" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Movimento: dificuldade motora (modo Fácil e alternância)">🚶 Movimento</button>
     <button id="opt-animation" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Animação: reduzir ou parar animações na tela">🎞 Animação</button>
     <button id="opt-viz" class="mode-btn" type="button" aria-label="Modo de cor: normal ou alto contraste. Clique para alternar.">🎨 Cores normais</button>
     <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Controles</button>
@@ -171,9 +170,11 @@
   <!-- Movimento (GAG): como o jogador anda -->
   <div id="movement" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="movement-title">
-      <h2 id="movement-title">Movimento <span class="panel-sub__tag">como você anda · GAG</span></h2>
+      <h2 id="movement-title">Movimento <span class="panel-sub__tag">dificuldade motora</span></h2>
       <div class="ctrl-list" role="group" aria-label="Movimento">
-        <div class="ctrl-row"><span><strong>Movimento por alternância</strong> — toque a direção para andar sem segurar (1 dedo); toque de novo para parar; segure para ir mais rápido. O pulo não interrompe a caminhada.</span>
+        <div class="ctrl-row"><span><strong>♿ Modo Fácil</strong> — para quem ainda não tem coordenação motora fina: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais.</span>
+          <button id="opt-facil" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
+        <div class="ctrl-row"><span><strong>Movimento por alternância</strong> — para quem não consegue manter pressionado (1 dedo): toque a direção para andar sem segurar; toque de novo para parar; <em>segure para ir mais rápido</em> (a corrida que desafia). O pulo não interrompe a caminhada.</span>
           <button id="opt-altmove" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
       </div>
       <div class="overlay__actions">

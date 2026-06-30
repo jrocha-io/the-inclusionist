@@ -1297,7 +1297,9 @@ const soundBtn=$('#opt-sound'), capBtn=$('#opt-captions'), facilBtn=$('#opt-faci
 if(soundBtn) soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; toggleBtn(soundBtn,soundOn); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 if(capBtn) capBtn.addEventListener('click',()=>{ captionsOn=!captionsOn; toggleBtn(capBtn,captionsOn); srSay('Legendas '+(captionsOn?'ligadas.':'desligadas.')); });
 if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(!easy); });
-function setEasy(on){ easy=on; if(facilBtn)toggleBtn(facilBtn,easy); rebuildCoins(); srSay('Modo Fácil '+(easy?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
+function reflectFacil(){ if(facilBtn){ toggleBtn(facilBtn,easy); facilBtn.textContent=easy?'❚❚ Ligado':'▶ Desligado'; } reflectMovementBtn(); }
+function reflectMovementBtn(){ const b=$('#opt-movement'); if(b)b.classList.toggle('is-on',easy||toggleMove); } // barra acende com Fácil OU alternância
+function setEasy(on){ easy=on; reflectFacil(); rebuildCoins(); srSay('Modo Fácil '+(easy?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
 
 /* Modos de visualização (C): Normal → Alto contraste (forma) → Alto contraste (4.5:1) */
 function parallaxTexFor(i,mode){ return parallaxTexNormal[i]; } // fundo intacto; só o filtro de simulação o afeta (na canvas)
@@ -1357,11 +1359,11 @@ function renderMotion(){ const el=$('#motion-list'); if(!el)return;
 function updateMotionMaster(){ reflectMotionBtn(); const m=$('#motion-master'); if(!m)return; const allOn=RM_KEYS.every(k=>rm[k]);
   m.textContent=allOn?'▶ Retomar todas as animações':'⏸ Parar todas as animações'; toggleBtn(m,allOn); }
 function reflectAltMove(){ const b=$('#opt-altmove'); if(b){ b.classList.toggle('is-on',toggleMove); b.setAttribute('aria-pressed',String(toggleMove)); b.textContent=toggleMove?'❚❚ Ligado':'▶ Desligado'; }
-  const t=$('#opt-movement'); if(t)t.classList.toggle('is-on',toggleMove); } // botão da barra reflete on/off
+  reflectMovementBtn(); } // botão da barra acende com Fácil OU alternância
 const altMoveBtn=$('#opt-altmove'); if(altMoveBtn)altMoveBtn.addEventListener('click',()=>{ setToggleMove(!toggleMove); reflectAltMove(); });
-reflectAltMove();
+reflectFacil(); reflectAltMove();
 // MENU Movimento (GAG: alternância) — separado do menu Animação (WCAG: movimento reduzido)
-function openMovement(){ const ov=$('#movement'); if(!ov)return; reflectAltMove(); ov.hidden=false; movementOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function openMovement(){ const ov=$('#movement'); if(!ov)return; reflectFacil(); reflectAltMove(); ov.hidden=false; movementOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeMovement(){ const ov=$('#movement'); if(!ov)return; ov.hidden=true; movementOpen=false; const b=$('#opt-movement'); if(b)b.focus(); }
 function openAnimation(){ const ov=$('#animation'); if(!ov)return; renderMotion(); ov.hidden=false; animationOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeAnimation(){ const ov=$('#animation'); if(!ov)return; ov.hidden=true; animationOpen=false; const b=$('#opt-animation'); if(b)b.focus(); }
