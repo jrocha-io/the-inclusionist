@@ -384,11 +384,11 @@ const BOX={w:10,h:30};
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
   activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0,
-  walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null}; } // walkDir = alternância; viz = modo de cor por jogador; _tx = quadro base p/ recolor por viewport
+  walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null, easy:false, toggleMove:false}; } // viz/easy/toggleMove = acessibilidade por jogador
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Ventosa'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
-function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5)*(easy?EASY.jump:1); } // Fácil: pulo ×8/7
+function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5)*(pl.easy?EASY.jump:1); } // Fácil: pulo ×8/7
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
 function touchingWall(pl){ const y0=Math.floor((pl.y-BOX.h)/TILE),y1=Math.floor((pl.y-1)/TILE),lx=Math.floor((pl.x-BOX.w/2-1)/TILE),rx=Math.floor((pl.x+BOX.w/2+1)/TILE); for(let ty=y0;ty<=y1;ty++) if(solidAt(lx,ty)||solidAt(rx,ty))return true; return false; }
 // E18c: ventosa "aranha" — sólidos adjacentes à caixa em cada lado (R=direita, L=esquerda, U=teto/acima, D=chão/abaixo)
@@ -500,12 +500,12 @@ addEventListener('keydown',(e)=>{
     if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
   }
   // Fácil (solo): atalhos de acessibilidade — Ctrl=Especial, Shift=Trocar poder (sem usar Win/Alt/AltGr)
-  const easyKey = easy && numPlayers<=1 && (e.code==='ControlLeft'||e.code==='ControlRight'||e.code==='ShiftLeft'||e.code==='ShiftRight');
+  const easyKey = players[0].easy && numPlayers<=1 && (e.code==='ControlLeft'||e.code==='ControlRight'||e.code==='ShiftLeft'||e.code==='ShiftRight');
   const isGameKey = easyKey || GAME_KEYS.includes(e.code) || players.some(p=>p.ctrl && Object.values(p.ctrl).some(arr=>arr.includes(e.code)));
   if(isGameKey){ e.preventDefault(); hideTouchControls('teclado'); } // E13: jogar no teclado oculta os botões de toque
   if(!keys.has(e.code)){ for(const p of players){ if(!p.ctrl)continue;
     if(p.ctrl.jump.includes(e.code)) p.jumpEdge=true;
-    if(p.ctrl.run.includes(e.code) && !easy) p.runEdge=true; // Fácil: sem correr
+    if(p.ctrl.run.includes(e.code) && !p.easy) p.runEdge=true; // Fácil: sem correr
     if(p.ctrl.left.includes(e.code)) p.leftEdge=true;        // alternância: edge de direção
     if(p.ctrl.right.includes(e.code)) p.rightEdge=true;
     if(p.ctrl.swap&&p.ctrl.swap.includes(e.code)) p.swapEdge=true;
@@ -534,7 +534,8 @@ const SFX={
   key:{f:990,d:0.16,t:'sine',cap:'🔊 Chave'},
   gate:{f:300,d:0.30,t:'sawtooth',cap:'🔊 Portão abriu'},
 };
-let audioCtx=null, soundOn=true, captionsOn=true, easy=false, volume=0.6, capTimer=null;
+let audioCtx=null, soundOn=true, captionsOn=true, volume=0.6, capTimer=null;
+const anyEasy=()=>players.some(p=>p.easy); // efeitos de MUNDO do Fácil (moedas no chão) ligam se QUALQUER jogador usa Fácil
 // Modo Fácil (deficiência motora): gravidade ×2/3, pulo ×8/7, andar ×0.7, sem perigos, sem correr,
 // hitbox de coleta +4px, moedas no chão, proteção de borda, pula-pula suave (segurar = flutuar descendo).
 const EASY={grav:2/3, jump:8/7, speed:0.7, pad:4, slowFall:1.4, tramp:3.4};
@@ -546,9 +547,12 @@ const rm=(()=>{ try{ const s=JSON.parse(localStorage.getItem('inclusionist.reduc
   const o={}; RM_KEYS.forEach(k=>o[k]=RM_DEFAULT); return o; })();
 function saveRM(){ try{ localStorage.setItem('inclusionist.reducedmotion.v1',JSON.stringify(rm)); }catch(e){} }
 // Movimento por alternância (1 dedo): tocar a direção trava a marcha; segurar acelera; pulo não interrompe. Persistido.
-let toggleMove=(()=>{ try{ return localStorage.getItem('inclusionist.togglemove')==='1'; }catch(e){ return false; } })();
-function setToggleMove(on){ toggleMove=on; try{localStorage.setItem('inclusionist.togglemove',on?'1':'0');}catch(e){} if(!on)players.forEach(p=>p.walkDir=0);
-  srSay('Movimento por alternância '+(on?'ligado: toque a direção para andar sem segurar; toque de novo para parar; segure para ir mais rápido. O pulo não interrompe a caminhada.':'desligado.')); }
+function loadPlayerA11y(p,i){ try{ const v=localStorage.getItem('incl_viz_p'+i); if(v&&VIZ_BY_KEY[v])p.viz=v;
+  p.easy=localStorage.getItem('incl_easy_p'+i)==='1'; p.toggleMove=localStorage.getItem('incl_togglemove_p'+i)==='1';
+  if(i===0){ const ov=localStorage.getItem('incl_viz'); if(ov&&VIZ_BY_KEY[ov]&&localStorage.getItem('incl_viz_p0')==null)p.viz=ov; // migra chaves antigas
+    if(localStorage.getItem('inclusionist.togglemove')==='1'&&localStorage.getItem('incl_togglemove_p0')==null)p.toggleMove=true; } }catch(e){} }
+function setToggleMove(i,on){ const p=players[i]; if(!p)return; p.toggleMove=on; try{localStorage.setItem('incl_togglemove_p'+i,on?'1':'0');}catch(e){} if(!on)p.walkDir=0;
+  srSay((numPlayers>1?'Jogador '+(i+1)+': ':'')+'Movimento por alternância '+(on?'ligado: toque a direção para andar sem segurar; toque de novo para parar; segure para ir mais rápido. O pulo não interrompe a caminhada.':'desligado.')); }
 function showCaption(txt){ const el=$('#caption'); if(!el||!txt)return; el.textContent=txt; el.classList.add('show'); clearTimeout(capTimer); capTimer=setTimeout(()=>{el.classList.remove('show'); el.textContent='';},1300); }
 function sfx(name){
   const c=SFX[name]; if(!c)return;
@@ -727,7 +731,7 @@ let coinSprites=[];
 // Fácil: rebaixa cada moeda até o chão logo abaixo (scan ≤10 tiles); guarda y0 p/ reverter ao desligar.
 function positionEasyCoins(){
   coins.forEach(cn=>{ if(cn.y0==null)cn.y0=cn.y;
-    if(easy){ const tx=Math.floor((cn.x+5)/TILE); let fy=null;
+    if(anyEasy()){ const tx=Math.floor((cn.x+5)/TILE); let fy=null;
       for(let ty=Math.floor(cn.y0/TILE);ty<WORLD_H && ty<Math.floor(cn.y0/TILE)+10;ty++){ if(solidAt(tx,ty)){ fy=ty*TILE; break; } }
       cn.y = fy!=null ? fy-11 : cn.y0; } // moeda (10px) repousa com 1px de folga
     else cn.y=cn.y0; });
@@ -955,7 +959,7 @@ function resolveY(pl){
   for(let row=r0;row<=r1;row++)for(let col=c0;col<=c1;col++){ if(!solidAt(col,row))continue;
     const tt=row*TILE,type=tileAt(col,row);
     if(pl.vy>0){ pl.y=tt-0.01;
-      if(type===5){ pl.vy = easy ? -EASY.tramp : -(held(pl,'jump')?TUNE.trampMax:TUNE.trampBase); } // Fácil: quique fixo suave (sem cadeia de carga)
+      if(type===5){ pl.vy = pl.easy ? -EASY.tramp : -(held(pl,'jump')?TUNE.trampMax:TUNE.trampBase); } // Fácil: quique fixo suave (sem cadeia de carga)
       else { pl.vy=0; pl.onGround=true; }
     } else if(pl.vy<0){ pl.y=tt+TILE+BOX.h+0.01; pl.vy=0; }
     return;
@@ -970,9 +974,9 @@ function triggerLava(pl){
 }
 function stepPlayer(pl,dt){
   if(pl.quiz)return; // P1 em desafio (Soma-Sub/Sílabas; MP é Lúdico)
-  const run=held(pl,'run') && !easy && !toggleMove, turbo=pl.activePower==='turbo';
+  const run=held(pl,'run') && !pl.easy && !pl.toggleMove, turbo=pl.activePower==='turbo';
   let dir;
-  if(toggleMove){ // movimento por alternância (1 dedo): tocar trava a direção; segurar acelera
+  if(pl.toggleMove){ // movimento por alternância (1 dedo): tocar trava a direção; segurar acelera
     if(pl.leftEdge)  pl.walkDir = pl.walkDir===-1?0:-1;   // toque inverte/para
     if(pl.rightEdge) pl.walkDir = pl.walkDir=== 1?0: 1;
     dir=pl.walkDir;
@@ -980,12 +984,12 @@ function stepPlayer(pl,dt){
     pl.vx=dir*TUNE.hWalk*(holding?2/3:1/3);               // segurando = 2/3 · travado = 1/3
   } else {
     dir=(held(pl,'right')?1:0)-(held(pl,'left')?1:0); // Fácil: sem correr
-    pl.vx=dir*(easy?TUNE.hWalk*EASY.speed:(run?(turbo?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk)); // E18: super-corrida (turbo); Fácil: andar ×0.7
+    pl.vx=dir*(pl.easy?TUNE.hWalk*EASY.speed:(run?(turbo?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk)); // E18: super-corrida (turbo); Fácil: andar ×0.7
   }
   if(dir!==0)pl.facing=dir; pl.leftEdge=false; pl.rightEdge=false;
   const feat=sampleFeatures(pl); pl.inWater=feat.water; pl.onLadder=feat.ladder;
   if(pl.hurtTimer>0)pl.hurtTimer-=dt;
-  if(feat.lava && !easy) triggerLava(pl);
+  if(feat.lava && !pl.easy) triggerLava(pl); // Fácil: imunidade a perigo por jogador
   if(pl.jumpEdge)pl.jumpBuffer=7; else if(pl.jumpBuffer>0)pl.jumpBuffer--;
   // E18: ventosa (homem-aranha) — gruda na parede ao apertar Correr no ar; solta com Pular
   if(pl.clinging && (pl.onLadder||pl.inWater||pl.activePower!=='wallcling' || pl.onGround || clingSides(pl).D)) pl.clinging=false; // E18d: pés numa superfície estável (sólido logo abaixo) ENCERRAM; pendurado no teto (pés p/ cima) ou na parede alta continua
@@ -1017,9 +1021,9 @@ function stepPlayer(pl,dt){
     if(held(pl,'up')) pl.vy=-fs; else if(held(pl,'down')) pl.vy=fs; else pl.vy*=0.7;
     pl.vy=Math.max(-fs,Math.min(fs,pl.vy));
   } else {
-    const g = (pl.inWater?0.10:TUNE.gravity)*(easy?EASY.grav:1); // Fácil: gravidade ×2/3
+    const g = (pl.inWater?0.10:TUNE.gravity)*(pl.easy?EASY.grav:1); // Fácil: gravidade ×2/3
     if(!(pl.onGround&&pl.vy>=0)) pl.vy += g*dt;
-    if(easy && held(pl,'jump') && pl.vy>EASY.slowFall && !pl.inWater) pl.vy=EASY.slowFall; // Fácil: segurar pulo = flutua descendo
+    if(pl.easy && held(pl,'jump') && pl.vy>EASY.slowFall && !pl.inWater) pl.vy=EASY.slowFall; // Fácil: segurar pulo = flutua descendo
     if(pl.inWater){
       if(held(pl,'jump')){ if(pl.waterStroke<=0){ pl.vy-=run?TUNE.waterJumpRun:TUNE.waterJump; pl.waterStroke=TUNE.waterStrokeFrames; } }
       else pl.waterStroke=0;
@@ -1036,7 +1040,7 @@ function stepPlayer(pl,dt){
     }
   }
   // Proteção de borda (Fácil e alternância) — andar não derruba em fosso; só cai segurando ↓ (não vale na água/escada/voo/aranha)
-  if((easy||toggleMove) && pl.onGround && pl.vx!==0 && !held(pl,'down') && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
+  if((pl.easy||pl.toggleMove) && pl.onGround && pl.vx!==0 && !held(pl,'down') && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
     const dirX=pl.vx>0?1:-1, leadX=pl.x+dirX*(BOX.w/2)+pl.vx*dt;
     if(!solidAt(Math.floor(leadX/TILE), Math.floor((pl.y+1)/TILE))) pl.vx=0;
   }
@@ -1048,7 +1052,7 @@ function stepPlayer(pl,dt){
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
   if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
   // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico). Fácil: hitbox de coleta +4px por lado.
-  const pad=easy?EASY.pad:0;
+  const pad=pl.easy?EASY.pad:0;
   const box={x:pl.x-BOX.w/2-pad,y:pl.y-BOX.h-pad,w:BOX.w+2*pad,h:BOX.h+2*pad};
   coins.forEach((cn,i)=>{ if(cn.taken)return;
     const big=(MODE!=='ludico'); const sz=big?15:9, ox=big?3:0;
@@ -1145,10 +1149,10 @@ function draw(){
     pl.sprite.scale.set((pl.facing<0?-1:1), 1); // sem escala procedural (parecia mastigar) — respiração agora é por FRAMES
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
-  easyHitbox.clear(); // Fácil: hitbox de coleta tolerante (retângulo translúcido)
-  if(easy){ const pad=EASY.pad; for(const pl of players){
+  easyHitbox.clear(); // Fácil: hitbox de coleta tolerante (retângulo translúcido) — só para os jogadores em Fácil
+  const pad=EASY.pad; for(const pl of players){ if(!pl.easy)continue;
     easyHitbox.lineStyle(1,0xffffff,0.45); easyHitbox.beginFill(0xffffff,0.10);
-    easyHitbox.drawRect(pl.x-BOX.w/2-pad, pl.y-BOX.h-pad, BOX.w+2*pad, BOX.h+2*pad); easyHitbox.endFill(); } }
+    easyHitbox.drawRect(pl.x-BOX.w/2-pad, pl.y-BOX.h-pad, BOX.w+2*pad, BOX.h+2*pad); easyHitbox.endFill(); }
   if(numPlayers<=1){
     const {camX,camY}=placeCam(players[0]);
     markSeen(camX,camY); if(mmDirty) redrawMinimap();
@@ -1303,7 +1307,7 @@ if(optModeBtn)optModeBtn.addEventListener('click',()=>{
 /* E11: nº de jogadores (1–4 telas lado a lado, simulação compartilhada) */
 function setNumPlayers(n){
   n=Math.max(1,Math.min(4,n|0));
-  if(n>players.length){ for(let i=players.length;i<n;i++){ const p=makePlayer(i); try{ const v=localStorage.getItem('incl_viz_p'+i); if(v&&VIZ_BY_KEY[v])p.viz=v; }catch(e){} players.push(p); } }
+  if(n>players.length){ for(let i=players.length;i<n;i++){ const p=makePlayer(i); loadPlayerA11y(p,i); players.push(p); } }
   else if(n<players.length){ players.length=n; }
   player=players[0]; numPlayers=n;
   assignControls(); ensureSprites();
@@ -1336,10 +1340,14 @@ function toggleBtn(b,on){ b.classList.toggle('is-on',on); b.setAttribute('aria-p
 const soundBtn=$('#opt-sound'), capBtn=$('#opt-captions'), facilBtn=$('#opt-facil');
 if(soundBtn) soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; toggleBtn(soundBtn,soundOn); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 if(capBtn) capBtn.addEventListener('click',()=>{ captionsOn=!captionsOn; toggleBtn(capBtn,captionsOn); srSay('Legendas '+(captionsOn?'ligadas.':'desligadas.')); });
-if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(!easy); });
-function reflectFacil(){ if(facilBtn){ toggleBtn(facilBtn,easy); facilBtn.textContent=easy?'❚❚ Ligado':'▶ Desligado'; } reflectMovementBtn(); }
-function reflectMovementBtn(){ const b=$('#opt-movement'); if(b)b.classList.toggle('is-on',easy||toggleMove); } // barra acende com Fácil OU alternância
-function setEasy(on){ easy=on; reflectFacil(); rebuildCoins(); srSay('Modo Fácil '+(easy?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
+let selMovPlayer=0; // jogador selecionado no painel Acessibilidade motora
+if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(selMovPlayer, !players[selMovPlayer].easy); });
+function reflectFacil(){ const p=players[selMovPlayer], on=!!(p&&p.easy); if(facilBtn){ toggleBtn(facilBtn,on); facilBtn.textContent=on?'❚❚ Ligado':'▶ Desligado'; } reflectMovementBtn(); }
+function reflectMovementBtn(){ const b=$('#opt-movement'); if(b)b.classList.toggle('is-on',players.some(p=>p.easy||p.toggleMove)); } // barra acende se QUALQUER jogador usa Fácil/alternância
+function setEasy(i,on){ const p=players[i]; if(!p)return; p.easy=on; try{localStorage.setItem('incl_easy_p'+i,on?'1':'0');}catch(e){} reflectFacil(); rebuildCoins(); srSay((numPlayers>1?'Jogador '+(i+1)+': ':'')+'Modo Fácil '+(on?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
+function renderMovPlayers(){ const tabs=$('#movement-players'); if(!tabs)return; if(selMovPlayer>=numPlayers)selMovPlayer=0; tabs.hidden=(numPlayers<=1);
+  tabs.innerHTML = numPlayers<=1 ? '' : Array.from({length:numPlayers},(_,p)=>`<button class="mode-btn${p===selMovPlayer?' is-on':''}" data-mp="${p}" type="button">Jogador ${p+1}</button>`).join('');
+  tabs.querySelectorAll('button[data-mp]').forEach(b=>b.addEventListener('click',()=>{ selMovPlayer=+b.dataset.mp; renderMovPlayers(); reflectFacil(); reflectAltMove(); })); }
 
 /* Modos de visualização (C): Normal → Alto contraste (forma) → Alto contraste (4.5:1) */
 function parallaxTexFor(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='hc')return parallaxTexNormal[i]; (_parallaxTexHC[mode]=_parallaxTexHC[mode]||[]); if(!_parallaxTexHC[mode][i])_parallaxTexHC[mode][i]=gradientMapTexture(parallaxTexNormal[i],hcPal(m).bg); return _parallaxTexHC[mode][i]; } // HC recolore o fundo
@@ -1429,9 +1437,7 @@ const visualClose=$('#visual-close'); if(visualClose)visualClose.addEventListene
 // bolinha indicadora: duplo toque/clique → volta às cores normais (em cegueira é a única saída visível)
 (function vizIndicator(){ const el=$('#viz-indicator'); if(!el)return; let last=-9999;
   el.addEventListener('pointerdown',(e)=>{ e.preventDefault(); const t=e.timeStamp||0; if(t-last<450){ setPlayerViz(0,'normal'); last=-9999; srSay('Cores normais reativadas.'); } else last=t; }); })();
-// init por jogador: carrega viz persistido; migra o incl_viz antigo para o jogador 1
-try{ const old=localStorage.getItem('incl_viz'); if(old&&VIZ_BY_KEY[old])players[0].viz=old; }catch(e){}
-try{ const v0=localStorage.getItem('incl_viz_p0'); if(v0&&VIZ_BY_KEY[v0])players[0].viz=v0; }catch(e){}
+loadPlayerA11y(players[0],0); // carrega viz/easy/alternância persistidos do jogador 1 (migra chaves antigas)
 vizReady=true; applyVizGlobal(players[0].viz); // estado inicial (solo)
 
 /* Fonte de leitura (canônicas EdSP): Padrão (Atkinson) | Alfabetização (Andika) | Dislexia/TDAH (Lexend + espaçamento BDA). Persistida. */
@@ -1477,12 +1483,12 @@ function renderMotion(){ const el=$('#motion-list'); if(!el)return;
 }
 function updateMotionMaster(){ reflectMotionBtn(); const m=$('#motion-master'); if(!m)return; const allOn=RM_KEYS.every(k=>rm[k]);
   m.textContent=allOn?'▶ Retomar todas as animações':'⏸ Parar todas as animações'; toggleBtn(m,allOn); }
-function reflectAltMove(){ const b=$('#opt-altmove'); if(b){ b.classList.toggle('is-on',toggleMove); b.setAttribute('aria-pressed',String(toggleMove)); b.textContent=toggleMove?'❚❚ Ligado':'▶ Desligado'; }
-  reflectMovementBtn(); } // botão da barra acende com Fácil OU alternância
-const altMoveBtn=$('#opt-altmove'); if(altMoveBtn)altMoveBtn.addEventListener('click',()=>{ setToggleMove(!toggleMove); reflectAltMove(); });
+function reflectAltMove(){ const p=players[selMovPlayer], on=!!(p&&p.toggleMove); const b=$('#opt-altmove'); if(b){ b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); b.textContent=on?'❚❚ Ligado':'▶ Desligado'; }
+  reflectMovementBtn(); } // botão da barra acende se QUALQUER jogador usa Fácil/alternância
+const altMoveBtn=$('#opt-altmove'); if(altMoveBtn)altMoveBtn.addEventListener('click',()=>{ setToggleMove(selMovPlayer, !players[selMovPlayer].toggleMove); reflectAltMove(); });
 reflectFacil(); reflectAltMove();
 // MENU Movimento (GAG: alternância) — separado do menu Animação (WCAG: movimento reduzido)
-function openMovement(){ const ov=$('#movement'); if(!ov)return; reflectFacil(); reflectAltMove(); ov.hidden=false; movementOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function openMovement(){ const ov=$('#movement'); if(!ov)return; renderMovPlayers(); reflectFacil(); reflectAltMove(); ov.hidden=false; movementOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeMovement(){ const ov=$('#movement'); if(!ov)return; ov.hidden=true; movementOpen=false; const b=$('#opt-movement'); if(b)b.focus(); }
 function openAnimation(){ const ov=$('#animation'); if(!ov)return; renderMotion(); ov.hidden=false; animationOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeAnimation(){ const ov=$('#animation'); if(!ov)return; ov.hidden=true; animationOpen=false; const b=$('#opt-animation'); if(b)b.focus(); }
