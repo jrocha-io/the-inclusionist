@@ -18,6 +18,13 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 
 **Papéis das paletas (José):** P1 luz direta · P2 muito claras · P3 claras · P4–P5 lavadas · P6 vivas/saturadas · P7 quentes vivas + apagadas · P8 azul/rosa/vermelho vivos + resto apagado · P9–P10 escuras · P11–P13 bem escuras. Uso: contorno claro de P1/P2 (sobre fundo escuro) ou escuro de P12/P13 (sobre claro); interiores vivos de P6; fundo lavado de P4/P5. Grupos-base para o modo Cores: **P1×P6×P11**, **P2×P7×P12**, **P3×P8×P13** (adjacentes ~3:1).
 
+## Por jogador (multiplayer) — ✅ feito
+Cada jogador tem suas configs (abas P1–P4 nos painéis, como os controles):
+- **A12e visual (cor):** totalmente por tela — no MP cada viewport renderiza no modo do seu jogador (troca de texturas compartilhadas antes de cada render + filtro PIXI por viewport; bolinha por cima, fora do filtro).
+- **A12e motora:** Fácil (física/hitbox/borda/imunidade-a-perigo/controles) e alternância por jogador. Único efeito de **mundo** que fica global: **moedas no chão** (liga se QUALQUER jogador usa Fácil — há um mundo só).
+- **S11e (animação):** **personagem** (andar/respiração/gracinhas) por jogador; **cena** (parallax/decoração/itens/partículas) global (fundo compartilhado).
+- Persistido por jogador (`incl_*_pN`). ⚠️ FPS no MP cai com filtros por viewport — otimizar depois.
+
 ## Modo Fácil (deficiência motora)
 - Gravidade **×2/3**; pulo **×8/7**; andar/escada/nado **×0.7** (ajuste fino depois).
 - Hitbox de coleta **+4px** por lado, desenhada como **retângulo translúcido**.
