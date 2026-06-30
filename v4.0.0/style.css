@@ -114,17 +114,22 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 #visual{background:rgba(0,0,0,.28);align-items:start;padding-top:3.5rem} /* cor: fundo translúcido p/ ver o efeito imediato no jogo */
 
 /* Indicador de simulação (canto sup. dir.): branca=cegueira, verde=baixa visão. Duplo toque volta ao normal. */
-#viz-indicator{position:fixed;top:10px;right:10px;z-index:120;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,.55);padding:0;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.6)}
+#viz-indicator{position:absolute;top:6px;right:6px;z-index:20;width:16px;height:16px;border-radius:50%;border:2px solid rgba(0,0,0,.6);padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.7)} /* DENTRO do canvas (game-region) — funciona como botão */
 #viz-indicator.blind{background:#fff}
 #viz-indicator.low{background:#36d36a}
-/* Baixa visão: névoa (véu) + manchas escuras (scotomas). O desfoque vem do filter na canvas. */
-#viz-overlay{position:absolute;inset:0;z-index:8;pointer-events:none;
-  background:
-    radial-gradient(circle at 27% 36%, rgba(12,12,16,.92) 0, rgba(12,12,16,.7) 4%, transparent 13%),
-    radial-gradient(circle at 71% 58%, rgba(12,12,16,.88) 0, rgba(12,12,16,.6) 3%, transparent 11%),
-    radial-gradient(circle at 52% 80%, rgba(12,12,16,.75) 0, transparent 10%),
-    radial-gradient(130% 130% at 50% 45%, transparent 42%, rgba(238,240,245,.24) 100%),
-    rgba(236,239,244,.13)}
+/* Baixa visão — 5 simulações (desfoque vem do filter na canvas; aqui só os overlays) */
+#viz-overlay{position:absolute;inset:0;z-index:8;pointer-events:none}
+#viz-overlay.lv-blur{background:none}                                              /* miopia/astigmatismo: só desfoque */
+#viz-overlay.lv-haze{background:rgba(244,246,250,.42)}                              /* catarata: película esbranquiçada */
+#viz-overlay.lv-tunnel{background:radial-gradient(circle at 50% 50%, transparent 0 15%, rgba(0,0,0,.55) 27%, rgba(0,0,0,.99) 42%)}  /* glaucoma: visão de túnel */
+#viz-overlay.lv-macular{background:radial-gradient(circle at 50% 50%, rgba(12,12,15,.95) 0 10%, rgba(12,12,15,.55) 17%, transparent 28%)} /* degeneração macular: borrão central */
+#viz-overlay.lv-diabetic{background:                                               /* retinopatia diabética: manchas dispersas */
+    radial-gradient(circle at 22% 30%, rgba(10,10,14,.95) 0 4%, transparent 11%),
+    radial-gradient(circle at 64% 22%, rgba(10,10,14,.9) 0 3%, transparent 9%),
+    radial-gradient(circle at 80% 58%, rgba(10,10,14,.95) 0 5%, transparent 12%),
+    radial-gradient(circle at 40% 70%, rgba(10,10,14,.9) 0 4%, transparent 10%),
+    radial-gradient(circle at 16% 80%, rgba(10,10,14,.85) 0 3%, transparent 9%),
+    radial-gradient(circle at 54% 48%, rgba(10,10,14,.8) 0 3%, transparent 8%)}
 /* Cegueira total: a canvas vira preta (filter brightness(0)); escondemos HUD e controles na tela */
 body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-tips, body.blind-mode #caption{visibility:hidden}
 [hidden]{display:none!important}

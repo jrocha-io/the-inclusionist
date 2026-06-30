@@ -667,11 +667,16 @@ const VIZ_MODES=[
   {key:'sim-deuter', kind:'filter', filter:'url(#cvd-deuter)', nome:'Simular Deuteranopia', desc:'Como vê quem não enxerga o verde (mais comum).'},
   {key:'sim-protan', kind:'filter', filter:'url(#cvd-protan)', nome:'Simular Protanopia',   desc:'Como vê quem não enxerga o vermelho.'},
   {key:'sim-tritan', kind:'filter', filter:'url(#cvd-tritan)', nome:'Simular Tritanopia',   desc:'Como vê quem não enxerga o azul.'},
-  {key:'lowvision', kind:'lowvision', nome:'Simular baixa visão', desc:'Desfoque, névoa e manchas. (bolinha verde no canto; toque 2× para sair)'},
-  {key:'blind', kind:'blind', nome:'Simular cegueira total', desc:'Tela preta — jogue como uma pessoa cega (resposta tátil/sonora). (bolinha branca no canto; toque 2× para sair)'},
+  {key:'lv-blur',     kind:'lowvision', lv:'blur',     nome:'Baixa visão: desfoque',         desc:'Miopia severa / astigmatismo. (bolinha verde; toque 2× p/ sair)'},
+  {key:'lv-haze',     kind:'lowvision', lv:'haze',     nome:'Baixa visão: névoa',            desc:'Catarata — película esbranquiçada, baixo contraste.'},
+  {key:'lv-tunnel',   kind:'lowvision', lv:'tunnel',   nome:'Baixa visão: visão de túnel',   desc:'Glaucoma — só o centro é visível.'},
+  {key:'lv-macular',  kind:'lowvision', lv:'macular',  nome:'Baixa visão: mancha central',   desc:'Degeneração macular — borrão no centro.'},
+  {key:'lv-diabetic', kind:'lowvision', lv:'diabetic', nome:'Baixa visão: manchas dispersas',desc:'Retinopatia diabética — manchas espalhadas.'},
+  {key:'blind', kind:'blind', nome:'Simular cegueira total', desc:'Tela preta — jogue como uma pessoa cega (resposta tátil/sonora). (bolinha branca; toque 2× p/ sair)'},
 ];
 const VIZ_BY_KEY=Object.fromEntries(VIZ_MODES.map(m=>[m.key,m]));
-const VIZ_FILTER={'sim-deuter':'url(#cvd-deuter)','sim-protan':'url(#cvd-protan)','sim-tritan':'url(#cvd-tritan)','lowvision':'blur(1.6px) contrast(.82) brightness(.9)','blind':'brightness(0)'};
+const VIZ_FILTER={'sim-deuter':'url(#cvd-deuter)','sim-protan':'url(#cvd-protan)','sim-tritan':'url(#cvd-tritan)',
+  'lv-blur':'blur(2.4px)', 'lv-haze':'contrast(.58) brightness(1.14) blur(.6px)', 'lv-tunnel':'blur(.5px)', 'lv-macular':'', 'lv-diabetic':'blur(.8px)', 'blind':'brightness(0)'};
 const VIZ_CYCLE=VIZ_MODES.map(m=>m.key);
 function hcPal(m){ return { player:PALETTES[m.player], item:PALETTES[m.item], plat:PALETTES[m.bg], bg:PALETTES[m.bg], water:PALETTES[m.bg] }; }
 let vizMode=(()=>{ try{ const v=localStorage.getItem('incl_viz'); if(VIZ_CYCLE.includes(v))return v; }catch(e){}
@@ -1340,7 +1345,7 @@ function applyViz(mode){
   // baixa visão = névoa+manchas (overlay) + bolinha verde; cegueira = tela preta (filtro) + esconde controles + bolinha branca
   document.body.classList.toggle('lowvision-mode', m.kind==='lowvision');
   document.body.classList.toggle('blind-mode', m.kind==='blind');
-  const ov=$('#viz-overlay'); if(ov)ov.hidden=(m.kind!=='lowvision');
+  const ov=$('#viz-overlay'); if(ov){ ov.hidden=(m.kind!=='lowvision'); ov.className=(m.kind==='lowvision'?('lv-'+m.lv):''); }
   if(m.kind==='blind'){ hideTouchControls('cegueira'); }
   updateVizIndicator(m.kind);
   const b=$('#opt-visual'); if(b)b.classList.toggle('is-on',mode!=='normal'); // botão da barra realça quando ≠ normal
