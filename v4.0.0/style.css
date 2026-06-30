@@ -2,13 +2,30 @@
 :root{
   --bg:#0b1020; --panel:#1b2440; --ink:#f5f8ff; --ink-soft:#cdd6f2;
   --accent:#ffd23f; --accent-ink:#1a1400; --focus:#ffd23f; --good:#34e29b;
-  --maxw:1000px; --tap:44px; --font:system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+  --maxw:1000px; --tap:44px;
+  /* ===== Tipografia oficial EdSP ===== */
+  --font-fallback:system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+  --font:'Atkinson Hyperlegible',var(--font-fallback);          /* PADRÃO */
+  --font-math:'Atkinson Hyperlegible Mono',ui-monospace,"Cascadia Mono",Consolas,monospace; /* matemática */
+  /* Espaçamento padrão do projeto (≥ recomendações WCAG 2.2 §1.4.12) */
+  --ls:0.12em;   /* letter-spacing */
+  --ws:0.16em;   /* word-spacing */
+  --lh:1.5;      /* line-height */
 }
+/* Modo ALFABETIZAÇÃO → Andika */
+:root[data-fonte="alfabetizacao"]{ --font:'Andika',var(--font-fallback); }
+/* Modo DISLEXIA/TDAH → Lexend + espaçamento da British Dyslexia Association
+   (palavra ≥ 3,5× letra: letter 0.18em / word 0.63em) */
+:root[data-fonte="dislexia"]{ --font:'Lexend',var(--font-fallback); --ls:0.18em; --ws:0.63em; }
 @media (prefers-contrast: more){
   :root{ --bg:#000; --panel:#000; --ink:#fff; --ink-soft:#fff; --accent:#ffe600; }
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:var(--lh);letter-spacing:var(--ls);word-spacing:var(--ws)}
+/* matemática em mono tabular (algarismos alinhados/legíveis) */
+.quiz-box--math .quiz-prob,.quiz-box--math .quiz-choice,#hud-coins,#hud-total{font-family:var(--font-math);font-variant-numeric:tabular-nums}
+/* espaçamento de parágrafo ≥2× só em blocos de leitura (não quebra HUD/menus) */
+.overlay__card p + p{margin-top:2em}
 body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .skip-link{position:absolute;left:8px;top:-60px;background:var(--accent);color:var(--accent-ink);padding:.6em 1em;border-radius:0 0 10px 10px;font-weight:700;z-index:100;transition:top .15s}
@@ -25,9 +42,9 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .hud__item strong{font-variant-numeric:tabular-nums}
 .hud__fps{color:var(--ink-soft)}
 
-main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:0 1rem 1rem;min-height:0}
-/* jogo em múltiplos inteiros de 320x180; tamanho definido por JS; centralizado pelo stage */
-.stage-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:.5rem 0}
+main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:0 .25rem .25rem;min-height:0;overflow:hidden}
+/* tela = prioridade: ocupa todo o espaço; o excedente (até 5px×k por lado) é cortado sem rolagem */
+.stage-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:0;overflow:hidden}
 .stage{position:relative;display:flex;align-items:center}
 .game-region{position:relative;background:#05070f;box-shadow:0 0 0 3px var(--ink-soft);border-radius:8px;overflow:hidden;flex:none}
 .libras-slot{flex:none;width:0;height:0;background:#0b1020;border-radius:8px;overflow:hidden}
@@ -76,7 +93,9 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 .bcell-l{font-weight:800}
 @media (prefers-contrast: more){ .quiz-box{background:#000} .quiz-choice{background:#000} .quiz-choice.sel{background:#fff;color:#000} }
 
-.opts{max-width:var(--maxw);margin:0 auto .5rem;padding:0 1rem;display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
+.opts{max-width:var(--maxw);margin:0 auto .5rem;padding:0 1rem;display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center}
+/* barra de controles compacta → cabe em UMA fileira em telas comuns (não afeta botões de overlay) */
+.opts .mode-btn{padding:.35em .65em;font-size:.92rem;white-space:nowrap}
 .caption{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;
   border:2px solid rgba(255,255,255,.5);border-radius:8px;padding:.25em .7em;font-weight:700;font-size:.95rem;
   z-index:8;pointer-events:none;max-width:90%;opacity:0;transition:opacity .15s}
@@ -102,6 +121,8 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 .title-card .btn{margin-top:.4rem;font-size:1.1rem;padding:.6em 1.6em}
 .overlay__actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;justify-content:flex-end}
 .opt-hint{color:var(--ink-soft);font-size:.9rem;margin:.2rem 0 .8rem}
+.ctrl-players{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;margin-bottom:.7rem}
+.ctrl-players .mode-btn{padding:.3em .7em;font-size:.95rem}
 .ctrl-list{display:flex;flex-direction:column;gap:.45rem;text-align:left}
 .ctrl-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;background:#0e1326;border:2px solid var(--ink-soft);border-radius:8px;padding:.4rem .6rem}
 .ctrl-row kbd{background:var(--ink);color:var(--bg);border-radius:5px;padding:.05em .45em;font-weight:700}
@@ -119,4 +140,3 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 @media (prefers-contrast: more){ .touch-btn{background:#000;border-color:#fff} .touch-btn:active{background:#fff;color:#000} .touch-stick{background:#000;border-color:#fff} .touch-knob{background:#fff} }
 
 @media (max-width:560px){.title{font-size:1.1rem}.hud{gap:1rem}}
-

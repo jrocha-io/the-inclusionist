@@ -9,6 +9,8 @@
   <meta name="description" content="The Inclusionist — jogo educativo acessível (esqueleto PixiJS v4.0.0)." />
   <title>The Inclusionist · v4.0.0 (PixiJS)</title>
   <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="preload" href="vendor/fonts/atkinson-400.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="vendor/fonts.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body data-theme="cave">
@@ -31,30 +33,21 @@
     <p class="hud__item"><span aria-hidden="true">🪙</span> Moedas:
       <strong id="hud-coins" aria-live="off">0</strong> / <span id="hud-total">10</span></p>
     <p class="hud__item"><span aria-hidden="true">🎯</span> <span id="hud-objective">Colete 10 moedas</span></p>
+    <p class="hud__item"><span aria-hidden="true">✨</span> Poder: <strong id="hud-power">—</strong></p>
     <p class="hud__item hud__fps" aria-hidden="true">FPS: <strong id="hud-fps">–</strong>
       <span class="hud__fpsmin">(mín <strong id="hud-fpsmin">–</strong>)</span></p>
   </div>
 
-  <nav class="modes" aria-label="Modo de jogo">
-    <button id="mode-ludico" class="mode-btn is-on" type="button" aria-pressed="true">🪙 Lúdico</button>
-    <button id="mode-somasub" class="mode-btn" type="button" aria-pressed="false">🔷 Soma-Sub</button>
-    <button id="mode-silabas" class="mode-btn" type="button" aria-pressed="false">🔤 Sílabas</button>
-    <button id="opt-case" class="mode-btn" type="button" aria-pressed="false" aria-label="Alternar entre maiúsculas e minúsculas">abc</button>
-    <button id="opt-blind" class="mode-btn" type="button" aria-pressed="false" aria-label="Modo pessoa cega: ditado de Braille no modo Sílabas">⠿ Braille</button>
-  </nav>
-
-  <nav class="opts" aria-label="Acessibilidade">
+  <!-- Barra de controles em UMA fileira: botões CÍCLICOS (1 por função) -->
+  <nav class="opts" aria-label="Jogo e acessibilidade">
+    <button id="opt-mode" class="mode-btn" type="button" aria-label="Trocar o modo de jogo (Lúdico, Soma-Sub, Sílabas)">🪙 Lúdico</button>
+    <button id="opt-letra" class="mode-btn" type="button" aria-label="Trocar as letras (ABC, abc, Braille)">🔠 ABC</button>
+    <button id="opt-telas" class="mode-btn" type="button" aria-label="Trocar o número de telas (jogadores)">👤 1 tela</button>
     <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true">🔊 Som</button>
     <button id="opt-captions" class="mode-btn is-on" type="button" aria-pressed="true">💬 Legendas</button>
     <button id="opt-assist" class="mode-btn" type="button" aria-pressed="false" aria-label="Modo assistência: velocidade reduzida e sem perigos">♿ Assistência</button>
     <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Controles</button>
-  </nav>
-
-  <nav class="opts" aria-label="Número de jogadores (telas lado a lado)">
-    <button id="mp-1" class="mode-btn mp-btn is-on" type="button" aria-pressed="true">👤 1 tela</button>
-    <button id="mp-2" class="mode-btn mp-btn" type="button" aria-pressed="false">👥 2 telas</button>
-    <button id="mp-3" class="mode-btn mp-btn" type="button" aria-pressed="false">👨‍👧 3 telas</button>
-    <button id="mp-4" class="mode-btn mp-btn" type="button" aria-pressed="false">👨‍👩‍👧‍👦 4 telas</button>
+    <button id="opt-fonte" class="mode-btn" type="button" aria-label="Trocar a fonte de leitura">🔤 Atkinson (legibilidade)</button>
   </nav>
 
   <main>
@@ -86,7 +79,9 @@
           </div>
         </div>
         <div class="touch-pad">
-          <button class="touch-btn touch-run" type="button" data-act="run" aria-label="Correr">»</button>
+          <button class="touch-btn touch-swap" type="button" data-act="swap" aria-label="Trocar poder">⟳</button>
+          <button class="touch-btn touch-special" type="button" data-act="especial" aria-label="Ação especial">★</button>
+          <button class="touch-btn touch-run" type="button" data-act="run" aria-label="Correr / interagir">»</button>
           <button class="touch-btn touch-jump" type="button" data-act="jump" aria-label="Pular">⤒</button>
         </div>
       </div>
@@ -150,8 +145,9 @@
   <!-- E10: diálogo de controles (remap + persistência B2) -->
   <div id="options" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="opt-title">
-      <h2 id="opt-title">Controles (Jogador 1)</h2>
-      <p class="opt-hint">Clique em “Alterar” e pressione a nova tecla. As escolhas ficam salvas no navegador.</p>
+      <h2 id="opt-title">Controles</h2>
+      <p class="opt-hint">Escolha o jogador, clique em “Alterar” e pressione a nova tecla. As escolhas ficam salvas no navegador. (P2–P4 valem nas telas múltiplas.)</p>
+      <div id="ctrl-players" class="ctrl-players" role="group" aria-label="Escolha o jogador"></div>
       <div id="ctrl-list" class="ctrl-list"></div>
       <div class="overlay__actions">
         <button id="ctrl-reset" class="mode-btn" type="button">Restaurar padrões</button>

@@ -209,10 +209,17 @@ function spriteToCanvas(art){
     for(let x=0;x<16;x++){const ch=row[x];if(ch==='.'||!ch)continue;c.fillStyle=APP[ch]||'#f0f';c.fillRect(x,y,1,1);}}
   return cv;
 }
-function worldToTexture(){
+const isGroundType=(t)=>t===2||t===6; // chão/plataforma genéricos → recebem o tileset do tema
+function worldToTexture(tiles){       // tiles={fill,surface} (HTMLImageElement) ou undefined → cor chapada
   const cv=makeCanvas(WORLD_PX_W,WORLD_PX_H),c=cv.getContext('2d');
+  const solidAt=(x,y)=> y>=0&&y<WORLD_H&&x>=0&&x<WORLD_W && isSolidType(WORLD[y][x]);
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){
-    const t=WORLD[y][x]; c.fillStyle=TILE_COLOR[t]||'#202'; c.fillRect(x*TILE,y*TILE,TILE,TILE);
+    const t=WORLD[y][x];
+    if(t===0||t===1) continue;        // ar/interior: transparente → o parallax aparece através da área jogável
+    if(tiles && isGroundType(t)){      // tileset: superfície (topo claro) se há ar acima, senão preenchimento
+      c.drawImage(solidAt(x,y-1)?tiles.fill:tiles.surface, x*TILE, y*TILE); continue;
+    }
+    c.fillStyle=TILE_COLOR[t]||'#202'; c.fillRect(x*TILE,y*TILE,TILE,TILE);
     if(isSolidType(t)){ c.fillStyle='rgba(255,255,255,.12)';c.fillRect(x*TILE,y*TILE,TILE,2);
       c.fillStyle='rgba(0,0,0,.22)';c.fillRect(x*TILE,y*TILE+TILE-2,TILE,2); }
     if(t===4){ c.fillStyle='rgba(0,0,0,.4)';for(let r=2;r<TILE;r+=5)c.fillRect(x*TILE+2,y*TILE+r,TILE-4,2); } // degraus escada
@@ -298,8 +305,10 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  activePower:'off',hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0}; }
+  activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0}; }
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
+const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Ventosa'};
+function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
 function touchingWall(pl){ const y0=Math.floor((pl.y-BOX.h)/TILE),y1=Math.floor((pl.y-1)/TILE),lx=Math.floor((pl.x-BOX.w/2-1)/TILE),rx=Math.floor((pl.x+BOX.w/2+1)/TILE); for(let ty=y0;ty<=y1;ty++) if(solidAt(lx,ty)||solidAt(rx,ty))return true; return false; }
@@ -363,32 +372,41 @@ let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
 
 /* ===================== input ===================== */
-const keys=new Set(); let jumpEdge=false, captureAction=null, optionsOpen=false;
-const CKEY='inclusionist.controls.v1';
-const CTRL_DEFAULTS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:['KeyL','Space'],run:['KeyP','ShiftLeft','ShiftRight'],up:['KeyW','ArrowUp'],down:['KeyS','ArrowDown']};
-function loadControls(){ try{const s=JSON.parse(localStorage.getItem(CKEY)); if(s)return Object.assign(JSON.parse(JSON.stringify(CTRL_DEFAULTS)),s);}catch(e){} return JSON.parse(JSON.stringify(CTRL_DEFAULTS)); }
-function saveControls(){ try{localStorage.setItem(CKEY,JSON.stringify(controls));}catch(e){} }
-let controls=loadControls();
+const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false;
+const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
+// 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
+const KB_DEFAULTS={
+  // 1 jogador: WASD + setas; pulo J/Espaço; UJIK como na mão pequena do DOS. Sem Alt/AltGr/Ctrl/Shift (uso do SO; e Ctrl/Shift ficam pro modo Fácil).
+  solo:{ left:['KeyA','ArrowLeft'], right:['KeyD','ArrowRight'], up:['KeyW','ArrowUp'], down:['KeyS','ArrowDown'],
+         run:['KeyU'], jump:['KeyJ','Space'], swap:['KeyI'], especial:['KeyK'] },
+  p2:[ { left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'], run:['KeyU'],jump:['KeyJ'],swap:['KeyI'],especial:['KeyK'] },
+       { left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'], run:['Numpad8'],jump:['Numpad5'],swap:['Numpad9'],especial:['Numpad6'] } ],
+  p34:[ { left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'], run:['KeyZ'],jump:['KeyX'],swap:['KeyC'],especial:['KeyV'] },
+        { left:['KeyJ'],right:['KeyL'],up:['KeyI'],down:['KeyK'], run:['KeyM'],jump:['Comma'],swap:['Period'],especial:['Semicolon','Slash'] },
+        { left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'], run:['Home'],jump:['End'],swap:['PageUp'],especial:['PageDown'] },
+        { left:['Numpad4'],right:['Numpad6'],up:['Numpad8'],down:['Numpad5'], run:['Numpad2'],jump:['Numpad0'],swap:['Numpad3'],especial:['NumpadDecimal'] } ],
+};
+function loadKB(){ try{ const s=JSON.parse(localStorage.getItem(CKEY)); if(s){ const d=JSON.parse(JSON.stringify(KB_DEFAULTS));
+  if(s.solo)Object.assign(d.solo,s.solo); ['p2','p34'].forEach(g=>{ if(Array.isArray(s[g]))s[g].forEach((m,i)=>{ if(d[g][i]&&m)Object.assign(d[g][i],m); }); }); return d; } }catch(e){}
+  return JSON.parse(JSON.stringify(KB_DEFAULTS)); }
+let KB=loadKB();
+function saveKB(){ try{localStorage.setItem(CKEY,JSON.stringify(KB));}catch(e){} }
+function kbFor(i){ return numPlayers<=1 ? KB.solo : (numPlayers<=2 ? (KB.p2[i]||KB.p2[0]) : (KB.p34[i]||KB.p34[0])); } // esquema do jogador i p/ a contagem atual
+let controls=KB.solo; // alias do P1 (navegação do quiz + GAME_KEYS)
 let KJUMP=controls.jump, KLEFT=controls.left, KRIGHT=controls.right, KUP=controls.up, KDOWN=controls.down, KRUN=controls.run;
 let GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN];
-function applyControls(){ KJUMP=controls.jump;KLEFT=controls.left;KRIGHT=controls.right;KUP=controls.up;KDOWN=controls.down;KRUN=controls.run; GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN]; if(numPlayers<=1)players[0].ctrl=controls; }
-// E11: keysets fixos para multiplayer (P1=WASD+Espaço, P2=setas+Enter, P3=FTGH+R, P4=IJKL+U) — sem conflito de teclas
-const MP_CTRL=[
-  {left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'],jump:['Space'],run:['ShiftLeft']},
-  {left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'],jump:['Enter','NumpadEnter'],run:['ShiftRight']},
-  {left:['KeyF'],right:['KeyH'],up:['KeyT'],down:['KeyG'],jump:['KeyR'],run:['KeyY']},
-  {left:['KeyJ'],right:['KeyL'],up:['KeyI'],down:['KeyK'],jump:['KeyU'],run:['KeyO']},
-];
+function applyControls(){ controls=KB.solo; KJUMP=controls.jump;KLEFT=controls.left;KRIGHT=controls.right;KUP=controls.up;KDOWN=controls.down;KRUN=controls.run;
+  const all=[]; players.forEach((p,i)=>{ const m=kbFor(i); for(const a in m) all.push(...m[a]); }); GAME_KEYS=all.length?all:[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN]; }
 const PCOLOR=[0xffffff,0xff9a9a,0x8affc0,0xffe08a]; // tint distintivo por jogador (P1 = normal)
-function assignControls(){ if(numPlayers<=1){players[0].ctrl=controls;} else players.forEach((p,i)=>p.ctrl=MP_CTRL[i]||MP_CTRL[0]); }
-players[0].ctrl=controls;
+function assignControls(){ players.forEach((p,i)=>p.ctrl=kbFor(i)); }
+assignControls();
 addEventListener('keydown',(e)=>{
-  if(captureAction){ // remap: a próxima tecla vira o novo controle
-    if(e.code!=='Escape'){ controls[captureAction]=[e.code]; saveControls(); applyControls(); }
-    captureAction=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
+  if(captureAction){ // remap: a próxima tecla vira o novo controle (do jogador selecionado)
+    if(e.code!=='Escape'){ const m=captureMapRef||controls; m[captureAction]=[e.code]; saveKB(); applyControls(); assignControls(); }
+    captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
   }
   if(optionsOpen){ if(e.code==='Escape')closeOptions(); return; } // diálogo aberto: não joga
-  if(!player.quiz && e.code==='Escape' && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14
+  if(!player.quiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
       if(KUP.includes(e.code))announceBraille(); else if(KJUMP.includes(e.code))quizConfirm();
@@ -401,7 +419,11 @@ addEventListener('keydown',(e)=>{
   }
   const isGameKey = GAME_KEYS.includes(e.code) || players.some(p=>p.ctrl && Object.values(p.ctrl).some(arr=>arr.includes(e.code)));
   if(isGameKey){ e.preventDefault(); hideTouchControls('teclado'); } // E13: jogar no teclado oculta os botões de toque
-  if(!keys.has(e.code)){ for(const p of players){ if(p.ctrl && p.ctrl.jump.includes(e.code)) p.jumpEdge=true; if(p.ctrl && p.ctrl.run.includes(e.code)) p.runEdge=true; } }
+  if(!keys.has(e.code)){ for(const p of players){ if(!p.ctrl)continue;
+    if(p.ctrl.jump.includes(e.code)) p.jumpEdge=true;
+    if(p.ctrl.run.includes(e.code)) p.runEdge=true;
+    if(p.ctrl.swap&&p.ctrl.swap.includes(e.code)) p.swapEdge=true;
+    if(p.ctrl.especial&&p.ctrl.especial.includes(e.code)) p.specialEdge=true; } }
   keys.add(e.code); });
 addEventListener('keyup',(e)=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
@@ -442,6 +464,17 @@ function sfx(name){
     o.start(t); o.stop(t+c.d+0.02);
   }catch(e){}
 }
+// ===== Vitória: jingle 8-bit ascendente + fogos de artifício (assobio subindo → estouro/crepitar) =====
+function ensureAC(){ if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC)audioCtx=new AC(); } if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume(); return audioCtx; }
+function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
+  o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
+function firework(when){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const t=ac.currentTime+(when||0);
+  const o=ac.createOscillator(),g=ac.createGain(); o.type='sine'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(1200,t+0.35); // assobio subindo
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.12*volume,t+0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+0.36); o.connect(g).connect(ac.destination); o.start(t); o.stop(t+0.4);
+  [0,0.04,0.09,0.15,0.22].forEach((dt,i)=>{ const po=ac.createOscillator(),pg=ac.createGain(),tt=t+0.36+dt; po.type='square'; po.frequency.setValueAtTime(180+((i*131)%520),tt); // estouro/crepitar
+    pg.gain.setValueAtTime(0.18*volume,tt); pg.gain.exponentialRampToValueAtTime(0.0001,tt+0.09); po.connect(pg).connect(ac.destination); po.start(tt); po.stop(tt+0.11); }); }catch(e){} }
+function playVictory(){ [[523,0],[659,0.12],[784,0.24],[1047,0.36],[988,0.52],[1319,0.64]].forEach(([f,w])=>tone(f,0.16,'square',w,0.22)); [0.2,0.8,1.35,1.9].forEach(w=>firework(w)); }
 
 /* ===================== Pixi ===================== */
 PIXI.settings.ROUND_PIXELS=true;
@@ -450,7 +483,56 @@ const app=new PIXI.Application({width:LOGICAL_W,height:LOGICAL_H,backgroundColor
 $('#pixi-mount').appendChild(app.view);
 app.view.setAttribute('aria-hidden','true');
 const camera=new PIXI.Container(); app.stage.addChild(camera);
-camera.addChild(new PIXI.Sprite(worldToTexture()));
+
+/* ===== Parallax: 3 camadas de FUNDO atrás do tileset (Camada 1 = tileset+personagem).
+   Camada 4 (fator 0.10) é a mais distante e "quase não se mexe" — receberá a maior
+   imagem possível do PixelLab. Vivem DENTRO do camera (contra-posicionadas p/ ficarem
+   fixas na tela) para também aparecerem nas render-textures do multiplayer.
+   tilePosition faz o scroll fracionado → ilusão de profundidade. */
+const PARALLAX=[
+  {key:'sky',  factor:0.10, fy:0}, // Camada 4 — mais distante (céu/horizonte), maior imagem
+  {key:'far',  factor:0.28, fy:0}, // Camada 3
+  {key:'near', factor:0.52, fy:0}, // Camada 2 — mais próxima do tileset (fy=0: parallax horizontal clássico; textura=altura do viewport → sem repetição vertical)
+];
+function parallaxPlaceholder(i){ // provisório: gradiente + silhuetas p/ enxergar o movimento (trocado pela arte do PixelLab)
+  const w=320,h=LOGICAL_H,cv=makeCanvas(w,h),c=cv.getContext('2d');
+  const pal=[['#0a1024','#1b2350'],['#13284a','#22406e'],['#1d3a52','#356a86']][i];
+  const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,pal[0]); g.addColorStop(1,pal[1]); c.fillStyle=g; c.fillRect(0,0,w,h);
+  c.fillStyle=pal[1];
+  for(let x=0;x<w;x+=44+i*14){ const hh=24+((x*7+i*29)%(46+i*22)); c.fillRect(x,h-hh,30+i*6,hh); }
+  c.fillStyle='rgba(255,255,255,.18)'; for(let k=0;k<8;k++){ c.fillRect((k*53+i*17)%w,(k*23+i*11)%(h-40),2,2); } // marcadores
+  return tex(cv);
+}
+const parallaxLayers=PARALLAX.map((p,i)=>{
+  const ts=new PIXI.TilingSprite(parallaxPlaceholder(i),LOGICAL_W,LOGICAL_H);
+  camera.addChildAt(ts,i); // i=0 (sky) fica no fundo; depois far, near; tileset entra por cima
+  return ts;
+});
+function updateParallax(camX,camY){
+  for(let i=0;i<parallaxLayers.length;i++){ const ts=parallaxLayers[i],p=PARALLAX[i];
+    ts.x=camX; ts.y=camY;                                  // anula o camera → fixa na tela
+    ts.tilePosition.x=-camX*p.factor; ts.tilePosition.y=-camY*p.fy;
+  }
+}
+/* Tema de cenário: troca as 3 texturas de parallax por assets/cenarios/<tema>/c{4,3,2}.png.
+   Sem tema definido → placeholders. Persiste em localStorage. */
+let CENARIO=null;
+function loadTileImages(theme){ return new Promise(res=>{
+  const fill=new Image(), surf=new Image(); let n=0, fail=false;
+  const done=()=>{ if(fail)return; if(++n===2) res({fill,surface:surf}); };
+  fill.onload=done; surf.onload=done; fill.onerror=surf.onerror=()=>{fail=true;res(null);};
+  fill.src='assets/cenarios/'+theme+'/tile_fill.png'; surf.src='assets/cenarios/'+theme+'/tile_surface.png';
+}); }
+function setCenario(theme){
+  CENARIO=theme;
+  parallaxLayers.forEach((ts,i)=>{ const n=[4,3,2][i];
+    const t=PIXI.Texture.from('assets/cenarios/'+theme+'/c'+n+'.png');
+    t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; ts.texture=t; });
+  loadTileImages(theme).then(tiles=>{ if(tiles && worldSprite) worldSprite.texture=worldToTexture(tiles); }); // reconstrói o chão com o tileset do tema
+  try{ localStorage.setItem('incl_cenario',theme); }catch(e){}
+}
+const worldSprite=new PIXI.Sprite(worldToTexture()); camera.addChild(worldSprite);
+try{ setCenario(localStorage.getItem('incl_cenario')||'cidade'); }catch(e){ setCenario('cidade'); }
 const coinTex=coinTexture();
 function shapeTexture(id){
   const cv=makeCanvas(16,16),c=cv.getContext('2d');
@@ -522,33 +604,38 @@ function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getCon
 // próprio, sem padronizar). A conversão procedural (PIP_* acima) fica para uma fase posterior.
 // E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true
 const ANIM={ walkHold:6, runHold:8, idleHold:20, swimHold:24, clingHold:10, climbHold:8, flavorDelay:360 };  // andar 6; correr 8 (~8fps, pedido do José); swim 24; cling 10; escada 8; flavor ~6s
-const pngTex=(f)=>{ const t=PIXI.Texture.from('assets/pip/'+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
-const TEX_IDLE=[0,1,2,3].map(i=>pngTex('idle'+i+'.png'));         // idle = RESPIRAÇÃO por frames (cabeça congelada → sem 'mastigar'; só o tronco respira)
-const TEX_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'.png'));   // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
-const TEX_RUN=[0,1,2,3].map(i=>pngTex('sprint'+i+'.png'));         // CORRER = sprint AGRESSIVA (inclinada, braços grandes) — 4 quadros
-const TEX_HC_IDLE=[pngTex('idle0_hc.png')];
-const TEX_HC_WALK=[0,1,2,3,4,5,6,7].map(i=>pngTex('run'+i+'_hc.png'));
-const TEX_HC_RUN=[0,1,2,3].map(i=>pngTex('sprint'+i+'_hc.png'));
+// Fonte única dos sprites: assets/sprites/menino/<animação>/<i>.png (cor, editado no Aseprite)
+// + <i>_hc.png (silhueta alto-contraste, GERADA por tools/build-hc.py). Não existe mais a pasta achatada pip/.
+const SPR='assets/sprites/menino/';
+const pngTex=(f)=>{ const t=PIXI.Texture.from(SPR+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
+const A=(anim,n)=>Array.from({length:n},(_,i)=>pngTex(anim+'/'+i+'.png'));        // frames de cor
+const H=(anim,n)=>Array.from({length:n},(_,i)=>pngTex(anim+'/'+i+'_hc.png'));     // silhuetas _hc
+const TEX_IDLE=A('idle',4);          // idle = RESPIRAÇÃO por frames (cabeça congelada → sem 'mastigar'; só o tronco respira)
+const TEX_WALK=A('andar',8);         // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
+const TEX_RUN=A('correr',4);         // CORRER = sprint AGRESSIVA (inclinada, braços grandes) — 4 quadros
+const TEX_HC_IDLE=[pngTex('idle/0_hc.png')];
+const TEX_HC_WALK=H('andar',8);
+const TEX_HC_RUN=H('correr',4);
 // E20: idles ocasionais ("gracinhas") — parado um tempo, toca uma e volta a respirar
-const TEX_JOINHA=[0,1].map(i=>pngTex('joinha'+i+'.png')), TEX_HC_JOINHA=[0,1].map(i=>pngTex('joinha'+i+'_hc.png'));
-const TEX_ESPREG=[0,1].map(i=>pngTex('espreg'+i+'.png')), TEX_HC_ESPREG=[0,1].map(i=>pngTex('espreg'+i+'_hc.png'));
-const TEX_AQUECER=[pngTex('aquecer0.png')], TEX_HC_AQUECER=[pngTex('aquecer0_hc.png')];
+const TEX_JOINHA=A('gracinha-joinha',2), TEX_HC_JOINHA=H('gracinha-joinha',2);
+const TEX_ESPREG=A('gracinha-espreguicar',2), TEX_HC_ESPREG=H('gracinha-espreguicar',2);
+const TEX_AQUECER=A('gracinha-aquecer',1), TEX_HC_AQUECER=H('gracinha-aquecer',1);
 const FLAVORS=[
   {tex:TEX_JOINHA, hc:TEX_HC_JOINHA, seq:[0,1,0,1,0,1], hold:12}, // joínha (bounce do polegar)
   {tex:TEX_ESPREG, hc:TEX_HC_ESPREG, seq:[0,1,1,1,1,0], hold:16}, // espreguiçar (sobe, segura, desce)
   {tex:TEX_AQUECER, hc:TEX_HC_AQUECER, seq:[0,0,0], hold:40},     // aquecer (segura a pose)
 ];
 // E16: pulo — pose aérea estática (sobe=pernas recolhidas / cai=pernas estendidas), recortadas do jumping-1 SE
-const TEX_JUMP_UP=pngTex('jump_up.png'), TEX_JUMP_DOWN=pngTex('jump_down.png');
-const TEX_HC_JUMP_UP=pngTex('jump_up_hc.png'), TEX_HC_JUMP_DOWN=pngTex('jump_down_hc.png');
-// E17: poses de estado (vista SE do EXP7) — escada, água, voo, ventosa
-const TEX_CLIMB=[pngTex('climbback0.png'),pngTex('climbback1.png')], TEX_FLY=pngTex('fly.png'); // ESCADA: vista de COSTAS (rotação norte), 2 quadros alternados
-const TEX_HC_CLIMB=[pngTex('climbback0_hc.png'),pngTex('climbback1_hc.png')], TEX_HC_FLY=pngTex('fly_hc.png');
+const TEX_JUMP_UP=pngTex('pulo/0.png'), TEX_JUMP_DOWN=pngTex('pulo/1.png');
+const TEX_HC_JUMP_UP=pngTex('pulo/0_hc.png'), TEX_HC_JUMP_DOWN=pngTex('pulo/1_hc.png');
+// E17: poses de estado — escada, água, voo, ventosa
+const TEX_CLIMB=A('escada',2), TEX_FLY=pngTex('voo/0.png'); // ESCADA: vista de COSTAS (rotação norte), 2 quadros alternados
+const TEX_HC_CLIMB=H('escada',2), TEX_HC_FLY=pngTex('voo/0_hc.png');
 // E18f: aranha — ANDAR NA PAREDE e ANDAR NO TETO são ciclos distintos (4 quadros cada)
-const TEX_CLING_WALL=[0,1,2,3].map(i=>pngTex('clingwall'+i+'.png')), TEX_HC_CLING_WALL=[0,1,2,3].map(i=>pngTex('clingwall'+i+'_hc.png'));
-const TEX_CLING_CEIL=[0,1,2,3].map(i=>pngTex('clingceil'+i+'.png')), TEX_HC_CLING_CEIL=[0,1,2,3].map(i=>pngTex('clingceil'+i+'_hc.png'));
-const TEX_SWIM=[0,1].map(i=>pngTex('swim'+i+'.png')), TEX_HC_SWIM=[0,1].map(i=>pngTex('swim'+i+'_hc.png')); // nado MOVENDO: braçada + pernas
-const TEX_SWIMIDLE=[pngTex('swimidle0.png'),pngTex('swimidle1.png')], TEX_HC_SWIMIDLE=[pngTex('swimidle0_hc.png'),pngTex('swimidle1_hc.png')]; // nado PARADO: só pernas batendo
+const TEX_CLING_WALL=A('parede',4), TEX_HC_CLING_WALL=H('parede',4);
+const TEX_CLING_CEIL=A('teto',4), TEX_HC_CLING_CEIL=H('teto',4);
+const TEX_SWIM=A('nadar',2), TEX_HC_SWIM=H('nadar',2); // nado MOVENDO: braçada + pernas
+const TEX_SWIMIDLE=A('nadar-parado',2), TEX_HC_SWIMIDLE=H('nadar-parado',2); // nado PARADO: só pernas batendo
 let hcMode = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
@@ -609,9 +696,10 @@ function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
-let vpTex=[], vpSpr=[];
+let vpTex=[], vpSpr=[], vpFrames=null;
 function configureRender(){
   vpSpr.forEach(s=>s.destroy()); vpSpr=[]; vpTex.forEach(t=>t.destroy(true)); vpTex=[];
+  if(vpFrames){ vpFrames.destroy(); vpFrames=null; }
   if(numPlayers<=1){
     if(camera.parent!==app.stage) app.stage.addChildAt(camera,0);
     minimap.visible=true; app.renderer.resize(LOGICAL_W,LOGICAL_H);
@@ -620,11 +708,18 @@ function configureRender(){
     minimap.visible=false;
     const cols=numPlayers<=2?numPlayers:2, rows=numPlayers<=2?1:2;
     app.renderer.resize(LOGICAL_W*cols, LOGICAL_H*rows);
+    const positions=[];
     for(let i=0;i<numPlayers;i++){
+      let x=(i%cols)*LOGICAL_W, y=Math.floor(i/cols)*LOGICAL_H;
+      if(numPlayers===3 && i===2) x=(LOGICAL_W*cols-LOGICAL_W)/2; // 3 telas: a 3ª centralizada na linha de baixo
       const rt=PIXI.RenderTexture.create({width:LOGICAL_W,height:LOGICAL_H}); rt.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST;
-      const s=new PIXI.Sprite(rt); s.x=(i%cols)*LOGICAL_W; s.y=Math.floor(i/cols)*LOGICAL_H;
-      app.stage.addChild(s); vpTex.push(rt); vpSpr.push(s);
+      const s=new PIXI.Sprite(rt); s.x=x; s.y=y;
+      app.stage.addChild(s); vpTex.push(rt); vpSpr.push(s); positions.push([x,y]);
     }
+    // linha de moldura por tela (1px lógico; escala por k junto com o canvas) — separa e enquadra como a tela única
+    vpFrames=new PIXI.Graphics();
+    for(const [x,y] of positions){ vpFrames.lineStyle(1,0xcdd6f2,0.95); vpFrames.drawRect(x+0.5,y+0.5,LOGICAL_W-1,LOGICAL_H-1); }
+    app.stage.addChild(vpFrames);
   }
 }
 
@@ -704,7 +799,12 @@ function stepPlayer(pl,dt){
   if(pl.activePower==='wallcling' && !pl.clinging && pl.runEdge && !pl.onGround && !pl.onLadder && !pl.inWater && firstClingSide(pl)){ pl.clinging=true; pl.clingN=firstClingSide(pl); pl.vy=0; pl.vx=0; pl.jumpBuffer=0; sfx('power'); srSay('Modo aranha! Engatinha em paredes e teto; contorna quinas. Correr solta.'); }
   else if(pl.clinging && pl.runEdge){ pl.clinging=false; sfx('power'); srSay('Soltou da superfície.'); } // E18b: CANCELA só com Correr (não com Pular); a caixa não larga a superfície antes disso
   if(!pl.clinging) pl.clingN=null;
-  pl.jumpEdge=false; pl.runEdge=false;
+  // TROCAR PODER: cicla o poder ativo entre os coletados (inventário). HUD mostra o atual.
+  if(pl.swapEdge && pl.owned.length){ const seq=['off',...pl.owned]; let idx=seq.indexOf(pl.activePower); pl.activePower=seq[(idx+1)%seq.length];
+    pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); srSay(pl.activePower==='off'?'Sem poder ativo.':(POWER_MSG[pl.activePower]||'Poder ativado!')); }
+  // ESPECIAL: ação ainda não implementada (stub — apenas registra o gatilho)
+  if(pl.specialEdge){ /* TODO: ação especial por poder/contexto */ }
+  pl.jumpEdge=false; pl.runEdge=false; pl.swapEdge=false; pl.specialEdge=false;
   // E16c: voo é ALTERNADO pelo Pulo NO AR (com o poder ativo): pula no ar → liga; pula voando → desliga.
   // Tocar o solo ou a água também encerra. (Antes ligava ao coletar; agora exige o pulo no ar.)
   if(pl.activePower==='fly' && pl.jumpBuffer>0 && !pl.onGround){ pl.flying=!pl.flying; pl.jumpBuffer=0; sfx('power'); srSay(pl.flying?'Voo ativado! Cima/Baixo sobem e descem; Pular encerra.':'Voo encerrado.'); }
@@ -764,7 +864,7 @@ function stepPlayer(pl,dt){
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
       if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
-      else { pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); srSay(who+(POWER_MSG[pu.kind]||'Poder ativado!')); } // poderes mutuamente exclusivos
+      else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); srSay(who+(POWER_MSG[pu.kind]||'Poder ativado!')+' (Trocar poder cicla entre os coletados.)'); } // entra no inventário; ativo = o último pego
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
@@ -831,7 +931,7 @@ function update(dt){
 function placeCam(pl){
   let camX=pl.x-LOGICAL_W/2, camY=(pl.y-BOX.h/2)-LOGICAL_H/2;
   camX=Math.max(0,Math.min(camX,WORLD_PX_W-LOGICAL_W)); camY=Math.max(0,Math.min(camY,WORLD_PX_H-LOGICAL_H));
-  camera.x=-Math.round(camX); camera.y=-Math.round(camY); return {camX,camY};
+  camera.x=-Math.round(camX); camera.y=-Math.round(camY); updateParallax(camX,camY); return {camX,camY};
 }
 function draw(){
   for(const pl of players){ if(!pl.sprite)continue;
@@ -886,7 +986,7 @@ function somasubHtml(q){
   const opTxt=q.op==='+'?'+':'−';
   const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&n===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
   const hint=q.revealed?'Resposta certa em destaque. Pule (L) para seguir.':(q.tries>0?'Quase! Tente de novo.':'Escolha e pule (L) para confirmar.');
-  return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Conta de Soma-Sub"><div class="quiz-shape">${somaSubName(q.shape)}</div><div class="quiz-prob">${q.a} ${opTxt} ${q.b} = ?</div><div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
+  return `<div class="quiz-box quiz-box--math" role="dialog" aria-modal="true" aria-label="Conta de Soma-Sub"><div class="quiz-shape">${somaSubName(q.shape)}</div><div class="quiz-prob">${q.a} ${opTxt} ${q.b} = ?</div><div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
 }
 function silabaHtml(q){
   const N=q.options.length;
@@ -956,7 +1056,7 @@ function updateHud(){
   if(numPlayers<=1) $('#hud-coins').textContent=String(players[0].collected);
   else $('#hud-coins').textContent=players.map((p,i)=>`P${i+1}:${p.collected}`).join('  ');
 }
-function win(pl){ ended=true; sfx('win'); $('#hud-objective').textContent='Concluído! 🎉';
+function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); playVictory(); $('#hud-objective').textContent='Concluído! 🎉';
   const who = numPlayers>1 ? `Jogador ${(pl?pl.i:0)+1} venceu! ` : '';
   $('#win-msg').textContent=`${who}Coletou as ${COIN_TARGET} moedas.`;
   $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
@@ -967,7 +1067,7 @@ function restartGame(){
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
-  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.activePower='off'; p.hasKey=false; p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; p.idleTime=0; p.flavor=-1; if(p.sprite)p.sprite.alpha=1; });
+  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.activePower='off'; p.owned=[]; p.swapEdge=false; p.specialEdge=false; p.hasKey=false; if(i===0)showPower(p); p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; p.idleTime=0; p.flavor=-1; if(p.sprite)p.sprite.alpha=1; });
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
@@ -975,16 +1075,17 @@ function restartGame(){
   srSay(numPlayers>1 ? `${numPlayers} jogadores, cada um na sua tela. Corram pelas moedas.` : MODE==='somasub' ? 'Modo Soma-Sub. Toque nas figuras e resolva as contas.' : MODE==='silabas' ? 'Modo Sílabas. Toque nas letras e monte as palavras.' : 'Nova rodada. Colete 10 moedas.');
 }
 $('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').focus(); });
+const MODE_LABELS={ludico:'🪙 Lúdico',somasub:'🔷 Soma-Sub',silabas:'🔤 Sílabas'};
+const MODES=['ludico','somasub','silabas'];
 function setMode(m){
-  if(numPlayers>1)m='ludico'; // multiplayer só no Lúdico
-  MODE=m;
-  document.querySelectorAll('.mode-btn[id^="mode-"]').forEach(b=>{ const on=b.id==='mode-'+m; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); });
+  MODE=m; // modos liberados em qualquer nº de telas (quiz por jogador é tarefa à parte)
+  const b=$('#opt-mode'); if(b){ b.textContent=MODE_LABELS[m]; b.setAttribute('aria-label','Modo: '+MODE_LABELS[m]+'. Toque para trocar.'); }
   restartGame(); $('#game-region').focus();
 }
-const mb1=$('#mode-ludico'), mb2=$('#mode-somasub'), mb3=$('#mode-silabas');
-if(mb1)mb1.addEventListener('click',()=>setMode('ludico'));
-if(mb2)mb2.addEventListener('click',()=>setMode('somasub'));
-if(mb3)mb3.addEventListener('click',()=>setMode('silabas'));
+const optModeBtn=$('#opt-mode'); // botão único: cicla os 3 modos
+if(optModeBtn)optModeBtn.addEventListener('click',()=>{
+  const m=MODES[(MODES.indexOf(MODE)+1)%MODES.length]; setMode(m); srSay('Modo '+MODE_LABELS[m].replace(/^\S+\s/,'')+'.');
+});
 /* E11: nº de jogadores (1–4 telas lado a lado, simulação compartilhada) */
 function setNumPlayers(n){
   n=Math.max(1,Math.min(4,n|0));
@@ -992,27 +1093,28 @@ function setNumPlayers(n){
   else if(n<players.length){ players.length=n; }
   player=players[0]; numPlayers=n;
   assignControls(); ensureSprites();
-  if(n>1){ MODE='ludico'; document.querySelectorAll('.mode-btn[id^="mode-"]').forEach(b=>{ const on=b.id==='mode-ludico'; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); }); }
-  ['mode-somasub','mode-silabas','opt-case','opt-blind'].forEach(id=>{ const b=$('#'+id); if(b){ b.disabled=n>1; b.style.opacity=n>1?0.45:1; } });
-  document.querySelectorAll('.mp-btn').forEach(b=>{ const on=b.id==='mp-'+n; b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); });
+  const TEL=['👤 1 tela','👥 2 telas','👨‍👧 3 telas','👨‍👩‍👧‍👦 4 telas'];
+  const tb=$('#opt-telas'); if(tb){ tb.textContent=TEL[n-1]; tb.setAttribute('aria-label','Telas: '+n+'. Toque para trocar.'); }
+  if(n>1) hideTouchControls(); // E13: várias telas → sem controle por toque (ambíguo)
   configureRender(); restartGame(); layout(); $('#game-region').focus();
 }
-document.querySelectorAll('.mp-btn').forEach(b=>b.addEventListener('click',()=>setNumPlayers(parseInt(b.id.split('-')[1],10))));
-const caseBtn=$('#opt-case');
-if(caseBtn)caseBtn.addEventListener('click',()=>{
-  letterCase = letterCase==='upper'?'lower':'upper';
-  caseBtn.textContent = letterCase==='upper'?'ABC':'abc';
-  caseBtn.setAttribute('aria-pressed', String(letterCase==='upper'));
-  if(MODE==='silabas') rebuildCoins();
-  if(player.quiz) renderQuiz();
-  srSay('Letras em '+(letterCase==='upper'?'maiúsculas':'minúsculas')+'.');
-});
-const blindBtn=$('#opt-blind');
-if(blindBtn)blindBtn.addEventListener('click',()=>{
-  blindMode=!blindMode;
-  blindBtn.setAttribute('aria-pressed',String(blindMode)); blindBtn.classList.toggle('is-on',blindMode);
-  srSay('Modo Braille '+(blindMode?'ligado. No modo Sílabas, o jogo dita os pontos da cela.':'desligado.'));
-});
+const optTelasBtn=$('#opt-telas'); // botão único: cicla 1→2→3→4 telas
+if(optTelasBtn)optTelasBtn.addEventListener('click',()=>{ setNumPlayers((numPlayers%4)+1); srSay(numPlayers+(numPlayers>1?' telas.':' tela.')); });
+// Botão único de LETRAS: ABC (padrão) → abc → Braille
+const LETRA=[
+  {lbl:'🔠 ABC',     caso:'upper', blind:false, say:'Letras maiúsculas.'},
+  {lbl:'🔡 abc',     caso:'lower', blind:false, say:'Letras minúsculas.'},
+  {lbl:'⠿ Braille',  caso:'lower', blind:true,  say:'Modo Braille: no Sílabas, o jogo dita os pontos da cela.'},
+];
+let letraIdx=0;
+function applyLetra(announce){ const s=LETRA[letraIdx]; letterCase=s.caso; blindMode=s.blind;
+  const b=$('#opt-letra'); if(b){ b.textContent=s.lbl; b.classList.toggle('is-on',letraIdx>0); b.setAttribute('aria-pressed',String(letraIdx>0)); }
+  if(typeof rebuildCoins==='function' && MODE==='silabas') rebuildCoins();
+  if(player&&player.quiz) renderQuiz();
+  if(announce) srSay(s.say);
+}
+const optLetraBtn=$('#opt-letra'); if(optLetraBtn)optLetraBtn.addEventListener('click',()=>{ letraIdx=(letraIdx+1)%LETRA.length; applyLetra(true); });
+applyLetra(false); // estado inicial = ABC (maiúsculas, padrão)
 // E9: toggles de Som / Legendas / Assistência
 function toggleBtn(b,on){ b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); }
 const soundBtn=$('#opt-sound'), capBtn=$('#opt-captions'), assistBtn=$('#opt-assist');
@@ -1020,18 +1122,39 @@ if(soundBtn) soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; toggleBtn
 if(capBtn) capBtn.addEventListener('click',()=>{ captionsOn=!captionsOn; toggleBtn(capBtn,captionsOn); srSay('Legendas '+(captionsOn?'ligadas.':'desligadas.')); });
 if(assistBtn) assistBtn.addEventListener('click',()=>{ assist=!assist; toggleBtn(assistBtn,assist); srSay('Modo assistência '+(assist?'ligado: velocidade reduzida e sem perigos.':'desligado.')); });
 
+/* Fonte de leitura (canônicas EdSP): Padrão (Atkinson) | Alfabetização (Andika) | Dislexia/TDAH (Lexend + espaçamento BDA). Persistida. */
+const FONT_MODES=[
+  {id:'padrao',        nome:'Atkinson', uso:'legibilidade'},
+  {id:'alfabetizacao', nome:'Andika',   uso:'alfabetização'},
+  {id:'dislexia',      nome:'Lexend',   uso:'dislexia'},
+];
+const FKEY='incl_fonte'; let fonteIdx=0; const fonteBtn=$('#opt-fonte');
+function applyFonte(announce){ const m=FONT_MODES[fonteIdx]; document.documentElement.dataset.fonte=m.id;
+  if(fonteBtn){ fonteBtn.textContent='🔤 '+m.nome+' ('+m.uso+')'; fonteBtn.setAttribute('aria-label','Fonte de leitura: '+m.nome+', para '+m.uso+'. Toque para alternar.'); }
+  if(announce) srSay('Fonte '+m.nome+', para '+m.uso+'.'); }
+try{ const i=FONT_MODES.findIndex(m=>m.id===localStorage.getItem(FKEY)); if(i>=0)fonteIdx=i; }catch(e){}
+applyFonte(false);
+if(fonteBtn) fonteBtn.addEventListener('click',()=>{ fonteIdx=(fonteIdx+1)%FONT_MODES.length; try{localStorage.setItem(FKEY,FONT_MODES[fonteIdx].id);}catch(e){} applyFonte(true); });
+
 /* E10: remap de controles + persistência (B2) */
-const ACT_LABEL={left:'Esquerda',right:'Direita',jump:'Pular',run:'Correr',up:'Subir / escada',down:'Descer / escada'};
+const ACT_LABEL={left:'Esquerda',right:'Direita',up:'Subir / escada',down:'Descer / escada',run:'Correr / interagir',jump:'Pular',swap:'Trocar poder',especial:'Especial'};
 function keyName(code){ return String(code).replace('Arrow','↔').replace('Key','').replace('Space','Espaço').replace('ShiftLeft','Shift').replace('ShiftRight','Shift'); }
+let selPlayer=0; // jogador selecionado no diálogo de Controles
 function renderControls(){ const el=$('#ctrl-list'); if(!el)return;
-  el.innerHTML=Object.keys(ACT_LABEL).map(a=>`<div class="ctrl-row"><span>${ACT_LABEL[a]}: ${(controls[a]||[]).map(keyName).map(k=>`<kbd>${k}</kbd>`).join(' ')}</span><button class="mode-btn" data-act="${a}" type="button" aria-label="Alterar tecla de ${ACT_LABEL[a]}">Alterar</button></div>`).join('');
-  el.querySelectorAll('button[data-act]').forEach(b=>b.addEventListener('click',()=>{ captureAction=b.dataset.act; b.textContent='Pressione…'; srAlert('Pressione a nova tecla para '+ACT_LABEL[b.dataset.act]+', ou Esc para cancelar.'); }));
+  if(selPlayer>=numPlayers) selPlayer=0;
+  const tabs=$('#ctrl-players');
+  if(tabs){ tabs.innerHTML=Array.from({length:numPlayers},(_,i)=>`<button class="mode-btn${i===selPlayer?' is-on':''}" data-pl="${i}" type="button" aria-pressed="${i===selPlayer}">Jogador ${i+1}</button>`).join('')
+      + `<span class="opt-hint" style="width:100%;margin:.2rem 0 0">Editando o esquema de <strong>${numPlayers===1?'1 tela':numPlayers+' telas'}</strong> (mude o nº de telas para configurar outros).</span>`;
+    tabs.querySelectorAll('button[data-pl]').forEach(b=>b.addEventListener('click',()=>{ selPlayer=+b.dataset.pl; captureAction=null; captureMapRef=null; renderControls(); })); }
+  const map=kbFor(selPlayer);
+  el.innerHTML=Object.keys(ACT_LABEL).map(a=>`<div class="ctrl-row"><span>${ACT_LABEL[a]}: ${(map[a]||[]).map(keyName).map(k=>`<kbd>${k}</kbd>`).join(' ')}</span><button class="mode-btn" data-act="${a}" type="button" aria-label="Alterar tecla de ${ACT_LABEL[a]} do Jogador ${selPlayer+1}">Alterar</button></div>`).join('');
+  el.querySelectorAll('button[data-act]').forEach(b=>b.addEventListener('click',()=>{ captureAction=b.dataset.act; captureMapRef=kbFor(selPlayer); b.textContent='Pressione…'; srAlert('Pressione a nova tecla para '+ACT_LABEL[b.dataset.act]+' do Jogador '+(selPlayer+1)+', ou Esc para cancelar.'); }));
 }
 function openOptions(){ const ov=$('#options'); if(!ov)return; renderControls(); ov.hidden=false; optionsOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeOptions(){ const ov=$('#options'); if(!ov)return; ov.hidden=true; optionsOpen=false; captureAction=null; const b=$('#opt-controls'); if(b)b.focus(); }
 const ctrlBtn=$('#opt-controls'); if(ctrlBtn)ctrlBtn.addEventListener('click',openOptions);
 const ctrlClose=$('#ctrl-close'); if(ctrlClose)ctrlClose.addEventListener('click',closeOptions);
-const ctrlReset=$('#ctrl-reset'); if(ctrlReset)ctrlReset.addEventListener('click',()=>{ try{localStorage.removeItem(CKEY);}catch(e){} controls=JSON.parse(JSON.stringify(CTRL_DEFAULTS)); applyControls(); renderControls(); srSay('Controles restaurados ao padrão.'); });
+const ctrlReset=$('#ctrl-reset'); if(ctrlReset)ctrlReset.addEventListener('click',()=>{ try{localStorage.removeItem(CKEY);}catch(e){} KB=JSON.parse(JSON.stringify(KB_DEFAULTS)); applyControls(); assignControls(); renderControls(); srSay('Controles restaurados ao padrão.'); });
 
 /* ===================== FPS ===================== */
 let fpsAccum=0,fpsFrames=0,fpsMin=Infinity,fpsWarm=0;
@@ -1043,7 +1166,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2)*(assist?0.6:1); update(dt); draw(); fpsTick(); });
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){hcMode=v;},darkRegions,decoLayer,minimap,
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){hcMode=v;},darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
@@ -1068,7 +1191,9 @@ function layout(){
   // E11: a grade de telas define a base (1=320×180, 2=640×180, 3-4=640×360)
   const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
   const baseW=320*cols, baseH=180*rows;
-  const k=Math.max(1,Math.floor(Math.min(availW/baseW, availH/baseH)));  // múltiplo inteiro da base
+  // múltiplo inteiro, MAS tolerando até 5px lógicos de corte por lado (×k) se isso aumentar o k.
+  // overflow/lado ≤ 5k  ⇒  baseW·k − avail ≤ 10k  ⇒  k ≤ avail/(base−10)
+  const k=Math.max(1,Math.floor(Math.min(availW/(baseW-10), availH/(baseH-10))));
   const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; }
 }
 function vlTick(){ const o=vlibrasOpen(); if(o!==librasOpen){ librasOpen=o; layout(); } }
@@ -1101,15 +1226,28 @@ function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==
 
 /* ===================== E13: controles de toque (mobile) ===================== */
 // oculta os botões de toque (chamado quando o jogador usa teclado/controle, p/ não atrapalhar)
-function hideTouchControls(){ const tc=document.querySelector('#touch-controls'); if(tc && !tc.hidden) tc.hidden=true; }
+// minimapa: no toque vai pro canto SUPERIOR DIREITO (o direcional, embaixo à esq., não o cobre); senão, inferior esquerdo
+function setMinimapCorner(touch){ if(!minimap) return;
+  if(touch){ minimap.x = LOGICAL_W - mmW - MM_PAD; minimap.y = MM_PAD; }
+  else { minimap.x = MM_PAD; minimap.y = LOGICAL_H - mmH - MM_PAD; } }
+// teclado/controle → esconde os botões e devolve o minimapa ao canto inferior esquerdo
+function hideTouchControls(){ const tc=document.querySelector('#touch-controls'); if(tc && !tc.hidden) tc.hidden=true; document.body.classList.remove('touch-mode'); setMinimapCorner(false); }
+// toque/clique → mostra os botões e move o MINIMAPA p/ o canto sup. direito. Em multi-tela, NÃO ativa.
+function showTouchControls(){ if(numPlayers>1) return; const tc=document.querySelector('#touch-controls'); if(tc) tc.hidden=false; document.body.classList.add('touch-mode'); setMinimapCorner(true); }
 (function touchSetup(){
   const tc=$('#touch-controls'); if(!tc)return;
   // alternância por modalidade: toque/clique MOSTRA; teclado/controle OCULTA (hideTouchControls).
-  if(/[?&]touch=1/.test(location.search)){ tc.hidden=false; }
-  addEventListener('pointerdown',()=>{ tc.hidden=false; }, true); // qualquer toque/clique revela
-  addEventListener('touchstart',()=>{ tc.hidden=false; }, {capture:true,passive:true});
+  if(/[?&]touch=1/.test(location.search)){ showTouchControls(); }
+  addEventListener('pointerdown',()=>{ showTouchControls(); }, true); // qualquer toque/clique revela
+  addEventListener('touchstart',()=>{ showTouchControls(); }, {capture:true,passive:true});
   const codeFor=(act)=>(controls[act]&&controls[act][0])||null; // mapeia p/ a 1ª tecla de P1 (remapeável)
-  const press=(act)=>{ const c=codeFor(act); if(!c)return; if(!keys.has(c)){ keys.add(c); if(act==='jump')players.forEach(p=>{ if(p.ctrl&&p.ctrl.jump.includes(c))p.jumpEdge=true; }); } if(act==='jump')hideTips(); };
+  const press=(act)=>{ const c=codeFor(act); if(!c)return; if(!keys.has(c)){ keys.add(c);
+    players.forEach(p=>{ if(!p.ctrl)return;
+      if(act==='jump'&&p.ctrl.jump.includes(c))p.jumpEdge=true;
+      if(act==='run'&&p.ctrl.run.includes(c))p.runEdge=true;
+      if(act==='swap'&&p.ctrl.swap&&p.ctrl.swap.includes(c))p.swapEdge=true;
+      if(act==='especial'&&p.ctrl.especial&&p.ctrl.especial.includes(c))p.specialEdge=true; }); }
+    if(act==='jump')hideTips(); };
   const release=(act)=>{ const c=codeFor(act); if(c)keys.delete(c); };
   tc.querySelectorAll('.touch-btn').forEach(b=>{ const act=b.dataset.act;       // correr / pular
     const down=(e)=>{ e.preventDefault(); press(act); };
