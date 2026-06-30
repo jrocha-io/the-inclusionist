@@ -457,7 +457,7 @@ let audioCtx=null, soundOn=true, captionsOn=true, easy=false, volume=0.6, capTim
 const EASY={grav:2/3, jump:8/7, speed:0.7, pad:4, slowFall:1.4, tramp:3.4};
 // Movimento reduzido (WCAG 2.3.3 AA). 5 alvos; padrão herda prefers-reduced-motion; persistido.
 // Hoje agem 'parallax' e 'walk'; 'decor/items/particles' ficam prontos e ligam quando a Cidade animar.
-const RM_KEYS=['parallax','decor','items','walk','particles'];
+const RM_KEYS=['parallax','decor','items','walk','idle','particles'];
 const RM_DEFAULT=!!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const rm=(()=>{ try{ const s=JSON.parse(localStorage.getItem('inclusionist.reducedmotion.v1')); if(s&&typeof s==='object'){ const o={}; RM_KEYS.forEach(k=>o[k]=!!s[k]); return o; } }catch(e){}
   const o={}; RM_KEYS.forEach(k=>o[k]=RM_DEFAULT); return o; })();
@@ -916,18 +916,20 @@ function stepPlayer(pl,dt){
   const II=hcMode?TEX_HC_IDLE:TEX_IDLE;
   let tx; pl.idleNow=false;
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
+  // movimento reduzido: rm.walk congela TODA a locomoção (escalar, escada, nado, pulo) num quadro único
   if(pl.clinging){ const ceil=(pl.clingN==='U'); // E18f: teto e parede usam ciclos distintos
     const CL = ceil ? (hcMode?TEX_HC_CLING_CEIL:TEX_CLING_CEIL) : (hcMode?TEX_HC_CLING_WALL:TEX_CLING_WALL);
-    if(pl.vx!==0||pl.vy!==0) pl.climbFrame=(Math.floor(pl.walkAnim/ANIM.clingHold))%CL.length; // só avança ao mover; parado MANTÉM o quadro
-    tx = CL[(pl.climbFrame||0)%CL.length]; }
-  else if(pl.onLadder){ const CB=hcMode?TEX_HC_CLIMB:TEX_CLIMB; const climbing=(pl.vy!==0); // sobe/desce = passos alternados; parado na escada = agarrado (quadro 0)
+    if(!rm.walk && (pl.vx!==0||pl.vy!==0)) pl.climbFrame=(Math.floor(pl.walkAnim/ANIM.clingHold))%CL.length; // só avança ao mover; parado MANTÉM o quadro
+    tx = CL[(rm.walk?0:(pl.climbFrame||0))%CL.length]; }
+  else if(pl.onLadder){ const CB=hcMode?TEX_HC_CLIMB:TEX_CLIMB; const climbing=(pl.vy!==0)&&!rm.walk; // sobe/desce = passos alternados; parado/congelado = agarrado (quadro 0)
     tx = climbing ? CB[Math.floor(pl.walkAnim/ANIM.climbHold)%CB.length] : CB[0]; }
-  else if(pl.inWater){ const stroking=(dir!==0)||held(pl,'jump'); // movendo = braçada+pernas; parado = só pernas (sempre batendo)
+  else if(pl.inWater){ const stroking=((dir!==0)||held(pl,'jump'))&&!rm.walk; // movendo = braçada+pernas; parado/congelado = quadro fixo
     const SW = stroking ? (hcMode?TEX_HC_SWIM:TEX_SWIM) : (hcMode?TEX_HC_SWIMIDLE:TEX_SWIMIDLE);
-    tx = SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
+    tx = rm.walk ? SW[0] : SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
   else if(pl.flying)              tx = hcMode?TEX_HC_FLY:TEX_FLY;
-  else if(airborne) tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)     // subindo: pernas recolhidas
-                                 : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); // caindo: pernas estendidas
+  else if(airborne){ if(rm.walk) tx = hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP;   // congelado: pulo num único quadro
+    else tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)                 // subindo: pernas recolhidas
+                      : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); }          // caindo: pernas estendidas
   else if(moving){
     if(rm.walk){ tx = II[0]; }                                   // movimento reduzido: anda sem ciclo de passos (pose neutra)
     else { const running=held(pl,'run');                         // E19: correr (Correr segurado) ≠ andar — passada/cadência distintas
@@ -935,10 +937,11 @@ function stepPlayer(pl,dt){
       const hold = running ? ANIM.runHold : ANIM.walkHold;
       tx = M[Math.floor(pl.walkAnim/hold)%M.length]; } }
   else { pl.idleNow=true; pl.idleTime+=dt;                       // E20: parado → respira; após flavorDelay, toca uma gracinha
-    if(pl.flavor<0 && pl.idleTime>ANIM.flavorDelay){ pl.flavor=Math.floor(rnd()*FLAVORS.length); pl.flavorT=0; }
-    if(pl.flavor>=0){ const F=FLAVORS[pl.flavor]; const step=Math.floor(pl.flavorT/F.hold); pl.flavorT+=dt;
-      if(step>=F.seq.length){ pl.flavor=-1; pl.idleTime=0; } else { const arr=hcMode?F.hc:F.tex; tx=arr[F.seq[step]]; } }
-    if(pl.flavor<0) tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } // respiração por frames
+    if(rm.idle){ tx=II[0]; pl.flavor=-1; }                       // movimento reduzido: sem respiração nem gracinhas (quadro fixo)
+    else { if(pl.flavor<0 && pl.idleTime>ANIM.flavorDelay){ pl.flavor=Math.floor(rnd()*FLAVORS.length); pl.flavorT=0; }
+      if(pl.flavor>=0){ const F=FLAVORS[pl.flavor]; const step=Math.floor(pl.flavorT/F.hold); pl.flavorT+=dt;
+        if(step>=F.seq.length){ pl.flavor=-1; pl.idleTime=0; } else { const arr=hcMode?F.hc:F.tex; tx=arr[F.seq[step]]; } }
+      if(pl.flavor<0) tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } } // respiração por frames
   if(!pl.idleNow){ pl.idleTime=0; pl.flavor=-1; }                 // saiu do idle → zera gracinha
   if(pl.sprite) pl.sprite.texture=tx;
 }
@@ -1197,7 +1200,7 @@ const ctrlBtn=$('#opt-controls'); if(ctrlBtn)ctrlBtn.addEventListener('click',op
 const ctrlClose=$('#ctrl-close'); if(ctrlClose)ctrlClose.addEventListener('click',closeOptions);
 
 /* Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2) */
-const RM_LABEL={parallax:'Parallax do fundo', decor:'Decoração (nuvens, grama)', items:'Animação de itens (moedas)', walk:'Ciclo de caminhada', particles:'Partículas e cintilação'};
+const RM_LABEL={parallax:'Parallax do fundo', decor:'Decoração (nuvens, grama)', items:'Animação de itens (moedas)', walk:'Personagem em movimento (andar, escalar, nadar, pular)', idle:'Respiração e gracinhas (parado)', particles:'Partículas e cintilação'};
 const RM_SOON=new Set(['decor','items','particles']); // ainda sem alvo no motor (chega com a Cidade)
 function renderMotion(){ const el=$('#motion-list'); if(!el)return;
   el.innerHTML=RM_KEYS.map(k=>`<div class="ctrl-row"><span>${RM_LABEL[k]}${RM_SOON.has(k)?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn${rm[k]?' is-on':''}" data-rm="${k}" type="button" aria-pressed="${rm[k]}" aria-label="${RM_LABEL[k]}: ${rm[k]?'congelado':'animado'}">${rm[k]?'❄ Congelado':'▶ Animado'}</button></div>`).join('');

@@ -24,8 +24,11 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 
 ## Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2)
 - Reduced-motion **ligado por padrão** (respeita `prefers-reduced-motion`).
-- 5 toggles: **parallax · fundo decorativo (nuvens/grama) · itens (moedas) · walk-cycle→idle · partículas/cintilação**.
+- 6 toggles: **parallax · fundo decorativo (nuvens/grama) · itens (moedas) · personagem em movimento · respiração/gracinhas · partículas/cintilação**.
+  - **Personagem em movimento** congela TODA a locomoção num quadro único: andar/correr, escalar parede (ventosa), subir escada, nadar e pular.
+  - **Respiração/gracinhas** congela o idle (sem respiração nem as animações de descanso).
 - **1 botão mestre** (Pause/Stop/Hide) congela todos.
+- Hoje agem: parallax, personagem em movimento, respiração/gracinhas. Decoração/itens/partículas ficam prontos e ligam quando a Cidade animar.
 
 ## Modo Áudio (Fase F) — spec detalhado
 Botão de áudio **abre um menu** com **toggle + barra de volume** para cada grupo:
