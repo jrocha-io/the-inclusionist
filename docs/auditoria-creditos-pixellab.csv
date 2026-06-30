@@ -1,0 +1,101 @@
+timestamp_utc,ferramenta,custo_estimado,entrada(prompt/edit/template)
+2026-06-01T12:03:37.282Z,create_character,8,"friendly round explorer robot with a single big glowing visor eye, bright teal body, white chest panel, bold thick dark "
+2026-06-01T12:03:39.000Z,create_sidescroller_tileset,3,"solid stone brick platform, warm grey, clear blocky bricks"
+2026-06-01T12:05:58.194Z,animate_character,~8×frames,walking-6-frames
+2026-06-01T12:05:59.184Z,animate_character,~8×frames,jumping-1
+2026-06-01T12:06:00.220Z,animate_character,~8×frames,breathing-idle
+2026-06-01T12:06:08.924Z,animate_character,~8×frames,walking-6-frames
+2026-06-01T12:06:30.635Z,animate_character,~8×frames,walking-6-frames
+2026-06-01T12:06:31.394Z,animate_character,~8×frames,jumping-1
+2026-06-01T22:15:17.025Z,create_character,8,"cute friendly child for a children's educational game, medium brown skin, short dark brown hair, bright blue t-shirt, da"
+2026-06-01T22:34:27.425Z,animate_character,~8×frames,breathing-idle
+2026-06-01T22:34:27.999Z,animate_character,~8×frames,walking
+2026-06-01T22:34:48.723Z,animate_character,~8×frames,breathing-idle
+2026-06-01T22:34:49.204Z,animate_character,~8×frames,walking
+2026-06-01T23:25:16.038Z,create_character,8,"cute child for a children's game, medium brown skin, short dark brown hair, big friendly eyes, bright blue t-shirt, dark"
+2026-06-01T23:27:50.438Z,create_character,8,"cute child, fair skin, blonde straight hair, red t-shirt, blue shorts, big friendly eyes, simple clean pixel art, standi"
+2026-06-01T23:27:52.324Z,create_character,8,"cute child, fair skin, brown hair in pigtails, yellow dress, big friendly eyes, simple clean pixel art, standing facing "
+2026-06-01T23:27:54.216Z,create_character,8,"cute child, light brown skin, black curly hair, green t-shirt, dark pants, big friendly eyes, simple clean pixel art, st"
+2026-06-01T23:27:56.092Z,create_character,8,"cute child, brown skin, black hair in braids, purple t-shirt, blue jeans, big friendly eyes, simple clean pixel art, sta"
+2026-06-01T23:27:57.350Z,create_character,8,"cute child, dark skin, big round afro hair, orange t-shirt, green shorts, big friendly eyes, simple clean pixel art, sta"
+2026-06-01T23:28:12.740Z,create_character,8,"cute child, dark skin, afro hair with colorful headband, pink dress, big friendly eyes, simple clean pixel art, standing"
+2026-06-01T23:28:14.626Z,create_character,8,"cute child, fair skin, red hair, round glasses, blue t-shirt, brown pants, big friendly eyes, simple clean pixel art, st"
+2026-06-01T23:28:16.508Z,create_character,8,"cute child, medium skin, short brown hair, glasses, teal t-shirt, grey shorts, big friendly eyes, simple clean pixel art"
+2026-06-01T23:28:17.949Z,create_character,8,"cute child, tan skin, baseball cap, striped t-shirt, blue jeans, big friendly eyes, simple clean pixel art, standing fac"
+2026-06-01T23:28:19.810Z,create_character,8,"cute child, fair skin, long blonde hair, lilac t-shirt, white skirt, big friendly eyes, simple clean pixel art, standing"
+2026-06-01T23:28:21.808Z,create_character,8,"cute child, deep dark skin, short cropped hair, yellow t-shirt, green pants, big friendly eyes, simple clean pixel art, "
+2026-06-01T23:28:23.571Z,create_character,8,"cute child, light medium skin, brown ponytail hair, green dress, big friendly eyes, simple clean pixel art, standing fac"
+2026-06-01T23:28:25.452Z,create_character,8,"cute child, fair skin with freckles, messy brown hair, red and white striped shirt, blue shorts, big friendly eyes, simp"
+2026-06-01T23:28:27.333Z,create_character,8,"cute child, brown skin, hair in two buns, orange dress, big friendly eyes, simple clean pixel art, standing facing viewe"
+2026-06-01T23:28:28.693Z,create_character,8,"cute child, medium dark skin, short curly hair, glasses, purple t-shirt, dark shorts, big friendly eyes, simple clean pi"
+2026-06-01T23:35:34.636Z,create_character,8,"cute child, brown skin, black hair in braids, purple t-shirt, blue jeans, big friendly eyes, simple clean pixel art, sta"
+2026-06-01T23:35:36.493Z,create_character,8,"cute child, dark skin, big round afro hair, orange t-shirt, green shorts, big friendly eyes, simple clean pixel art, sta"
+2026-06-01T23:35:38.178Z,create_character,8,"cute child, dark skin, afro hair with colorful headband, pink dress, big friendly eyes, simple clean pixel art, standing"
+2026-06-01T23:35:39.598Z,create_character,8,"cute child, fair skin, red hair, round glasses, blue t-shirt, brown pants, big friendly eyes, simple clean pixel art, st"
+2026-06-01T23:47:02.639Z,create_character,8,"cute child standing in a relaxed natural pose with one hand on hip, brown skin, curly black hair, green t-shirt, flat so"
+2026-06-01T23:47:04.988Z,create_character,8,"cute child standing in a relaxed playful pose, fair skin, blonde ponytail, pink dress, flat solid colors, no outline, no"
+2026-06-01T23:47:17.959Z,create_character,8,"cute tall lanky child standing casually with arms crossed, dark skin, big afro hair, orange t-shirt, flat solid colors, "
+2026-06-01T23:47:20.384Z,create_character,8,"cute small chubby child waving one hand, tan skin, baseball cap, striped t-shirt, blue shorts, flat solid colors, no out"
+2026-06-01T23:51:59.369Z,create_character_state,8,"running pose, mid-stride, arms swinging, dynamic and energetic"
+2026-06-01T23:51:59.542Z,create_character_state,8,"jumping in the air, arms raised up, excited and happy"
+2026-06-01T23:58:31.444Z,create_character,8,"chibi boy game character, two heads tall, big round head, energetic ready-for-action pose with knees slightly bent and a"
+2026-06-01T23:58:33.808Z,create_character,8,"chibi boy platformer mascot, energetic dynamic action pose ready to run and jump, leaning forward, plain grey t-shirt an"
+2026-06-01T23:58:36.158Z,create_character,8,"chibi girl game character, two heads tall, big round head, energetic ready-for-action pose with knees slightly bent, pla"
+2026-06-01T23:58:43.581Z,create_character,8,"chibi girl platformer mascot, energetic dynamic action pose ready to run and jump, leaning forward, plain grey t-shirt a"
+2026-06-01T23:58:49.921Z,create_character,8,"tiny chibi boy hero, huge round head two heads tall, big sparkly dot eyes, dynamic fighting-game ready stance fists up, "
+2026-06-02T00:09:39.104Z,create_character,8,"super cute chibi kid, huge round head two heads tall, tiny body, big sparkly dot eyes, standing alert and ready to move "
+2026-06-02T00:09:41.458Z,create_character,8,"adorable chibi child mascot, oversized round head small body, big cute eyes, confident hero idle pose hands on hips ches"
+2026-06-02T00:09:43.179Z,create_character,8,"cute chibi kid big head tiny body big eyes, lively idle weight on one leg one hand waving hello, cheerful, plain grey sh"
+2026-06-02T00:09:52.065Z,create_character,8,"chibi child platformer hero, big round head tiny body, energetic ready crouch about to spring, arms bent and ready, dete"
+2026-06-02T00:09:53.837Z,create_character,8,"super cute chibi girl, huge round head two heads tall tiny body, big sparkly dot eyes, standing alert ready to move knee"
+2026-06-02T00:28:55.861Z,animate_character,~8×frames,breathing-idle
+2026-06-02T00:29:49.415Z,create_character_state,8,"walking, left leg forward stepping, right arm forward, mid stride, dynamic"
+2026-06-02T00:29:50.438Z,create_character_state,8,"walking, right leg forward stepping, left arm forward, mid stride, dynamic"
+2026-06-02T00:29:51.393Z,create_character_state,8,"jumping up in the air, knees tucked, arms raised, happy"
+2026-06-02T00:37:04.921Z,animate_character,~8×frames,walking
+2026-06-02T00:59:55.611Z,animate_character,~8×frames,jumping-1
+2026-06-02T01:00:07.612Z,animate_character,~8×frames,running-8-frames
+2026-06-02T01:04:07.491Z,animate_character,~8×frames,running-8-frames
+2026-06-02T02:24:08.871Z,animate_character,~8×frames,3f6b4896-7ae9-40af-ba19-72fcb8a137e4
+2026-06-02T02:25:13.079Z,create_character_state,8,"climbing pose: both arms raised gripping above the head, right knee lifted as if stepping up a ladder, body upright"
+2026-06-02T02:25:21.732Z,create_character_state,8,"swimming pose: arms paddling forward in front, body leaning slightly forward, legs kicking behind, treading water"
+2026-06-02T02:25:23.149Z,create_character_state,8,"flying pose: both arms stretched out to the sides, legs together pointing down, floating in the air"
+2026-06-02T02:25:24.212Z,create_character_state,8,"wall-clinging pose: arms and legs spread wide gripping a vertical surface, hands open pressing flat, body close to the w"
+2026-06-02T03:13:16.691Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun, NO ponytail) and same face. New pose only: climbing, both "
+2026-06-02T03:13:18.156Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun, NO ponytail) and same face. New pose only: swimming, arms "
+2026-06-02T03:13:19.626Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun, NO ponytail) and same face. New pose only: flying, both ar"
+2026-06-02T03:13:21.049Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun, NO ponytail) and same face. New pose only: spider wall-cli"
+2026-06-02T03:43:07.315Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun, NO ponytail) and same face. Swimming stroke A: both arms r"
+2026-06-02T03:43:08.528Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun, NO ponytail) and same face. Swimming stroke B: both arms p"
+2026-06-02T05:03:31.707Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Treading water in place: arms steady out to"
+2026-06-02T05:03:33.121Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Treading water in place: arms steady out to"
+2026-06-02T05:03:35.204Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Climbing a ladder, alternate step: LEFT han"
+2026-06-02T05:03:36.520Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Spider crawl mid-motion: one arm and the op"
+2026-06-02T05:03:50.369Z,animate_character,~8×frames,breathing-idle
+2026-06-02T05:10:01.287Z,animate_character,~8×frames,breathing-idle
+2026-06-02T05:14:12.233Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Climbing pose, alternate step: left hand re"
+2026-06-02T05:26:15.230Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. AGGRESSIVE SPRINT frame A: torso leaning fa"
+2026-06-02T05:26:17.364Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. AGGRESSIVE SPRINT frame B: torso leaning fa"
+2026-06-02T05:26:19.017Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. AGGRESSIVE SPRINT frame C: torso leaning fa"
+2026-06-02T05:26:20.516Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. AGGRESSIVE SPRINT frame D: torso leaning fa"
+2026-06-02T05:42:53.313Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Cheerful pose: right arm raised giving a bi"
+2026-06-02T05:42:55.198Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Thumbs-up pose variant: right arm raised th"
+2026-06-02T05:42:56.646Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Stretching pose: both arms reaching up over"
+2026-06-02T05:42:58.490Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Stretching pose at the top: both arms up an"
+2026-06-02T05:42:59.704Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Warm-up pose: jogging in place, right knee "
+2026-06-02T11:45:27.495Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Rock-climbing pose (profile): RIGHT arm rai"
+2026-06-02T11:45:29.406Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Rock-climbing pose (profile): BOTH arms rai"
+2026-06-02T11:45:31.287Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Rock-climbing pose (profile): RIGHT arm dow"
+2026-06-02T11:45:32.671Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Rock-climbing pose (profile): BOTH arms rai"
+2026-06-02T12:00:59.283Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Climbing a vertical wall, COMPACT contralat"
+2026-06-02T12:01:01.129Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Climbing a vertical wall, COMPACT contralat"
+2026-06-02T12:11:15.632Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Bouldering pressed FLAT against a vertical "
+2026-06-02T12:11:18.066Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Bouldering pressed FLAT against a vertical "
+2026-06-02T12:19:38.603Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Climbing a ladder: BOTH hands gripping rung"
+2026-06-02T12:19:40.158Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Climbing a ladder: BOTH hands gripping rung"
+2026-06-02T13:10:58.187Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Crawling on hands and knees (like a baby cr"
+2026-06-02T13:10:59.856Z,create_character_state,8,"same boy, KEEP the exact same short messy brown hair (NO bun) and same face. Crawling on hands and knees (like a baby cr"
+2026-06-02T22:31:29.741Z,create_map_object,1,"distant city skyline at dusk, a continuous horizontal row of simple rectangular building silhouettes spanning the full w"
+2026-06-02T22:32:26.527Z,create_map_object,1,"row of mid-distance city buildings spanning the full width edge to edge, muted slate blue-grey, simple flat rectangular "
+2026-06-02T22:32:36.140Z,create_map_object,1,"nearby city rooftops and building tops along the bottom, spanning the full width edge to edge, darker muted teal-grey, s"
+2026-06-02T22:39:22.939Z,create_sidescroller_tileset,3,"muted desaturated grey concrete blocks, simple flat urban platform"
