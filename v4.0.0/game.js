@@ -371,7 +371,8 @@ const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0}; }
+  activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0,
+  walkDir:0,leftEdge:false,rightEdge:false}; } // walkDir = direção travada (movimento por alternância)
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Ventosa'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
@@ -491,6 +492,8 @@ addEventListener('keydown',(e)=>{
   if(!keys.has(e.code)){ for(const p of players){ if(!p.ctrl)continue;
     if(p.ctrl.jump.includes(e.code)) p.jumpEdge=true;
     if(p.ctrl.run.includes(e.code) && !easy) p.runEdge=true; // Fácil: sem correr
+    if(p.ctrl.left.includes(e.code)) p.leftEdge=true;        // alternância: edge de direção
+    if(p.ctrl.right.includes(e.code)) p.rightEdge=true;
     if(p.ctrl.swap&&p.ctrl.swap.includes(e.code)) p.swapEdge=true;
     if(p.ctrl.especial&&p.ctrl.especial.includes(e.code)) p.specialEdge=true; }
     if(easyKey){ if(e.code.startsWith('Control')) player.specialEdge=true; else player.swapEdge=true; } }
@@ -528,6 +531,10 @@ const RM_DEFAULT=!!(window.matchMedia && matchMedia('(prefers-reduced-motion: re
 const rm=(()=>{ try{ const s=JSON.parse(localStorage.getItem('inclusionist.reducedmotion.v1')); if(s&&typeof s==='object'){ const o={}; RM_KEYS.forEach(k=>o[k]=!!s[k]); return o; } }catch(e){}
   const o={}; RM_KEYS.forEach(k=>o[k]=RM_DEFAULT); return o; })();
 function saveRM(){ try{ localStorage.setItem('inclusionist.reducedmotion.v1',JSON.stringify(rm)); }catch(e){} }
+// Movimento por alternância (1 dedo): tocar a direção trava a marcha; segurar acelera; pulo não interrompe. Persistido.
+let toggleMove=(()=>{ try{ return localStorage.getItem('inclusionist.togglemove')==='1'; }catch(e){ return false; } })();
+function setToggleMove(on){ toggleMove=on; try{localStorage.setItem('inclusionist.togglemove',on?'1':'0');}catch(e){} if(!on)players.forEach(p=>p.walkDir=0);
+  srSay('Movimento por alternância '+(on?'ligado: toque a direção para andar sem segurar; toque de novo para parar; segure para ir mais rápido. O pulo não interrompe a caminhada.':'desligado.')); }
 function showCaption(txt){ const el=$('#caption'); if(!el||!txt)return; el.textContent=txt; el.classList.add('show'); clearTimeout(capTimer); capTimer=setTimeout(()=>{el.classList.remove('show'); el.textContent='';},1300); }
 function sfx(name){
   const c=SFX[name]; if(!c)return;
@@ -928,9 +935,19 @@ function triggerLava(pl){
 }
 function stepPlayer(pl,dt){
   if(pl.quiz)return; // P1 em desafio (Soma-Sub/Sílabas; MP é Lúdico)
-  const run=held(pl,'run') && !easy, dir=(held(pl,'right')?1:0)-(held(pl,'left')?1:0); // Fácil: sem correr
-  const turbo=pl.activePower==='turbo';
-  pl.vx=dir*(easy?TUNE.hWalk*EASY.speed:(run?(turbo?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk)); if(dir!==0)pl.facing=dir; // E18: super-corrida (turbo); Fácil: andar ×0.7
+  const run=held(pl,'run') && !easy && !toggleMove, turbo=pl.activePower==='turbo';
+  let dir;
+  if(toggleMove){ // movimento por alternância (1 dedo): tocar trava a direção; segurar acelera
+    if(pl.leftEdge)  pl.walkDir = pl.walkDir===-1?0:-1;   // toque inverte/para
+    if(pl.rightEdge) pl.walkDir = pl.walkDir=== 1?0: 1;
+    dir=pl.walkDir;
+    const holding=(dir===-1&&held(pl,'left'))||(dir===1&&held(pl,'right'));
+    pl.vx=dir*TUNE.hWalk*(holding?2/3:1/3);               // segurando = 2/3 · travado = 1/3
+  } else {
+    dir=(held(pl,'right')?1:0)-(held(pl,'left')?1:0); // Fácil: sem correr
+    pl.vx=dir*(easy?TUNE.hWalk*EASY.speed:(run?(turbo?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk)); // E18: super-corrida (turbo); Fácil: andar ×0.7
+  }
+  if(dir!==0)pl.facing=dir; pl.leftEdge=false; pl.rightEdge=false;
   const feat=sampleFeatures(pl); pl.inWater=feat.water; pl.onLadder=feat.ladder;
   if(pl.hurtTimer>0)pl.hurtTimer-=dt;
   if(feat.lava && !easy) triggerLava(pl);
@@ -983,8 +1000,8 @@ function stepPlayer(pl,dt){
       pl.vy=Math.min(pl.vy,TUNE.maxFall);
     }
   }
-  // Fácil: proteção de borda — andar não derruba em fosso; só cai segurando ↓ (não vale na água/escada/voo/aranha)
-  if(easy && pl.onGround && pl.vx!==0 && !held(pl,'down') && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
+  // Proteção de borda (Fácil e alternância) — andar não derruba em fosso; só cai segurando ↓ (não vale na água/escada/voo/aranha)
+  if((easy||toggleMove) && pl.onGround && pl.vx!==0 && !held(pl,'down') && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
     const dirX=pl.vx>0?1:-1, leadX=pl.x+dirX*(BOX.w/2)+pl.vx*dt;
     if(!solidAt(Math.floor(leadX/TILE), Math.floor((pl.y+1)/TILE))) pl.vx=0;
   }
@@ -1338,7 +1355,10 @@ function renderMotion(){ const el=$('#motion-list'); if(!el)return;
 }
 function updateMotionMaster(){ reflectMotionBtn(); const m=$('#motion-master'); if(!m)return; const allOn=RM_KEYS.every(k=>rm[k]);
   m.textContent=allOn?'▶ Retomar todas as animações':'⏸ Parar todas as animações'; toggleBtn(m,allOn); }
-function openMotion(){ const ov=$('#motion'); if(!ov)return; renderMotion(); ov.hidden=false; motionOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function reflectAltMove(){ const b=$('#opt-altmove'); if(b){ b.classList.toggle('is-on',toggleMove); b.setAttribute('aria-pressed',String(toggleMove)); b.textContent=toggleMove?'❚❚ Ligado':'▶ Desligado'; } }
+const altMoveBtn=$('#opt-altmove'); if(altMoveBtn)altMoveBtn.addEventListener('click',()=>{ setToggleMove(!toggleMove); reflectAltMove(); });
+reflectAltMove();
+function openMotion(){ const ov=$('#motion'); if(!ov)return; renderMotion(); reflectAltMove(); ov.hidden=false; motionOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeMotion(){ const ov=$('#motion'); if(!ov)return; ov.hidden=true; motionOpen=false; const b=$('#opt-motion'); if(b)b.focus(); }
 const motionBtn=$('#opt-motion'); if(motionBtn)motionBtn.addEventListener('click',openMotion);
 const motionClose=$('#motion-close'); if(motionClose)motionClose.addEventListener('click',closeMotion);
@@ -1436,6 +1456,8 @@ function showTouchControls(){ if(numPlayers>1) return; const tc=document.querySe
     players.forEach(p=>{ if(!p.ctrl)return;
       if(act==='jump'&&p.ctrl.jump.includes(c))p.jumpEdge=true;
       if(act==='run'&&p.ctrl.run.includes(c))p.runEdge=true;
+      if(act==='left'&&p.ctrl.left.includes(c))p.leftEdge=true;   // alternância: tap na direção
+      if(act==='right'&&p.ctrl.right.includes(c))p.rightEdge=true;
       if(act==='swap'&&p.ctrl.swap&&p.ctrl.swap.includes(c))p.swapEdge=true;
       if(act==='especial'&&p.ctrl.especial&&p.ctrl.especial.includes(c))p.specialEdge=true; }); }
     if(act==='jump')hideTips(); };

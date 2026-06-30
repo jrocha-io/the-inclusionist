@@ -25,7 +25,7 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 - **Proteção de borda:** andar não derruba em fosso; só cai apertando **baixo**.
 - **Controles enxutos:** **interagir = qualquer botão de pulo** (não só Espaço); Ctrl=especial; Shift=trocar poder; sem correr.
 
-## Movimento por alternância (1 dedo / acesso sequencial)
+## Movimento por alternância (1 dedo / acesso sequencial) — ✅ FEITO (toggle no painel Movimento)
 - Tocar direção → anda **contínuo** naquele sentido (~1/3 da velocidade); segurar → ~2/3.
 - **Pulo é momentâneo e NÃO interrompe a caminhada** (aperta pular perto do obstáculo, pula pra frente e segue andando).
 - Acoplado ao **Fácil** (herda proteção de borda + gravidade menor + coyote-time → pulo de fosso tolerante). GAG-OK (sem exigir segurar+mover simultâneos). Sequencial multi-botão basta (não precisa varredura/scanning).
