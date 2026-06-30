@@ -309,7 +309,7 @@ function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:fa
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Ventosa'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
-function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5); }
+function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5)*(easy?EASY.jump:1); } // Fácil: pulo ×8/7
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
 function touchingWall(pl){ const y0=Math.floor((pl.y-BOX.h)/TILE),y1=Math.floor((pl.y-1)/TILE),lx=Math.floor((pl.x-BOX.w/2-1)/TILE),rx=Math.floor((pl.x+BOX.w/2+1)/TILE); for(let ty=y0;ty<=y1;ty++) if(solidAt(lx,ty)||solidAt(rx,ty))return true; return false; }
 // E18c: ventosa "aranha" — sólidos adjacentes à caixa em cada lado (R=direita, L=esquerda, U=teto/acima, D=chão/abaixo)
@@ -417,13 +417,16 @@ addEventListener('keydown',(e)=>{
     else if(KJUMP.includes(e.code))quizConfirm();
     if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
   }
-  const isGameKey = GAME_KEYS.includes(e.code) || players.some(p=>p.ctrl && Object.values(p.ctrl).some(arr=>arr.includes(e.code)));
+  // Fácil (solo): atalhos de acessibilidade — Ctrl=Especial, Shift=Trocar poder (sem usar Win/Alt/AltGr)
+  const easyKey = easy && numPlayers<=1 && (e.code==='ControlLeft'||e.code==='ControlRight'||e.code==='ShiftLeft'||e.code==='ShiftRight');
+  const isGameKey = easyKey || GAME_KEYS.includes(e.code) || players.some(p=>p.ctrl && Object.values(p.ctrl).some(arr=>arr.includes(e.code)));
   if(isGameKey){ e.preventDefault(); hideTouchControls('teclado'); } // E13: jogar no teclado oculta os botões de toque
   if(!keys.has(e.code)){ for(const p of players){ if(!p.ctrl)continue;
     if(p.ctrl.jump.includes(e.code)) p.jumpEdge=true;
-    if(p.ctrl.run.includes(e.code)) p.runEdge=true;
+    if(p.ctrl.run.includes(e.code) && !easy) p.runEdge=true; // Fácil: sem correr
     if(p.ctrl.swap&&p.ctrl.swap.includes(e.code)) p.swapEdge=true;
-    if(p.ctrl.especial&&p.ctrl.especial.includes(e.code)) p.specialEdge=true; } }
+    if(p.ctrl.especial&&p.ctrl.especial.includes(e.code)) p.specialEdge=true; }
+    if(easyKey){ if(e.code.startsWith('Control')) player.specialEdge=true; else player.swapEdge=true; } }
   keys.add(e.code); });
 addEventListener('keyup',(e)=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
@@ -447,7 +450,10 @@ const SFX={
   key:{f:990,d:0.16,t:'sine',cap:'🔊 Chave'},
   gate:{f:300,d:0.30,t:'sawtooth',cap:'🔊 Portão abriu'},
 };
-let audioCtx=null, soundOn=true, captionsOn=true, assist=false, volume=0.6, capTimer=null;
+let audioCtx=null, soundOn=true, captionsOn=true, easy=false, volume=0.6, capTimer=null;
+// Modo Fácil (deficiência motora): gravidade ×2/3, pulo ×8/7, andar ×0.7, sem perigos, sem correr,
+// hitbox de coleta +4px, moedas no chão, proteção de borda, pula-pula suave (segurar = flutuar descendo).
+const EASY={grav:2/3, jump:8/7, speed:0.7, pad:4, slowFall:1.4, tramp:3.4};
 function showCaption(txt){ const el=$('#caption'); if(!el||!txt)return; el.textContent=txt; el.classList.add('show'); clearTimeout(capTimer); capTimer=setTimeout(()=>{el.classList.remove('show'); el.textContent='';},1300); }
 function sfx(name){
   const c=SFX[name]; if(!c)return;
@@ -563,7 +569,16 @@ function letterTexture(ch){
 }
 const coinContainer=new PIXI.Container(); camera.addChild(coinContainer);
 let coinSprites=[];
+// Fácil: rebaixa cada moeda até o chão logo abaixo (scan ≤10 tiles); guarda y0 p/ reverter ao desligar.
+function positionEasyCoins(){
+  coins.forEach(cn=>{ if(cn.y0==null)cn.y0=cn.y;
+    if(easy){ const tx=Math.floor((cn.x+5)/TILE); let fy=null;
+      for(let ty=Math.floor(cn.y0/TILE);ty<WORLD_H && ty<Math.floor(cn.y0/TILE)+10;ty++){ if(solidAt(tx,ty)){ fy=ty*TILE; break; } }
+      cn.y = fy!=null ? fy-11 : cn.y0; } // moeda (10px) repousa com 1px de folga
+    else cn.y=cn.y0; });
+}
 function rebuildCoins(){
+  positionEasyCoins();
   coinContainer.removeChildren().forEach(s=>s.destroy());
   coinSprites=coins.map(cn=>{
     let s;
@@ -688,6 +703,9 @@ function setupExtras(){
 }
 setupExtras();
 
+// Fácil: retângulo translúcido mostrando a hitbox de coleta tolerante (sob o player)
+const easyHitbox=new PIXI.Graphics(); camera.addChild(easyHitbox);
+
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
@@ -772,7 +790,7 @@ function resolveY(pl){
   for(let row=r0;row<=r1;row++)for(let col=c0;col<=c1;col++){ if(!solidAt(col,row))continue;
     const tt=row*TILE,type=tileAt(col,row);
     if(pl.vy>0){ pl.y=tt-0.01;
-      if(type===5){ pl.vy=-(held(pl,'jump')?TUNE.trampMax:TUNE.trampBase); }
+      if(type===5){ pl.vy = easy ? -EASY.tramp : -(held(pl,'jump')?TUNE.trampMax:TUNE.trampBase); } // Fácil: quique fixo suave (sem cadeia de carga)
       else { pl.vy=0; pl.onGround=true; }
     } else if(pl.vy<0){ pl.y=tt+TILE+BOX.h+0.01; pl.vy=0; }
     return;
@@ -787,12 +805,12 @@ function triggerLava(pl){
 }
 function stepPlayer(pl,dt){
   if(pl.quiz)return; // P1 em desafio (Soma-Sub/Sílabas; MP é Lúdico)
-  const run=held(pl,'run'), dir=(held(pl,'right')?1:0)-(held(pl,'left')?1:0);
+  const run=held(pl,'run') && !easy, dir=(held(pl,'right')?1:0)-(held(pl,'left')?1:0); // Fácil: sem correr
   const turbo=pl.activePower==='turbo';
-  pl.vx=dir*(run?(turbo?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk); if(dir!==0)pl.facing=dir; // E18: super-corrida (turbo)
+  pl.vx=dir*(easy?TUNE.hWalk*EASY.speed:(run?(turbo?TUNE.hTurbo:TUNE.hRun):TUNE.hWalk)); if(dir!==0)pl.facing=dir; // E18: super-corrida (turbo); Fácil: andar ×0.7
   const feat=sampleFeatures(pl); pl.inWater=feat.water; pl.onLadder=feat.ladder;
   if(pl.hurtTimer>0)pl.hurtTimer-=dt;
-  if(feat.lava && !assist) triggerLava(pl);
+  if(feat.lava && !easy) triggerLava(pl);
   if(pl.jumpEdge)pl.jumpBuffer=7; else if(pl.jumpBuffer>0)pl.jumpBuffer--;
   // E18: ventosa (homem-aranha) — gruda na parede ao apertar Correr no ar; solta com Pular
   if(pl.clinging && (pl.onLadder||pl.inWater||pl.activePower!=='wallcling' || pl.onGround || clingSides(pl).D)) pl.clinging=false; // E18d: pés numa superfície estável (sólido logo abaixo) ENCERRAM; pendurado no teto (pés p/ cima) ou na parede alta continua
@@ -824,8 +842,9 @@ function stepPlayer(pl,dt){
     if(held(pl,'up')) pl.vy=-fs; else if(held(pl,'down')) pl.vy=fs; else pl.vy*=0.7;
     pl.vy=Math.max(-fs,Math.min(fs,pl.vy));
   } else {
-    const g = pl.inWater?0.10:TUNE.gravity;
+    const g = (pl.inWater?0.10:TUNE.gravity)*(easy?EASY.grav:1); // Fácil: gravidade ×2/3
     if(!(pl.onGround&&pl.vy>=0)) pl.vy += g*dt;
+    if(easy && held(pl,'jump') && pl.vy>EASY.slowFall && !pl.inWater) pl.vy=EASY.slowFall; // Fácil: segurar pulo = flutua descendo
     if(pl.inWater){
       if(held(pl,'jump')){ if(pl.waterStroke<=0){ pl.vy-=run?TUNE.waterJumpRun:TUNE.waterJump; pl.waterStroke=TUNE.waterStrokeFrames; } }
       else pl.waterStroke=0;
@@ -841,6 +860,11 @@ function stepPlayer(pl,dt){
       pl.vy=Math.min(pl.vy,TUNE.maxFall);
     }
   }
+  // Fácil: proteção de borda — andar não derruba em fosso; só cai segurando ↓ (não vale na água/escada/voo/aranha)
+  if(easy && pl.onGround && pl.vx!==0 && !held(pl,'down') && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
+    const dirX=pl.vx>0?1:-1, leadX=pl.x+dirX*(BOX.w/2)+pl.vx*dt;
+    if(!solidAt(Math.floor(leadX/TILE), Math.floor((pl.y+1)/TILE))) pl.vx=0;
+  }
   const _preX=pl.x, _preY=pl.y;
   pl.x+=pl.vx*dt; resolveX(pl);
   pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
@@ -848,8 +872,9 @@ function stepPlayer(pl,dt){
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
   if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
-  // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico)
-  const box={x:pl.x-BOX.w/2,y:pl.y-BOX.h,w:BOX.w,h:BOX.h};
+  // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico). Fácil: hitbox de coleta +4px por lado.
+  const pad=easy?EASY.pad:0;
+  const box={x:pl.x-BOX.w/2-pad,y:pl.y-BOX.h-pad,w:BOX.w+2*pad,h:BOX.h+2*pad};
   coins.forEach((cn,i)=>{ if(cn.taken)return;
     const big=(MODE!=='ludico'); const sz=big?15:9, ox=big?3:0;
     if(box.x<cn.x+sz-ox&&box.x+box.w>cn.x-ox&&box.y<cn.y+sz-ox&&box.y+box.h>cn.y-ox){
@@ -939,6 +964,10 @@ function draw(){
     pl.sprite.scale.set((pl.facing<0?-1:1), 1); // sem escala procedural (parecia mastigar) — respiração agora é por FRAMES
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
+  easyHitbox.clear(); // Fácil: hitbox de coleta tolerante (retângulo translúcido)
+  if(easy){ const pad=EASY.pad; for(const pl of players){
+    easyHitbox.lineStyle(1,0xffffff,0.45); easyHitbox.beginFill(0xffffff,0.10);
+    easyHitbox.drawRect(pl.x-BOX.w/2-pad, pl.y-BOX.h-pad, BOX.w+2*pad, BOX.h+2*pad); easyHitbox.endFill(); } }
   if(numPlayers<=1){
     const {camX,camY}=placeCam(players[0]);
     markSeen(camX,camY); if(mmDirty) redrawMinimap();
@@ -1115,12 +1144,13 @@ function applyLetra(announce){ const s=LETRA[letraIdx]; letterCase=s.caso; blind
 }
 const optLetraBtn=$('#opt-letra'); if(optLetraBtn)optLetraBtn.addEventListener('click',()=>{ letraIdx=(letraIdx+1)%LETRA.length; applyLetra(true); });
 applyLetra(false); // estado inicial = ABC (maiúsculas, padrão)
-// E9: toggles de Som / Legendas / Assistência
+// E9: toggles de Som / Legendas / Fácil
 function toggleBtn(b,on){ b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); }
-const soundBtn=$('#opt-sound'), capBtn=$('#opt-captions'), assistBtn=$('#opt-assist');
+const soundBtn=$('#opt-sound'), capBtn=$('#opt-captions'), facilBtn=$('#opt-facil');
 if(soundBtn) soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; toggleBtn(soundBtn,soundOn); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 if(capBtn) capBtn.addEventListener('click',()=>{ captionsOn=!captionsOn; toggleBtn(capBtn,captionsOn); srSay('Legendas '+(captionsOn?'ligadas.':'desligadas.')); });
-if(assistBtn) assistBtn.addEventListener('click',()=>{ assist=!assist; toggleBtn(assistBtn,assist); srSay('Modo assistência '+(assist?'ligado: velocidade reduzida e sem perigos.':'desligado.')); });
+if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(!easy); });
+function setEasy(on){ easy=on; if(facilBtn)toggleBtn(facilBtn,easy); rebuildCoins(); srSay('Modo Fácil '+(easy?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
 
 /* Fonte de leitura (canônicas EdSP): Padrão (Atkinson) | Alfabetização (Andika) | Dislexia/TDAH (Lexend + espaçamento BDA). Persistida. */
 const FONT_MODES=[
@@ -1165,7 +1195,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 }
 
 /* ===================== loop ===================== */
-app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2)*(assist?0.6:1); update(dt); draw(); fpsTick(); });
+app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); }); // Fácil agora ajusta física por eixo (gravidade/pulo/velocidade), não o tempo global
 window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){hcMode=v;},darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
