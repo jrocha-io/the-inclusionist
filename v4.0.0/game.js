@@ -632,16 +632,17 @@ const PALETTES={
   12:['#000A9E','#48165E','#650000','#600038','#153502','#492502','#202B55','#352E07','#452525','#033244','#13332B','#2E2D2C'],
   13:['#4B0000','#001F4C','#22201A'],
 };
-// Paleta CB-safe: base Okabe–Ito (8) + variações claras/escuras p/ riqueza (José refina depois).
-const CB_PALETTE=['#000000','#E69F00','#56B4E9','#009E73','#F0E442','#0072B2','#D55E00','#CC79A7','#FFFFFF',
-  '#A87600','#3F86B0','#00795A','#C7BD2E','#00557F','#A04500','#9C5A82','#FBE6A8','#BFE3F5','#A6E3CF','#F6C9DF'];
-// Modos de cor. normal=arte crua · bordas=contorno escurecido (WCAG AA, preserva a arte) · cb=daltonismo (recolor por matiz p/ Okabe–Ito).
+// Modos de cor. normal=arte crua · bordas=contorno escurecido (WCAG AA, preserva a arte) ·
+// sim-*=SIMULAÇÃO de daltonismo via filtro SVG na <canvas> (auditoria + demo; preserva a arte, transformação linear na GPU).
 // Grupos por importância: G1 (personagem/itens/NPC especial), G2 (plataforma/escada/porta/secundário), G3 (fundo).
 const VIZ_MODES=[
-  {key:'normal', label:'🎨 Cores normais'},
-  {key:'bordas', label:'🎨 Normal AA: bordas'},
-  {key:'cb',     label:'🎨 CB-safe (daltonismo)'},
+  {key:'normal',     label:'🎨 Cores normais'},
+  {key:'bordas',     label:'🎨 Normal AA: bordas'},
+  {key:'sim-deuter', label:'👁 Simular: Deuteranopia', filter:'url(#cvd-deuter)'},
+  {key:'sim-protan', label:'👁 Simular: Protanopia',   filter:'url(#cvd-protan)'},
+  {key:'sim-tritan', label:'👁 Simular: Tritanopia',   filter:'url(#cvd-tritan)'},
 ];
+const VIZ_FILTER=Object.fromEntries(VIZ_MODES.map(m=>[m.key, m.filter||'']));
 const VIZ_CYCLE=VIZ_MODES.map(m=>m.key);
 const VIZ_LABEL=Object.fromEntries(VIZ_MODES.map(m=>[m.key,m.label]));
 let vizMode=(()=>{ try{ const v=localStorage.getItem('incl_viz'); if(VIZ_CYCLE.includes(v))return v; }catch(e){}
@@ -656,10 +657,8 @@ const coinCanvasNormal=coinCanvas();
 const coinTex=tex(coinCanvasNormal);
 // caches de modos acessíveis (preguiçosos), invalidados ao trocar de cenário (worldCanvasNormal muda)
 let _worldTexHC={}, _coinTexHC={};
-function worldTexFor(mode){ if(mode==='normal')return worldTexNormal;
-  if(!_worldTexHC[mode]) _worldTexHC[mode] = mode==='cb' ? tex(gradientMapCanvas(worldCanvasNormal,CB_PALETTE)) : worldToTextureBordas(worldCanvasNormal); return _worldTexHC[mode]; }
-function coinTexFor(mode){ if(mode==='normal')return coinTex;
-  if(!_coinTexHC[mode]) _coinTexHC[mode] = mode==='cb' ? tex(gradientMapCanvas(coinCanvasNormal,CB_PALETTE)) : tex(outlineCanvas(coinCanvasNormal,1)); return _coinTexHC[mode]; }
+function worldTexFor(mode){ if(mode!=='bordas')return worldTexNormal; if(!_worldTexHC.bordas)_worldTexHC.bordas=worldToTextureBordas(worldCanvasNormal); return _worldTexHC.bordas; }
+function coinTexFor(mode){ if(mode!=='bordas')return coinTex; if(!_coinTexHC.bordas)_coinTexHC.bordas=tex(outlineCanvas(coinCanvasNormal,1)); return _coinTexHC.bordas; }
 function shapeTexture(id){
   const cv=makeCanvas(16,16),c=cv.getContext('2d');
   c.fillStyle='#7fdcff';c.strokeStyle='#04121a';c.lineWidth=1.5;
@@ -744,8 +743,7 @@ const ANIM={ walkHold:6, runHold:8, idleHold:20, swimHold:24, clingHold:10, clim
 const SPR='assets/sprites/menino/';
 const pngTex=(f)=>{ const t=PIXI.Texture.from(SPR+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const A=(anim,n)=>Array.from({length:n},(_,i)=>pngTex(anim+'/'+i+'.png'));        // frames de cor
-const _playerHC=new Map(); // cache do player recolorido (CB-safe). No modo 'bordas' o player NÃO muda (a arte já tem contorno).
-function playerHCTex(srcTex){ if(vizMode!=='cb')return srcTex; if(!_playerHC.has(srcTex)) _playerHC.set(srcTex, gradientMapTexture(srcTex, CB_PALETTE)); return _playerHC.get(srcTex); }
+function playerHCTex(srcTex){ return srcTex; } // player nunca é recolorido (a arte já tem contorno; simulação é por filtro na canvas)
 const TEX_IDLE=A('idle',4);          // idle = RESPIRAÇÃO por frames (cabeça congelada → sem 'mastigar'; só o tronco respira)
 const TEX_WALK=A('andar',8);         // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
 const TEX_RUN=A('correr',4);         // CORRER = sprint AGRESSIVA (inclinada, braços grandes) — 4 quadros
@@ -770,7 +768,7 @@ const TEX_SWIMIDLE=A('nadar-parado',2); // nado PARADO: só pernas batendo
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 const treeCanvasNormal=treeCanvas(), treeTexNormal=tex(treeCanvasNormal); // árvore = grupo fundo (recolorida no alto contraste)
-const _treeTexHC={}; function treeTexFor(mode){ if(mode!=='cb')return treeTexNormal; if(!_treeTexHC[mode])_treeTexHC[mode]=tex(gradientMapCanvas(treeCanvasNormal,CB_PALETTE)); return _treeTexHC[mode]; } // CB-safe recolore; bordas mantém o fundo
+function treeTexFor(mode){ return treeTexNormal; } // árvore = fundo; só o filtro de simulação a afeta (na canvas)
 const decoSprites=[];
 (function placeTrees(){ let last=-99;
   for(let tx=2;tx<WORLD_W-2;tx++){
@@ -801,9 +799,8 @@ function powerupCanvas(kind){
 }
 const PUP_CANVAS={}, PUP_TEX={};
 ['superjump','ultrajump','turbo','fly','wallcling','key'].forEach(k=>{ PUP_CANVAS[k]=powerupCanvas(k); PUP_TEX[k]=tex(PUP_CANVAS[k]); });
-const _pupTexHC={}; // {mode:{kind:tex}} — power-up: contorno (bordas) ou recolor CB-safe
-function pupTexFor(kind,mode){ if(mode==='normal')return PUP_TEX[kind]; (_pupTexHC[mode]=_pupTexHC[mode]||{});
-  if(!_pupTexHC[mode][kind]) _pupTexHC[mode][kind] = mode==='cb' ? tex(gradientMapCanvas(PUP_CANVAS[kind],CB_PALETTE)) : tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[mode][kind]; }
+const _pupTexHC={}; // power-up (G1) com contorno escuro no modo bordas
+function pupTexFor(kind,mode){ if(mode!=='bordas')return PUP_TEX[kind]; if(!_pupTexHC[kind])_pupTexHC[kind]=tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[kind]; }
 const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups + portão (atrás do player)
 let powerups=[];
 function rebuildExtras(){
@@ -1285,13 +1282,14 @@ if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(!easy); });
 function setEasy(on){ easy=on; if(facilBtn)toggleBtn(facilBtn,easy); rebuildCoins(); srSay('Modo Fácil '+(easy?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
 
 /* Modos de visualização (C): Normal → Alto contraste (forma) → Alto contraste (4.5:1) */
-function parallaxTexFor(i,mode){ if(mode!=='cb')return parallaxTexNormal[i]; (_parallaxTexHC[mode]=_parallaxTexHC[mode]||[]); if(!_parallaxTexHC[mode][i])_parallaxTexHC[mode][i]=gradientMapTexture(parallaxTexNormal[i],CB_PALETTE); return _parallaxTexHC[mode][i]; } // CB-safe recolore o fundo; bordas mantém
+function parallaxTexFor(i,mode){ return parallaxTexNormal[i]; } // fundo intacto; só o filtro de simulação o afeta (na canvas)
 function applyViz(mode){
-  vizMode=mode; hcMode=mode!=='normal'; try{localStorage.setItem('incl_viz',mode);}catch(e){}
+  vizMode=mode; hcMode=mode==='bordas'; try{localStorage.setItem('incl_viz',mode);}catch(e){}
+  if(app&&app.view) app.view.style.filter=VIZ_FILTER[mode]||''; // simulação de daltonismo = filtro SVG na própria canvas
   worldSprite.texture=worldTexFor(mode);            // 'bordas' = arte + contornos de plataforma/itens
-  parallaxLayers.forEach((ts,i)=>{ ts.texture=parallaxTexFor(i,mode); }); // fundo intacto no modo bordas
+  parallaxLayers.forEach((ts,i)=>{ ts.texture=parallaxTexFor(i,mode); });
   decoSprites.forEach(s=>{ s.texture=treeTexFor(mode); });
-  rebuildExtras(); rebuildCoins();                  // itens (power-ups/porta/moedas) ganham contorno (G1)
+  rebuildExtras(); rebuildCoins();                  // itens ganham contorno só no modo bordas
   const b=$('#opt-viz'); if(b){ b.textContent=VIZ_LABEL[mode]; b.classList.toggle('is-on',hcMode); b.setAttribute('aria-label','Modo de cor: '+VIZ_LABEL[mode].replace(/^🎨 /,'')+'. Clique para alternar.'); }
 }
 const vizBtn=$('#opt-viz'); if(vizBtn) vizBtn.addEventListener('click',()=>{ const i=VIZ_CYCLE.indexOf(vizMode); applyViz(VIZ_CYCLE[(i+1)%VIZ_CYCLE.length]); srSay(VIZ_LABEL[vizMode].replace(/^🎨 /,'')+' ativado.'); });

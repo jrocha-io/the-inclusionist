@@ -10,7 +10,8 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 1. **Normal** — arte crua.
 2. **Normal AA · Bordas** — ✅ feito: adiciona contornos de contraste (G1 grosso, G2 fino) em player/itens/power-ups/porta e nas bordas das plataformas. Arte e fundo intactos.
 3. **Normal AA · Cores** — (a fazer) deslocamento **leve**: fundo + escuro/lavado, G1/G2 + vivos.
-4. **CB-safe** (Okabe–Ito, daltonismo) — (a fazer) 3 variações: cores (recolor procedural), bordas (contornos CB-safe), contraste (G1/G2 saturados + fundo lavado + contornos 3:1).
+4. **Simular daltonismo** — ✅ feito: 3 filtros **`feColorMatrix`** (Protanopia/Deuteranopia/Tritanopia) aplicados na própria `<canvas>` via `filter:url(#…)`. Preserva a arte (transformação linear na GPU), não posteriza. **Auditoria + demo a stakeholders.** ⚠️ É **simulação** (mostra como o daltônico vê), não **correção**: o que ajuda o jogador de fato é **daltonização** (a fazer, se desejado).
+   - (Tentativa anterior de "CB-safe" por recolor a 20 cores Okabe–Ito foi descartada: posterizava a arte.)
 5. **Pessoa cega** = **tela apagada + pistas sonoras** (Fase F) — para enxergantes sentirem como é jogar cego.
 
 **Papéis das paletas (José):** P1 luz direta · P2 muito claras · P3 claras · P4–P5 lavadas · P6 vivas/saturadas · P7 quentes vivas + apagadas · P8 azul/rosa/vermelho vivos + resto apagado · P9–P10 escuras · P11–P13 bem escuras. Uso: contorno claro de P1/P2 (sobre fundo escuro) ou escuro de P12/P13 (sobre claro); interiores vivos de P6; fundo lavado de P4/P5. Grupos-base para o modo Cores: **P1×P6×P11**, **P2×P7×P12**, **P3×P8×P13** (adjacentes ~3:1).
