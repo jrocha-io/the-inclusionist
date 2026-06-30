@@ -112,6 +112,21 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 
 .overlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(0,0,0,.7);padding:1rem}
 #visual{background:rgba(0,0,0,.28);align-items:start;padding-top:3.5rem} /* cor: fundo translúcido p/ ver o efeito imediato no jogo */
+
+/* Indicador de simulação (canto sup. dir.): branca=cegueira, verde=baixa visão. Duplo toque volta ao normal. */
+#viz-indicator{position:fixed;top:10px;right:10px;z-index:120;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,.55);padding:0;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.6)}
+#viz-indicator.blind{background:#fff}
+#viz-indicator.low{background:#36d36a}
+/* Baixa visão: névoa (véu) + manchas escuras (scotomas). O desfoque vem do filter na canvas. */
+#viz-overlay{position:absolute;inset:0;z-index:8;pointer-events:none;
+  background:
+    radial-gradient(circle at 27% 36%, rgba(12,12,16,.92) 0, rgba(12,12,16,.7) 4%, transparent 13%),
+    radial-gradient(circle at 71% 58%, rgba(12,12,16,.88) 0, rgba(12,12,16,.6) 3%, transparent 11%),
+    radial-gradient(circle at 52% 80%, rgba(12,12,16,.75) 0, transparent 10%),
+    radial-gradient(130% 130% at 50% 45%, transparent 42%, rgba(238,240,245,.24) 100%),
+    rgba(236,239,244,.13)}
+/* Cegueira total: a canvas vira preta (filter brightness(0)); escondemos HUD e controles na tela */
+body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-tips, body.blind-mode #caption{visibility:hidden}
 [hidden]{display:none!important}
 /* menus nunca ultrapassam a tela: limitados à altura do viewport e roláveis (rodapé de ações fica fixo embaixo) */
 .overlay__card{background:var(--panel);border:3px solid var(--accent);border-radius:12px;padding:1.5rem;max-width:420px;width:100%;text-align:center;

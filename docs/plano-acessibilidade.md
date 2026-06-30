@@ -6,13 +6,15 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 **Grupos por importância** (não por luminância): **G1** personagem/HUD/itens/NPC especial · **G2** plataforma/chão onde piso/escada/porta/secundário · **G3** fundo.
 **Conformidade WCAG 2.2 AA via CONTORNO** (preserva a arte, não repinta): contorno **G1↔fundo 7:1**, **G2↔fundo 4.5:1**, condução de caminho **3:1**, **texto↔fundo 7:1** (HUD no DOM). Contorno **bicolor** (claro+escuro) → visível sobre qualquer fundo. As 4 variações de repintura dark foram **removidas** (repintar não é exigência WCAG); as 13 paletas + motor de matiz ficam para os modos de cor abaixo.
 
-## Modos de cor (menu)
-1. **Normal** — arte crua.
-2. **Normal AA · Bordas** — ✅ feito: adiciona contornos de contraste (G1 grosso, G2 fino) em player/itens/power-ups/porta e nas bordas das plataformas. Arte e fundo intactos.
-3. **Normal AA · Cores** — (a fazer) deslocamento **leve**: fundo + escuro/lavado, G1/G2 + vivos.
-4. **Simular daltonismo** — ✅ feito: 3 filtros **`feColorMatrix`** (Protanopia/Deuteranopia/Tritanopia) aplicados na própria `<canvas>` via `filter:url(#…)`. Preserva a arte (transformação linear na GPU), não posteriza. **Auditoria + demo a stakeholders.** ⚠️ É **simulação** (mostra como o daltônico vê), não **correção**: o que ajuda o jogador de fato é **daltonização** (a fazer, se desejado).
-   - (Tentativa anterior de "CB-safe" por recolor a 20 cores Okabe–Ito foi descartada: posterizava a arte.)
-5. **Pessoa cega** = **tela apagada + pistas sonoras** (Fase F) — para enxergantes sentirem como é jogar cego.
+## Modos de cor — menu "Acessibilidade visual" (radio, efeito imediato, 11 opções)
+1. **Cores normais** — arte crua.
+2. **Contorno (Normal AA)** — ✅ contorno escuro em player/itens/power-ups/porta e bordas de plataforma (preserva a arte).
+3. **Alto contraste ×4** (claro/médio/escuro/noturno) — ✅ recolor por **paleta de grupo** (fundo escuro colorido P10–P13; player P(n−9), itens P(n−7)). **Provisório** — alguns níveis de baixa visão se beneficiam; José fará melhor no Aseprite.
+4. **Simular daltonismo ×3** (Protanopia/Deuteranopia/Tritanopia) — ✅ filtros **`feColorMatrix`** na `<canvas>` (auditoria + demo). É **simulação**, não correção (daltonização fica para depois, se desejado).
+5. **Simular baixa visão** — ✅ desfoque (filter) + névoa + manchas/scotomas (overlay). **Bolinha verde** no canto; toque/clique **2×** volta ao normal.
+6. **Simular cegueira total (amaurose)** — ✅ tela preta (`brightness(0)`), HUD e controles escondidos (só resposta tátil/sonora — Fase F). **Bolinha branca** no canto; **2×** volta ao normal.
+- (a fazer) **Normal AA · Cores** (deslocamento leve) e **daltonização** (correção real).
+- (Descartado: recolor "CB-safe" a 20 cores Okabe–Ito — posterizava a arte.)
 
 **Papéis das paletas (José):** P1 luz direta · P2 muito claras · P3 claras · P4–P5 lavadas · P6 vivas/saturadas · P7 quentes vivas + apagadas · P8 azul/rosa/vermelho vivos + resto apagado · P9–P10 escuras · P11–P13 bem escuras. Uso: contorno claro de P1/P2 (sobre fundo escuro) ou escuro de P12/P13 (sobre claro); interiores vivos de P6; fundo lavado de P4/P5. Grupos-base para o modo Cores: **P1×P6×P11**, **P2×P7×P12**, **P3×P8×P13** (adjacentes ~3:1).
 

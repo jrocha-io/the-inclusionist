@@ -288,6 +288,18 @@ function worldToTextureBordas(srcCanvas){
   }
   return tex(cv);
 }
+// Alto contraste (re-adicionado): recolore cada tile pela PALETA do grupo (gradient-map por matiz, mantém claro-escuro).
+function worldToTextureHC(srcCanvas, pal){
+  const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
+  const palFor=t=> (t===4||t===10)?pal.item : t===3?pal.water : pal.plat; // escada/porta=item; água=fundo; resto=plataforma(fundo)
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue;
+    const pd=_palData(palFor(t)), X=x*TILE,Y=y*TILE, img=c.getImageData(X,Y,TILE,TILE), d=img.data;
+    for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const pc=pd.rgb[_pickPal(d[i],d[i+1],d[i+2],pd)];
+      const sl=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255, f=0.74+0.52*sl; d[i]=Math.min(255,pc[0]*f|0);d[i+1]=Math.min(255,pc[1]*f|0);d[i+2]=Math.min(255,pc[2]*f|0); }
+    c.putImageData(img,X,Y);
+  }
+  return tex(cv);
+}
 // pixel art: disco com pixels INTEIROS (serrilhado nítido, sem anti-aliasing dos arcos vetoriais)
 function pixDisc(c,cx,cy,r,col,edge){ for(let y=Math.floor(cy-r);y<=cy+r;y++)for(let x=Math.floor(cx-r);x<=cx+r;x++){ const d=Math.hypot(x-cx,y-cy); if(d<=r){ c.fillStyle=(edge&&d>r-1.05)?edge:col; c.fillRect(x,y,1,1);} } }
 function coinCanvas(){
@@ -644,16 +656,24 @@ const PALETTES={
 // Modos de cor. normal=arte crua · bordas=contorno escurecido (WCAG AA, preserva a arte) ·
 // sim-*=SIMULAÇÃO de daltonismo via filtro SVG na <canvas> (auditoria + demo; preserva a arte, transformação linear na GPU).
 // Grupos por importância: G1 (personagem/itens/NPC especial), G2 (plataforma/escada/porta/secundário), G3 (fundo).
+// kind: normal | bordas | hc (recolor por paleta de grupo) | filter (SVG na canvas) | lowvision | blind
 const VIZ_MODES=[
-  {key:'normal',     label:'🎨 Cores normais',        nome:'Cores normais',          desc:'Arte original do jogo.'},
-  {key:'bordas',     label:'🎨 Normal AA: bordas',    nome:'Contorno (Normal AA)',   desc:'Contorno escuro em personagem, itens e bordas das plataformas (WCAG AA).'},
-  {key:'sim-deuter', label:'👁 Simular: Deuteranopia',nome:'Simular Deuteranopia',   desc:'Como vê quem não enxerga o verde (mais comum).', filter:'url(#cvd-deuter)'},
-  {key:'sim-protan', label:'👁 Simular: Protanopia',  nome:'Simular Protanopia',     desc:'Como vê quem não enxerga o vermelho.', filter:'url(#cvd-protan)'},
-  {key:'sim-tritan', label:'👁 Simular: Tritanopia',  nome:'Simular Tritanopia',     desc:'Como vê quem não enxerga o azul.', filter:'url(#cvd-tritan)'},
+  {key:'normal', kind:'normal', nome:'Cores normais',        desc:'Arte original do jogo.'},
+  {key:'bordas', kind:'bordas', nome:'Contorno (Normal AA)', desc:'Contorno escuro em personagem, itens e bordas das plataformas (WCAG AA).'},
+  {key:'hc1', kind:'hc', bg:10, player:1, item:3, nome:'Alto contraste: claro',   desc:'Fundo escuro colorido; personagem e itens em paletas separadas (provisório, p/ alguns níveis de baixa visão).'},
+  {key:'hc2', kind:'hc', bg:11, player:2, item:4, nome:'Alto contraste: médio',   desc:'Fundo mais escuro; personagem e itens recoloridos por matiz.'},
+  {key:'hc3', kind:'hc', bg:12, player:3, item:5, nome:'Alto contraste: escuro',  desc:'Fundo bem escuro; máximo destaque do personagem.'},
+  {key:'hc4', kind:'hc', bg:13, player:4, item:6, nome:'Alto contraste: noturno', desc:'Fundo quase preto colorido.'},
+  {key:'sim-deuter', kind:'filter', filter:'url(#cvd-deuter)', nome:'Simular Deuteranopia', desc:'Como vê quem não enxerga o verde (mais comum).'},
+  {key:'sim-protan', kind:'filter', filter:'url(#cvd-protan)', nome:'Simular Protanopia',   desc:'Como vê quem não enxerga o vermelho.'},
+  {key:'sim-tritan', kind:'filter', filter:'url(#cvd-tritan)', nome:'Simular Tritanopia',   desc:'Como vê quem não enxerga o azul.'},
+  {key:'lowvision', kind:'lowvision', nome:'Simular baixa visão', desc:'Desfoque, névoa e manchas. (bolinha verde no canto; toque 2× para sair)'},
+  {key:'blind', kind:'blind', nome:'Simular cegueira total', desc:'Tela preta — jogue como uma pessoa cega (resposta tátil/sonora). (bolinha branca no canto; toque 2× para sair)'},
 ];
-const VIZ_FILTER=Object.fromEntries(VIZ_MODES.map(m=>[m.key, m.filter||'']));
+const VIZ_BY_KEY=Object.fromEntries(VIZ_MODES.map(m=>[m.key,m]));
+const VIZ_FILTER={'sim-deuter':'url(#cvd-deuter)','sim-protan':'url(#cvd-protan)','sim-tritan':'url(#cvd-tritan)','lowvision':'blur(1.6px) contrast(.82) brightness(.9)','blind':'brightness(0)'};
 const VIZ_CYCLE=VIZ_MODES.map(m=>m.key);
-const VIZ_LABEL=Object.fromEntries(VIZ_MODES.map(m=>[m.key,m.label]));
+function hcPal(m){ return { player:PALETTES[m.player], item:PALETTES[m.item], plat:PALETTES[m.bg], bg:PALETTES[m.bg], water:PALETTES[m.bg] }; }
 let vizMode=(()=>{ try{ const v=localStorage.getItem('incl_viz'); if(VIZ_CYCLE.includes(v))return v; }catch(e){}
   return (window.matchMedia && matchMedia('(prefers-contrast: more)').matches) ? 'bordas' : 'normal'; })();
 let hcMode = vizMode!=='normal'; // mantém o nome p/ o resto do código (agora = "modo de cor acessível ativo")
@@ -666,8 +686,10 @@ const coinCanvasNormal=coinCanvas();
 const coinTex=tex(coinCanvasNormal);
 // caches de modos acessíveis (preguiçosos), invalidados ao trocar de cenário (worldCanvasNormal muda)
 let _worldTexHC={}, _coinTexHC={};
-function worldTexFor(mode){ if(mode!=='bordas')return worldTexNormal; if(!_worldTexHC.bordas)_worldTexHC.bordas=worldToTextureBordas(worldCanvasNormal); return _worldTexHC.bordas; }
-function coinTexFor(mode){ if(mode!=='bordas')return coinTex; if(!_coinTexHC.bordas)_coinTexHC.bordas=tex(outlineCanvas(coinCanvasNormal,1)); return _coinTexHC.bordas; }
+function worldTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return worldTexNormal;
+  if(!_worldTexHC[mode]) _worldTexHC[mode] = m.kind==='hc' ? worldToTextureHC(worldCanvasNormal,hcPal(m)) : worldToTextureBordas(worldCanvasNormal); return _worldTexHC[mode]; }
+function coinTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return coinTex;
+  if(!_coinTexHC[mode]) _coinTexHC[mode] = m.kind==='hc' ? tex(gradientMapCanvas(coinCanvasNormal,hcPal(m).item)) : tex(outlineCanvas(coinCanvasNormal,1)); return _coinTexHC[mode]; }
 function shapeTexture(id){
   const cv=makeCanvas(16,16),c=cv.getContext('2d');
   c.fillStyle='#7fdcff';c.strokeStyle='#04121a';c.lineWidth=1.5;
@@ -752,7 +774,9 @@ const ANIM={ walkHold:6, runHold:8, idleHold:20, swimHold:24, clingHold:10, clim
 const SPR='assets/sprites/menino/';
 const pngTex=(f)=>{ const t=PIXI.Texture.from(SPR+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const A=(anim,n)=>Array.from({length:n},(_,i)=>pngTex(anim+'/'+i+'.png'));        // frames de cor
-function playerHCTex(srcTex){ return srcTex; } // player nunca é recolorido (a arte já tem contorno; simulação é por filtro na canvas)
+const _playerHC={}; // {mode: Map(texCor→tex)} — player recolorido só nos modos HC (bordas/sim não mexem no player)
+function playerHCTex(srcTex){ const m=VIZ_BY_KEY[vizMode]; if(!m||m.kind!=='hc')return srcTex; const mm=(_playerHC[vizMode]=_playerHC[vizMode]||new Map());
+  if(!mm.has(srcTex)) mm.set(srcTex, gradientMapTexture(srcTex, hcPal(m).player)); return mm.get(srcTex); }
 const TEX_IDLE=A('idle',4);          // idle = RESPIRAÇÃO por frames (cabeça congelada → sem 'mastigar'; só o tronco respira)
 const TEX_WALK=A('andar',8);         // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
 const TEX_RUN=A('correr',4);         // CORRER = sprint AGRESSIVA (inclinada, braços grandes) — 4 quadros
@@ -777,7 +801,7 @@ const TEX_SWIMIDLE=A('nadar-parado',2); // nado PARADO: só pernas batendo
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 const treeCanvasNormal=treeCanvas(), treeTexNormal=tex(treeCanvasNormal); // árvore = grupo fundo (recolorida no alto contraste)
-function treeTexFor(mode){ return treeTexNormal; } // árvore = fundo; só o filtro de simulação a afeta (na canvas)
+const _treeTexHC={}; function treeTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='hc')return treeTexNormal; if(!_treeTexHC[mode])_treeTexHC[mode]=tex(gradientMapCanvas(treeCanvasNormal,hcPal(m).bg)); return _treeTexHC[mode]; } // HC recolore a árvore p/ o fundo
 const decoSprites=[];
 (function placeTrees(){ let last=-99;
   for(let tx=2;tx<WORLD_W-2;tx++){
@@ -808,8 +832,9 @@ function powerupCanvas(kind){
 }
 const PUP_CANVAS={}, PUP_TEX={};
 ['superjump','ultrajump','turbo','fly','wallcling','key'].forEach(k=>{ PUP_CANVAS[k]=powerupCanvas(k); PUP_TEX[k]=tex(PUP_CANVAS[k]); });
-const _pupTexHC={}; // power-up (G1) com contorno escuro no modo bordas
-function pupTexFor(kind,mode){ if(mode!=='bordas')return PUP_TEX[kind]; if(!_pupTexHC[kind])_pupTexHC[kind]=tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[kind]; }
+const _pupTexHC={}; // {mode:{kind:tex}} — power-up: contorno (bordas) ou recolor (hc)
+function pupTexFor(kind,mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return PUP_TEX[kind]; (_pupTexHC[mode]=_pupTexHC[mode]||{});
+  if(!_pupTexHC[mode][kind]) _pupTexHC[mode][kind] = m.kind==='hc' ? tex(gradientMapCanvas(PUP_CANVAS[kind],hcPal(m).item)) : tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[mode][kind]; }
 const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups + portão (atrás do player)
 let powerups=[];
 function rebuildExtras(){
@@ -1303,17 +1328,29 @@ function reflectMovementBtn(){ const b=$('#opt-movement'); if(b)b.classList.togg
 function setEasy(on){ easy=on; reflectFacil(); rebuildCoins(); srSay('Modo Fácil '+(easy?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
 
 /* Modos de visualização (C): Normal → Alto contraste (forma) → Alto contraste (4.5:1) */
-function parallaxTexFor(i,mode){ return parallaxTexNormal[i]; } // fundo intacto; só o filtro de simulação o afeta (na canvas)
+function parallaxTexFor(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='hc')return parallaxTexNormal[i]; (_parallaxTexHC[mode]=_parallaxTexHC[mode]||[]); if(!_parallaxTexHC[mode][i])_parallaxTexHC[mode][i]=gradientMapTexture(parallaxTexNormal[i],hcPal(m).bg); return _parallaxTexHC[mode][i]; } // HC recolore o fundo
 function applyViz(mode){
-  vizMode=mode; hcMode=mode==='bordas'; try{localStorage.setItem('incl_viz',mode);}catch(e){}
-  if(app&&app.view) app.view.style.filter=VIZ_FILTER[mode]||''; // simulação de daltonismo = filtro SVG na própria canvas
-  worldSprite.texture=worldTexFor(mode);            // 'bordas' = arte + contornos de plataforma/itens
+  const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; mode=m.key;
+  vizMode=mode; hcMode=(m.kind==='bordas'||m.kind==='hc'); try{localStorage.setItem('incl_viz',mode);}catch(e){}
+  if(app&&app.view) app.view.style.filter=VIZ_FILTER[mode]||''; // sim. daltonismo/baixa-visão/cegueira = filtro na canvas
+  worldSprite.texture=worldTexFor(mode);            // bordas=contorno · hc=recolor por paleta · resto=normal
   parallaxLayers.forEach((ts,i)=>{ ts.texture=parallaxTexFor(i,mode); });
   decoSprites.forEach(s=>{ s.texture=treeTexFor(mode); });
-  rebuildExtras(); rebuildCoins();                  // itens ganham contorno só no modo bordas
+  rebuildExtras(); rebuildCoins();
+  // baixa visão = névoa+manchas (overlay) + bolinha verde; cegueira = tela preta (filtro) + esconde controles + bolinha branca
+  document.body.classList.toggle('lowvision-mode', m.kind==='lowvision');
+  document.body.classList.toggle('blind-mode', m.kind==='blind');
+  const ov=$('#viz-overlay'); if(ov)ov.hidden=(m.kind!=='lowvision');
+  if(m.kind==='blind'){ hideTouchControls('cegueira'); }
+  updateVizIndicator(m.kind);
   const b=$('#opt-visual'); if(b)b.classList.toggle('is-on',mode!=='normal'); // botão da barra realça quando ≠ normal
   if(typeof renderVisual==='function') renderVisual();
 }
+// bolinha indicadora (canto sup. dir.): branca=cegueira, verde=baixa visão; toque/clique 2× volta ao normal
+function updateVizIndicator(kind){ const el=$('#viz-indicator'); if(!el)return;
+  const on=(kind==='blind'||kind==='lowvision'); el.hidden=!on;
+  el.classList.toggle('blind',kind==='blind'); el.classList.toggle('low',kind==='lowvision');
+  el.setAttribute('aria-label',(kind==='blind'?'Modo cegueira total':'Modo baixa visão')+'. Toque duas vezes para voltar às cores normais.'); }
 // MENU Acessibilidade visual: seleção (radio) da configuração de cor, efeito imediato
 function renderVisual(){ const el=$('#visual-list'); if(!el)return;
   el.innerHTML=VIZ_MODES.map(m=>{ const sel=m.key===vizMode; return `<div class="ctrl-row"><span><strong>${m.nome}</strong><br><span class="opt-hint" style="margin:0">${m.desc}</span></span>`+
@@ -1324,7 +1361,10 @@ function openVisual(){ const ov=$('#visual'); if(!ov)return; renderVisual(); ov.
 function closeVisual(){ const ov=$('#visual'); if(!ov)return; ov.hidden=true; visualOpen=false; const b=$('#opt-visual'); if(b)b.focus(); }
 const visualBtn=$('#opt-visual'); if(visualBtn)visualBtn.addEventListener('click',openVisual);
 const visualClose=$('#visual-close'); if(visualClose)visualClose.addEventListener('click',closeVisual);
-vizReady=true; applyViz(vizMode); // estado inicial (ex.: prefers-contrast liga alto contraste)
+// bolinha indicadora: duplo toque/clique → volta às cores normais (em cegueira é a única saída visível)
+(function vizIndicator(){ const el=$('#viz-indicator'); if(!el)return; let last=-9999;
+  el.addEventListener('pointerdown',(e)=>{ e.preventDefault(); const t=e.timeStamp||0; if(t-last<450){ applyViz('normal'); last=-9999; srSay('Cores normais reativadas.'); } else last=t; }); })();
+vizReady=true; applyViz(vizMode); // estado inicial
 
 /* Fonte de leitura (canônicas EdSP): Padrão (Atkinson) | Alfabetização (Andika) | Dislexia/TDAH (Lexend + espaçamento BDA). Persistida. */
 const FONT_MODES=[
