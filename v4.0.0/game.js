@@ -384,7 +384,8 @@ const BOX={w:10,h:30};
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
   activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0,
-  walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null, easy:false, toggleMove:false}; } // viz/easy/toggleMove = acessibilidade por jogador
+  walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null, easy:false, toggleMove:false,
+  rmWalk:false, rmBreath:false, rmFlavor:false}; } // viz/easy/toggleMove/rm* = acessibilidade por jogador
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Ventosa'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
@@ -541,7 +542,9 @@ const anyEasy=()=>players.some(p=>p.easy); // efeitos de MUNDO do Fácil (moedas
 const EASY={grav:2/3, jump:8/7, speed:0.7, pad:4, slowFall:1.4, tramp:3.4};
 // Movimento reduzido (WCAG 2.3.3 AA). 5 alvos; padrão herda prefers-reduced-motion; persistido.
 // Hoje agem 'parallax' e 'walk'; 'decor/items/particles' ficam prontos e ligam quando a Cidade animar.
-const RM_KEYS=['parallax','decor','items','walk','breath','flavor','particles'];
+const RM_KEYS=['parallax','decor','items','particles']; // animações de CENA (globais)
+const RM_CHAR=[ {k:'walk',prop:'rmWalk',lbl:'Personagem em movimento (andar, escalar, nadar, pular)'},
+  {k:'breath',prop:'rmBreath',lbl:'Respiração (parado)'}, {k:'flavor',prop:'rmFlavor',lbl:'Gracinhas (animações de descanso)'} ]; // animações do PERSONAGEM (por jogador)
 const RM_DEFAULT=!!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const rm=(()=>{ try{ const s=JSON.parse(localStorage.getItem('inclusionist.reducedmotion.v1')); if(s&&typeof s==='object'){ const o={}; RM_KEYS.forEach(k=>o[k]=!!s[k]); return o; } }catch(e){}
   const o={}; RM_KEYS.forEach(k=>o[k]=RM_DEFAULT); return o; })();
@@ -549,6 +552,7 @@ function saveRM(){ try{ localStorage.setItem('inclusionist.reducedmotion.v1',JSO
 // Movimento por alternância (1 dedo): tocar a direção trava a marcha; segurar acelera; pulo não interrompe. Persistido.
 function loadPlayerA11y(p,i){ try{ const v=localStorage.getItem('incl_viz_p'+i); if(v&&VIZ_BY_KEY[v])p.viz=v;
   p.easy=localStorage.getItem('incl_easy_p'+i)==='1'; p.toggleMove=localStorage.getItem('incl_togglemove_p'+i)==='1';
+  p.rmWalk=localStorage.getItem('incl_rmWalk_p'+i)==='1'; p.rmBreath=localStorage.getItem('incl_rmBreath_p'+i)==='1'; p.rmFlavor=localStorage.getItem('incl_rmFlavor_p'+i)==='1';
   if(i===0){ const ov=localStorage.getItem('incl_viz'); if(ov&&VIZ_BY_KEY[ov]&&localStorage.getItem('incl_viz_p0')==null)p.viz=ov; // migra chaves antigas
     if(localStorage.getItem('inclusionist.togglemove')==='1'&&localStorage.getItem('incl_togglemove_p0')==null)p.toggleMove=true; } }catch(e){} }
 function setToggleMove(i,on){ const p=players[i]; if(!p)return; p.toggleMove=on; try{localStorage.setItem('incl_togglemove_p'+i,on?'1':'0');}catch(e){} if(!on)p.walkDir=0;
@@ -1086,32 +1090,32 @@ function stepPlayer(pl,dt){
   const II=TEX_IDLE;
   let tx; pl.idleNow=false;
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
-  // movimento reduzido: rm.walk congela TODA a locomoção (escalar, escada, nado, pulo) num quadro único
+  // movimento reduzido: pl.rmWalk congela TODA a locomoção (escalar, escada, nado, pulo) num quadro único
   if(pl.clinging){ const ceil=(pl.clingN==='U'); // E18f: teto e parede usam ciclos distintos
     const CL = ceil ? TEX_CLING_CEIL : TEX_CLING_WALL;
-    if(!rm.walk && (pl.vx!==0||pl.vy!==0)) pl.climbFrame=(Math.floor(pl.walkAnim/ANIM.clingHold))%CL.length; // só avança ao mover; parado MANTÉM o quadro
-    tx = CL[(rm.walk?0:(pl.climbFrame||0))%CL.length]; }
-  else if(pl.onLadder){ const CB=TEX_CLIMB; const climbing=(pl.vy!==0)&&!rm.walk; // sobe/desce = passos alternados; parado/congelado = agarrado (quadro 0)
+    if(!pl.rmWalk && (pl.vx!==0||pl.vy!==0)) pl.climbFrame=(Math.floor(pl.walkAnim/ANIM.clingHold))%CL.length; // só avança ao mover; parado MANTÉM o quadro
+    tx = CL[(pl.rmWalk?0:(pl.climbFrame||0))%CL.length]; }
+  else if(pl.onLadder){ const CB=TEX_CLIMB; const climbing=(pl.vy!==0)&&!pl.rmWalk; // sobe/desce = passos alternados; parado/congelado = agarrado (quadro 0)
     tx = climbing ? CB[Math.floor(pl.walkAnim/ANIM.climbHold)%CB.length] : CB[0]; }
-  else if(pl.inWater){ const stroking=((dir!==0)||held(pl,'jump'))&&!rm.walk; // movendo = braçada+pernas; parado/congelado = quadro fixo
+  else if(pl.inWater){ const stroking=((dir!==0)||held(pl,'jump'))&&!pl.rmWalk; // movendo = braçada+pernas; parado/congelado = quadro fixo
     const SW = stroking ? TEX_SWIM : TEX_SWIMIDLE;
-    tx = rm.walk ? SW[0] : SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
+    tx = pl.rmWalk ? SW[0] : SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
   else if(pl.flying)              tx = TEX_FLY;
-  else if(airborne){ if(rm.walk) tx = TEX_JUMP_UP;               // congelado: pulo num único quadro
+  else if(airborne){ if(pl.rmWalk) tx = TEX_JUMP_UP;               // congelado: pulo num único quadro
     else tx = pl.vy<0 ? TEX_JUMP_UP : TEX_JUMP_DOWN; }           // subindo: pernas recolhidas / caindo: estendidas
   else if(moving){
-    if(rm.walk){ tx = II[0]; }                                   // movimento reduzido: anda sem ciclo de passos (pose neutra)
+    if(pl.rmWalk){ tx = II[0]; }                                   // movimento reduzido: anda sem ciclo de passos (pose neutra)
     else { const running=held(pl,'run');                         // E19: correr (Correr segurado) ≠ andar — passada/cadência distintas
       const M = running ? TEX_RUN : TEX_WALK;
       const hold = running ? ANIM.runHold : ANIM.walkHold;
       tx = M[Math.floor(pl.walkAnim/hold)%M.length]; } }
   else { pl.idleNow=true; pl.idleTime+=dt;                       // E20: parado → respira; após flavorDelay, toca uma gracinha
-    if(!rm.flavor){                                             // gracinhas (toggle próprio — há quem se incomode)
+    if(!pl.rmFlavor){                                             // gracinhas (toggle próprio — há quem se incomode)
       if(pl.flavor<0 && pl.idleTime>ANIM.flavorDelay){ pl.flavor=Math.floor(rnd()*FLAVORS.length); pl.flavorT=0; }
       if(pl.flavor>=0){ const F=FLAVORS[pl.flavor]; const step=Math.floor(pl.flavorT/F.hold); pl.flavorT+=dt;
         if(step>=F.seq.length){ pl.flavor=-1; pl.idleTime=0; } else { tx=F.tex[F.seq[step]]; } }
     } else pl.flavor=-1;
-    if(pl.flavor<0) tx = rm.breath ? II[0] : II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } // respiração: congela (quadro 0) ou cicla
+    if(pl.flavor<0) tx = pl.rmBreath ? II[0] : II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } // respiração: congela (quadro 0) ou cicla
   if(!pl.idleNow){ pl.idleTime=0; pl.flavor=-1; }                 // saiu do idle → zera gracinha
   pl._tx=tx;                                                     // quadro base (cor) p/ recolor por viewport
   if(pl.sprite) pl.sprite.texture=playerVizTex(tx, pl.viz);      // solo/default; no MP o draw troca por viewport
@@ -1476,12 +1480,21 @@ const ctrlClose=$('#ctrl-close'); if(ctrlClose)ctrlClose.addEventListener('click
 /* Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2) */
 const RM_LABEL={parallax:'Parallax do fundo', decor:'Decoração (nuvens, grama)', items:'Animação de itens (moedas)', walk:'Personagem em movimento (andar, escalar, nadar, pular)', breath:'Respiração (parado)', flavor:'Gracinhas (animações de descanso)', particles:'Partículas e cintilação'};
 const RM_SOON=new Set(['decor','items','particles']); // ainda sem alvo no motor (chega com a Cidade)
-function renderMotion(){ const el=$('#motion-list'); if(!el)return;
-  el.innerHTML=RM_KEYS.map(k=>`<div class="ctrl-row"><span>${RM_LABEL[k]}${RM_SOON.has(k)?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn${rm[k]?' is-on':''}" data-rm="${k}" type="button" aria-pressed="${rm[k]}" aria-label="${RM_LABEL[k]}: ${rm[k]?'congelado':'animado'}">${rm[k]?'❄ Congelado':'▶ Animado'}</button></div>`).join('');
+let selAnimPlayer=0;
+function renderMotion(){ const el=$('#motion-list'); if(!el)return; if(selAnimPlayer>=numPlayers)selAnimPlayer=0;
+  const tabs=$('#animation-players'); if(tabs){ tabs.hidden=(numPlayers<=1);
+    tabs.innerHTML=numPlayers<=1?'':Array.from({length:numPlayers},(_,p)=>`<button class="mode-btn${p===selAnimPlayer?' is-on':''}" data-ap="${p}" type="button">Jogador ${p+1}</button>`).join('');
+    tabs.querySelectorAll('button[data-ap]').forEach(b=>b.addEventListener('click',()=>{ selAnimPlayer=+b.dataset.ap; renderMotion(); })); }
+  const p=players[selAnimPlayer];
+  const row=(lbl,on,attr,soon)=>`<div class="ctrl-row"><span>${lbl}${soon?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn${on?' is-on':''}" ${attr} type="button" aria-pressed="${on}">${on?'❄ Congelado':'▶ Animado'}</button></div>`;
+  const charRows=RM_CHAR.map(c=>row(c.lbl, p&&p[c.prop], 'data-rmc="'+c.prop+'"', false)).join('');
+  const sceneRows=RM_KEYS.map(k=>row(RM_LABEL[k], rm[k], 'data-rm="'+k+'"', RM_SOON.has(k))).join('');
+  el.innerHTML=`<h3 class="panel-sub">Personagem${numPlayers>1?' · Jogador '+(selAnimPlayer+1):''} <span class="panel-sub__tag">por jogador</span></h3>`+charRows+`<h3 class="panel-sub">Cena <span class="panel-sub__tag">todos os jogadores</span></h3>`+sceneRows;
+  el.querySelectorAll('button[data-rmc]').forEach(b=>b.addEventListener('click',()=>{ const pr=b.dataset.rmc, pl=players[selAnimPlayer]; pl[pr]=!pl[pr]; try{localStorage.setItem('incl_'+pr+'_p'+selAnimPlayer,pl[pr]?'1':'0');}catch(e){} renderMotion(); }));
   el.querySelectorAll('button[data-rm]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.rm; rm[k]=!rm[k]; saveRM(); renderMotion(); updateMotionMaster(); srSay(RM_LABEL[k]+(rm[k]?' congelado.':' animado.')); }));
   updateMotionMaster();
 }
-function updateMotionMaster(){ reflectMotionBtn(); const m=$('#motion-master'); if(!m)return; const allOn=RM_KEYS.every(k=>rm[k]);
+function updateMotionMaster(){ reflectMotionBtn(); const m=$('#motion-master'); if(!m)return; const p=players[selAnimPlayer]; const allOn=RM_KEYS.every(k=>rm[k]) && RM_CHAR.every(c=>p&&p[c.prop]);
   m.textContent=allOn?'▶ Retomar todas as animações':'⏸ Parar todas as animações'; toggleBtn(m,allOn); }
 function reflectAltMove(){ const p=players[selMovPlayer], on=!!(p&&p.toggleMove); const b=$('#opt-altmove'); if(b){ b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); b.textContent=on?'❚❚ Ligado':'▶ Desligado'; }
   reflectMovementBtn(); } // botão da barra acende se QUALQUER jogador usa Fácil/alternância
@@ -1496,7 +1509,9 @@ const movBtn=$('#opt-movement'); if(movBtn)movBtn.addEventListener('click',openM
 const movClose=$('#movement-close'); if(movClose)movClose.addEventListener('click',closeMovement);
 const animBtn=$('#opt-animation'); if(animBtn)animBtn.addEventListener('click',openAnimation);
 const animClose=$('#animation-close'); if(animClose)animClose.addEventListener('click',closeAnimation);
-const motionMaster=$('#motion-master'); if(motionMaster)motionMaster.addEventListener('click',()=>{ const allOn=RM_KEYS.every(k=>rm[k]); const v=!allOn; RM_KEYS.forEach(k=>rm[k]=v); saveRM(); renderMotion(); srSay(v?'Todas as animações paradas.':'Todas as animações retomadas.'); });
+const motionMaster=$('#motion-master'); if(motionMaster)motionMaster.addEventListener('click',()=>{ const p=players[selAnimPlayer]; const allOn=RM_KEYS.every(k=>rm[k])&&RM_CHAR.every(c=>p&&p[c.prop]); const v=!allOn;
+  RM_KEYS.forEach(k=>rm[k]=v); saveRM(); if(p)RM_CHAR.forEach(c=>{ p[c.prop]=v; try{localStorage.setItem('incl_'+c.prop+'_p'+selAnimPlayer,v?'1':'0');}catch(e){} }); // cena (global) + personagem (jogador selecionado)
+  renderMotion(); srSay(v?'Todas as animações paradas.':'Todas as animações retomadas.'); });
 function reflectMotionBtn(){ const b=$('#opt-animation'); if(b)b.classList.toggle('is-on',RM_KEYS.some(k=>rm[k])); } // realça o botão Animação quando há redução ativa
 reflectMotionBtn(); // estado inicial (ex.: prefers-reduced-motion liga por padrão)
 const ctrlReset=$('#ctrl-reset'); if(ctrlReset)ctrlReset.addEventListener('click',()=>{ try{localStorage.removeItem(CKEY);}catch(e){} KB=JSON.parse(JSON.stringify(KB_DEFAULTS)); applyControls(); assignControls(); renderControls(); srSay('Controles restaurados ao padrão.'); });
