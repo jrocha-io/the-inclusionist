@@ -372,7 +372,7 @@ let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
 
 /* ===================== input ===================== */
-const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false;
+const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, motionOpen=false;
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
 const KB_DEFAULTS={
@@ -406,6 +406,7 @@ addEventListener('keydown',(e)=>{
     captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
   }
   if(optionsOpen){ if(e.code==='Escape')closeOptions(); return; } // diálogo aberto: não joga
+  if(motionOpen){ if(e.code==='Escape')closeMotion(); return; }
   if(!player.quiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
@@ -454,6 +455,13 @@ let audioCtx=null, soundOn=true, captionsOn=true, easy=false, volume=0.6, capTim
 // Modo Fácil (deficiência motora): gravidade ×2/3, pulo ×8/7, andar ×0.7, sem perigos, sem correr,
 // hitbox de coleta +4px, moedas no chão, proteção de borda, pula-pula suave (segurar = flutuar descendo).
 const EASY={grav:2/3, jump:8/7, speed:0.7, pad:4, slowFall:1.4, tramp:3.4};
+// Movimento reduzido (WCAG 2.3.3 AA). 5 alvos; padrão herda prefers-reduced-motion; persistido.
+// Hoje agem 'parallax' e 'walk'; 'decor/items/particles' ficam prontos e ligam quando a Cidade animar.
+const RM_KEYS=['parallax','decor','items','walk','particles'];
+const RM_DEFAULT=!!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const rm=(()=>{ try{ const s=JSON.parse(localStorage.getItem('inclusionist.reducedmotion.v1')); if(s&&typeof s==='object'){ const o={}; RM_KEYS.forEach(k=>o[k]=!!s[k]); return o; } }catch(e){}
+  const o={}; RM_KEYS.forEach(k=>o[k]=RM_DEFAULT); return o; })();
+function saveRM(){ try{ localStorage.setItem('inclusionist.reducedmotion.v1',JSON.stringify(rm)); }catch(e){} }
 function showCaption(txt){ const el=$('#caption'); if(!el||!txt)return; el.textContent=txt; el.classList.add('show'); clearTimeout(capTimer); capTimer=setTimeout(()=>{el.classList.remove('show'); el.textContent='';},1300); }
 function sfx(name){
   const c=SFX[name]; if(!c)return;
@@ -517,6 +525,7 @@ const parallaxLayers=PARALLAX.map((p,i)=>{
 function updateParallax(camX,camY){
   for(let i=0;i<parallaxLayers.length;i++){ const ts=parallaxLayers[i],p=PARALLAX[i];
     ts.x=camX; ts.y=camY;                                  // anula o camera → fixa na tela
+    if(rm.parallax){ ts.tilePosition.set(0,0); continue; } // movimento reduzido: fundo vira papel de parede estático
     ts.tilePosition.x=-camX*p.factor; ts.tilePosition.y=-camY*p.fy;
   }
 }
@@ -919,10 +928,12 @@ function stepPlayer(pl,dt){
   else if(pl.flying)              tx = hcMode?TEX_HC_FLY:TEX_FLY;
   else if(airborne) tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)     // subindo: pernas recolhidas
                                  : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); // caindo: pernas estendidas
-  else if(moving){ const running=held(pl,'run');                 // E19: correr (Correr segurado) ≠ andar — passada/cadência distintas
-    const M = running ? (hcMode?TEX_HC_RUN:TEX_RUN) : (hcMode?TEX_HC_WALK:TEX_WALK);
-    const hold = running ? ANIM.runHold : ANIM.walkHold;
-    tx = M[Math.floor(pl.walkAnim/hold)%M.length]; }
+  else if(moving){
+    if(rm.walk){ tx = II[0]; }                                   // movimento reduzido: anda sem ciclo de passos (pose neutra)
+    else { const running=held(pl,'run');                         // E19: correr (Correr segurado) ≠ andar — passada/cadência distintas
+      const M = running ? (hcMode?TEX_HC_RUN:TEX_RUN) : (hcMode?TEX_HC_WALK:TEX_WALK);
+      const hold = running ? ANIM.runHold : ANIM.walkHold;
+      tx = M[Math.floor(pl.walkAnim/hold)%M.length]; } }
   else { pl.idleNow=true; pl.idleTime+=dt;                       // E20: parado → respira; após flavorDelay, toca uma gracinha
     if(pl.flavor<0 && pl.idleTime>ANIM.flavorDelay){ pl.flavor=Math.floor(rnd()*FLAVORS.length); pl.flavorT=0; }
     if(pl.flavor>=0){ const F=FLAVORS[pl.flavor]; const step=Math.floor(pl.flavorT/F.hold); pl.flavorT+=dt;
@@ -1184,6 +1195,24 @@ function openOptions(){ const ov=$('#options'); if(!ov)return; renderControls();
 function closeOptions(){ const ov=$('#options'); if(!ov)return; ov.hidden=true; optionsOpen=false; captureAction=null; const b=$('#opt-controls'); if(b)b.focus(); }
 const ctrlBtn=$('#opt-controls'); if(ctrlBtn)ctrlBtn.addEventListener('click',openOptions);
 const ctrlClose=$('#ctrl-close'); if(ctrlClose)ctrlClose.addEventListener('click',closeOptions);
+
+/* Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2) */
+const RM_LABEL={parallax:'Parallax do fundo', decor:'Decoração (nuvens, grama)', items:'Animação de itens (moedas)', walk:'Ciclo de caminhada', particles:'Partículas e cintilação'};
+const RM_SOON=new Set(['decor','items','particles']); // ainda sem alvo no motor (chega com a Cidade)
+function renderMotion(){ const el=$('#motion-list'); if(!el)return;
+  el.innerHTML=RM_KEYS.map(k=>`<div class="ctrl-row"><span>${RM_LABEL[k]}${RM_SOON.has(k)?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn${rm[k]?' is-on':''}" data-rm="${k}" type="button" aria-pressed="${rm[k]}" aria-label="${RM_LABEL[k]}: ${rm[k]?'congelado':'animado'}">${rm[k]?'❄ Congelado':'▶ Animado'}</button></div>`).join('');
+  el.querySelectorAll('button[data-rm]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.rm; rm[k]=!rm[k]; saveRM(); renderMotion(); updateMotionMaster(); srSay(RM_LABEL[k]+(rm[k]?' congelado.':' animado.')); }));
+  updateMotionMaster();
+}
+function updateMotionMaster(){ reflectMotionBtn(); const m=$('#motion-master'); if(!m)return; const allOn=RM_KEYS.every(k=>rm[k]);
+  m.textContent=allOn?'▶ Retomar todas as animações':'⏸ Parar todas as animações'; toggleBtn(m,allOn); }
+function openMotion(){ const ov=$('#motion'); if(!ov)return; renderMotion(); ov.hidden=false; motionOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function closeMotion(){ const ov=$('#motion'); if(!ov)return; ov.hidden=true; motionOpen=false; const b=$('#opt-motion'); if(b)b.focus(); }
+const motionBtn=$('#opt-motion'); if(motionBtn)motionBtn.addEventListener('click',openMotion);
+const motionClose=$('#motion-close'); if(motionClose)motionClose.addEventListener('click',closeMotion);
+const motionMaster=$('#motion-master'); if(motionMaster)motionMaster.addEventListener('click',()=>{ const allOn=RM_KEYS.every(k=>rm[k]); const v=!allOn; RM_KEYS.forEach(k=>rm[k]=v); saveRM(); renderMotion(); srSay(v?'Todas as animações paradas.':'Todas as animações retomadas.'); });
+function reflectMotionBtn(){ const b=$('#opt-motion'); if(b)b.classList.toggle('is-on',RM_KEYS.some(k=>rm[k])); } // realça quando há animação reduzida
+reflectMotionBtn(); // estado inicial (ex.: prefers-reduced-motion liga por padrão)
 const ctrlReset=$('#ctrl-reset'); if(ctrlReset)ctrlReset.addEventListener('click',()=>{ try{localStorage.removeItem(CKEY);}catch(e){} KB=JSON.parse(JSON.stringify(KB_DEFAULTS)); applyControls(); assignControls(); renderControls(); srSay('Controles restaurados ao padrão.'); });
 
 /* ===================== FPS ===================== */

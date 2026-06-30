@@ -46,6 +46,7 @@
     <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true">🔊 Som</button>
     <button id="opt-captions" class="mode-btn is-on" type="button" aria-pressed="true">💬 Legendas</button>
     <button id="opt-facil" class="mode-btn" type="button" aria-pressed="false" aria-label="Modo Fácil: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais">♿ Fácil</button>
+    <button id="opt-motion" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Movimento reduzido: pausar ou congelar animações">🎞 Movimento</button>
     <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Controles</button>
     <button id="opt-fonte" class="mode-btn" type="button" aria-label="Trocar a fonte de leitura">🔤 Atkinson (legibilidade)</button>
   </nav>
@@ -152,6 +153,21 @@
       <div class="overlay__actions">
         <button id="ctrl-reset" class="mode-btn" type="button">Restaurar padrões</button>
         <button id="ctrl-close" class="mode-btn is-on" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2) -->
+  <div id="motion" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="motion-title">
+      <h2 id="motion-title">Movimento</h2>
+      <p class="opt-hint">Reduza ou congele as animações. O botão geral pausa tudo de uma vez. As escolhas ficam salvas no navegador.</p>
+      <div class="overlay__actions" style="justify-content:center;margin-bottom:.6rem">
+        <button id="motion-master" class="mode-btn" type="button">⏸ Parar todas as animações</button>
+      </div>
+      <div id="motion-list" class="ctrl-list" role="group" aria-label="Animações"></div>
+      <div class="overlay__actions">
+        <button id="motion-close" class="mode-btn is-on" type="button">Fechar</button>
       </div>
     </div>
   </div>
