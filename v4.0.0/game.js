@@ -476,7 +476,7 @@ let audioCtx=null, soundOn=true, captionsOn=true, easy=false, volume=0.6, capTim
 const EASY={grav:2/3, jump:8/7, speed:0.7, pad:4, slowFall:1.4, tramp:3.4};
 // Movimento reduzido (WCAG 2.3.3 AA). 5 alvos; padrão herda prefers-reduced-motion; persistido.
 // Hoje agem 'parallax' e 'walk'; 'decor/items/particles' ficam prontos e ligam quando a Cidade animar.
-const RM_KEYS=['parallax','decor','items','walk','idle','particles'];
+const RM_KEYS=['parallax','decor','items','walk','breath','flavor','particles'];
 const RM_DEFAULT=!!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const rm=(()=>{ try{ const s=JSON.parse(localStorage.getItem('inclusionist.reducedmotion.v1')); if(s&&typeof s==='object'){ const o={}; RM_KEYS.forEach(k=>o[k]=!!s[k]); return o; } }catch(e){}
   const o={}; RM_KEYS.forEach(k=>o[k]=RM_DEFAULT); return o; })();
@@ -975,11 +975,12 @@ function stepPlayer(pl,dt){
       const hold = running ? ANIM.runHold : ANIM.walkHold;
       tx = M[Math.floor(pl.walkAnim/hold)%M.length]; } }
   else { pl.idleNow=true; pl.idleTime+=dt;                       // E20: parado → respira; após flavorDelay, toca uma gracinha
-    if(rm.idle){ tx=II[0]; pl.flavor=-1; }                       // movimento reduzido: sem respiração nem gracinhas (quadro fixo)
-    else { if(pl.flavor<0 && pl.idleTime>ANIM.flavorDelay){ pl.flavor=Math.floor(rnd()*FLAVORS.length); pl.flavorT=0; }
+    if(!rm.flavor){                                             // gracinhas (toggle próprio — há quem se incomode)
+      if(pl.flavor<0 && pl.idleTime>ANIM.flavorDelay){ pl.flavor=Math.floor(rnd()*FLAVORS.length); pl.flavorT=0; }
       if(pl.flavor>=0){ const F=FLAVORS[pl.flavor]; const step=Math.floor(pl.flavorT/F.hold); pl.flavorT+=dt;
         if(step>=F.seq.length){ pl.flavor=-1; pl.idleTime=0; } else { const arr=hcMode?F.hc:F.tex; tx=arr[F.seq[step]]; } }
-      if(pl.flavor<0) tx=II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } } // respiração por frames
+    } else pl.flavor=-1;
+    if(pl.flavor<0) tx = rm.breath ? II[0] : II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } // respiração: congela (quadro 0) ou cicla
   if(!pl.idleNow){ pl.idleTime=0; pl.flavor=-1; }                 // saiu do idle → zera gracinha
   if(pl.sprite) pl.sprite.texture=tx;
 }
@@ -1250,7 +1251,7 @@ const ctrlBtn=$('#opt-controls'); if(ctrlBtn)ctrlBtn.addEventListener('click',op
 const ctrlClose=$('#ctrl-close'); if(ctrlClose)ctrlClose.addEventListener('click',closeOptions);
 
 /* Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2) */
-const RM_LABEL={parallax:'Parallax do fundo', decor:'Decoração (nuvens, grama)', items:'Animação de itens (moedas)', walk:'Personagem em movimento (andar, escalar, nadar, pular)', idle:'Respiração e gracinhas (parado)', particles:'Partículas e cintilação'};
+const RM_LABEL={parallax:'Parallax do fundo', decor:'Decoração (nuvens, grama)', items:'Animação de itens (moedas)', walk:'Personagem em movimento (andar, escalar, nadar, pular)', breath:'Respiração (parado)', flavor:'Gracinhas (animações de descanso)', particles:'Partículas e cintilação'};
 const RM_SOON=new Set(['decor','items','particles']); // ainda sem alvo no motor (chega com a Cidade)
 function renderMotion(){ const el=$('#motion-list'); if(!el)return;
   el.innerHTML=RM_KEYS.map(k=>`<div class="ctrl-row"><span>${RM_LABEL[k]}${RM_SOON.has(k)?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn${rm[k]?' is-on':''}" data-rm="${k}" type="button" aria-pressed="${rm[k]}" aria-label="${RM_LABEL[k]}: ${rm[k]?'congelado':'animado'}">${rm[k]?'❄ Congelado':'▶ Animado'}</button></div>`).join('');

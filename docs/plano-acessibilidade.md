@@ -29,9 +29,9 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 
 ## Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2)
 - Reduced-motion **ligado por padrão** (respeita `prefers-reduced-motion`).
-- 6 toggles: **parallax · fundo decorativo (nuvens/grama) · itens (moedas) · personagem em movimento · respiração/gracinhas · partículas/cintilação**.
+- 7 toggles: **parallax · fundo decorativo (nuvens/grama) · itens (moedas) · personagem em movimento · respiração · gracinhas · partículas/cintilação**.
   - **Personagem em movimento** congela TODA a locomoção num quadro único: andar/correr, escalar parede (ventosa), subir escada, nadar e pular.
-  - **Respiração/gracinhas** congela o idle (sem respiração nem as animações de descanso).
+  - **Respiração** e **gracinhas** são toggles separados (há quem se incomode com as gracinhas e queira mantê-las desligadas sem congelar a respiração).
 - **1 botão mestre** (Pause/Stop/Hide) congela todos.
 - Hoje agem: parallax, personagem em movimento, respiração/gracinhas. Decoração/itens/partículas ficam prontos e ligam quando a Cidade animar.
 
