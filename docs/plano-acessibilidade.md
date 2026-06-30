@@ -5,7 +5,12 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 ## Modos de visualização (4)
 1. **Normal**
 2. **CB-safe** (Okabe–Ito, daltonismo)
-3. **Alto contraste** (WCAG): 3 grupos discerníveis — **player · itens de interação (moeda, escada, porta, NPC) · fundo** — com **≥7:1 entre grupos** (excede o 1.4.11/3:1 de gráfico; é melhoria pró-baixa-visão). HUD: **7:1 contra o próprio fundo** (1.4.6 AAA de texto). Fundo↔decoração animada: ~3:1 (baixo de propósito). Paleta melhor virá de estudo do José; aplicar a melhor encontrada por ora.
+3. **Alto contraste** — duas variantes (ciclo `🎨 Cores`), fundo = preto do app (parallax/decoração escondidos).
+   - **Achado WCAG:** ≥7:1 entre os TRÊS grupos é **matematicamente impossível** (contraste é só luminância; dois elementos ambos ≥7:1 do preto têm no máximo ~3:1 entre si). Cor/matiz não conta e 1.4.1 proíbe cor como único meio → player↔itens separa por **forma+contorno**.
+   - **A (forma)** — razões medidas: player↔fundo **15.9:1**, itens↔fundo **20.1:1**, plataforma↔fundo **3.1:1**, player↔plataforma **5.2:1**, player↔itens **1.3:1** (resolvido por forma+contorno). Excede a 1.4.11.
+   - **B (4.5:1)** — prioriza separação medida player↔itens: player↔fundo **15.9:1**, **player↔itens 4.5:1**, itens↔fundo **3.5:1** (não 7:1 — impossível com o 4.5), player↔plataforma **9.0:1**, plataforma↔fundo **1.8:1** (terreno recua; topo realça a borda).
+   - Cores são data-driven (`const VIZ` em game.js) → José troca pelas do seu estudo sem mexer na lógica.
+   - HUD: **7:1 contra o próprio fundo** (1.4.6 AAA de texto, já no DOM).
 4. **Pessoa cega** = **tela apagada + pistas sonoras** (para jogadores enxergarem como é jogar cego). Áudio é ortogonal: liga as pistas; a tela apaga neste modo.
 
 ## Modo Fácil (deficiência motora)

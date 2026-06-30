@@ -210,12 +210,25 @@ function spriteToCanvas(art){
   return cv;
 }
 const isGroundType=(t)=>t===2||t===6; // chão/plataforma genéricos → recebem o tileset do tema
-function worldToTexture(tiles){       // tiles={fill,surface} (HTMLImageElement) ou undefined → cor chapada
+function worldToTexture(tiles, pal){   // tiles={fill,surface} (HTMLImageElement) ou undefined → cor chapada; pal → ALTO CONTRASTE (cores por grupo)
   const cv=makeCanvas(WORLD_PX_W,WORLD_PX_H),c=cv.getContext('2d');
   const solidAt=(x,y)=> y>=0&&y<WORLD_H&&x>=0&&x<WORLD_W && isSolidType(WORLD[y][x]);
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){
     const t=WORLD[y][x];
-    if(t===0||t===1) continue;        // ar/interior: transparente → o parallax aparece através da área jogável
+    if(t===0||t===1) continue;        // ar/interior: transparente → o parallax (ou o preto do app) aparece através da área jogável
+    if(pal){ // ALTO CONTRASTE: grupos chapados. Itens (escada/porta) ganham contorno escuro → separados por FORMA, não por cor (1.4.1)
+      let col=pal.plat, top=null, item=false;
+      if(t===4){ col=pal.ladder; item=true; }              // escada = item
+      else if(t===10){ col=pal.gate; item=true; }          // porta/portão = item
+      else if(t===3){ col=pal.water; }                     // água
+      else if(t===9){ col=pal.hazard; }                    // perigo
+      else { col=pal.plat; top=pal.platTop; }              // plataforma/terreno (faixa intermediária)
+      c.fillStyle=col; c.fillRect(x*TILE,y*TILE,TILE,TILE);
+      if(top && !solidAt(x,y-1)){ c.fillStyle=top; c.fillRect(x*TILE,y*TILE,TILE,2); } // borda do topo
+      if(item){ c.strokeStyle=pal.itemEdge; c.lineWidth=1; c.strokeRect(x*TILE+0.5,y*TILE+0.5,TILE-1,TILE-1); }
+      if(t===4){ c.fillStyle=pal.itemEdge; for(let r=3;r<TILE;r+=5)c.fillRect(x*TILE+2,y*TILE+r,TILE-4,2); } // degraus da escada
+      continue;
+    }
     if(tiles && isGroundType(t)){      // tileset: superfície (topo claro) se há ar acima, senão preenchimento
       c.drawImage(solidAt(x,y-1)?tiles.fill:tiles.surface, x*TILE, y*TILE); continue;
     }
@@ -232,6 +245,12 @@ function coinTexture(){
   c.fillStyle='#1a1400';c.beginPath();c.arc(5,5,5,0,7);c.fill();
   c.fillStyle='#ffd23f';c.beginPath();c.arc(5,5,4,0,7);c.fill();
   c.fillStyle='#fff7c8';c.fillRect(3,2,2,5);
+  return tex(cv);
+}
+function coinTextureHC(pal){ // moeda em alto contraste: disco na cor de item + contorno escuro (separa por forma)
+  const cv=makeCanvas(10,10),c=cv.getContext('2d');
+  c.fillStyle=pal.itemEdge;c.beginPath();c.arc(5,5,5,0,7);c.fill();
+  c.fillStyle=pal.item;c.beginPath();c.arc(5,5,3.6,0,7);c.fill();
   return tex(cv);
 }
 function treeTexture(){
@@ -543,12 +562,30 @@ function setCenario(theme){
   parallaxLayers.forEach((ts,i)=>{ const n=[4,3,2][i];
     const t=PIXI.Texture.from('assets/cenarios/'+theme+'/c'+n+'.png');
     t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; ts.texture=t; });
-  loadTileImages(theme).then(tiles=>{ if(tiles && worldSprite) worldSprite.texture=worldToTexture(tiles); }); // reconstrói o chão com o tileset do tema
+  loadTileImages(theme).then(tiles=>{ if(tiles && worldSprite){ worldTexNormal=worldToTexture(tiles); if(vizMode==='normal') worldSprite.texture=worldTexNormal; } }); // reconstrói o chão com o tileset do tema (só aplica se não estiver em alto contraste)
   try{ localStorage.setItem('incl_cenario',theme); }catch(e){}
 }
-const worldSprite=new PIXI.Sprite(worldToTexture()); camera.addChild(worldSprite);
+// Modos de visualização. hcMode (silhueta amarela do player) deriva de vizMode≠'normal'.
+// VIZ: cores por grupo (fundo = preto do app, então só escondemos o parallax). Razões de contraste medidas em docs/plano-acessibilidade.
+// A (forma): player e itens ambos ≥7:1 do fundo; player↔itens separados por FORMA+contorno (~1.3:1).
+// B (4.5:1): itens numa faixa intermediária → player↔itens 4.5:1 medido (itens↔fundo cai p/ ~3.7:1; 7:1+4.5:1 juntos é impossível).
+const VIZ={
+  hcA:{ plat:'#5d5d5d', platTop:'#8c8c8c', item:'#ffffff', itemEdge:'#000000', itemTint:0xffffff, ladder:'#ffffff', gate:'#ffffff', water:'#3a3a3a', hazard:'#ff4d4d' },
+  hcB:{ plat:'#3a3a3a', platTop:'#6e6e6e', item:'#00717f', itemEdge:'#00141a', itemTint:0x00717f, ladder:'#00717f', gate:'#00717f', water:'#2a2a2a', hazard:'#ff4d4d' },
+};
+const VIZ_CYCLE=['normal','hcA','hcB'];
+const VIZ_LABEL={normal:'🎨 Cores normais', hcA:'🎨 Alto contraste (forma)', hcB:'🎨 Alto contraste (4.5:1)'};
+let vizMode=(()=>{ try{ const v=localStorage.getItem('incl_viz'); if(VIZ_CYCLE.includes(v))return v; }catch(e){}
+  return (window.matchMedia && matchMedia('(prefers-contrast: more)').matches) ? 'hcA' : 'normal'; })();
+let hcMode = vizMode!=='normal';
+let worldTexNormal=worldToTexture();
+const worldSprite=new PIXI.Sprite(worldTexNormal); camera.addChild(worldSprite);
 try{ setCenario(localStorage.getItem('incl_cenario')||'cidade'); }catch(e){ setCenario('cidade'); }
 const coinTex=coinTexture();
+// caches de alto contraste (preguiçosos): textura do mundo chapado + moeda por paleta
+const _worldTexHC={}, _coinTexHC={};
+function worldTexFor(mode){ if(mode==='normal')return worldTexNormal; if(!_worldTexHC[mode])_worldTexHC[mode]=worldToTexture(undefined,VIZ[mode]); return _worldTexHC[mode]; }
+function coinTexFor(mode){ if(mode==='normal')return coinTex; if(!_coinTexHC[mode])_coinTexHC[mode]=coinTextureHC(VIZ[mode]); return _coinTexHC[mode]; }
 function shapeTexture(id){
   const cv=makeCanvas(16,16),c=cv.getContext('2d');
   c.fillStyle='#7fdcff';c.strokeStyle='#04121a';c.lineWidth=1.5;
@@ -593,7 +630,7 @@ function rebuildCoins(){
     let s;
     if(MODE==='somasub'&&cn.shape){ s=new PIXI.Sprite(SHAPE_TEX[cn.shape]); s.width=15;s.height=15; s.x=cn.x-3;s.y=cn.y-3; }
     else if(MODE==='silabas'&&cn.letter){ s=new PIXI.Sprite(letterTexture(cn.letter)); s.width=14;s.height=14; s.x=cn.x-2;s.y=cn.y-2; }
-    else { s=new PIXI.Sprite(coinTex); s.x=cn.x;s.y=cn.y; }
+    else { s=new PIXI.Sprite(coinTexFor(vizMode)); s.x=cn.x;s.y=cn.y; }
     s.visible=!cn.taken; coinContainer.addChild(s); return s;
   });
 }
@@ -660,7 +697,6 @@ const TEX_CLING_WALL=A('parede',4), TEX_HC_CLING_WALL=H('parede',4);
 const TEX_CLING_CEIL=A('teto',4), TEX_HC_CLING_CEIL=H('teto',4);
 const TEX_SWIM=A('nadar',2), TEX_HC_SWIM=H('nadar',2); // nado MOVENDO: braçada + pernas
 const TEX_SWIMIDLE=A('nadar-parado',2), TEX_HC_SWIMIDLE=H('nadar-parado',2); // nado PARADO: só pernas batendo
-let hcMode = !!(window.matchMedia && matchMedia('(prefers-contrast: more)').matches);
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 (function placeTrees(){
@@ -693,11 +729,13 @@ const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups
 let powerups=[];
 function rebuildExtras(){
   extraLayer.removeChildren().forEach(s=>s.destroy());
-  powerups.forEach(pu=>{ const s=new PIXI.Sprite(PUP_TEX[pu.kind]); s.x=pu.x; s.y=pu.y; s.visible=!pu.taken; extraLayer.addChild(s); pu.sprite=s; });
+  const hc=hcMode, pal=hc?VIZ[vizMode]:null; // alto contraste: itens (power-ups/porta) na cor do grupo
+  powerups.forEach(pu=>{ const s=new PIXI.Sprite(PUP_TEX[pu.kind]); s.x=pu.x; s.y=pu.y; s.visible=!pu.taken; if(hc)s.tint=pal.itemTint; extraLayer.addChild(s); pu.sprite=s; });
   if(gate && !gateOpen){ const g=new PIXI.Graphics();
+    const door=hc?parseInt(pal.gate.slice(1),16):0x8a5a2b, edge=hc?parseInt(pal.itemEdge.slice(1),16):0x5a3a1b;
     for(const k of gateTiles){ const [tx,ty]=k.split(',').map(Number); const X=tx*TILE,Y=ty*TILE;
-      g.beginFill(0x8a5a2b).drawRect(X,Y,TILE,TILE).endFill();
-      g.beginFill(0x5a3a1b); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
+      g.beginFill(door).drawRect(X,Y,TILE,TILE).endFill();
+      g.beginFill(edge); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
     }
     extraLayer.addChild(g);
   }
@@ -1166,6 +1204,18 @@ if(capBtn) capBtn.addEventListener('click',()=>{ captionsOn=!captionsOn; toggleB
 if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(!easy); });
 function setEasy(on){ easy=on; if(facilBtn)toggleBtn(facilBtn,easy); rebuildCoins(); srSay('Modo Fácil '+(easy?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
 
+/* Modos de visualização (C): Normal → Alto contraste (forma) → Alto contraste (4.5:1) */
+function applyViz(mode){
+  vizMode=mode; hcMode=mode!=='normal'; try{localStorage.setItem('incl_viz',mode);}catch(e){}
+  worldSprite.texture=worldTexFor(mode);
+  parallaxLayers.forEach(ts=>ts.visible=!hcMode);   // alto contraste: esconde o parallax → fundo = preto do app
+  if(decoLayer) decoLayer.visible=!hcMode;          // árvores decorativas saem (fazem parte do fundo)
+  rebuildExtras(); rebuildCoins();                  // re-tinge itens e re-desenha moedas na paleta do modo
+  const b=$('#opt-viz'); if(b){ b.textContent=VIZ_LABEL[mode]; b.classList.toggle('is-on',hcMode); b.setAttribute('aria-label','Modo de cor: '+VIZ_LABEL[mode].replace(/^🎨 /,'')+'. Clique para alternar.'); }
+}
+const vizBtn=$('#opt-viz'); if(vizBtn) vizBtn.addEventListener('click',()=>{ const i=VIZ_CYCLE.indexOf(vizMode); applyViz(VIZ_CYCLE[(i+1)%VIZ_CYCLE.length]); srSay(VIZ_LABEL[vizMode].replace(/^🎨 /,'')+' ativado.'); });
+applyViz(vizMode); // estado inicial (ex.: prefers-contrast liga alto contraste)
+
 /* Fonte de leitura (canônicas EdSP): Padrão (Atkinson) | Alfabetização (Andika) | Dislexia/TDAH (Lexend + espaçamento BDA). Persistida. */
 const FONT_MODES=[
   {id:'padrao',        nome:'Atkinson', uso:'legibilidade'},
@@ -1228,7 +1278,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); }); // Fácil agora ajusta física por eixo (gravidade/pulo/velocidade), não o tempo global
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){hcMode=v;},darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){applyViz(v?'hcA':'normal');},get vizMode(){return vizMode;},applyViz,VIZ,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
