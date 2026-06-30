@@ -204,23 +204,30 @@ const APP = { H:'#403020', S:'#c08070', D:'#9a5f50', K:'#1a1420', W:'#e8eef0', R
 const makeCanvas=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
 const tex=(cv)=>{const t=PIXI.Texture.from(cv);t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST;return t;};
 
-/* ===== Alto contraste PROCEDURAL: gradient-map por grupo =====
-   Cada elemento mantém sua estrutura de claro-escuro (= riqueza), mas suas cores são
-   remapeadas para a RAMPA do grupo a que pertence (jogador/item/plataforma/fundo).
-   ramp = array de '#rrggbb' (escuro→claro). A luminância original escolhe o ponto na rampa. */
+/* ===== Recolor PROCEDURAL por PALETA de grupo (alto contraste) =====
+   Cada elemento mantém sua riqueza: a cor original é remapeada para o MATIZ mais próximo
+   dentro da PALETA do seu grupo (jogador/item/plataforma/fundo), e o claro-escuro original
+   é preservado como sombreado. Cada paleta é um leque de matizes numa faixa de luminância fixa
+   (= a faixa de contraste do grupo). pal = array de '#rrggbb'. */
 const _hex2rgb=(h)=>{h=h.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];};
-function _rampRGB(ramp){ return ramp.__rgb || (ramp.__rgb=ramp.map(_hex2rgb)); }
-function _sampleRamp(rgb,t){ const n=rgb.length-1, f=Math.max(0,Math.min(1,t))*n, i=Math.floor(f), k=Math.min(i+1,n), fr=f-i;
-  const a=rgb[i],b=rgb[k]; return [a[0]+(b[0]-a[0])*fr|0, a[1]+(b[1]-a[1])*fr|0, a[2]+(b[2]-a[2])*fr|0]; }
-function gradientMapInPlace(c,w,h,ramp){ const rgb=_rampRGB(ramp), img=c.getImageData(0,0,w,h), d=img.data;
-  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const L=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255; const s=_sampleRamp(rgb,L); d[i]=s[0];d[i+1]=s[1];d[i+2]=s[2]; }
+function _rgb2hsl(r,g,b){ r/=255;g/=255;b/=255; const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn; let h=0;
+  if(d){ if(mx===r)h=((g-b)/d)%6; else if(mx===g)h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; if(h<0)h+=360; }
+  const l=(mx+mn)/2, s=d?d/(1-Math.abs(2*l-1)):0; return [h,s,l]; }
+function _palData(pal){ if(pal.__pd)return pal.__pd; const rgb=pal.map(_hex2rgb), hsl=rgb.map(c=>_rgb2hsl(c[0],c[1],c[2]));
+  let neu=0,ns=9; hsl.forEach((h,i)=>{ if(h[1]<ns){ns=h[1];neu=i;} }); return pal.__pd={rgb,hsl,neu}; }
+function _pickPal(r,g,b,pd){ const hsl=_rgb2hsl(r,g,b); if(hsl[1]<0.12)return pd.neu; // quase neutro → entrada mais neutra da paleta
+  let bi=0,bd=999; for(let i=0;i<pd.hsl.length;i++){ let dh=Math.abs(hsl[0]-pd.hsl[i][0]); if(dh>180)dh=360-dh; if(dh<bd){bd=dh;bi=i;} } return bi; }
+function mapToPaletteInPlace(c,w,h,pal){ const pd=_palData(pal), img=c.getImageData(0,0,w,h), d=img.data;
+  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const pc=pd.rgb[_pickPal(d[i],d[i+1],d[i+2],pd)];
+    const sl=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255, f=0.74+0.52*sl; // sombreado: mantém o claro-escuro original
+    d[i]=Math.min(255,pc[0]*f|0); d[i+1]=Math.min(255,pc[1]*f|0); d[i+2]=Math.min(255,pc[2]*f|0); }
   c.putImageData(img,0,0); }
-function gradientMapCanvas(src,ramp){ const cv=makeCanvas(src.width,src.height),c=cv.getContext('2d'); c.drawImage(src,0,0); gradientMapInPlace(c,cv.width,cv.height,ramp); return cv; }
-// Mapeia uma textura PIXI (carregada de PNG, possivelmente assíncrona) → nova textura recolorida pela rampa.
-function gradientMapTexture(srcTex,ramp){
+function gradientMapCanvas(src,pal){ const cv=makeCanvas(src.width,src.height),c=cv.getContext('2d'); c.drawImage(src,0,0); mapToPaletteInPlace(c,cv.width,cv.height,pal); return cv; }
+// Mapeia uma textura PIXI (PNG, possivelmente assíncrona) → nova textura recolorida pela paleta.
+function gradientMapTexture(srcTex,pal){
   const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
   const paint=()=>{ const s=srcTex.baseTexture.resource&&srcTex.baseTexture.resource.source; if(!s||!s.width)return;
-    cv.width=s.width; cv.height=s.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(s,0,0); gradientMapInPlace(c,cv.width,cv.height,ramp); dst.update(); };
+    cv.width=s.width; cv.height=s.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(s,0,0); mapToPaletteInPlace(c,cv.width,cv.height,pal); dst.update(); };
   if(srcTex.baseTexture.valid) paint(); else srcTex.baseTexture.once('loaded',paint);
   return dst;
 }
@@ -249,17 +256,17 @@ function worldCanvas(tiles){           // canvas NORMAL (tileset do tema ou TILE
   return cv;
 }
 function worldToTexture(tiles){ return tex(worldCanvas(tiles)); }
-// ALTO CONTRASTE PROCEDURAL: recolore cada tile pela RAMPA do seu grupo (mantém a textura do tileset como claro-escuro).
+// ALTO CONTRASTE PROCEDURAL: recolore cada tile pela PALETA do seu grupo (mantém a textura do tileset como claro-escuro).
 // Itens (escada/porta) recebem contorno escuro → separados por FORMA, não por cor (1.4.1).
 function worldToTextureHC(srcCanvas, pal){
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
-  const solidAt=(x,y)=> y>=0&&y<WORLD_H&&x>=0&&x<WORLD_W && isSolidType(WORLD[y][x]);
-  const rampFor=t=> (t===4||t===10)?pal.item : t===3?pal.water : t===9?pal.hazard : pal.plat;
+  const palFor=t=> (t===4||t===10)?pal.item : t===3?pal.water : t===9?pal.hazard : pal.plat;
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue;
-    const rgb=_rampRGB(rampFor(t)), X=x*TILE,Y=y*TILE, img=c.getImageData(X,Y,TILE,TILE), d=img.data;
-    for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const L=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255; const s=_sampleRamp(rgb,L); d[i]=s[0];d[i+1]=s[1];d[i+2]=s[2]; }
+    const pd=_palData(palFor(t)), X=x*TILE,Y=y*TILE, img=c.getImageData(X,Y,TILE,TILE), d=img.data;
+    for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const pc=pd.rgb[_pickPal(d[i],d[i+1],d[i+2],pd)];
+      const sl=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255, f=0.74+0.52*sl; d[i]=Math.min(255,pc[0]*f|0);d[i+1]=Math.min(255,pc[1]*f|0);d[i+2]=Math.min(255,pc[2]*f|0); }
     c.putImageData(img,X,Y);
-    if(t===4||t===10){ c.strokeStyle='#'+(pal.itemEdge.toString(16).padStart(6,'0')); c.lineWidth=1; c.strokeRect(X+0.5,Y+0.5,TILE-1,TILE-1); }
+    if(t===4||t===10){ c.strokeStyle=pal.itemEdge; c.lineWidth=1; c.strokeRect(X+0.5,Y+0.5,TILE-1,TILE-1); } // contorno escuro p/ separar item por forma
   }
   return tex(cv);
 }
@@ -589,30 +596,36 @@ function setCenario(theme){
   if(vizReady) applyViz(vizMode); // reaplica parallax recolorido do novo tema (só após o init montar tudo)
   try{ localStorage.setItem('incl_cenario',theme); }catch(e){}
 }
-// Modos de visualização. hcMode (silhueta amarela do player) deriva de vizMode≠'normal'.
-// VIZ: cores por grupo (fundo = preto do app, então só escondemos o parallax). Razões de contraste medidas em docs/plano-acessibilidade.
-// A (forma): player e itens ambos ≥7:1 do fundo; player↔itens separados por FORMA+contorno (~1.3:1).
-// B (4.5:1): itens numa faixa intermediária → player↔itens 4.5:1 medido (itens↔fundo cai p/ ~3.7:1; 7:1+4.5:1 juntos é impossível).
-// Rampas por grupo (escuro→claro). O gradient-map mantém o claro-escuro original (riqueza) dentro da faixa do grupo.
-const PLAYER_RAMP=['#5a4d00','#b39600','#ffe600','#fff7b0']; // jogador: amarelo, faixa ≥7:1 do preto (igual nos 2 modos)
-const VIZ={
-  hcA:{ player:PLAYER_RAMP,
-    item:['#9a9a9a','#d2d2d2','#ffffff'],    // itens: claros (≥7:1 do fundo); player↔item por FORMA
-    plat:['#3e3e3e','#5d5d5d','#7e7e7e'],    // plataforma/terreno: faixa intermediária ~3:1
-    bg:['#04060c','#0c1018','#1a2030'],      // fundo (parallax/decoração): escuro, recua
-    water:['#26323c','#33424e','#46566a'], hazard:['#7a1a10','#c0301e','#ff5b3a'],
-    itemMid:0xd2d2d2, itemEdge:0x000000 },
-  hcB:{ player:PLAYER_RAMP,
-    item:['#003a44','#00717f','#1f8e9c'],    // itens: teal intermediário → player↔item 4.5:1 medido
-    plat:['#242424','#3a3a3a','#505050'],    // plataforma escura → player se destaca (≈9:1)
-    bg:['#04060c','#0c1018','#1a2030'],
-    water:['#1c252c','#252f37','#313d46'], hazard:['#7a1a10','#c0301e','#ff5b3a'],
-    itemMid:0x00717f, itemEdge:0x00141a },
+// ===== Paletas do José: 13 tiers de luminância (cada um é um leque de matizes). Verificadas: gap 5≈3:1, 7≈4.5:1, 9≈7:1. =====
+const PALETTES={
+  1:['#D3FD01','#FFEC84','#9EFFC9','#E4F3C3','#FFE8C6','#BEF7F0','#FFE5E5','#E7EDE8'],
+  2:['#B1E203','#EDD102','#9AE282','#FEC870','#00E5FF','#D4D684','#85E4BC','#E4C6FF','#FEC6A3','#9ED9FF','#FEC1C1','#C3D6B7','#DFD0B2','#A8DBD8','#C6D0EB','#DACDCD'],
+  3:['#9CD402','#E4BF29','#FFB351','#8FD382','#03D8D4','#01D3FD','#D6B2FF','#FEA8DA','#FFB089','#C5C67A','#8EC6FF','#FEADAD','#97CDB6','#D9BE9A','#A4C8D0','#BFC4AF','#B9C1D9','#D1BCBC'],
+  4:['#8CBA01','#E980FE','#FE8D42','#14B4FF','#FB8888','#C5A65C','#02BDC3','#9CA6E7','#9AB096','#B3A7A7'],
+  5:['#51AA02','#C370FF','#FF6060','#D97F39','#6591FF','#01A4C4','#5BA38A','#A19667','#A69090'],
+  6:['#FD01BA','#AD60FF','#FE3838','#D06C24','#739300','#008ED6','#A18443','#00969E','#689070','#7D84AF','#AE7979','#898784'],
+  7:['#9E3DFF','#EC0303','#5B61FF','#DD039F','#E5006B','#AB4FB9','#0072E5','#558201','#CB4848','#AA651C','#7B7903','#BA5A34','#7F67BB','#4F814F','#8F7132','#007EAC','#9A648F','#00828E','#75794D','#9D6666','#966C54','#627697','#4C7F71','#81745F','#79708E','#5D7983','#6F786D','#827171'],
+  8:['#4D50FE','#B900C6','#D80303','#8942DB','#C90294','#0064E0','#D10068','#B24A00','#2A7A00','#BC3D3D','#695EBA','#667000','#8A54A4','#7E6900','#0D7B41','#965E25','#A2563D','#A54F6D','#0070A8','#58733A','#01786C','#885C81','#6F6391','#00748E','#7F673D','#945B5B','#497358','#86634F','#556C8B','#6D6C4A','#497273','#7A6666','#716A5F','#6A697B','#5E6C73','#626E62'],
+  9:['#6500FF','#0049DB','#980BB1','#B70000','#B20053','#6349A0','#506000','#8D3976','#8B4521','#6C5703','#943C3C','#005D93','#3C623B','#046275','#665170','#5B5A3D','#6D543A','#4E5973','#705151','#445E58','#5B5856'],
+  10:['#5B00CC','#003BBC','#990000','#7A178B','#90025F','#4F3C85','#7D2F2F','#424F01','#5A4700','#753918','#034D7C','#33502F','#564260','#025163','#5B452E','#4B4A33','#604242','#414961','#3B4D49','#4B4848'],
+  11:['#002CA8','#5D158D','#820101','#7D0141','#1C4700','#3C366C','#5C2C59','#414000','#623012','#612D2D','#16452F','#02425E','#4B3B24','#034549','#383D4C','#4A3A3A','#3A3F30'],
+  12:['#000A9E','#48165E','#650000','#600038','#153502','#492502','#202B55','#352E07','#452525','#033244','#13332B','#2E2D2C'],
+  13:['#4B0000','#001F4C','#22201A'],
 };
-const VIZ_CYCLE=['normal','hcA','hcB'];
-const VIZ_LABEL={normal:'🎨 Cores normais', hcA:'🎨 Alto contraste (forma)', hcB:'🎨 Alto contraste (4.5:1)'};
+// Alto contraste: 4 variações (escuridão do fundo). Jogador 7:1, itens 4.5:1 do fundo; player↔itens por forma+matiz.
+// Plataforma/água ficam no grupo fundo (a textura do tileset + o contraste do player dão a legibilidade).
+const HC_VARIATIONS=[
+  {key:'hc1', name:'claro',   bg:10, player:1, item:3},
+  {key:'hc2', name:'médio',   bg:11, player:2, item:4},
+  {key:'hc3', name:'escuro',  bg:12, player:3, item:5},
+  {key:'hc4', name:'noturno', bg:13, player:4, item:6},
+];
+const VIZ={}; HC_VARIATIONS.forEach(v=>{ VIZ[v.key]={ player:PALETTES[v.player], item:PALETTES[v.item], plat:PALETTES[v.bg], bg:PALETTES[v.bg], water:PALETTES[v.bg],
+  hazard:['#FF6060','#D80303','#820101'], itemEdge:'#0d0d0a', itemMid:parseInt(PALETTES[v.item][0].slice(1),16) }; });
+const VIZ_CYCLE=['normal',...HC_VARIATIONS.map(v=>v.key)];
+const VIZ_LABEL={normal:'🎨 Cores normais'}; HC_VARIATIONS.forEach(v=>VIZ_LABEL[v.key]='🎨 Alto contraste: '+v.name);
 let vizMode=(()=>{ try{ const v=localStorage.getItem('incl_viz'); if(VIZ_CYCLE.includes(v))return v; }catch(e){}
-  return (window.matchMedia && matchMedia('(prefers-contrast: more)').matches) ? 'hcA' : 'normal'; })();
+  return (window.matchMedia && matchMedia('(prefers-contrast: more)').matches) ? 'hc2' : 'normal'; })();
 let hcMode = vizMode!=='normal';
 let vizReady=false; // só após todas as dependências de applyViz existirem (evita TDZ no init via setCenario)
 let worldCanvasNormal=worldCanvas();
@@ -704,40 +717,35 @@ function silhouetteCanvasIdx(rows){ const cv=makeCanvas(PIP_W,PIP_H),c=cv.getCon
 // próprio, sem padronizar). A conversão procedural (PIP_* acima) fica para uma fase posterior.
 // E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true
 const ANIM={ walkHold:6, runHold:8, idleHold:20, swimHold:24, clingHold:10, climbHold:8, flavorDelay:360 };  // andar 6; correr 8 (~8fps, pedido do José); swim 24; cling 10; escada 8; flavor ~6s
-// Fonte única dos sprites: assets/sprites/menino/<animação>/<i>.png (cor, editado no Aseprite)
-// + <i>_hc.png (silhueta alto-contraste, GERADA por tools/build-hc.py). Não existe mais a pasta achatada pip/.
+// Fonte única dos sprites: assets/sprites/menino/<animação>/<i>.png (cor, editado no Aseprite).
+// Alto contraste: o quadro de cor é remapeado em tempo real para a PALETA do jogador da variação ativa (sem silhuetas _hc).
 const SPR='assets/sprites/menino/';
 const pngTex=(f)=>{ const t=PIXI.Texture.from(SPR+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const A=(anim,n)=>Array.from({length:n},(_,i)=>pngTex(anim+'/'+i+'.png'));        // frames de cor
-// Alto contraste: gradient-map do quadro COLORIDO na rampa do jogador → mantém o sombreamento (não é silhueta chapada)
-const hcPng=(f)=>gradientMapTexture(pngTex(f),PLAYER_RAMP);
-const H=(anim,n)=>Array.from({length:n},(_,i)=>hcPng(anim+'/'+i+'.png'));
+const _playerHC={}; // cache {modo: Map(texCor → texRecolorida)} — recolore só quando o frame aparece, uma vez por modo
+function playerHCTex(srcTex){ if(!hcMode)return srcTex; const m=(_playerHC[vizMode]=_playerHC[vizMode]||new Map());
+  if(!m.has(srcTex)) m.set(srcTex, gradientMapTexture(srcTex, VIZ[vizMode].player)); return m.get(srcTex); }
 const TEX_IDLE=A('idle',4);          // idle = RESPIRAÇÃO por frames (cabeça congelada → sem 'mastigar'; só o tronco respira)
 const TEX_WALK=A('andar',8);         // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
 const TEX_RUN=A('correr',4);         // CORRER = sprint AGRESSIVA (inclinada, braços grandes) — 4 quadros
-const TEX_HC_IDLE=[hcPng('idle/0.png')];
-const TEX_HC_WALK=H('andar',8);
-const TEX_HC_RUN=H('correr',4);
 // E20: idles ocasionais ("gracinhas") — parado um tempo, toca uma e volta a respirar
-const TEX_JOINHA=A('gracinha-joinha',2), TEX_HC_JOINHA=H('gracinha-joinha',2);
-const TEX_ESPREG=A('gracinha-espreguicar',2), TEX_HC_ESPREG=H('gracinha-espreguicar',2);
-const TEX_AQUECER=A('gracinha-aquecer',1), TEX_HC_AQUECER=H('gracinha-aquecer',1);
+const TEX_JOINHA=A('gracinha-joinha',2);
+const TEX_ESPREG=A('gracinha-espreguicar',2);
+const TEX_AQUECER=A('gracinha-aquecer',1);
 const FLAVORS=[
-  {tex:TEX_JOINHA, hc:TEX_HC_JOINHA, seq:[0,1,0,1,0,1], hold:12}, // joínha (bounce do polegar)
-  {tex:TEX_ESPREG, hc:TEX_HC_ESPREG, seq:[0,1,1,1,1,0], hold:16}, // espreguiçar (sobe, segura, desce)
-  {tex:TEX_AQUECER, hc:TEX_HC_AQUECER, seq:[0,0,0], hold:40},     // aquecer (segura a pose)
+  {tex:TEX_JOINHA, seq:[0,1,0,1,0,1], hold:12}, // joínha (bounce do polegar)
+  {tex:TEX_ESPREG, seq:[0,1,1,1,1,0], hold:16}, // espreguiçar (sobe, segura, desce)
+  {tex:TEX_AQUECER, seq:[0,0,0], hold:40},     // aquecer (segura a pose)
 ];
 // E16: pulo — pose aérea estática (sobe=pernas recolhidas / cai=pernas estendidas), recortadas do jumping-1 SE
 const TEX_JUMP_UP=pngTex('pulo/0.png'), TEX_JUMP_DOWN=pngTex('pulo/1.png');
-const TEX_HC_JUMP_UP=hcPng('pulo/0.png'), TEX_HC_JUMP_DOWN=hcPng('pulo/1.png');
 // E17: poses de estado — escada, água, voo, ventosa
 const TEX_CLIMB=A('escada',2), TEX_FLY=pngTex('voo/0.png'); // ESCADA: vista de COSTAS (rotação norte), 2 quadros alternados
-const TEX_HC_CLIMB=H('escada',2), TEX_HC_FLY=hcPng('voo/0.png');
 // E18f: aranha — ANDAR NA PAREDE e ANDAR NO TETO são ciclos distintos (4 quadros cada)
-const TEX_CLING_WALL=A('parede',4), TEX_HC_CLING_WALL=H('parede',4);
-const TEX_CLING_CEIL=A('teto',4), TEX_HC_CLING_CEIL=H('teto',4);
-const TEX_SWIM=A('nadar',2), TEX_HC_SWIM=H('nadar',2); // nado MOVENDO: braçada + pernas
-const TEX_SWIMIDLE=A('nadar-parado',2), TEX_HC_SWIMIDLE=H('nadar-parado',2); // nado PARADO: só pernas batendo
+const TEX_CLING_WALL=A('parede',4);
+const TEX_CLING_CEIL=A('teto',4);
+const TEX_SWIM=A('nadar',2);          // nado MOVENDO: braçada + pernas
+const TEX_SWIMIDLE=A('nadar-parado',2); // nado PARADO: só pernas batendo
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 const treeCanvasNormal=treeCanvas(), treeTexNormal=tex(treeCanvasNormal); // árvore = grupo fundo (recolorida no alto contraste)
@@ -778,7 +786,7 @@ function rebuildExtras(){
   const hc=hcMode, pal=hc?VIZ[vizMode]:null; // alto contraste: itens (power-ups/porta) recoloridos por gradient-map
   powerups.forEach(pu=>{ const s=new PIXI.Sprite(pupTexFor(pu.kind,vizMode)); s.x=pu.x; s.y=pu.y; s.visible=!pu.taken; extraLayer.addChild(s); pu.sprite=s; });
   if(gate && !gateOpen){ const g=new PIXI.Graphics();
-    const door=hc?pal.itemMid:0x8a5a2b, edge=hc?pal.itemEdge:0x5a3a1b; // porta = grupo item
+    const door=hc?pal.itemMid:0x8a5a2b, edge=hc?parseInt(pal.itemEdge.slice(1),16):0x5a3a1b; // porta = grupo item
     for(const k of gateTiles){ const [tx,ty]=k.split(',').map(Number); const X=tx*TILE,Y=ty*TILE;
       g.beginFill(door).drawRect(X,Y,TILE,TILE).endFill();
       g.beginFill(edge); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
@@ -997,37 +1005,37 @@ function stepPlayer(pl,dt){
   const moving=(dir!==0) && grounded && !pl.clinging;
   pl.anim += dt;                                   // idle (1 quadro; clock contínuo)
   pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
-  const II=hcMode?TEX_HC_IDLE:TEX_IDLE;
+  const II=TEX_IDLE;
   let tx; pl.idleNow=false;
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
   // movimento reduzido: rm.walk congela TODA a locomoção (escalar, escada, nado, pulo) num quadro único
   if(pl.clinging){ const ceil=(pl.clingN==='U'); // E18f: teto e parede usam ciclos distintos
-    const CL = ceil ? (hcMode?TEX_HC_CLING_CEIL:TEX_CLING_CEIL) : (hcMode?TEX_HC_CLING_WALL:TEX_CLING_WALL);
+    const CL = ceil ? TEX_CLING_CEIL : TEX_CLING_WALL;
     if(!rm.walk && (pl.vx!==0||pl.vy!==0)) pl.climbFrame=(Math.floor(pl.walkAnim/ANIM.clingHold))%CL.length; // só avança ao mover; parado MANTÉM o quadro
     tx = CL[(rm.walk?0:(pl.climbFrame||0))%CL.length]; }
-  else if(pl.onLadder){ const CB=hcMode?TEX_HC_CLIMB:TEX_CLIMB; const climbing=(pl.vy!==0)&&!rm.walk; // sobe/desce = passos alternados; parado/congelado = agarrado (quadro 0)
+  else if(pl.onLadder){ const CB=TEX_CLIMB; const climbing=(pl.vy!==0)&&!rm.walk; // sobe/desce = passos alternados; parado/congelado = agarrado (quadro 0)
     tx = climbing ? CB[Math.floor(pl.walkAnim/ANIM.climbHold)%CB.length] : CB[0]; }
   else if(pl.inWater){ const stroking=((dir!==0)||held(pl,'jump'))&&!rm.walk; // movendo = braçada+pernas; parado/congelado = quadro fixo
-    const SW = stroking ? (hcMode?TEX_HC_SWIM:TEX_SWIM) : (hcMode?TEX_HC_SWIMIDLE:TEX_SWIMIDLE);
+    const SW = stroking ? TEX_SWIM : TEX_SWIMIDLE;
     tx = rm.walk ? SW[0] : SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
-  else if(pl.flying)              tx = hcMode?TEX_HC_FLY:TEX_FLY;
-  else if(airborne){ if(rm.walk) tx = hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP;   // congelado: pulo num único quadro
-    else tx = pl.vy<0 ? (hcMode?TEX_HC_JUMP_UP:TEX_JUMP_UP)                 // subindo: pernas recolhidas
-                      : (hcMode?TEX_HC_JUMP_DOWN:TEX_JUMP_DOWN); }          // caindo: pernas estendidas
+  else if(pl.flying)              tx = TEX_FLY;
+  else if(airborne){ if(rm.walk) tx = TEX_JUMP_UP;               // congelado: pulo num único quadro
+    else tx = pl.vy<0 ? TEX_JUMP_UP : TEX_JUMP_DOWN; }           // subindo: pernas recolhidas / caindo: estendidas
   else if(moving){
     if(rm.walk){ tx = II[0]; }                                   // movimento reduzido: anda sem ciclo de passos (pose neutra)
     else { const running=held(pl,'run');                         // E19: correr (Correr segurado) ≠ andar — passada/cadência distintas
-      const M = running ? (hcMode?TEX_HC_RUN:TEX_RUN) : (hcMode?TEX_HC_WALK:TEX_WALK);
+      const M = running ? TEX_RUN : TEX_WALK;
       const hold = running ? ANIM.runHold : ANIM.walkHold;
       tx = M[Math.floor(pl.walkAnim/hold)%M.length]; } }
   else { pl.idleNow=true; pl.idleTime+=dt;                       // E20: parado → respira; após flavorDelay, toca uma gracinha
     if(!rm.flavor){                                             // gracinhas (toggle próprio — há quem se incomode)
       if(pl.flavor<0 && pl.idleTime>ANIM.flavorDelay){ pl.flavor=Math.floor(rnd()*FLAVORS.length); pl.flavorT=0; }
       if(pl.flavor>=0){ const F=FLAVORS[pl.flavor]; const step=Math.floor(pl.flavorT/F.hold); pl.flavorT+=dt;
-        if(step>=F.seq.length){ pl.flavor=-1; pl.idleTime=0; } else { const arr=hcMode?F.hc:F.tex; tx=arr[F.seq[step]]; } }
+        if(step>=F.seq.length){ pl.flavor=-1; pl.idleTime=0; } else { tx=F.tex[F.seq[step]]; } }
     } else pl.flavor=-1;
     if(pl.flavor<0) tx = rm.breath ? II[0] : II[Math.floor(pl.anim/ANIM.idleHold)%II.length]; } // respiração: congela (quadro 0) ou cicla
   if(!pl.idleNow){ pl.idleTime=0; pl.flavor=-1; }                 // saiu do idle → zera gracinha
+  if(hcMode) tx=playerHCTex(tx);                                 // alto contraste: recolore o quadro p/ a paleta do jogador
   if(pl.sprite) pl.sprite.texture=tx;
 }
 function update(dt){
@@ -1327,7 +1335,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); }); // Fácil agora ajusta física por eixo (gravidade/pulo/velocidade), não o tempo global
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){applyViz(v?'hcA':'normal');},get vizMode(){return vizMode;},applyViz,VIZ,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){applyViz(v?'hc2':'normal');},get vizMode(){return vizMode;},applyViz,VIZ,HC_VARIATIONS,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 

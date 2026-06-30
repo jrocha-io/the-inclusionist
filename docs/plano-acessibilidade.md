@@ -5,13 +5,17 @@ Decisões fechadas com o José. Implementação em fases (A→B→C→E→F).
 ## Modos de visualização (4)
 1. **Normal**
 2. **CB-safe** (Okabe–Ito, daltonismo)
-3. **Alto contraste** — duas variantes (ciclo `🎨 Cores`). Recolor **procedural** (gradient-map): cada elemento mantém seu claro-escuro (riqueza) e tem as cores remapeadas para a RAMPA do seu grupo (jogador/item/plataforma/fundo) por luminância — **não** chapa tudo numa cor. Player vira amarelo sombreado (não silhueta), o tileset vira cinza texturizado, a cidade ao fundo é recolorida em escuro (não escondida). Rampas em `const VIZ` (game.js).
-   - **Achado WCAG:** ≥7:1 entre os TRÊS grupos é **matematicamente impossível** (contraste é só luminância; dois elementos ambos ≥7:1 do preto têm no máximo ~3:1 entre si). Cor/matiz não conta e 1.4.1 proíbe cor como único meio → player↔itens separa por **forma+contorno**.
-   - **A (forma)** — razões medidas: player↔fundo **15.9:1**, itens↔fundo **20.1:1**, plataforma↔fundo **3.1:1**, player↔plataforma **5.2:1**, player↔itens **1.3:1** (resolvido por forma+contorno). Excede a 1.4.11.
-   - **B (4.5:1)** — prioriza separação medida player↔itens: player↔fundo **15.9:1**, **player↔itens 4.5:1**, itens↔fundo **3.5:1** (não 7:1 — impossível com o 4.5), player↔plataforma **9.0:1**, plataforma↔fundo **1.8:1** (terreno recua; topo realça a borda).
-   - Cores são data-driven (`const VIZ` em game.js) → José troca pelas do seu estudo sem mexer na lógica.
+3. **Alto contraste** — **4 variações** (ciclo `🎨 Cores`: claro/médio/escuro/noturno) para o jogador escolher. Fundo **escuro porém colorido** (não preto — preto vira "buraco" assustador). Recolor **procedural por PALETA**: cada elemento mantém seu claro-escuro (sombreado) e tem as cores remapeadas para o **matiz mais próximo** dentro da PALETA do seu grupo (jogador/item/fundo) — preserva a riqueza de cor.
+   - Baseado nas **13 paletas do José** (tiers de luminância; gap 5≈3:1, 7≈4.5:1, 9≈7:1). Por variação: Fundo P_n, Jogador P_(n−9) (**7:1**), Itens P_(n−7) (**4.5:1**), n∈{10,11,12,13}.
+   - Jogador↔itens ~1.5:1 de luminância → resolvido por **forma + matiz + contorno** (1.4.1/1.4.11 OK). Plataformas no grupo fundo (textura do tileset + contraste do player dão legibilidade).
+   - `PALETTES` e `HC_VARIATIONS` em game.js. **Achado WCAG:** ≥7:1 entre os 3 grupos é impossível (luminância apenas) → por isso player↔itens vai por forma/matiz, não luminância.
+   - ⚠️ A 1ª troca para um modo HC tem pico de FPS (mapeamento por matiz, HSL por pixel); cacheado depois. Otimizar se incomodar no hardware-alvo.
    - HUD: **7:1 contra o próprio fundo** (1.4.6 AAA de texto, já no DOM).
 4. **Pessoa cega** = **tela apagada + pistas sonoras** (para jogadores enxergarem como é jogar cego). Áudio é ortogonal: liga as pistas; a tela apaga neste modo.
+
+### Pendências de cor (próximas)
+- **Normal (cores normais) = WCAG 2.2 AA (3:1)**: garantir 3:1 entre grupos adjacentes (personagem/itens/escada/perigo/NPC/fundo/plataforma). Correção do José: o requisito real p/ componentes/ícones é **3:1** (1.4.11), não 7:1 (7:1 é texto×fundo, 1.4.6 AAA). Grupos-base: **P1×P6×P11**, **P2×P7×P12**, **P3×P8×P13** (pares adjacentes ~3:1); intermediárias quando a adjacência não atrapalha.
+- **CB-safe**: paleta p/ daltonismo derivada de **Okabe–Ito** (pequena; começar nela e expandir), também gerida por contraste.
 
 ## Modo Fácil (deficiência motora)
 - Gravidade **×2/3**; pulo **×8/7**; andar/escada/nado **×0.7** (ajuste fino depois).
