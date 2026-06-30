@@ -288,21 +288,23 @@ function worldToTextureBordas(srcCanvas){
   }
   return tex(cv);
 }
+// pixel art: disco com pixels INTEIROS (serrilhado nítido, sem anti-aliasing dos arcos vetoriais)
+function pixDisc(c,cx,cy,r,col,edge){ for(let y=Math.floor(cy-r);y<=cy+r;y++)for(let x=Math.floor(cx-r);x<=cx+r;x++){ const d=Math.hypot(x-cx,y-cy); if(d<=r){ c.fillStyle=(edge&&d>r-1.05)?edge:col; c.fillRect(x,y,1,1);} } }
 function coinCanvas(){
-  const cv=makeCanvas(10,10),c=cv.getContext('2d');
-  c.fillStyle='#1a1400';c.beginPath();c.arc(5,5,5,0,7);c.fill();
-  c.fillStyle='#ffd23f';c.beginPath();c.arc(5,5,4,0,7);c.fill();
-  c.fillStyle='#fff7c8';c.fillRect(3,2,2,5);
+  const cv=makeCanvas(11,11),c=cv.getContext('2d');
+  pixDisc(c,5,5,5,'#ffd23f','#7a5400');           // disco dourado + contorno
+  c.fillStyle='#fff3b0'; c.fillRect(3,2,2,1); c.fillRect(2,3,1,2);  // brilho (canto sup-esq)
+  c.fillStyle='#e0a82a'; c.fillRect(7,7,2,1); c.fillRect(8,6,1,2);  // sombra (inf-dir)
   return cv;
 }
 function coinTexture(){ return tex(coinCanvas()); }
-function coinTextureHC(pal){ return tex(gradientMapCanvas(coinCanvasNormal, pal.item)); } // gradient-map → mantém o brilho da moeda na cor de item
 function treeCanvas(){
   const cv=makeCanvas(26,46),c=cv.getContext('2d');
-  c.fillStyle='#5c4033';c.fillRect(11,28,4,18);                 // tronco
-  c.fillStyle='#1f7a4d';c.beginPath();c.arc(13,17,12,0,7);c.fill(); // copa
-  c.fillStyle='#2fa35f';c.beginPath();c.arc(8,15,7,0,7);c.fill();
-  c.fillStyle='#46b06a';c.beginPath();c.arc(18,13,6,0,7);c.fill();
+  c.fillStyle='#2e2012'; c.fillRect(10,26,6,20);                 // contorno do tronco
+  c.fillStyle='#5c4033'; c.fillRect(11,26,4,20);                 // tronco
+  pixDisc(c,13,17,12,'#1f7a4d','#143a22');                       // copa (verde + contorno)
+  pixDisc(c,8,15,7,'#2fa35f');                                   // tufos mais claros
+  pixDisc(c,18,13,6,'#46b06a');
   return cv;
 }
 function treeTexture(){ return tex(treeCanvas()); }
@@ -784,14 +786,17 @@ const decoSprites=[];
 function powerupCanvas(kind){
   const cv=makeCanvas(12,12),c=cv.getContext('2d');
   const COL={superjump:'#7fdcff',ultrajump:'#b388ff',turbo:'#34e29b',fly:'#c8a2ff',wallcling:'#ff9a4d',key:'#ffd23f'};
-  c.fillStyle='#04121a'; c.beginPath(); if(c.roundRect)c.roundRect(0.5,0.5,11,11,3); else c.rect(0.5,0.5,11,11); c.fill();
-  c.fillStyle=COL[kind]||'#7fdcff';
-  if(kind==='superjump'){ c.beginPath();c.moveTo(6,1.5);c.lineTo(10,5);c.lineTo(2,5);c.closePath();c.moveTo(6,6);c.lineTo(10,9.5);c.lineTo(2,9.5);c.closePath();c.fill(); }      // ▲▲ super-pulo
-  else if(kind==='ultrajump'){ c.beginPath();c.moveTo(6,1);c.lineTo(10,6);c.lineTo(7.5,6);c.lineTo(7.5,11);c.lineTo(4.5,11);c.lineTo(4.5,6);c.lineTo(2,6);c.closePath();c.fill(); } // ↑ ultra-pulo
-  else if(kind==='turbo'){ c.beginPath();c.moveTo(2,3);c.lineTo(7,6);c.lineTo(2,9);c.closePath();c.moveTo(6,3);c.lineTo(11,6);c.lineTo(6,9);c.closePath();c.fill(); }              // » super-corrida
-  else if(kind==='fly'){ c.beginPath();c.moveTo(6,3);c.lineTo(11,9);c.lineTo(6,7);c.lineTo(1,9);c.closePath();c.fill(); }                                                          // asa = voo
-  else if(kind==='wallcling'){ c.beginPath();c.arc(6,7,3.5,0,7);c.fill(); c.fillStyle='#04121a'; c.beginPath();c.arc(6,7,1.4,0,7);c.fill(); }                                       // ventosa
-  else { c.beginPath();c.arc(4,6,3,0,7);c.fill();c.fillRect(6,5,5,2);c.fillRect(9,5,2,4); }                                                                                        // ⚷ chave
+  const col=COL[kind]||'#7fdcff', BG='#04121a';
+  c.fillStyle=BG; c.fillRect(1,0,10,12); c.fillRect(0,1,12,10);   // fundo escuro, cantos cortados (pixel-rounded, sem AA)
+  c.fillStyle=col;
+  const triU=(cx,topY,baseW,H)=>{ for(let i=0;i<H;i++){ const w=Math.max(1,Math.round(baseW*(i+1)/H)); c.fillRect(cx-(w>>1), topY+i, w,1);} }; // triângulo ↑ nítido
+  const triR=(lx,cy,baseH,W)=>{ for(let i=0;i<W;i++){ const h=Math.max(1,Math.round(baseH*(W-i)/W)); c.fillRect(lx+i, cy-(h>>1), 1,h);} };       // chevron → nítido
+  if(kind==='superjump'){ triU(6,1,8,4); triU(6,6,8,4); }                                  // ▲▲ super-pulo
+  else if(kind==='ultrajump'){ triU(6,1,9,4); c.fillRect(5,5,2,6); }                        // ↑ ultra-pulo (cabeça + haste)
+  else if(kind==='turbo'){ triR(2,6,9,4); triR(6,6,9,4); }                                  // » super-corrida
+  else if(kind==='fly'){ triR(1,5,9,6); c.fillStyle=BG; c.fillRect(4,6,1,1); c.fillRect(6,6,1,1); } // asa = voo (com nervuras)
+  else if(kind==='wallcling'){ pixDisc(c,6,6,4,col); pixDisc(c,6,6,1.6,BG); }               // ventosa
+  else { pixDisc(c,4,6,3,col); pixDisc(c,4,6,1.3,BG); c.fillStyle=col; c.fillRect(6,5,5,2); c.fillRect(9,7,1,1); c.fillRect(10,7,1,2); } // ⚷ chave (anel + haste + dentes)
   return cv;
 }
 const PUP_CANVAS={}, PUP_TEX={};
