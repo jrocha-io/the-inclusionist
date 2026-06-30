@@ -278,10 +278,10 @@ function worldToTextureBordas(srcCanvas){
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
   const air=(x,y)=>{ const t=tileAt(x,y); return t===0||t===1; };
   const full=t=> t===4||t===10||t===9; // escada/porta/perigo: contorna o tile inteiro
-  c.fillStyle=OUTLINE_DARK;
+  c.fillStyle='rgba(0,0,0,0.72)'; // escurece a borda (deixa ~28% da cor do elemento passar) → não é preto puro
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue;
     const X=x*TILE,Y=y*TILE, F=full(t);
-    if(F||air(x,y-1)) c.fillRect(X,Y,TILE,1);          // fio escuro 1px na borda voltada ao ar
+    if(F||air(x,y-1)) c.fillRect(X,Y,TILE,1);          // fio escurecido 1px na borda voltada ao ar
     if(F||air(x,y+1)) c.fillRect(X,Y+TILE-1,TILE,1);
     if(F||air(x-1,y)) c.fillRect(X,Y,1,TILE);
     if(F||air(x+1,y)) c.fillRect(X+TILE-1,Y,1,TILE);
@@ -630,13 +630,15 @@ const PALETTES={
   12:['#000A9E','#48165E','#650000','#600038','#153502','#492502','#202B55','#352E07','#452525','#033244','#13332B','#2E2D2C'],
   13:['#4B0000','#001F4C','#22201A'],
 };
-// Modos de cor (WCAG 2.2 AA via CONTORNO, preservando a arte; não recolore tudo).
-//   normal = arte crua · bordas = adiciona contornos de contraste (G1 grosso ≈7:1, G2 fino ≈4.5:1)
+// Paleta CB-safe: base Okabe–Ito (8) + variações claras/escuras p/ riqueza (José refina depois).
+const CB_PALETTE=['#000000','#E69F00','#56B4E9','#009E73','#F0E442','#0072B2','#D55E00','#CC79A7','#FFFFFF',
+  '#A87600','#3F86B0','#00795A','#C7BD2E','#00557F','#A04500','#9C5A82','#FBE6A8','#BFE3F5','#A6E3CF','#F6C9DF'];
+// Modos de cor. normal=arte crua · bordas=contorno escurecido (WCAG AA, preserva a arte) · cb=daltonismo (recolor por matiz p/ Okabe–Ito).
 // Grupos por importância: G1 (personagem/itens/NPC especial), G2 (plataforma/escada/porta/secundário), G3 (fundo).
-// Futuros: 'cores' (deslocamento leve), 'cb-*' (daltonismo). As 13 PALETTES e o motor de matiz ficam p/ esses.
 const VIZ_MODES=[
   {key:'normal', label:'🎨 Cores normais'},
   {key:'bordas', label:'🎨 Normal AA: bordas'},
+  {key:'cb',     label:'🎨 CB-safe (daltonismo)'},
 ];
 const VIZ_CYCLE=VIZ_MODES.map(m=>m.key);
 const VIZ_LABEL=Object.fromEntries(VIZ_MODES.map(m=>[m.key,m.label]));
@@ -652,8 +654,10 @@ const coinCanvasNormal=coinCanvas();
 const coinTex=tex(coinCanvasNormal);
 // caches de modos acessíveis (preguiçosos), invalidados ao trocar de cenário (worldCanvasNormal muda)
 let _worldTexHC={}, _coinTexHC={};
-function worldTexFor(mode){ if(mode==='normal')return worldTexNormal; if(!_worldTexHC[mode])_worldTexHC[mode]=worldToTextureBordas(worldCanvasNormal); return _worldTexHC[mode]; }
-function coinTexFor(mode){ if(mode==='normal')return coinTex; if(!_coinTexHC[mode])_coinTexHC[mode]=tex(outlineCanvas(coinCanvasNormal,1)); return _coinTexHC[mode]; }
+function worldTexFor(mode){ if(mode==='normal')return worldTexNormal;
+  if(!_worldTexHC[mode]) _worldTexHC[mode] = mode==='cb' ? tex(gradientMapCanvas(worldCanvasNormal,CB_PALETTE)) : worldToTextureBordas(worldCanvasNormal); return _worldTexHC[mode]; }
+function coinTexFor(mode){ if(mode==='normal')return coinTex;
+  if(!_coinTexHC[mode]) _coinTexHC[mode] = mode==='cb' ? tex(gradientMapCanvas(coinCanvasNormal,CB_PALETTE)) : tex(outlineCanvas(coinCanvasNormal,1)); return _coinTexHC[mode]; }
 function shapeTexture(id){
   const cv=makeCanvas(16,16),c=cv.getContext('2d');
   c.fillStyle='#7fdcff';c.strokeStyle='#04121a';c.lineWidth=1.5;
@@ -738,8 +742,8 @@ const ANIM={ walkHold:6, runHold:8, idleHold:20, swimHold:24, clingHold:10, clim
 const SPR='assets/sprites/menino/';
 const pngTex=(f)=>{ const t=PIXI.Texture.from(SPR+f); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; return t; };
 const A=(anim,n)=>Array.from({length:n},(_,i)=>pngTex(anim+'/'+i+'.png'));        // frames de cor
-const _playerHC=new Map(); // cache: player (G1) com contorno bicolor grosso — independe da variação
-function playerHCTex(srcTex){ if(!hcMode)return srcTex; if(!_playerHC.has(srcTex)) _playerHC.set(srcTex, outlineTexture(srcTex,1)); return _playerHC.get(srcTex); }
+const _playerHC=new Map(); // cache do player recolorido (CB-safe). No modo 'bordas' o player NÃO muda (a arte já tem contorno).
+function playerHCTex(srcTex){ if(vizMode!=='cb')return srcTex; if(!_playerHC.has(srcTex)) _playerHC.set(srcTex, gradientMapTexture(srcTex, CB_PALETTE)); return _playerHC.get(srcTex); }
 const TEX_IDLE=A('idle',4);          // idle = RESPIRAÇÃO por frames (cabeça congelada → sem 'mastigar'; só o tronco respira)
 const TEX_WALK=A('andar',8);         // ANDAR = running-8 (postura ereta/leve) — José pediu manter estes como andar
 const TEX_RUN=A('correr',4);         // CORRER = sprint AGRESSIVA (inclinada, braços grandes) — 4 quadros
@@ -764,7 +768,7 @@ const TEX_SWIMIDLE=A('nadar-parado',2); // nado PARADO: só pernas batendo
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 const treeCanvasNormal=treeCanvas(), treeTexNormal=tex(treeCanvasNormal); // árvore = grupo fundo (recolorida no alto contraste)
-function treeTexFor(mode){ return treeTexNormal; } // árvores = grupo fundo; no modo bordas o fundo fica intacto
+const _treeTexHC={}; function treeTexFor(mode){ if(mode!=='cb')return treeTexNormal; if(!_treeTexHC[mode])_treeTexHC[mode]=tex(gradientMapCanvas(treeCanvasNormal,CB_PALETTE)); return _treeTexHC[mode]; } // CB-safe recolore; bordas mantém o fundo
 const decoSprites=[];
 (function placeTrees(){ let last=-99;
   for(let tx=2;tx<WORLD_W-2;tx++){
@@ -792,8 +796,9 @@ function powerupCanvas(kind){
 }
 const PUP_CANVAS={}, PUP_TEX={};
 ['superjump','ultrajump','turbo','fly','wallcling','key'].forEach(k=>{ PUP_CANVAS[k]=powerupCanvas(k); PUP_TEX[k]=tex(PUP_CANVAS[k]); });
-const _pupTexHC={}; // power-up (G1) com contorno grosso
-function pupTexFor(kind,mode){ if(mode==='normal')return PUP_TEX[kind]; if(!_pupTexHC[kind])_pupTexHC[kind]=tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[kind]; }
+const _pupTexHC={}; // {mode:{kind:tex}} — power-up: contorno (bordas) ou recolor CB-safe
+function pupTexFor(kind,mode){ if(mode==='normal')return PUP_TEX[kind]; (_pupTexHC[mode]=_pupTexHC[mode]||{});
+  if(!_pupTexHC[mode][kind]) _pupTexHC[mode][kind] = mode==='cb' ? tex(gradientMapCanvas(PUP_CANVAS[kind],CB_PALETTE)) : tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[mode][kind]; }
 const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups + portão (atrás do player)
 let powerups=[];
 function rebuildExtras(){
@@ -804,7 +809,7 @@ function rebuildExtras(){
     for(const k of gateTiles){ const [tx,ty]=k.split(',').map(Number); const X=tx*TILE,Y=ty*TILE;
       g.beginFill(0x8a5a2b).drawRect(X,Y,TILE,TILE).endFill();
       g.beginFill(0x5a3a1b); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
-      if(hcMode) g.beginFill(DARK).drawRect(X,Y,TILE,1).drawRect(X,Y+TILE-1,TILE,1).drawRect(X,Y,1,TILE).drawRect(X+TILE-1,Y,1,TILE).endFill(); // porta: contorno escuro
+      if(vizMode==='bordas') g.beginFill(DARK).drawRect(X,Y,TILE,1).drawRect(X,Y+TILE-1,TILE,1).drawRect(X,Y,1,TILE).drawRect(X+TILE-1,Y,1,TILE).endFill(); // porta: contorno escuro
     }
     extraLayer.addChild(g);
   }
@@ -1275,7 +1280,7 @@ if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(!easy); });
 function setEasy(on){ easy=on; if(facilBtn)toggleBtn(facilBtn,easy); rebuildCoins(); srSay('Modo Fácil '+(easy?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
 
 /* Modos de visualização (C): Normal → Alto contraste (forma) → Alto contraste (4.5:1) */
-function parallaxTexFor(i,mode){ return parallaxTexNormal[i]; } // fundo intacto no modo bordas
+function parallaxTexFor(i,mode){ if(mode!=='cb')return parallaxTexNormal[i]; (_parallaxTexHC[mode]=_parallaxTexHC[mode]||[]); if(!_parallaxTexHC[mode][i])_parallaxTexHC[mode][i]=gradientMapTexture(parallaxTexNormal[i],CB_PALETTE); return _parallaxTexHC[mode][i]; } // CB-safe recolore o fundo; bordas mantém
 function applyViz(mode){
   vizMode=mode; hcMode=mode!=='normal'; try{localStorage.setItem('incl_viz',mode);}catch(e){}
   worldSprite.texture=worldTexFor(mode);            // 'bordas' = arte + contornos de plataforma/itens
