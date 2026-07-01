@@ -1955,7 +1955,7 @@ function renderPauseLegend(){ const el=$('#pause-legend'); if(!el)return; const 
 function applyPadDesign(d){ if(d&&PAD_DESIGNS[d])padDesign=d; try{localStorage.setItem('incl_paddesign',padDesign);}catch(e){} const set=PAD_DESIGNS[padDesign]||PAD_DESIGNS.generic;
   document.querySelectorAll('#pad-diamond .pad-b').forEach(b=>{ const s=set[b.dataset.btn]; if(s){ b.textContent=s[0]; b.style.background=s[1]; } }); renderPauseLegend(); }
 applyPadDesign(padDesign);
-const touchStartBtn=$('#touch-start'); if(touchStartBtn)touchStartBtn.addEventListener('click',togglePause); // START (pílula) = pausa/inicia
+// START (pílula): função vem do touchMap (padrão pausar) — a fiação fica no touchSetup, junto do doTouch.
 function padLayoutFromId(id){ id=(id||'').toLowerCase(); if(/dualshock|dualsense|playstation|054c/.test(id))return 'sony'; if(/switch|nintendo|joy-con|057e/.test(id))return 'nintendo'; if(/xbox|xinput|microsoft|045e/.test(id))return 'microsoft'; return 'generic'; }
 addEventListener('gamepadconnected', (e)=>{ try{ applyPadDesign(padLayoutFromId(e.gamepad.id)); const sel=$('#pad-design'); if(sel)sel.value=padDesign; srSay('Controle conectado: layout '+padDesign+'.'); }catch(err){} }); // A2: layout pelo id do controle
 const padDesignSel=$('#pad-design'); if(padDesignSel){ padDesignSel.value=padDesign; padDesignSel.addEventListener('change',()=>{ applyPadDesign(padDesignSel.value); srSay('Desenho dos botões: '+padDesignSel.value+'.'); }); } // A4: escolha manual (DirectInput/genérico)
@@ -2004,6 +2004,16 @@ const padDpadEl=$('#pad-dpad'); if(padDpadEl)padDpadEl.addEventListener('input',
 const padDirSel=$('#pad-dir'); if(padDirSel){ padDirSel.value=padDir; padDirSel.addEventListener('change',()=>{ padDir=padDirSel.value; try{localStorage.setItem('incl_paddir',padDir);}catch(e){} applyDirStyle(); srSay('Direcional: '+(padDir==='cross'?'cruz (D-pad)':'analógico')+'.'); }); }
 const padPresetChild=$('#pad-preset-child'); if(padPresetChild)padPresetChild.addEventListener('click',()=>{ setPadMm({btn:12,gap:2.5,stick:16.5,travel:4,dpad:11.5}); srSay('Controles no tamanho de mão de criança (6 a 12 anos).'); });
 const padPresetAdult=$('#pad-preset-adult'); if(padPresetAdult)padPresetAdult.addEventListener('click',()=>{ setPadMm({btn:14,gap:4.5,stick:20,travel:5.5,dpad:14}); srSay('Controles no tamanho de mão de adulto.'); });
+// REMAPEAR a FUNÇÃO de cada botão de toque (9 posições → ação). Lido ao vivo pelos handlers de toque.
+const TOUCH_ACT_LABELS={ left:'Andar à esquerda', right:'Andar à direita', up:'Subir / escada', down:'Descer / escada', jump:'Pular', run:'Correr / interagir', especial:'Especial', swap:'Trocar poder', pause:'Pausar (START)' };
+const TOUCH_ACTS=['left','right','up','down','jump','run','especial','swap','pause'];
+const TOUCH_SLOTS=[ {k:'up',lbl:'Direcional ↑ (cima)'},{k:'down',lbl:'Direcional ↓ (baixo)'},{k:'left',lbl:'Direcional ← (esquerda)'},{k:'right',lbl:'Direcional → (direita)'},{k:'start',lbl:'START (enter)'},{k:'b0',lbl:'Botão 0 (baixo)'},{k:'b1',lbl:'Botão 1 (direita)'},{k:'b2',lbl:'Botão 2 (esquerda)'},{k:'b3',lbl:'Botão 3 (cima)'} ];
+const TOUCH_DEFAULT={ up:'up',down:'down',left:'left',right:'right',start:'pause',b0:'jump',b1:'especial',b2:'run',b3:'swap' };
+let touchMap=(()=>{ try{ const s=JSON.parse(localStorage.getItem('incl_touchmap')); return Object.assign({},TOUCH_DEFAULT, s&&typeof s==='object'?s:{}); }catch(e){ return Object.assign({},TOUCH_DEFAULT); } })();
+function renderTouchMap(){ const el=$('#touchmap-list'); if(!el)return;
+  el.innerHTML=TOUCH_SLOTS.map(s=>`<div class="ctrl-row"><label for="tm-${s.k}">${s.lbl}</label><select id="tm-${s.k}" class="vol" data-slot="${s.k}">${TOUCH_ACTS.map(a=>`<option value="${a}"${touchMap[s.k]===a?' selected':''}>${TOUCH_ACT_LABELS[a]}</option>`).join('')}</select></div>`).join('');
+  el.querySelectorAll('select[data-slot]').forEach(sel=>sel.addEventListener('change',()=>{ touchMap[sel.dataset.slot]=sel.value; try{localStorage.setItem('incl_touchmap',JSON.stringify(touchMap));}catch(e){} srSay((sel.previousElementSibling?sel.previousElementSibling.textContent:'Botão')+': '+TOUCH_ACT_LABELS[sel.value]+'.'); }));
+}
 // JOGAR COM OS OLHOS (webcam): WebGazer lazy (CDN no 1º uso; futuro: vendorizar p/ offline). Olhar esq/dir anda; olhar p/ cima pula.
 let eyeMode=false, _eyeKeys={left:false,right:false,up:false};
 function eyeSet(k,on,code){ if(_eyeKeys[k]===on)return; _eyeKeys[k]=on; const ev=new KeyboardEvent(on?'keydown':'keyup',{code:code,bubbles:true}); window.dispatchEvent(ev); document.dispatchEvent(ev); }
@@ -2066,7 +2076,7 @@ reflectFacil(); reflectAltMove();
 function openMovement(){ const ov=$('#movement'); if(!ov)return; renderMovPlayers(); reflectFacil(); reflectAltMove(); renderMapHub(); ov.hidden=false; frontOverlay(ov); movementOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeMovement(){ const ov=$('#movement'); if(!ov)return; ov.hidden=true; movementOpen=false; const b=$('#opt-movement'); if(b)b.focus(); }
 // Submenu "Configurar botões de tela touch"
-function openTouchCfg(){ const ov=$('#touchcfg'); if(!ov)return; ov.hidden=false; frontOverlay(ov); const f=ov.querySelector('select,button'); if(f)f.focus(); }
+function openTouchCfg(){ const ov=$('#touchcfg'); if(!ov)return; renderTouchMap(); ov.hidden=false; frontOverlay(ov); const f=ov.querySelector('select,button'); if(f)f.focus(); }
 function closeTouchCfg(){ const ov=$('#touchcfg'); if(!ov)return; ov.hidden=true; const b=$('#opt-touchcfg'); if(b)b.focus(); }
 const touchCfgBtn=$('#opt-touchcfg'); if(touchCfgBtn)touchCfgBtn.addEventListener('click',openTouchCfg);
 const touchCfgClose=$('#touchcfg-close'); if(touchCfgClose)touchCfgClose.addEventListener('click',closeTouchCfg);
@@ -2220,19 +2230,22 @@ function showTouchControls(){ if(numPlayers>1) return; const tc=document.querySe
       if(act==='especial'&&p.ctrl.especial&&p.ctrl.especial.includes(c))p.specialEdge=true; }); }
     if(act==='jump')hideTips(); };
   const release=(act)=>{ const c=codeFor(act); if(c)keys.delete(c); };
-  tc.querySelectorAll('.touch-btn').forEach(b=>{ const act=b.dataset.act;       // correr / pular
-    const down=(e)=>{ e.preventDefault(); press(act); };
-    const up=(e)=>{ e.preventDefault(); release(act); };
+  const doTouch=(a,on)=>{ if(a==='pause'){ if(on)togglePause(); return; } on?press(a):release(a); }; // ação mapeável (função de cada botão)
+  tc.querySelectorAll('.touch-btn').forEach(b=>{ const slot='b'+b.dataset.btn;  // função vem do touchMap (remapeável)
+    const down=(e)=>{ e.preventDefault(); doTouch(touchMap[slot],true); };
+    const up=(e)=>{ e.preventDefault(); doTouch(touchMap[slot],false); };
     b.addEventListener('pointerdown',down); b.addEventListener('pointerup',up);
     b.addEventListener('pointerleave',up); b.addEventListener('pointercancel',up);
     b.addEventListener('contextmenu',(e)=>e.preventDefault());
   });
+  // START (enter): faz a função mapeada (padrão pausar); se for ação momentânea, pressiona e solta.
+  const startBtn=$('#touch-start'); if(startBtn)startBtn.addEventListener('click',()=>{ const a=touchMap.start; if(a==='pause'){ togglePause(); } else { doTouch(a,true); setTimeout(()=>doTouch(a,false),140); } });
   // joystick digital: base (círculo grande) + manopla (círculo menor) que desliza p/ a direção tocada → 8 direções
   const stick=$('#touch-stick'), knob=stick&&stick.querySelector('.touch-knob');
   if(stick&&knob){
     let pid=null; // deslocamento (R) e zona-morta (DEAD) vêm de _stickTravelPx/_stickDeadPx (mm, config em A12e motora)
     const dirState={left:false,right:false,up:false,down:false};
-    const setDir=(d,on)=>{ if(dirState[d]===on)return; dirState[d]=on; on?press(d):release(d); };
+    const setDir=(d,on)=>{ if(dirState[d]===on)return; dirState[d]=on; doTouch(touchMap[d],on); }; // direção física → função mapeada
     const move=(px,py)=>{ const R=_stickTravelPx, DEAD=_stickDeadPx; const r=stick.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
       let dx=px-cx, dy=py-cy; const m=Math.hypot(dx,dy)||1; const f=m>R?R/m:1;
       knob.style.transform=`translate(${dx*f}px,${dy*f}px)`;
@@ -2249,7 +2262,7 @@ function showTouchControls(){ if(numPlayers>1) return; const tc=document.querySe
   const cross=$('#touch-cross');
   if(cross){ const arms={up:cross.querySelector('.dpad-up'),down:cross.querySelector('.dpad-down'),left:cross.querySelector('.dpad-left'),right:cross.querySelector('.dpad-right')};
     const cst={left:false,right:false,up:false,down:false}; let cpid=null;
-    const cset=(d,on)=>{ if(cst[d]===on)return; cst[d]=on; on?press(d):release(d); if(arms[d])arms[d].classList.toggle('on',on); };
+    const cset=(d,on)=>{ if(cst[d]===on)return; cst[d]=on; doTouch(touchMap[d],on); if(arms[d])arms[d].classList.toggle('on',on); }; // direção física → função mapeada
     const at=(px,py)=>{ const r=cross.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2; const dx=px-cx, dy=py-cy; const dead=r.width*0.18; // ~18% do lado = miolo neutro
       cset('left',dx<-dead); cset('right',dx>dead); cset('up',dy<-dead); cset('down',dy>dead); };
     const crst=()=>{ ['left','right','up','down'].forEach(d=>cset(d,false)); cpid=null; };
