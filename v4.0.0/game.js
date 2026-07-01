@@ -452,7 +452,7 @@ let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
 
 /* ===================== input ===================== */
-const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false;
+const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
 const KB_DEFAULTS={
@@ -490,6 +490,7 @@ addEventListener('keydown',(e)=>{
   if(animationOpen){ if(e.code==='Escape')closeAnimation(); return; }
   if(visualOpen){ if(e.code==='Escape')closeVisual(); return; }
   if(empathyOpen){ if(e.code==='Escape')closeEmpathy(); return; }
+  if(audioOpen){ if(e.code==='Escape')closeAudio(); return; }
   if(!player.quiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
@@ -567,7 +568,7 @@ function sfx(name){
     if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC)audioCtx=new AC(); }
     if(!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
     const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    o.type=c.t; o.frequency.value=c.f; g.gain.value=0.0001; o.connect(g).connect(audioOut()||audioCtx.destination);
+    o.type=c.t; o.frequency.value=c.f; g.gain.value=0.0001; o.connect(g).connect(catNode('earcons')||audioOut()||audioCtx.destination);
     const t=audioCtx.currentTime;
     g.gain.exponentialRampToValueAtTime(Math.max(0.02,0.25*volume), t+0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t+c.d);
@@ -588,12 +589,23 @@ function wireMaster(){ const ac=audioCtx; if(!ac||!_masterGain)return; try{_mast
   if(hearingLoss){ if(!_hlChain)_hlChain=buildHearingChain(ac); _masterGain.connect(_hlChain.input); } else _masterGain.connect(ac.destination); }
 function setHearingLoss(on){ hearingLoss=on; try{localStorage.setItem('incl_hearingloss',on?'1':'0');}catch(e){} if(audioCtx){ audioOut(); wireMaster(); }
   srSay('Simulação de perda auditiva '+(on?'ligada: sons fracos ficam abafados e os agudos são cortados; falas ficam difíceis de entender.':'desligada.')); }
+// ===== F1: barramento de áudio por CATEGORIA (cada uma: liga/desliga + volume). Pendura no nó mestre. =====
+const AUDIO_CATS=[
+  {k:'music',   lbl:'Música'}, {k:'ambient', lbl:'Sons ambiente (água, rua, trânsito, folhas, chuva)'},
+  {k:'interact',lbl:'Efeitos de interação (passos, portas, escada)'}, {k:'earcons', lbl:'Earcons (pulo, moeda, dano…)'},
+  {k:'other',   lbl:'Outros efeitos'}, {k:'tts', lbl:'Narração (TTS)'}, {k:'sonar', lbl:'Sonar'},
+  {k:'guard',   lbl:'Guarda de beirada'}, {k:'guide', lbl:'Pista / guia auditivo'},
+];
+const audioCat={}; AUDIO_CATS.forEach(c=>{ let on=true,vol=0.8; try{ const s=localStorage.getItem('incl_audiocat_'+c.k); if(s){ const o=JSON.parse(s); on=!!o.on; vol=+o.vol; } }catch(e){} audioCat[c.k]={on,vol}; });
+const _catNodes={};
+function catNode(cat){ const ac=ensureAC(); if(!ac)return null; const out=audioOut(); if(!_catNodes[cat]){ const g=ac.createGain(); g.gain.value=audioCat[cat].on?audioCat[cat].vol:0; g.connect(out); _catNodes[cat]=g; } return _catNodes[cat]; }
+function setCatGain(cat){ const g=_catNodes[cat]; if(g&&audioCtx)g.gain.setTargetAtTime(audioCat[cat].on?audioCat[cat].vol:0, audioCtx.currentTime, 0.02); try{localStorage.setItem('incl_audiocat_'+cat,JSON.stringify(audioCat[cat]));}catch(e){} }
 function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
   o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  o.connect(g).connect(audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
+  o.connect(g).connect(catNode('earcons')||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
 function firework(when){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const t=ac.currentTime+(when||0);
   const o=ac.createOscillator(),g=ac.createGain(); o.type='sine'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(1200,t+0.35); // assobio subindo
-  const out=audioOut()||ac.destination;
+  const out=catNode('earcons')||audioOut()||ac.destination;
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.12*volume,t+0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+0.36); o.connect(g).connect(out); o.start(t); o.stop(t+0.4);
   [0,0.04,0.09,0.15,0.22].forEach((dt,i)=>{ const po=ac.createOscillator(),pg=ac.createGain(),tt=t+0.36+dt; po.type='square'; po.frequency.setValueAtTime(180+((i*131)%520),tt); // estouro/crepitar
     pg.gain.setValueAtTime(0.18*volume,tt); pg.gain.exponentialRampToValueAtTime(0.0001,tt+0.09); po.connect(pg).connect(out); po.start(tt); po.stop(tt+0.11); }); }catch(e){} }
@@ -1361,7 +1373,7 @@ applyLetra(false); // estado inicial = ABC (maiúsculas, padrão)
 // E9: toggles de Som / Legendas / Fácil
 function toggleBtn(b,on){ b.classList.toggle('is-on',on); b.setAttribute('aria-pressed',String(on)); }
 const soundBtn=$('#opt-sound'), capBtn=$('#opt-captions'), facilBtn=$('#opt-facil');
-if(soundBtn) soundBtn.addEventListener('click',()=>{ soundOn=!soundOn; toggleBtn(soundBtn,soundOn); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
+if(soundBtn){ soundBtn.setAttribute('aria-haspopup','dialog'); soundBtn.addEventListener('click',openAudio); } // botão de áudio agora abre o mixer
 if(capBtn) capBtn.addEventListener('click',()=>{ captionsOn=!captionsOn; toggleBtn(capBtn,captionsOn); srSay('Legendas '+(captionsOn?'ligadas.':'desligadas.')); });
 let selMovPlayer=0; // jogador selecionado no painel Acessibilidade motora
 if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(selMovPlayer, !players[selMovPlayer].easy); });
@@ -1491,6 +1503,20 @@ function applyFonte(announce){ const m=FONT_MODES[fonteIdx]; document.documentEl
 try{ const i=FONT_MODES.findIndex(m=>m.id===localStorage.getItem(FKEY)); if(i>=0)fonteIdx=i; }catch(e){}
 applyFonte(false);
 if(fonteBtn) fonteBtn.addEventListener('click',()=>{ fonteIdx=(fonteIdx+1)%FONT_MODES.length; try{localStorage.setItem(FKEY,FONT_MODES[fonteIdx].id);}catch(e){} applyFonte(true); });
+
+/* F1: menu de áudio (mixer por categoria) — o botão "Som" abre este menu */
+function reflectAudioMaster(){ const b=$('#audio-master'); if(b){ b.classList.toggle('is-on',soundOn); b.setAttribute('aria-pressed',String(soundOn)); b.textContent=soundOn?'🔊 Ligado':'🔇 Desligado'; } const v=$('#audio-master-vol'); if(v)v.value=Math.round(volume*100); const sb=$('#opt-sound'); if(sb)toggleBtn(sb,soundOn); }
+function renderAudio(){ const el=$('#audio-list'); if(!el)return; reflectAudioMaster();
+  el.innerHTML=AUDIO_CATS.map(c=>`<div class="ctrl-row"><span>${c.lbl}</span><span style="display:flex;gap:.5rem;align-items:center;flex-shrink:0"><input class="vol" type="range" min="0" max="100" step="5" value="${Math.round(audioCat[c.k].vol*100)}" data-avol="${c.k}" aria-label="Volume de ${c.lbl}"><button class="mode-btn${audioCat[c.k].on?' is-on':''}" data-acat="${c.k}" type="button" aria-pressed="${audioCat[c.k].on}" aria-label="${c.lbl}: ${audioCat[c.k].on?'ligado':'desligado'}">${audioCat[c.k].on?'🔊':'🔇'}</button></span></div>`).join('');
+  el.querySelectorAll('button[data-acat]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.acat; audioCat[k].on=!audioCat[k].on; setCatGain(k); renderAudio(); }));
+  el.querySelectorAll('input[data-avol]').forEach(s=>s.addEventListener('input',()=>{ const k=s.dataset.avol; audioCat[k].vol=(+s.value)/100; audioCat[k].on=true; setCatGain(k); const bb=el.querySelector('button[data-acat="'+k+'"]'); if(bb){bb.classList.add('is-on');bb.setAttribute('aria-pressed','true');bb.textContent='🔊';} }));
+}
+function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); ov.hidden=false; audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function closeAudio(){ const ov=$('#audio'); if(!ov)return; ov.hidden=true; audioOpen=false; const b=$('#opt-sound'); if(b)b.focus(); }
+const audioMasterBtn=$('#audio-master'); if(audioMasterBtn)audioMasterBtn.addEventListener('click',()=>{ soundOn=!soundOn; reflectAudioMaster(); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
+const audioMasterVol=$('#audio-master-vol'); if(audioMasterVol)audioMasterVol.addEventListener('input',()=>{ volume=(+audioMasterVol.value)/100; if(volume>0&&!soundOn){ soundOn=true; reflectAudioMaster(); } });
+const audioCloseBtn=$('#audio-close'); if(audioCloseBtn)audioCloseBtn.addEventListener('click',closeAudio);
+reflectAudioMaster();
 
 /* E10: remap de controles + persistência (B2) */
 const ACT_LABEL={left:'Esquerda',right:'Direita',up:'Subir / escada',down:'Descer / escada',run:'Correr / interagir',jump:'Pular',swap:'Trocar poder',especial:'Especial'};

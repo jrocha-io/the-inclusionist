@@ -56,10 +56,13 @@ osc/ruído de cada som → gainCategoria[cat] → panner(StereoPanner) → _mast
 - **WCAG:** 1.4.2 (controle de áudio) ✓ via menu; 1.2.x (mídia) — legendas já existem; 1.4.7 (áudio de fundo baixo) — ambiente sempre abaixo dos earcons; oferecer **volume por categoria** cobre "sem áudio de fundo".
 - **GAG:** pistas sonoras redundantes com o visual (nunca só cor/só som); volumes independentes; opção **mono** (acessibilidade a surdez unilateral) a avaliar.
 
-## 7. Decisões pendentes (José)
-1. **Síntese-primeiro** (procedural, GPL-clean, MVP agora) vs esperar amostras licenciadas? (recomendo síntese agora).
-2. **TTS:** usar `speechSynthesis` pt-BR do navegador (offline p/ vozes instaladas; pode faltar em Chromebook "pelado") — aceitável como *melhor esforço* + fallback nas legendas?
-3. **Preset automático no blind** (ligar as pistas sozinho) — sim?
-4. **Tecla do sonar:** reusar "interagir" (Correr) ou uma tecla dedicada?
-5. **Modo "jogo em áudio" é o próprio blind** (tela preta) ou um modo à parte (com tela + som, para baixa visão)?
-6. Começar por **F1** (barramento + menu + earcons) e seguir na ordem?
+## 7. Decisões (fechadas com o José)
+1. ✅ **Síntese procedural agora** (GPL-clean, KB, offline). Amostras licenciadas só depois, se houver.
+2. ✅ **TTS = neural, não robótico** (vozes robóticas causam fadiga auditiva/cognitiva → **fora** `speechSynthesis`/eSpeak NG).
+   - **Primária: Piper TTS** (qualidade + rapidez em tablets Positivo do governo). **Secundária: Kitten TTS** (rápida, low-cost). **Opção: Kokoro-82M** (qualidade superior, lenta — para jogos sem exigência de rapidez; nunca a primária).
+   - **Implicação:** TTS roda **no navegador** (ONNX Runtime Web/WASM + modelo em **MB**) → **carregado sob demanda** (lazy), não embarcado no bundle base. Pesa no hardware-alvo → fica na **etapa F5** (última) e é opcional.
+   - **TTS e Legendas são toggles SEPARADOS e independentes** (não há fallback de um para o outro; cada um liga por conta própria).
+3. ✅ **Blind liga o preset "jogo em áudio" automaticamente** (todas as pistas espaciais + sonar + guarda-de-beirada + guia).
+4. ✅ **Sonar = segurar "trocar poder"** (hold; o tap curto ainda troca o poder) **ou** o acorde **troca + especial** juntos (para quem prefere rapidez). Evita disparar ação indesejada (lançar objeto / interagir com porta/pessoa/interruptor). Exige detectar *hold vs tap* no swap.
+5. Modo "jogo em áudio" = o próprio **blind** (tela preta) com o preset ligado; fora do blind as pistas são opcionais (baixa visão/TDAH/todos).
+6. **Ordem:** F1 (barramento + menu + earcons) → F2 → F3 → F4 → **F5 (TTS neural, lazy)**.

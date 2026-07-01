@@ -204,6 +204,22 @@
     </div>
   </div>
 
+  <!-- Áudio (F1): mixer por categoria — liga/desliga + volume -->
+  <div id="audio" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="audio-title">
+      <h2 id="audio-title">Áudio</h2>
+      <div class="ctrl-list" role="group" aria-label="Som geral">
+        <div class="ctrl-row"><span><strong>Som</strong> (mestre)</span><button id="audio-master" class="mode-btn" type="button" aria-pressed="true">🔊 Ligado</button></div>
+        <div class="ctrl-row"><label for="audio-master-vol">Volume geral</label><input id="audio-master-vol" class="vol" type="range" min="0" max="100" step="5" value="60"></div>
+      </div>
+      <p class="opt-hint" style="margin-top:.6rem">Por categoria:</p>
+      <div id="audio-list" class="ctrl-list" role="group" aria-label="Categorias de áudio"></div>
+      <div class="overlay__actions">
+        <button id="audio-close" class="mode-btn is-on" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modo empatia: simular deficiências (visuais por jogador; auditiva global) -->
   <div id="empathy" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="empathy-title">

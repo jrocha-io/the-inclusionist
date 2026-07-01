@@ -148,6 +148,7 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 .panel-sub{text-align:left;font-size:1rem;margin:1rem 0 .4rem;border-bottom:1px solid var(--accent);padding-bottom:.2rem}
 .panel-sub:first-of-type{margin-top:.4rem}
 .panel-sub__tag{color:var(--ink-soft);font-size:.78rem;font-weight:400}
+.vol{width:140px;max-width:45%;accent-color:var(--accent);height:1.5rem;cursor:pointer} /* barra de volume */
 .ctrl-players{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;margin-bottom:.7rem}
 .ctrl-players .mode-btn{padding:.3em .7em;font-size:.95rem}
 .ctrl-list{display:flex;flex-direction:column;gap:.45rem;text-align:left}
