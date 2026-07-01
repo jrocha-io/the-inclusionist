@@ -27,6 +27,8 @@ let oneButton=(()=>{try{return localStorage.getItem('incl_onebtn')==='1';}catch(
 let wheelchair=(()=>{try{return localStorage.getItem('incl_wheelchair')==='1';}catch(e){return false;}})();
 // Modo cego (A12e auditiva): SÓ as ajudas de áudio (bengala + sonar + guarda + narração), sem tela preta. Empatia cegueira liga por padrão.
 let modoCego=(()=>{try{return localStorage.getItem('incl_modocego')==='1';}catch(e){return false;}})();
+let caneBlockDiv=(()=>{try{return +localStorage.getItem('incl_cane_div')||1;}catch(e){return 1;}})(); // 1 = 1 batida/bloco; 2 = 1 batida/meio bloco (por DISTÂNCIA pisada)
+const caneBlockPx=()=>TILE/caneBlockDiv;
 const isSolidType = (t) => (wheelchair && (t===9||t===5)) ? true : !!(TILE_TYPES[t] && TILE_TYPES[t].solid); // cadeirante: lava (9) e trampolim (5) viram CHÃO sólido (o elevador para em cima, não atravessa)
 const TILE_COLOR = {
   0:'#0a0a14',1:'#241f38',2:'#6b6480',3:'#2f6fae',4:'#8a5a2b',5:'#34e29b',6:'#3a3a46',
@@ -1311,9 +1313,9 @@ function stepPlayer(pl,dt){
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
   // F2: passos por superfície · escada (madeira) · escalada (parede). Cadência = ritmo do andar/correr.
-  if(pl.onGround && !pl.inWater && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0;
-    if(caneOn(pl)) caneTap(pl);                       // cego: bengala bate À FRENTE (material adiante ou vazio)
-    else { const m=surfaceUnder(pl); if(m)noiseHit(m); } } } // normal: passo no chão sob os pés
+  if(!pl.inWater && dir!==0){
+    if(caneOn(pl)){ if(pl.airTime<=5){ pl.caneDist=(pl.caneDist||0)+Math.abs(pl.vx*dt); if(pl.caneDist>=caneBlockPx()){ pl.caneDist=0; caneTap(pl); } } } // cego: batida À FRENTE por DISTÂNCIA — chão ESTÁVEL (coyote), senão o flicker do onGround subconta
+    else if(pl.onGround){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m); } } } // normal: passo no chão sob os pés
   else if(pl.onLadder && pl.vy!==0){ pl.stepT+=dt; if(pl.stepT>=20){ pl.stepT=0; noiseHit('madeira'); } }
   else if(pl.clinging && (pl.vx!==0||pl.vy!==0)){ pl.stepT+=dt; if(pl.stepT>=16){ pl.stepT=0; noiseHit('parede'); } }
   else pl.stepT=99; // parado → próximo passo soa logo ao recomeçar
@@ -1770,7 +1772,7 @@ function renderAudio(){ const el=$('#audio-list'); if(!el)return; reflectAudioMa
   el.querySelectorAll('button[data-acat]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.acat; audioCat[k].on=!audioCat[k].on; setCatGain(k); renderAudio(); }));
   el.querySelectorAll('input[data-avol]').forEach(s=>s.addEventListener('input',()=>{ const k=s.dataset.avol; audioCat[k].vol=(+s.value)/100; audioCat[k].on=true; setCatGain(k); const bb=el.querySelector('button[data-acat="'+k+'"]'); if(bb){bb.classList.add('is-on');bb.setAttribute('aria-pressed','true');bb.textContent='🔊';} }));
 }
-function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); reflectModoCego(); reflectTTS(); populateTTSEngines(); populateTTSVoices(); ov.hidden=false; audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); reflectModoCego(); reflectTTS(); populateTTSEngines(); populateTTSVoices(); const cd=$('#cane-div'); if(cd)cd.value=String(caneBlockDiv); ov.hidden=false; audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeAudio(){ const ov=$('#audio'); if(!ov)return; ov.hidden=true; audioOpen=false; const b=$('#opt-sound'); if(b)b.focus(); }
 // A12e auditiva: Modo cego (só áudio) + seleção de voz (Web Speech agora; neurais em breve)
 function reflectModoCego(){ const b=$('#opt-modocego'); if(b){ toggleBtn(b,modoCego); b.textContent=modoCego?'❚❚ Ligado':'▶ Desligado'; } }
@@ -1784,6 +1786,11 @@ function populateTTSVoices(){ const sel=$('#tts-voice'); if(!sel)return; let voi
   list.forEach(v=>{ const o=document.createElement('option'); o.value=v.name; o.textContent=v.name+' ('+v.lang+')'; sel.appendChild(o); });
   const saved=(()=>{try{return localStorage.getItem('incl_tts_voice');}catch(e){return null;}})(); const pick=list.find(v=>v.name===saved)||list[0]; sel.value=pick.name; _ttsVoiceObj=pick; }
 const mcBtn=$('#opt-modocego'); if(mcBtn)mcBtn.addEventListener('click',()=>{ setModoCego(!modoCego); reflectModoCego(); });
+const caneDivSel=$('#cane-div'); if(caneDivSel){ caneDivSel.value=String(caneBlockDiv); caneDivSel.addEventListener('change',()=>{ caneBlockDiv=+caneDivSel.value||1; try{localStorage.setItem('incl_cane_div',String(caneBlockDiv));}catch(e){} srSay('Bengala: '+(caneBlockDiv===2?'uma batida a cada meio bloco pisado.':'uma batida por bloco pisado.')); }); }
+// Botões abreviados: hover/foco mostra o nome completo; volta ao abreviado ao sair (só o rótulo; a classe is-on é mexida por reflect e não conflita)
+[['opt-sound','🦻 A12e auditiva','🦻 Acessibilidade auditiva'],['opt-movement','♿ A12e motora','♿ Acessibilidade motora'],['opt-animation','🎞 S11e visual','🎞 Sensibilidade visual'],['opt-visual','🎨 A12e visual','🎨 Acessibilidade visual']]
+  .forEach(([id,abbr,full])=>{ const b=$('#'+id); if(!b)return; const show=()=>{b.textContent=full;}, hide=()=>{b.textContent=abbr;};
+    b.addEventListener('mouseenter',show); b.addEventListener('mouseleave',hide); b.addEventListener('focus',show); b.addEventListener('blur',hide); });
 const ttsBtn=$('#opt-tts'); if(ttsBtn)ttsBtn.addEventListener('click',()=>{ audioCat.tts.on=!audioCat.tts.on; setCatGain('tts'); reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); if(audioCat.tts.on)narrate('Narração por voz ligada.'); });
 const ttsEngSel=$('#tts-engine'); if(ttsEngSel)ttsEngSel.addEventListener('change',()=>{ ttsEngineSel=ttsEngSel.value; try{localStorage.setItem('incl_tts_engine',ttsEngineSel);}catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); narrate('Motor de voz: '+ttsEngSel.options[ttsEngSel.selectedIndex].text+'.'); });
 const ttsVoiceSel=$('#tts-voice'); if(ttsVoiceSel)ttsVoiceSel.addEventListener('change',()=>{ try{ const vs=window.speechSynthesis.getVoices(); _ttsVoiceObj=vs.find(v=>v.name===ttsVoiceSel.value)||null; localStorage.setItem('incl_tts_voice',ttsVoiceSel.value); }catch(e){} narrate('Voz selecionada.'); });
