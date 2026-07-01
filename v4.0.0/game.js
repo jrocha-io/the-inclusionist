@@ -22,7 +22,10 @@ const TILE_TYPES = {
   7:{solid:false}, 8:{solid:false}, 9:{solid:false,hazard:true}, 10:{solid:true,gate:true},
   11:{solid:false,key:true}, 12:{solid:false}, 13:{solid:false}, 14:{solid:false},
 };
-const isSolidType = (t) => !!(TILE_TYPES[t] && TILE_TYPES[t].solid);
+// Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
+let oneButton=(()=>{try{return localStorage.getItem('incl_onebtn')==='1';}catch(e){return false;}})();
+let wheelchair=(()=>{try{return localStorage.getItem('incl_wheelchair')==='1';}catch(e){return false;}})();
+const isSolidType = (t) => !!(TILE_TYPES[t] && TILE_TYPES[t].solid) && !(wheelchair && t===5); // cadeirante: pula-pula deixa de ser sólido (vira elevador)
 const TILE_COLOR = {
   0:'#0a0a14',1:'#241f38',2:'#6b6480',3:'#2f6fae',4:'#8a5a2b',5:'#34e29b',6:'#3a3a46',
   7:'#7fdcff',8:'#ffd23f',9:'#ff5b3a',10:'#9a8a6f',11:'#ffe06a',12:'#3a86ff',13:'#8a5cff',14:'#ff6fae',
@@ -514,6 +517,7 @@ addEventListener('keydown',(e)=>{
     if(p.ctrl.swap&&p.ctrl.swap.includes(e.code)) p.swapEdge=true;
     if(p.ctrl.especial&&p.ctrl.especial.includes(e.code)) p.specialEdge=true; }
     if(easyKey){ if(e.code.startsWith('Control')) player.specialEdge=true; else player.swapEdge=true; } }
+  if(oneButton && isGameKey){ for(const k of [...keys]) if(isGameKeyCode(k)) keys.delete(k); } // empatia: um botão de jogo por vez → solta os demais
   keys.add(e.code); });
 addEventListener('keyup',(e)=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
@@ -539,6 +543,7 @@ const SFX={
 };
 let audioCtx=null, soundOn=true, captionsOn=true, volume=0.6, capTimer=null;
 const anyEasy=()=>players.some(p=>p.easy); // efeitos de MUNDO do Fácil (moedas no chão) ligam se QUALQUER jogador usa Fácil
+const isGameKeyCode=(c)=>GAME_KEYS.includes(c)||players.some(p=>p.ctrl&&Object.values(p.ctrl).some(a=>a.includes(c)));
 // Modo Fácil (deficiência motora): gravidade ×2/3, pulo ×8/7, andar ×0.7, sem perigos, sem correr,
 // hitbox de coleta +4px, moedas no chão, proteção de borda, pula-pula suave (segurar = flutuar descendo).
 const EASY={grav:2/3, jump:8/7, speed:0.7, pad:4, slowFall:1.4, tramp:3.4};
@@ -821,7 +826,7 @@ let coinSprites=[];
 // Fácil: rebaixa cada moeda até o chão logo abaixo (scan ≤10 tiles); guarda y0 p/ reverter ao desligar.
 function positionEasyCoins(){
   coins.forEach(cn=>{ if(cn.y0==null)cn.y0=cn.y;
-    if(anyEasy()){ const tx=Math.floor((cn.x+5)/TILE); let fy=null;
+    if(anyEasy()||wheelchair){ const tx=Math.floor((cn.x+5)/TILE); let fy=null;
       for(let ty=Math.floor(cn.y0/TILE);ty<WORLD_H && ty<Math.floor(cn.y0/TILE)+10;ty++){ if(solidAt(tx,ty)){ fy=ty*TILE; break; } }
       cn.y = fy!=null ? fy-11 : cn.y0; } // moeda (10px) repousa com 1px de folga
     else cn.y=cn.y0; });
@@ -953,7 +958,8 @@ function rebuildExtras(){
 }
 function setupExtras(){
   // itens e portão vêm das posições REAIS do mapa Clarity (não mais aleatórios)
-  powerups = MAP_ITEMS.map(it=>({ x:it.tx*TILE+2, y:it.ty*TILE+2, kind:it.kind, taken:false, sprite:null }));
+  powerups = MAP_ITEMS.filter(it=> !wheelchair || it.kind==='fly'||it.kind==='turbo'||it.kind==='key') // cadeirante: só voo/super-corrida (chave mantida p/ o portão)
+    .map(it=>({ x:it.tx*TILE+2, y:it.ty*TILE+2, kind:it.kind, taken:false, sprite:null }));
   gateTiles = new Set(MAP_GATE.map(g=>g.tx+','+g.ty));
   gate = MAP_GATE.length ? MAP_GATE : null;
   gateOpen = MAP_GATE.length===0; // havendo portão, começa FECHADO (abre com a chave)
@@ -963,6 +969,14 @@ setupExtras();
 
 // Fácil: retângulo translúcido mostrando a hitbox de coleta tolerante (sob o player)
 const easyHitbox=new PIXI.Graphics(); camera.addChild(easyHitbox);
+const chairLayer=new PIXI.Graphics(); camera.addChild(chairLayer); // cadeira de rodas (modo cadeirante)
+function drawChair(g,pl){ const cx=pl.x, base=pl.y, f=pl.facing<0?-1:1, MET=0x4a586e, HUB=0x1c2230;
+  g.lineStyle(2,MET); g.drawCircle(cx,base-6,7);                                   // roda grande
+  g.lineStyle(1,MET); for(let a=0;a<6;a++){ const an=a*Math.PI/3; g.moveTo(cx,base-6); g.lineTo(cx+Math.cos(an)*6,base-6+Math.sin(an)*6); } // raios
+  g.lineStyle(0); g.beginFill(HUB); g.drawCircle(cx,base-6,2); g.endFill();        // cubo
+  g.lineStyle(3,MET); g.moveTo(cx-f*5,base-6); g.lineTo(cx-f*5,base-22); g.lineTo(cx-f*2,base-24); // encosto atrás das costas
+  g.moveTo(cx+f*4,base-4); g.lineTo(cx+f*9,base-2);                                 // apoio de pés à frente
+  g.lineStyle(0); }
 
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
@@ -1032,7 +1046,7 @@ function sampleFeatures(pl){
   let water=false,ladder=false,lava=false;
   for(let ty=Math.floor(t/TILE);ty<=Math.floor((b-0.01)/TILE);ty++)
     for(let tx=Math.floor(l/TILE);tx<=Math.floor((r-0.01)/TILE);tx++){
-      const tt=tileAt(tx,ty); if(tt===3)water=true; if(tt===4)ladder=true; if(tt===9)lava=true;
+      const tt=tileAt(tx,ty); if(tt===3)water=true; if(tt===4)ladder=true; if(tt===9)lava=true; if(tt===5&&wheelchair)ladder=true; // cadeirante: trampolim = elevador (↑/↓)
     }
   return {water,ladder,lava};
 }
@@ -1051,7 +1065,7 @@ function resolveY(pl){
   for(let row=r0;row<=r1;row++)for(let col=c0;col<=c1;col++){ if(!solidAt(col,row))continue;
     const tt=row*TILE,type=tileAt(col,row);
     if(pl.vy>0){ pl.y=tt-0.01;
-      if(type===5){ pl.vy = pl.easy ? -EASY.tramp : -(held(pl,'jump')?TUNE.trampMax:TUNE.trampBase); } // Fácil: quique fixo suave (sem cadeia de carga)
+      if(type===5&&!wheelchair){ pl.vy = pl.easy ? -EASY.tramp : -(held(pl,'jump')?TUNE.trampMax:TUNE.trampBase); } // Fácil: quique suave. Cadeirante: sem quique (é elevador)
       else { pl.vy=0; pl.onGround=true; }
     } else if(pl.vy<0){ pl.y=tt+TILE+BOX.h+0.01; pl.vy=0; }
     return;
@@ -1112,7 +1126,7 @@ function stepPlayer(pl,dt){
   } else if(pl.onLadder){
     pl.vy=0;
     if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
-    if(pl.jumpBuffer>0){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+    if(pl.jumpBuffer>0 && !wheelchair){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); } // cadeirante: escada = elevador, sem pular fora
   } else if(pl.flying){ // voo ATIVO: Cima sobe / Baixo desce / plana parado. Pular alterna (tratado acima)
     pl.waterStroke=0; const fs=turbo?3.9:2.6;
     if(held(pl,'up')) pl.vy=-fs; else if(held(pl,'down')) pl.vy=fs; else pl.vy*=0.7;
@@ -1128,7 +1142,7 @@ function stepPlayer(pl,dt){
       pl.vy=Math.min(pl.vy,TUNE.waterMaxFall);
     } else {
       pl.waterStroke=0;
-      if(pl.onGround&&pl.jumpBuffer>0){ // E18: pulo encadeado (bunny-hop 5→8→9 correndo) + super(9)/ultra(22)
+      if(pl.onGround&&pl.jumpBuffer>0&&!wheelchair){ // E18: pulo encadeado (bunny-hop). Cadeirante: sem pulo.
         if(run && isBouncyGroundBelow(pl) && pl.jumpChain>0) pl.jumpChain=Math.min(pl.jumpChain+1,3); else pl.jumpChain=1;
         pl.vy = (pl.activePower==='ultrajump') ? -TUNE.ultraJumpVel : jumpVel(pl, pl.activePower==='superjump'?9:[0,5,8,9][pl.jumpChain]);
         pl.onGround=false; pl.jumpBuffer=0; fired=true; sfx('jump'); hideTips();
@@ -1137,12 +1151,17 @@ function stepPlayer(pl,dt){
     }
   }
   // Proteção de borda (Fácil e alternância) — andar não derruba em fosso; só cai segurando ↓ (não vale na água/escada/voo/aranha)
-  if((pl.easy||pl.toggleMove) && pl.onGround && pl.vx!==0 && !held(pl,'down') && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
+  if((pl.easy||pl.toggleMove||wheelchair) && pl.onGround && pl.vx!==0 && !held(pl,'down') && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
     const dirX=pl.vx>0?1:-1, leadX=pl.x+dirX*(BOX.w/2)+pl.vx*dt;
     if(!solidAt(Math.floor(leadX/TILE), Math.floor((pl.y+1)/TILE))) pl.vx=0;
   }
   const _preX=pl.x, _preY=pl.y;
   pl.x+=pl.vx*dt; resolveX(pl);
+  // Cadeirante: RAMPA automática — encostou num degrau de 1 tile (com espaço acima) → sobe suavemente (sem pulo)
+  if(wheelchair && dir!==0 && pl.onGround && !pl.onLadder && !pl.inWater && !pl.flying){
+    const ax=Math.floor((pl.x+dir*(BOX.w/2+1))/TILE), footTy=Math.floor((pl.y-1)/TILE);
+    if(solidAt(ax,footTy) && !solidAt(ax,footTy-1) && !solidAt(ax,Math.floor((pl.y-BOX.h-1)/TILE))){ pl.y-=3; pl.x+=dir*0.6; } // sobe a rampa
+  }
   pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
   if(pl.clinging) spiderReattach(pl,_preX,_preY); // E18c: mantém contato e contorna quinas (parede↔teto↔topo)
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
@@ -1256,6 +1275,8 @@ function draw(){
     pl.sprite.scale.set((pl.facing<0?-1:1), 1); // sem escala procedural (parecia mastigar) — respiração agora é por FRAMES
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
+  chairLayer.clear(); // cadeirante: desenha a cadeira nos jogadores (exceto nadando/voando)
+  if(wheelchair){ for(const pl of players){ if(pl.sprite&&pl.sprite.visible&&!pl.inWater&&!pl.flying) drawChair(chairLayer,pl); } }
   easyHitbox.clear(); // Fácil: hitbox de coleta tolerante (retângulo translúcido) — só para os jogadores em Fácil
   const pad=EASY.pad; for(const pl of players){ if(!pl.easy)continue;
     easyHitbox.lineStyle(1,0xffffff,0.45); easyHitbox.beginFill(0xffffff,0.10);
@@ -1545,10 +1566,10 @@ function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)retu
   el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ setPlayerViz(selVizPlayer,btn.dataset.viz); srSay((numPlayers>1?'Jogador '+(selVizPlayer+1)+': ':'')+VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+'.'); }));
 }
 function renderVisual(){ renderVizGroup('#visual-list','#visual-players',VIZ_HELP); }
-function renderEmpathy(){ renderVizGroup('#empathy-list','#empathy-players',VIZ_SIM); const h=$('#opt-hearing'); if(h){ toggleBtn(h,hearingLoss); h.textContent=hearingLoss?'❚❚ Ligado':'▶ Desligado'; } }
+function renderEmpathy(){ renderVizGroup('#empathy-list','#empathy-players',VIZ_SIM); const h=$('#opt-hearing'); if(h){ toggleBtn(h,hearingLoss); h.textContent=hearingLoss?'❚❚ Ligado':'▶ Desligado'; } if(typeof reflectMotorEmpathy==='function')reflectMotorEmpathy(); }
 function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&(m.kind==='bordas'||m.kind==='hc');});
   const sim=players.some(p=>isSimKind((VIZ_BY_KEY[p.viz]||{}).kind));
-  const bv=$('#opt-visual'); if(bv)bv.classList.toggle('is-on',help); const be=$('#opt-empathy'); if(be)be.classList.toggle('is-on',sim||hearingLoss); }
+  const bv=$('#opt-visual'); if(bv)bv.classList.toggle('is-on',help); const be=$('#opt-empathy'); if(be)be.classList.toggle('is-on',sim||hearingLoss||oneButton||wheelchair); }
 function openVisual(){ const ov=$('#visual'); if(!ov)return; renderVisual(); ov.hidden=false; visualOpen=true; const f=ov.querySelector('button[data-viz]')||ov.querySelector('button'); if(f)f.focus(); }
 function closeVisual(){ const ov=$('#visual'); if(!ov)return; ov.hidden=true; visualOpen=false; const b=$('#opt-visual'); if(b)b.focus(); }
 function openEmpathy(){ const ov=$('#empathy'); if(!ov)return; renderEmpathy(); ov.hidden=false; empathyOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
@@ -1559,6 +1580,16 @@ const empathyBtn=$('#opt-empathy'); if(empathyBtn)empathyBtn.addEventListener('c
 const empathyClose=$('#empathy-close'); if(empathyClose)empathyClose.addEventListener('click',closeEmpathy);
 const hearingBtn=$('#opt-hearing'); if(hearingBtn)hearingBtn.addEventListener('click',()=>{ setHearingLoss(!hearingLoss); renderEmpathy(); reflectVizButtons(); });
 try{ if(localStorage.getItem('incl_hearingloss')==='1'){ hearingLoss=true; } }catch(e){}
+// Empatia motora: um-botão e cadeirante
+function reflectMotorEmpathy(){ const a=$('#opt-onebtn'); if(a){ a.classList.toggle('is-on',oneButton); a.setAttribute('aria-pressed',String(oneButton)); a.textContent=oneButton?'❚❚ Ligado':'▶ Desligado'; }
+  const b=$('#opt-wheelchair'); if(b){ b.classList.toggle('is-on',wheelchair); b.setAttribute('aria-pressed',String(wheelchair)); b.textContent=wheelchair?'❚❚ Ligado':'▶ Desligado'; } reflectVizButtons(); }
+function setOneButton(on){ oneButton=on; try{localStorage.setItem('incl_onebtn',on?'1':'0');}catch(e){} reflectMotorEmpathy(); srSay('Um botão por vez '+(on?'ligado: só uma tecla/botão de cada vez.':'desligado.')); }
+function setWheelchair(on){ wheelchair=on; try{localStorage.setItem('incl_wheelchair',on?'1':'0');}catch(e){}
+  players.forEach(p=>{ if(on && p.activePower!=='fly' && p.activePower!=='turbo') p.activePower='off'; if(on) p.owned=p.owned.filter(k=>k==='fly'||k==='turbo'); showPower(p); });
+  setupExtras(); rebuildCoins(); reflectMotorEmpathy(); // só voo/super-corrida; moedas no chão; escada/trampolim viram elevador
+  srSay('Modo cadeirante '+(on?'ligado: sem pulo; rampas e elevadores no lugar de degraus e escada; moedas no chão; só voo e super-corrida.':'desligado.')); }
+const oneBtn=$('#opt-onebtn'); if(oneBtn)oneBtn.addEventListener('click',()=>setOneButton(!oneButton));
+const wheelBtn=$('#opt-wheelchair'); if(wheelBtn)wheelBtn.addEventListener('click',()=>setWheelchair(!wheelchair));
 // bolinha indicadora: duplo toque/clique → volta às cores normais (em cegueira é a única saída visível)
 (function vizIndicator(){ const el=$('#viz-indicator'); if(!el)return; let last=-9999;
   el.addEventListener('pointerdown',(e)=>{ e.preventDefault(); const t=e.timeStamp||0; if(t-last<450){ setPlayerViz(0,'normal'); last=-9999; srSay('Cores normais reativadas.'); } else last=t; }); })();
