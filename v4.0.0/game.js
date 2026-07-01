@@ -1919,6 +1919,31 @@ const touchStartBtn=$('#touch-start'); if(touchStartBtn)touchStartBtn.addEventLi
 function padLayoutFromId(id){ id=(id||'').toLowerCase(); if(/dualshock|dualsense|playstation|054c/.test(id))return 'sony'; if(/switch|nintendo|joy-con|057e/.test(id))return 'nintendo'; if(/xbox|xinput|microsoft|045e/.test(id))return 'microsoft'; return 'generic'; }
 addEventListener('gamepadconnected', (e)=>{ try{ applyPadDesign(padLayoutFromId(e.gamepad.id)); const sel=$('#pad-design'); if(sel)sel.value=padDesign; srSay('Controle conectado: layout '+padDesign+'.'); }catch(err){} }); // A2: layout pelo id do controle
 const padDesignSel=$('#pad-design'); if(padDesignSel){ padDesignSel.value=padDesign; padDesignSel.addEventListener('change',()=>{ applyPadDesign(padDesignSel.value); srSay('Desenho dos botões: '+padDesignSel.value+'.'); }); } // A4: escolha manual (DirectInput/genérico)
+// TAMANHO FÍSICO (mm) dos botões de toque — NÃO px. WCAG mede alvos de toque físicos, não botões
+// virtuais sobre canvas. Conversão mm→px ancorada no iPhone 16 a tela cheia (aresta longa 141,1mm
+// do display 1179×2556 @460ppi → ~6,04 px CSS/mm). No aparelho-alvo fica exato; noutros, proporcional.
+const IPHONE16_LONG_MM=141.1;
+function padPxPerMm(){ return Math.max(window.innerWidth,window.innerHeight)/IPHONE16_LONG_MM; }
+let padBtnMm=(()=>{try{return parseFloat(localStorage.getItem('incl_padbtnmm'))||11;}catch(e){return 11;}})();
+let padGapMm=(()=>{try{return parseFloat(localStorage.getItem('incl_padgapmm'))||2.5;}catch(e){return 2.5;}})();
+function padHandTag(v,lo,hi){ return v<=lo?'crianca':v>=hi?'adulto':'inter'; }
+function applyPadPhysical(){ const r=padPxPerMm(); const btn=padBtnMm*r, gap=padGapMm*r; const diam=btn+Math.SQRT2*(btn+gap); // geometria do losango: folga de aresta = gap
+  document.documentElement.style.setProperty('--pad-btn',btn.toFixed(1)+'px');
+  document.documentElement.style.setProperty('--pad-diam',diam.toFixed(1)+'px');
+  const fmt=(n)=>n.toFixed(1).replace('.',','), lbl={crianca:'mão de criança',adulto:'mão de adulto',inter:'intermediário'};
+  const bv=$('#pad-size-val'); if(bv)bv.textContent=fmt(padBtnMm)+' mm';
+  const gv=$('#pad-gap-val'); if(gv)gv.textContent=fmt(padGapMm)+' mm';
+  const bt=$('#pad-size-tag'); if(bt){ const who=padHandTag(padBtnMm,11,12); bt.dataset.who=who; bt.textContent=lbl[who]; }
+  const gt=$('#pad-gap-tag'); if(gt){ const who=padHandTag(padGapMm,2.5,5); gt.dataset.who=who; gt.textContent=lbl[who]; }
+  const bs=$('#pad-size'); if(bs&&parseFloat(bs.value)!==padBtnMm)bs.value=padBtnMm;
+  const gs=$('#pad-gap'); if(gs&&parseFloat(gs.value)!==padGapMm)gs.value=padGapMm; }
+function setPadMm(btn,gap){ if(btn!=null)padBtnMm=btn; if(gap!=null)padGapMm=gap; try{localStorage.setItem('incl_padbtnmm',padBtnMm);localStorage.setItem('incl_padgapmm',padGapMm);}catch(e){} applyPadPhysical(); }
+applyPadPhysical();
+addEventListener('resize',applyPadPhysical); // recalcula os px ao girar/redimensionar; os mm são fixos
+const padSizeEl=$('#pad-size'); if(padSizeEl)padSizeEl.addEventListener('input',()=>setPadMm(parseFloat(padSizeEl.value),null));
+const padGapEl=$('#pad-gap'); if(padGapEl)padGapEl.addEventListener('input',()=>setPadMm(null,parseFloat(padGapEl.value)));
+const padPresetChild=$('#pad-preset-child'); if(padPresetChild)padPresetChild.addEventListener('click',()=>{ setPadMm(11,2.5); srSay('Botões no tamanho de mão de criança (6 a 12 anos).'); });
+const padPresetAdult=$('#pad-preset-adult'); if(padPresetAdult)padPresetAdult.addEventListener('click',()=>{ setPadMm(13,5); srSay('Botões no tamanho de mão de adulto.'); });
 // JOGAR COM OS OLHOS (webcam): WebGazer lazy (CDN no 1º uso; futuro: vendorizar p/ offline). Olhar esq/dir anda; olhar p/ cima pula.
 let eyeMode=false, _eyeKeys={left:false,right:false,up:false};
 function eyeSet(k,on,code){ if(_eyeKeys[k]===on)return; _eyeKeys[k]=on; const ev=new KeyboardEvent(on?'keydown':'keyup',{code:code,bubbles:true}); window.dispatchEvent(ev); document.dispatchEvent(ev); }

@@ -176,6 +176,14 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 .ctrl-list{display:flex;flex-direction:column;gap:.45rem;text-align:left}
 .ctrl-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;background:#0e1326;border:2px solid var(--ink-soft);border-radius:8px;padding:.4rem .6rem}
 .ctrl-row kbd{background:var(--ink);color:var(--bg);border-radius:5px;padding:.05em .45em;font-weight:700}
+.ctrl-row.ctrl-col{flex-direction:column;align-items:stretch;gap:.4rem}
+.ctrl-row.ctrl-col label{font-weight:700}
+.pad-presets{display:flex;gap:.5rem;flex-wrap:wrap}
+.pad-tag{font-size:.8rem;font-weight:700;padding:.05em .5em;border-radius:999px;background:#20304e;color:#bcd}
+.pad-tag[data-who="crianca"]{background:#2a4a2e;color:#bfe9c2}
+.pad-tag[data-who="adulto"]{background:#2a3a5e;color:#c3d4f0}
+.pad-warn{font-size:.85rem;color:#ffdf9e;background:#3a2e12;border:1px solid #6a5220;border-radius:8px;padding:.45rem .6rem}
+.ctrl-col input[type=range]{width:100%;min-height:var(--tap);accent-color:var(--accent)}
 
 /* E13: controles de toque (mobile) — overlay nas bordas inferiores, não cobre o centro */
 .touch{position:absolute;inset:auto 0 0 0;z-index:14;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;padding:6px 8px;pointer-events:none}
@@ -185,15 +193,15 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 .touch-jump{background:rgba(18,74,52,.94)}
 /* Botões de ação em LOSANGO (4 bolhas: 0 baixo, 1 direita, 2 esquerda, 3 cima) + START pílula */
 .touch-actions{align-items:center}
-/* Losango no MENOR tamanho que respeita WCAG 2.5.5 AAA: bolhas de 44px (alvo mínimo AAA) com
-   folga ~10px entre vizinhas (não sobrepõem; folga pequena = melhor p/ mãos pequenas e menos tela perdida). */
-.pad-diamond{position:relative;width:120px;height:120px;pointer-events:none}
-.pad-b{position:absolute;width:var(--tap);height:var(--tap);border-radius:50%;font-size:1.2rem;pointer-events:auto;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+/* Tamanho FÍSICO (mm), não px: --pad-btn e --pad-diam são calculados no JS a partir de mm reais
+   (referência: iPhone 16 ocupando a tela toda). Config em A12e motora. Fallback antes do JS rodar. */
+.pad-diamond{position:relative;width:var(--pad-diam,182px);height:var(--pad-diam,182px);pointer-events:none}
+.pad-b{position:absolute;width:var(--pad-btn,66px);height:var(--pad-btn,66px);border-radius:50%;font-size:calc(var(--pad-btn,66px)*.42);font-weight:800;pointer-events:auto;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
 .pad-top{top:0;left:50%;transform:translateX(-50%)}
 .pad-bottom{bottom:0;left:50%;transform:translateX(-50%)}
 .pad-left{left:0;top:50%;transform:translateY(-50%)}
 .pad-right{right:0;top:50%;transform:translateY(-50%)}
-.touch-start{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);min-height:var(--tap);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;pointer-events:auto;border-radius:999px;padding:0 22px;font-weight:800;font-size:.82rem;letter-spacing:.08em;background:rgba(13,17,32,.92);color:#fff;border:2px solid rgba(255,255,255,.75);cursor:pointer;z-index:15}
+.touch-start{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);min-height:calc(var(--pad-btn,66px)*.7);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;pointer-events:auto;border-radius:999px;padding:0 22px;font-weight:800;font-size:.82rem;letter-spacing:.08em;background:rgba(13,17,32,.92);color:#fff;border:2px solid rgba(255,255,255,.75);cursor:pointer;z-index:15}
 .touch-start:active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 /* joystick digital: base (círculo maior) + manopla (círculo menor) */
 .touch-stick{position:relative;width:124px;height:124px;border-radius:50%;border:3px solid rgba(255,255,255,.7);background:rgba(13,17,32,.85);touch-action:none;pointer-events:auto;-webkit-user-select:none;user-select:none}

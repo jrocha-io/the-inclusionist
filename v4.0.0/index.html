@@ -202,6 +202,17 @@
         <div class="ctrl-row"><span><strong>Movimento por alternância</strong> — para quem não consegue manter pressionado (1 dedo): toque a direção para andar sem segurar; toque de novo para parar; <em>segure para ir mais rápido</em> (a corrida que desafia). O pulo não interrompe a caminhada.</span>
           <button id="opt-altmove" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
       </div>
+      <div class="ctrl-list" role="group" aria-label="Botões de toque na tela">
+        <div class="ctrl-row ctrl-col"><span><strong>📱 Botões de toque — tamanho físico</strong> — calculado em <em>milímetros reais</em> (referência: tela cheia de um iPhone 16), não em pixels. Ajuste ao tamanho da mão de quem joga.</span>
+          <div class="pad-presets"><button id="pad-preset-child" class="mode-btn" type="button">🧒 Mão de criança (6–12)</button><button id="pad-preset-adult" class="mode-btn" type="button">🧑 Mão de adulto</button></div></div>
+        <div class="ctrl-row ctrl-col"><label for="pad-size">Tamanho dos botões: <b id="pad-size-val">11,0 mm</b> <span id="pad-size-tag" class="pad-tag"></span></label>
+          <input type="range" id="pad-size" min="9" max="15" step="0.5" value="11" aria-describedby="pad-size-hint">
+          <span id="pad-size-hint" class="opt-hint" style="margin:0">9–11 mm = mão de criança (6–12 anos) · 12 mm ou mais = mão de adulto.</span></div>
+        <div class="ctrl-row ctrl-col"><label for="pad-gap">Distância entre botões: <b id="pad-gap-val">2,5 mm</b> <span id="pad-gap-tag" class="pad-tag"></span></label>
+          <input type="range" id="pad-gap" min="1.5" max="5" step="0.5" value="2.5" aria-describedby="pad-gap-hint">
+          <span id="pad-gap-hint" class="opt-hint" style="margin:0">1,5–2,5 mm = mão de criança · 5 mm = mão de adulto.</span></div>
+        <div class="ctrl-row"><span class="pad-warn">⚠ Criança usando botões de adulto pode desenvolver dor por esforço repetitivo (alongamento excessivo do polegar); adulto usando botões de criança pode sentir fadiga por flexão excessiva das falanges. Use o tamanho da mão de quem joga.</span></div>
+      </div>
       <div class="ctrl-list" role="group" aria-label="Mapeamento de controles">
         <div class="ctrl-row"><span><strong>⌨ Mapeamento de controles</strong> — redefina as teclas de cada jogador.</span>
           <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Mapeamento de controles</button></div>
