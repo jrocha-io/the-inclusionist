@@ -574,6 +574,7 @@ const rm=(()=>{ try{ const s=JSON.parse(localStorage.getItem('inclusionist.reduc
 function saveRM(){ try{ localStorage.setItem('inclusionist.reducedmotion.v1',JSON.stringify(rm)); }catch(e){} }
 // Movimento por alternância (1 dedo): tocar a direção trava a marcha; segurar acelera; pulo não interrompe. Persistido.
 function loadPlayerA11y(p,i){ try{ const v=localStorage.getItem('incl_viz_p'+i); if(v&&VIZ_BY_KEY[v])p.viz=v;
+  p.audioSink=localStorage.getItem('incl_sink_p'+i)||null; // saída de áudio própria do jogador (setSinkId)
   p.easy=localStorage.getItem('incl_easy_p'+i)==='1'; p.toggleMove=localStorage.getItem('incl_togglemove_p'+i)==='1';
   p.rmWalk=localStorage.getItem('incl_rmWalk_p'+i)==='1'; p.rmBreath=localStorage.getItem('incl_rmBreath_p'+i)==='1'; p.rmFlavor=localStorage.getItem('incl_rmFlavor_p'+i)==='1';
   if(i===0){ const ov=localStorage.getItem('incl_viz'); if(ov&&VIZ_BY_KEY[ov]&&localStorage.getItem('incl_viz_p0')==null)p.viz=ov; // migra chaves antigas
@@ -623,16 +624,21 @@ function catNode(cat){ const ac=ensureAC(); if(!ac)return null; const out=audioO
 function setCatGain(cat){ const g=_catNodes[cat]; if(g&&audioCtx)g.gain.setTargetAtTime(audioCat[cat].on?audioCat[cat].vol:0, audioCtx.currentTime, 0.02); try{localStorage.setItem('incl_audiocat_'+cat,JSON.stringify(audioCat[cat]));}catch(e){} }
 // ===== F2: efeitos de interação com o ambiente (passos por superfície, portas, escada) — ruído filtrado sintetizado =====
 let _noiseBuf=null, _footCount=0;
-function noiseBuffer(ac){ if(_noiseBuf&&_noiseBuf.length===((ac.sampleRate*0.2)|0))return _noiseBuf; const n=(ac.sampleRate*0.2)|0,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0); for(let i=0;i<n;i++)d[i]=Math.random()*2-1; return _noiseBuf=b; }
+function noiseBuffer(ac){ if(ac._noiseBuf&&ac._noiseBuf.length===((ac.sampleRate*0.2)|0))return ac._noiseBuf; const n=(ac.sampleRate*0.2)|0,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0); for(let i=0;i<n;i++)d[i]=Math.random()*2-1; return ac._noiseBuf=b; } // cache por-contexto (suporta AudioContext por jogador)
+// ÁUDIO POR DISPOSITIVO (por jogador): um AudioContext por jogador, roteado com setSinkId ao dispositivo escolhido.
+// Só p/ as PISTAS por jogador (bengala/sonar/guarda/guia/nado). Sem dispositivo próprio → usa o contexto global.
+function playerCtx(pl){ if(!pl || !pl.audioSink) return null;
+  try{ if(!pl._ac){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return null; pl._ac=new AC(); pl._acOut=pl._ac.createGain(); pl._acOut.connect(pl._ac.destination); if(pl._ac.setSinkId)pl._ac.setSinkId(pl.audioSink).catch(()=>{}); }
+    if(pl._ac.state==='suspended')pl._ac.resume(); return {ac:pl._ac, out:pl._acOut}; }catch(e){ return null; } }
 // timbre por material: filtro + frequência + duração + volume (grama macia, piso seco, pedra brilhante, areia abafada, madeira grave, ferro metálico)
 const FOOT={ grama:{f:'highpass',hz:2000,d:0.09,v:0.10}, piso:{f:'bandpass',hz:1200,d:0.06,v:0.15}, pedra:{f:'highpass',hz:1600,d:0.05,v:0.19},
   areia:{f:'lowpass',hz:650,d:0.13,v:0.10}, madeira:{f:'bandpass',hz:480,d:0.08,v:0.15}, ferro:{f:'bandpass',hz:2600,d:0.12,v:0.16}, parede:{f:'highpass',hz:3200,d:0.10,v:0.08},
   terra:{f:'lowpass',hz:520,d:0.11,v:0.12}, agua:{f:'lowpass',hz:330,d:0.15,v:0.13} }; // bengala (cego): terra abafada, água molhada
-function noiseHit(mat,pan){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; const f=FOOT[mat]||FOOT.piso; try{
+function noiseHit(mat,pan,pc){ if(!soundOn||volume<=0)return; const ac=pc?pc.ac:ensureAC(); if(!ac)return; const f=FOOT[mat]||FOOT.piso; try{
   const src=ac.createBufferSource(); src.buffer=noiseBuffer(ac); const bq=ac.createBiquadFilter(); bq.type=f.f; bq.frequency.value=f.hz; bq.Q.value=1.2;
   const g=ac.createGain(),t=ac.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,f.v*volume),t+0.006); g.gain.exponentialRampToValueAtTime(0.0001,t+f.d);
   let node=g; if(pan!=null&&ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,pan)); g.connect(p); node=p; } // F3 usará o pan; F2 passa pan=0
-  src.connect(bq).connect(g); node.connect(catNode('interact')||audioOut()||ac.destination); src.start(t); src.stop(t+f.d+0.03); _footCount++;
+  src.connect(bq).connect(g); node.connect(pc?pc.out:(catNode('interact')||audioOut()||ac.destination)); src.start(t); src.stop(t+f.d+0.03); _footCount++; // pc = dispositivo do jogador
 }catch(e){} }
 // material sob os pés (cenário Cidade = concreto → 'piso'; futuros cenários mapeiam grama/areia/pedra)
 function surfaceUnder(pl){ const t=tileAt(Math.floor(pl.x/TILE),Math.floor((pl.y+1)/TILE)); if(t!==2&&t!==6&&t!==5)return null; return CENARIO==='cidade'?'piso':'pedra'; }
@@ -649,9 +655,9 @@ function caneProbe(pl){ const dir=pl.facing<0?-1:1;
   return SURF_MAT[CENARIO]||'pedra';
 }
 let _caneCount=0;
-function caneTap(pl){ const mat=caneProbe(pl), dir=pl.facing<0?-1:1, pan=dir*0.5; _caneCount++;
-  if(mat==='vazio'){ tonePan(150,0.18,'guard',pan,0.16,'sine'); return; }   // vazio = tom grave oco (nada à frente)
-  noiseHit(mat,pan);                                                        // batida no material adiante (panorâmica na direção)
+function caneTap(pl){ const mat=caneProbe(pl), dir=pl.facing<0?-1:1, pan=dir*0.5, pc=playerCtx(pl); _caneCount++;
+  if(mat==='vazio'){ tonePan(150,0.18,'guard',pan,0.16,'sine',pc); return; } // vazio = tom grave oco (nada à frente)
+  noiseHit(mat,pan,pc);                                                      // batida no material adiante (no dispositivo do jogador)
 }
 // NADO CEGO: guia por contato com as bordas (azulejo das paredes, chão) e superfície (cordas flutuantes).
 let _waterNavCount=0;
@@ -659,12 +665,12 @@ function waterNav(pl){ const dir=pl.facing<0?-1:1, tx=Math.floor(pl.x/TILE), tyF
   const wallAhead = solidAt(tx+dir,tyF)||solidAt(tx+dir,tyH);               // parede lateral (azulejo)
   const floorBelow = solidAt(tx,tyF+1);                                     // chão (fundo)
   const openAbove = tileAt(tx,tyH-1)!==3 && !solidAt(tx,tyH-1);             // acima da cabeça é ar → dá p/ subir/sair
-  const moving=(dir!==0)||held(pl,'up')||held(pl,'down');
+  const moving=(dir!==0)||held(pl,'up')||held(pl,'down'), pc=playerCtx(pl);
   pl.wnT=(pl.wnT||0)+1; if(pl.wnT<18)return; let played=true;
-  if(openAbove && wallAhead) noiseHit('parede', dir*0.5);                   // superfície + parede = batida (fim da corda)
-  else if(openAbove && moving) tonePan(560,0.09,'guide', dir*0.4, 0.12,'sine'); // corda/superfície livre: "dá p/ subir aqui"
-  else if(wallAhead && dir!==0) noiseHit('parede', dir*0.5);               // parede submersa (azulejo) à frente
-  else if(floorBelow && held(pl,'down')) noiseHit('areia', 0);            // fundo (chão)
+  if(openAbove && wallAhead) noiseHit('parede', dir*0.5, pc);               // superfície + parede = batida (fim da corda)
+  else if(openAbove && moving) tonePan(560,0.09,'guide', dir*0.4, 0.12,'sine', pc); // corda/superfície livre: "dá p/ subir aqui"
+  else if(wallAhead && dir!==0) noiseHit('parede', dir*0.5, pc);           // parede submersa (azulejo) à frente
+  else if(floorBelow && held(pl,'down')) noiseHit('areia', 0, pc);        // fundo (chão)
   else played=false;
   if(played){ pl.wnT=0; _waterNavCount++; } else pl.wnT=17; }              // sem contato = SEM som (pronto p/ tocar ao encostar)
 function doorSound(mat){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; try{ // porta: rangido (madeira) ou clangor (ferro) + baque
@@ -673,16 +679,16 @@ function doorSound(mat){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(
   o.connect(g).connect(catNode('interact')||audioOut()||ac.destination); o.start(t); o.stop(t+0.4); noiseHit(mat==='ferro'?'ferro':'madeira'); }catch(e){} }
 // ===== F3: espacialização (pan pela direção, tom pela distância) + sonar + guarda de beirada =====
 function panFor(wx,pl){ return Math.max(-1,Math.min(1,(wx-pl.x)/(LOGICAL_W*0.55))); } // esquerda −1 … direita +1
-function tonePan(freq,dur,cat,pan,vol,type){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; try{
+function tonePan(freq,dur,cat,pan,vol,type,pc){ if(!soundOn||volume<=0)return; const ac=pc?pc.ac:ensureAC(); if(!ac)return; try{
   const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime; o.type=type||'sine'; o.frequency.value=freq;
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.2)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   let node=g; if(pan!=null&&ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,pan)); g.connect(p); node=p; }
-  o.connect(g); node.connect(catNode(cat)||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
+  o.connect(g); node.connect(pc?pc.out:(catNode(cat)||audioOut()||ac.destination)); o.start(t); o.stop(t+dur+0.02); }catch(e){} } // pc = dispositivo do jogador
 function needsAudioCues(pl){ if(modoCego)return true; const m=VIZ_BY_KEY[pl.viz]; return !!(m&&(m.kind==='blind'||m.kind==='lowvision')); } // guarda/guia só quando a visão está comprometida ou no modo cego
 let _sonarCount=0;
 function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){ if(cn.taken)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
-  if(!best){ tonePan(300,0.2,'sonar',0,0.2,'sine'); srSay('Nenhuma moeda por perto.'); return; }
-  const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(12*TILE)); tonePan(380+740*near,0.16,'sonar',pan,0.26,'sine'); // mais perto = mais agudo
+  const pc=playerCtx(pl); if(!best){ tonePan(300,0.2,'sonar',0,0.2,'sine',pc); srSay('Nenhuma moeda por perto.'); return; }
+  const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(12*TILE)); tonePan(380+740*near,0.16,'sonar',pan,0.26,'sine',pc); // mais perto = mais agudo (dispositivo do jogador)
   const lado=best.x<pl.x-4?'à esquerda':best.x>pl.x+4?'à direita':'à frente', dist=bd<4*TILE?'bem perto':bd<9*TILE?'perto':'longe';
   const msg=(numPlayers>1?'Jogador '+(pl.i+1)+': ':'')+'Sonar: moeda '+lado+', '+dist+'.'; srSay(msg); narrate(msg); }
 // ===== F4: camadas de AMBIENTE (loops sintetizados) + PISTA/GUIA auditivo (beacon em laço) =====
@@ -714,7 +720,7 @@ function drawWeather(){ if(!weatherLayer)return; const g=weatherLayer; if(weathe
 function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
   for(const pl of players){ if(!needsAudioCues(pl))continue; pl.guideT=(pl.guideT||0)+1; if(pl.guideT<48)continue; pl.guideT=0; // pinga ~0,8s
     let best=null,bd=1e9; for(const cn of coins){ if(cn.taken)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
-    if(best){ const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(14*TILE)); tonePan(300+380*near,0.12,'guide',pan,0.11,'triangle'); _guideCount++; } } }
+    if(best){ const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(14*TILE)); tonePan(300+380*near,0.12,'guide',pan,0.11,'triangle',playerCtx(pl)); _guideCount++; } } }
 // ===== F5 (plumbing): camada de narração TTS. Motor NEURAL (Piper pt-BR) é carregado LAZY (ver docs/plano-tts-fase-f5.md).
 // Decisões: pt-BR=Piper (só ele tem pt-BR); lazy-fetch de CDN + cache; voz Faber agora, seleção de voz depois.
 let ttsEngine=null, ttsLoading=false, _narrateCount=0, ttsLang='pt-BR', ttsVoice='faber';
@@ -1381,7 +1387,7 @@ function stepPlayer(pl,dt){
   // F3: guarda de beirada — bipa ao caminhar em direção a um fosso (só quando a visão está comprometida: blind/baixa visão)
   if(needsAudioCues(pl) && pl.onGround && dir!==0 && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
     const leadTx=Math.floor((pl.x+dir*(BOX.w/2+TILE*0.5))/TILE), belowTy=Math.floor((pl.y+1)/TILE);
-    if(!solidAt(leadTx,belowTy)){ pl.guardT+=dt; if(pl.guardT>=9){ pl.guardT=0; tonePan(760,0.06,'guard',panFor((leadTx+0.5)*TILE,pl),0.16,'square'); } } else pl.guardT=99;
+    if(!solidAt(leadTx,belowTy)){ pl.guardT+=dt; if(pl.guardT>=9){ pl.guardT=0; tonePan(760,0.06,'guard',panFor((leadTx+0.5)*TILE,pl),0.16,'square',playerCtx(pl)); } } else pl.guardT=99;
   } else pl.guardT=99;
   if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
   // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico). Fácil: hitbox de coleta +4px por lado.
@@ -1837,7 +1843,7 @@ function renderAudio(){ const el=$('#audio-list'); if(!el)return; reflectAudioMa
   el.querySelectorAll('button[data-acat]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.acat; audioCat[k].on=!audioCat[k].on; setCatGain(k); renderAudio(); }));
   el.querySelectorAll('input[data-avol]').forEach(s=>s.addEventListener('input',()=>{ const k=s.dataset.avol; audioCat[k].vol=(+s.value)/100; audioCat[k].on=true; setCatGain(k); const bb=el.querySelector('button[data-acat="'+k+'"]'); if(bb){bb.classList.add('is-on');bb.setAttribute('aria-pressed','true');bb.textContent='🔊';} }));
 }
-function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); reflectModoCego(); reflectTTS(); populateTTSEngines(); populateTTSVoices(); const cd=$('#cane-div'); if(cd)cd.value=String(caneBlockDiv); ov.hidden=false; audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); reflectModoCego(); reflectTTS(); populateTTSEngines(); populateTTSVoices(); renderAudioSinks(); const cd=$('#cane-div'); if(cd)cd.value=String(caneBlockDiv); ov.hidden=false; audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeAudio(){ const ov=$('#audio'); if(!ov)return; ov.hidden=true; audioOpen=false; const b=$('#opt-sound'); if(b)b.focus(); }
 // A12e auditiva: Modo cego (só áudio) + seleção de voz (Web Speech agora; neurais em breve)
 function reflectModoCego(){ const b=$('#opt-modocego'); if(b){ toggleBtn(b,modoCego); b.textContent=modoCego?'❚❚ Ligado':'▶ Desligado'; } }
@@ -1867,6 +1873,21 @@ const ttsTestBtn=$('#opt-tts-test'); if(ttsTestBtn)ttsTestBtn.addEventListener('
   else { try{ const ss=window.speechSynthesis; if(ss){ ss.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; u.rate=1; u.volume=1; ss.speak(u); } }catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); } // fallback audível (volume 1) + dispara download do neural
   srSay('Testando a voz selecionada.'); });
 try{ if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged=populateTTSVoices; }catch(e){}
+// Saída de áudio POR JOGADOR (setSinkId): detecta fones/caixas e atribui 1 por jogador
+let _audioDevices=[];
+async function detectAudioDevices(){ try{ await navigator.mediaDevices.getUserMedia({audio:true}).then(s=>s.getTracks().forEach(t=>t.stop())).catch(()=>{}); const devs=await navigator.mediaDevices.enumerateDevices(); _audioDevices=devs.filter(d=>d.kind==='audiooutput'); }catch(e){ _audioDevices=[]; } renderAudioSinks(); }
+function renderAudioSinks(){ const el=$('#audio-sinks'); if(!el)return; el.innerHTML='';
+  const supported=!!(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices)&&(typeof (window.AudioContext||window.webkitAudioContext)!=='undefined');
+  if(!_audioDevices.length){ el.innerHTML='<p class="opt-hint">'+(supported?'Clique em Detectar (pede permissão de áudio para listar os aparelhos).':'Este navegador não suporta troca de saída (ex.: Safari/iOS).')+'</p>'; return; }
+  for(let i=0;i<Math.max(1,numPlayers);i++){ const p=players[i]; const row=document.createElement('div'); row.className='ctrl-row';
+    const lbl=document.createElement('label'); lbl.textContent='Jogador '+(i+1); lbl.setAttribute('for','sink-p'+i);
+    const sel=document.createElement('select'); sel.className='vol'; sel.id='sink-p'+i;
+    const o0=document.createElement('option'); o0.value=''; o0.textContent='Padrão (compartilhado)'; sel.appendChild(o0);
+    _audioDevices.forEach((d,k)=>{ const o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||('Saída '+(k+1)); sel.appendChild(o); });
+    sel.value=(p&&p.audioSink)||'';
+    sel.addEventListener('change',()=>{ if(!p)return; p.audioSink=sel.value||null; try{localStorage.setItem('incl_sink_p'+i,p.audioSink||'');}catch(e){} if(p._ac){ try{p._ac.close();}catch(e){} p._ac=null; p._acOut=null; } srSay('Jogador '+(i+1)+' — saída de áudio '+(p.audioSink?'trocada.':'padrão.')); });
+    row.appendChild(lbl); row.appendChild(sel); el.appendChild(row); } }
+const audioDetectBtn=$('#audio-detect'); if(audioDetectBtn)audioDetectBtn.addEventListener('click',detectAudioDevices);
 const audioMasterBtn=$('#audio-master'); if(audioMasterBtn)audioMasterBtn.addEventListener('click',()=>{ soundOn=!soundOn; reflectAudioMaster(); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 const audioMasterVol=$('#audio-master-vol'); if(audioMasterVol)audioMasterVol.addEventListener('input',()=>{ volume=(+audioMasterVol.value)/100; if(volume>0&&!soundOn){ soundOn=true; reflectAudioMaster(); } });
 const audioCloseBtn=$('#audio-close'); if(audioCloseBtn)audioCloseBtn.addEventListener('click',closeAudio);

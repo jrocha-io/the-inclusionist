@@ -238,6 +238,12 @@
           <button id="opt-tts-test" class="mode-btn" type="button">🔊 Testar voz</button></div>
         <p class="opt-hint" id="tts-note">Motores neurais (Piper, Kokoro, Kitten) baixam no 1º uso e rodam offline; enquanto isso, usa a voz do navegador (Web Speech) ou o eSpeak embutido.</p>
       </div>
+      <h3 class="panel-sub">Saída de áudio por jogador <span class="panel-sub__tag">1 dispositivo por jogador</span></h3>
+      <div class="ctrl-list" role="group" aria-label="Saída de áudio por jogador">
+        <p class="opt-hint">Cada jogador pode usar um fone/caixa diferente — bengala, sonar e guia vão só para o dispositivo dele (impossível jogar com batidas misturadas). Com 1 dispositivo, só 1 jogador por vez aproveita a acessibilidade auditiva; a empatia de perda auditiva desliga a acessibilidade auditiva.</p>
+        <div class="ctrl-row"><span>Detectar fones/caixas conectados</span><button id="audio-detect" class="mode-btn" type="button">🔎 Detectar</button></div>
+        <div id="audio-sinks"></div>
+      </div>
       <h3 class="panel-sub">Som</h3>
       <div class="ctrl-list" role="group" aria-label="Som geral">
         <div class="ctrl-row"><span><strong>Som</strong> (mestre)</span><button id="audio-master" class="mode-btn" type="button" aria-pressed="true">🔊 Ligado</button></div>
