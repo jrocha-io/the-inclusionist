@@ -975,7 +975,7 @@ const decoSprites=[];
 /* ===================== E12: power-ups + chave/portão ===================== */
 function powerupCanvas(kind){
   const cv=makeCanvas(12,12),c=cv.getContext('2d');
-  const COL={superjump:'#7fdcff',ultrajump:'#b388ff',turbo:'#34e29b',fly:'#c8a2ff',wallcling:'#ff9a4d',key:'#ffd23f'};
+  const COL={superjump:'#7fdcff',ultrajump:'#b388ff',turbo:'#34e29b',fly:'#c8a2ff',wallcling:'#ff9a4d',key:'#ffd23f',runcane:'#eaeaea'};
   const col=COL[kind]||'#7fdcff', BG='#04121a';
   c.fillStyle=BG; c.fillRect(1,0,10,12); c.fillRect(0,1,12,10);   // fundo escuro, cantos cortados (pixel-rounded, sem AA)
   c.fillStyle=col;
@@ -986,11 +986,12 @@ function powerupCanvas(kind){
   else if(kind==='turbo'){ triR(2,6,9,4); triR(6,6,9,4); }                                  // » super-corrida
   else if(kind==='fly'){ triR(1,5,9,6); c.fillStyle=BG; c.fillRect(4,6,1,1); c.fillRect(6,6,1,1); } // asa = voo (com nervuras)
   else if(kind==='wallcling'){ pixDisc(c,6,6,4,col); pixDisc(c,6,6,1.6,BG); }               // ventosa
+  else if(kind==='runcane'){ for(let i=0;i<6;i++)c.fillRect(3+i,2+i,2,1); pixDisc(c,9,10,1.9,col); pixDisc(c,9,10,0.8,BG); c.fillStyle='#d23b3b'; c.fillRect(7,6,2,1); } // bengala de corrida: haste diagonal + roda + faixa vermelha
   else { pixDisc(c,4,6,3,col); pixDisc(c,4,6,1.3,BG); c.fillStyle=col; c.fillRect(6,5,5,2); c.fillRect(9,7,1,1); c.fillRect(10,7,1,2); } // ⚷ chave (anel + haste + dentes)
   return cv;
 }
 const PUP_CANVAS={}, PUP_TEX={};
-['superjump','ultrajump','turbo','fly','wallcling','key'].forEach(k=>{ PUP_CANVAS[k]=powerupCanvas(k); PUP_TEX[k]=tex(PUP_CANVAS[k]); });
+['superjump','ultrajump','turbo','fly','wallcling','key','runcane'].forEach(k=>{ PUP_CANVAS[k]=powerupCanvas(k); PUP_TEX[k]=tex(PUP_CANVAS[k]); });
 const _pupTexHC={}; // {mode:{kind:tex}} — power-up: contorno (bordas) ou recolor (hc)
 function pupTexFor(kind,mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return PUP_TEX[kind]; (_pupTexHC[mode]=_pupTexHC[mode]||{});
   if(!_pupTexHC[mode][kind]) _pupTexHC[mode][kind] = m.kind==='hc' ? tex(gradientMapCanvas(PUP_CANVAS[kind],hcPal(m).item)) : tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[mode][kind]; }
@@ -1012,8 +1013,10 @@ function rebuildExtras(){
 }
 function setupExtras(){
   // itens e portão vêm das posições REAIS do mapa Clarity (não mais aleatórios)
+  const _blind = modoCego || players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&m.kind==='blind';}); // experiência de cego ativa?
   powerups = MAP_ITEMS.filter(it=> !wheelchair || it.kind==='fly'||it.kind==='turbo'||it.kind==='key') // cadeirante: só voo/super-corrida (chave mantida p/ o portão)
     .map(it=>({ x:it.tx*TILE+2, y:it.ty*TILE+2, kind:it.kind, taken:false, sprite:null }));
+  if(_blind){ const first=powerups.find(pu=>pu.kind!=='key'); if(first) first.kind='runcane'; } // cego: 1º item de poder vira a bengala de corrida (habilita correr)
   gateTiles = new Set(MAP_GATE.map(g=>g.tx+','+g.ty));
   gate = MAP_GATE.length ? MAP_GATE : null;
   gateOpen = MAP_GATE.length===0; // havendo portão, começa FECHADO (abre com a chave)
@@ -1365,6 +1368,7 @@ function stepPlayer(pl,dt){
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
       if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
+      else if(pu.kind==='runcane'){ pl.runCane=true; sfx('power'); const pm=who+'Bengala de corrida! Agora dá para correr — segure Correr.'; srSay(pm); narrate(pm); } // cego: habilita correr (bengala com roda)
       else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); narrate(pm); } // entra no inventário; ativo = o último pego
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
@@ -1706,7 +1710,7 @@ function renderVpOverlay(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='low
 function updateVpDots(){ for(let i=0;i<vpDots.length;i++){ const g=vpDots[i], m=VIZ_BY_KEY[players[i]&&players[i].viz]; if(!g)continue;
   const on=m&&(m.kind==='blind'||m.kind==='lowvision'); g.visible=!!on; if(on){ g.clear(); g.lineStyle(1,0x000000,.6); g.beginFill(m.kind==='blind'?0xffffff:0x36d36a); g.drawCircle(0,0,5); g.endFill(); } } }
 function applyVpFilters(){ for(let i=0;i<numPlayers;i++){ if(vpSpr[i])vpSpr[i].filters=pixiFilterFor(players[i].viz); } }
-function setModoCego(on){ if(modoCego===on)return; modoCego=on; try{localStorage.setItem('incl_modocego',on?'1':'0');}catch(e){} if(typeof reflectModoCego==='function')reflectModoCego(); srSay('Modo cego '+(on?'ligado: bengala e pistas de áudio ativas.':'desligado.')); }
+function setModoCego(on){ if(modoCego===on)return; modoCego=on; try{localStorage.setItem('incl_modocego',on?'1':'0');}catch(e){} if(typeof setupExtras==='function')setupExtras(); if(typeof reflectModoCego==='function')reflectModoCego(); srSay('Modo cego '+(on?'ligado: bengala e pistas de áudio ativas. O 1º item de poder vira a bengala de corrida.':'desligado.')); }
 function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; players[i].viz=m.key; try{localStorage.setItem('incl_viz_p'+i,m.key);}catch(e){} _lastSharedViz=null;
   if(m.kind==='blind') setModoCego(true); // empatia cegueira total liga o modo cego (áudio) por padrão
   if(numPlayers<=1 && i===0){ applyVizGlobal(m.key); } else { applyVpFilters(); updateVpDots(); }
