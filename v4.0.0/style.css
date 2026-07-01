@@ -204,8 +204,9 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 .touch-start{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);min-height:calc(var(--pad-btn,66px)*.7);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;pointer-events:auto;border-radius:999px;padding:0 22px;font-weight:800;font-size:.82rem;letter-spacing:.08em;background:rgba(13,17,32,.92);color:#fff;border:2px solid rgba(255,255,255,.75);cursor:pointer;z-index:15}
 .touch-start:active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 /* joystick digital: base (círculo maior) + manopla (círculo menor) */
-.touch-stick{position:relative;width:124px;height:124px;border-radius:50%;border:3px solid rgba(255,255,255,.7);background:rgba(13,17,32,.85);touch-action:none;pointer-events:auto;-webkit-user-select:none;user-select:none}
-.touch-knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 0 0 2px rgba(0,0,0,.45);transition:transform .04s linear;pointer-events:none}
+/* Direcional (analógico/"alavanca"): base = superfície + deslocamento; manopla = superfície de contato. Ambos em mm (JS). */
+.touch-stick{position:relative;width:var(--stick-base,124px);height:var(--stick-base,124px);border-radius:50%;border:3px solid rgba(255,255,255,.7);background:rgba(13,17,32,.85);touch-action:none;pointer-events:auto;-webkit-user-select:none;user-select:none}
+.touch-knob{position:absolute;left:50%;top:50%;width:var(--stick-knob,58px);height:var(--stick-knob,58px);margin:calc(var(--stick-knob,58px)/-2) 0 0 calc(var(--stick-knob,58px)/-2);border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 0 0 2px rgba(0,0,0,.45);transition:transform .04s linear;pointer-events:none}
 @media (prefers-reduced-motion: reduce){ .touch-knob{transition:none} }
 @media (prefers-contrast: more){ .touch-btn{background:#000;border-color:#fff} .touch-btn:active{background:#fff;color:#000} .touch-stick{background:#000;border-color:#fff} .touch-knob{background:#fff} }
 

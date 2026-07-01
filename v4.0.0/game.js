@@ -1922,28 +1922,40 @@ const padDesignSel=$('#pad-design'); if(padDesignSel){ padDesignSel.value=padDes
 // TAMANHO FÍSICO (mm) dos botões de toque — NÃO px. WCAG mede alvos de toque físicos, não botões
 // virtuais sobre canvas. Conversão mm→px ancorada no iPhone 16 a tela cheia (aresta longa 141,1mm
 // do display 1179×2556 @460ppi → ~6,04 px CSS/mm). No aparelho-alvo fica exato; noutros, proporcional.
+// Defaults baseados na ciência (botões que se SEGURA + multitoque, não toque fino):
+//  botão 12,5mm (piso 11mm > alvo de polegar Parhi 9,6mm; segurar cansa mais em botão pequeno),
+//  folga 3mm (evita apertar 2 sem esticar o polegar), analógico 18mm (capuz físico ~18–20mm),
+//  deslocamento 4,5mm. Faixa criança↔adulto estreita: crianças NÃO devem ir a alvos minúsculos.
 const IPHONE16_LONG_MM=141.1;
 function padPxPerMm(){ return Math.max(window.innerWidth,window.innerHeight)/IPHONE16_LONG_MM; }
-let padBtnMm=(()=>{try{return parseFloat(localStorage.getItem('incl_padbtnmm'))||11;}catch(e){return 11;}})();
-let padGapMm=(()=>{try{return parseFloat(localStorage.getItem('incl_padgapmm'))||2.5;}catch(e){return 2.5;}})();
+const padLoad=(k,d)=>{ try{ const v=parseFloat(localStorage.getItem(k)); return isNaN(v)?d:v; }catch(e){ return d; } };
+let padBtnMm=padLoad('incl_padbtnmm',12.5), padGapMm=padLoad('incl_padgapmm',3);
+let padStickMm=padLoad('incl_padstickmm',18), padTravelMm=padLoad('incl_padtravelmm',4.5);
+let _stickTravelPx=42, _stickDeadPx=12; // atualizados por applyPadPhysical; lidos pelo joystick
 function padHandTag(v,lo,hi){ return v<=lo?'crianca':v>=hi?'adulto':'inter'; }
-function applyPadPhysical(){ const r=padPxPerMm(); const btn=padBtnMm*r, gap=padGapMm*r; const diam=btn+Math.SQRT2*(btn+gap); // geometria do losango: folga de aresta = gap
-  document.documentElement.style.setProperty('--pad-btn',btn.toFixed(1)+'px');
-  document.documentElement.style.setProperty('--pad-diam',diam.toFixed(1)+'px');
+function applyPadPhysical(){ const r=padPxPerMm();
+  const btn=padBtnMm*r, gap=padGapMm*r, diam=btn+Math.SQRT2*(btn+gap); // losango: folga de aresta = gap
+  const knob=padStickMm*r, travel=padTravelMm*r, base=knob+2*travel+16; // base do analógico = contato + curso
+  _stickTravelPx=travel; _stickDeadPx=Math.max(6,travel*0.4); // deslocamento útil + zona-morta (~40% do curso)
+  const S=document.documentElement.style;
+  S.setProperty('--pad-btn',btn.toFixed(1)+'px'); S.setProperty('--pad-diam',diam.toFixed(1)+'px');
+  S.setProperty('--stick-knob',knob.toFixed(1)+'px'); S.setProperty('--stick-base',base.toFixed(1)+'px');
   const fmt=(n)=>n.toFixed(1).replace('.',','), lbl={crianca:'mão de criança',adulto:'mão de adulto',inter:'intermediário'};
-  const bv=$('#pad-size-val'); if(bv)bv.textContent=fmt(padBtnMm)+' mm';
-  const gv=$('#pad-gap-val'); if(gv)gv.textContent=fmt(padGapMm)+' mm';
-  const bt=$('#pad-size-tag'); if(bt){ const who=padHandTag(padBtnMm,11,12); bt.dataset.who=who; bt.textContent=lbl[who]; }
-  const gt=$('#pad-gap-tag'); if(gt){ const who=padHandTag(padGapMm,2.5,5); gt.dataset.who=who; gt.textContent=lbl[who]; }
-  const bs=$('#pad-size'); if(bs&&parseFloat(bs.value)!==padBtnMm)bs.value=padBtnMm;
-  const gs=$('#pad-gap'); if(gs&&parseFloat(gs.value)!==padGapMm)gs.value=padGapMm; }
-function setPadMm(btn,gap){ if(btn!=null)padBtnMm=btn; if(gap!=null)padGapMm=gap; try{localStorage.setItem('incl_padbtnmm',padBtnMm);localStorage.setItem('incl_padgapmm',padGapMm);}catch(e){} applyPadPhysical(); }
+  const upd=(valId,tagId,mm,lo,hi,slId)=>{ const v=$(valId); if(v)v.textContent=fmt(mm)+' mm'; const t=$(tagId); if(t){ const w=padHandTag(mm,lo,hi); t.dataset.who=w; t.textContent=lbl[w]; } const s=$(slId); if(s&&parseFloat(s.value)!==mm)s.value=mm; };
+  upd('#pad-size-val','#pad-size-tag',padBtnMm,12.5,13,'#pad-size');
+  upd('#pad-gap-val','#pad-gap-tag',padGapMm,3,4.5,'#pad-gap');
+  upd('#pad-stick-val','#pad-stick-tag',padStickMm,17,19,'#pad-stick');
+  upd('#pad-travel-val','#pad-travel-tag',padTravelMm,4,5.5,'#pad-travel'); }
+function setPadMm(o){ if(o.btn!=null)padBtnMm=o.btn; if(o.gap!=null)padGapMm=o.gap; if(o.stick!=null)padStickMm=o.stick; if(o.travel!=null)padTravelMm=o.travel;
+  try{localStorage.setItem('incl_padbtnmm',padBtnMm);localStorage.setItem('incl_padgapmm',padGapMm);localStorage.setItem('incl_padstickmm',padStickMm);localStorage.setItem('incl_padtravelmm',padTravelMm);}catch(e){} applyPadPhysical(); }
 applyPadPhysical();
 addEventListener('resize',applyPadPhysical); // recalcula os px ao girar/redimensionar; os mm são fixos
-const padSizeEl=$('#pad-size'); if(padSizeEl)padSizeEl.addEventListener('input',()=>setPadMm(parseFloat(padSizeEl.value),null));
-const padGapEl=$('#pad-gap'); if(padGapEl)padGapEl.addEventListener('input',()=>setPadMm(null,parseFloat(padGapEl.value)));
-const padPresetChild=$('#pad-preset-child'); if(padPresetChild)padPresetChild.addEventListener('click',()=>{ setPadMm(11,2.5); srSay('Botões no tamanho de mão de criança (6 a 12 anos).'); });
-const padPresetAdult=$('#pad-preset-adult'); if(padPresetAdult)padPresetAdult.addEventListener('click',()=>{ setPadMm(13,5); srSay('Botões no tamanho de mão de adulto.'); });
+const padSizeEl=$('#pad-size'); if(padSizeEl)padSizeEl.addEventListener('input',()=>setPadMm({btn:parseFloat(padSizeEl.value)}));
+const padGapEl=$('#pad-gap'); if(padGapEl)padGapEl.addEventListener('input',()=>setPadMm({gap:parseFloat(padGapEl.value)}));
+const padStickEl=$('#pad-stick'); if(padStickEl)padStickEl.addEventListener('input',()=>setPadMm({stick:parseFloat(padStickEl.value)}));
+const padTravelEl=$('#pad-travel'); if(padTravelEl)padTravelEl.addEventListener('input',()=>setPadMm({travel:parseFloat(padTravelEl.value)}));
+const padPresetChild=$('#pad-preset-child'); if(padPresetChild)padPresetChild.addEventListener('click',()=>{ setPadMm({btn:12,gap:2.5,stick:16.5,travel:4}); srSay('Controles no tamanho de mão de criança (6 a 12 anos).'); });
+const padPresetAdult=$('#pad-preset-adult'); if(padPresetAdult)padPresetAdult.addEventListener('click',()=>{ setPadMm({btn:14,gap:4.5,stick:20,travel:5.5}); srSay('Controles no tamanho de mão de adulto.'); });
 // JOGAR COM OS OLHOS (webcam): WebGazer lazy (CDN no 1º uso; futuro: vendorizar p/ offline). Olhar esq/dir anda; olhar p/ cima pula.
 let eyeMode=false, _eyeKeys={left:false,right:false,up:false};
 function eyeSet(k,on,code){ if(_eyeKeys[k]===on)return; _eyeKeys[k]=on; const ev=new KeyboardEvent(on?'keydown':'keyup',{code:code,bubbles:true}); window.dispatchEvent(ev); document.dispatchEvent(ev); }
@@ -2149,10 +2161,10 @@ function showTouchControls(){ if(numPlayers>1) return; const tc=document.querySe
   // joystick digital: base (círculo grande) + manopla (círculo menor) que desliza p/ a direção tocada → 8 direções
   const stick=$('#touch-stick'), knob=stick&&stick.querySelector('.touch-knob');
   if(stick&&knob){
-    const R=42, DEAD=12; let pid=null;
+    let pid=null; // deslocamento (R) e zona-morta (DEAD) vêm de _stickTravelPx/_stickDeadPx (mm, config em A12e motora)
     const dirState={left:false,right:false,up:false,down:false};
     const setDir=(d,on)=>{ if(dirState[d]===on)return; dirState[d]=on; on?press(d):release(d); };
-    const move=(px,py)=>{ const r=stick.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const move=(px,py)=>{ const R=_stickTravelPx, DEAD=_stickDeadPx; const r=stick.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
       let dx=px-cx, dy=py-cy; const m=Math.hypot(dx,dy)||1; const f=m>R?R/m:1;
       knob.style.transform=`translate(${dx*f}px,${dy*f}px)`;
       setDir('left',dx<-DEAD); setDir('right',dx>DEAD); setDir('up',dy<-DEAD); setDir('down',dy>DEAD); };

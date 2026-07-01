@@ -203,15 +203,21 @@
           <button id="opt-altmove" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
       </div>
       <div class="ctrl-list" role="group" aria-label="Botões de toque na tela">
-        <div class="ctrl-row ctrl-col"><span><strong>📱 Botões de toque — tamanho físico</strong> — calculado em <em>milímetros reais</em> (referência: tela cheia de um iPhone 16), não em pixels. Ajuste ao tamanho da mão de quem joga.</span>
+        <div class="ctrl-row ctrl-col"><span><strong>📱 Botões de toque — tamanho físico</strong> — em <em>milímetros reais</em> (referência: tela cheia de um iPhone 16), não em pixels. Estes são botões que se <em>segura</em> (andar, correr) com dois ou três dedos ao mesmo tempo — não é toque fino. Ajuste ao tamanho da mão.</span>
           <div class="pad-presets"><button id="pad-preset-child" class="mode-btn" type="button">🧒 Mão de criança (6–12)</button><button id="pad-preset-adult" class="mode-btn" type="button">🧑 Mão de adulto</button></div></div>
-        <div class="ctrl-row ctrl-col"><label for="pad-size">Tamanho dos botões: <b id="pad-size-val">11,0 mm</b> <span id="pad-size-tag" class="pad-tag"></span></label>
-          <input type="range" id="pad-size" min="9" max="15" step="0.5" value="11" aria-describedby="pad-size-hint">
-          <span id="pad-size-hint" class="opt-hint" style="margin:0">9–11 mm = mão de criança (6–12 anos) · 12 mm ou mais = mão de adulto.</span></div>
-        <div class="ctrl-row ctrl-col"><label for="pad-gap">Distância entre botões: <b id="pad-gap-val">2,5 mm</b> <span id="pad-gap-tag" class="pad-tag"></span></label>
-          <input type="range" id="pad-gap" min="1.5" max="5" step="0.5" value="2.5" aria-describedby="pad-gap-hint">
-          <span id="pad-gap-hint" class="opt-hint" style="margin:0">1,5–2,5 mm = mão de criança · 5 mm = mão de adulto.</span></div>
-        <div class="ctrl-row"><span class="pad-warn">⚠ Criança usando botões de adulto pode desenvolver dor por esforço repetitivo (alongamento excessivo do polegar); adulto usando botões de criança pode sentir fadiga por flexão excessiva das falanges. Use o tamanho da mão de quem joga.</span></div>
+        <div class="ctrl-row ctrl-col"><label for="pad-size">Tamanho dos botões de ação: <b id="pad-size-val">12,5 mm</b> <span id="pad-size-tag" class="pad-tag"></span></label>
+          <input type="range" id="pad-size" min="11" max="16" step="0.5" value="12.5" aria-describedby="pad-size-hint">
+          <span id="pad-size-hint" class="opt-hint" style="margin:0">11–12,5 mm = mão de criança (6–12 anos) · 13 mm ou mais = adulto. Mínimo 11 mm: abaixo disso o polegar erra mais e <em>segurar</em> cansa antes (base: alvo de polegar ~9,6 mm + fadiga de toque sustentado).</span></div>
+        <div class="ctrl-row ctrl-col"><label for="pad-gap">Distância entre botões: <b id="pad-gap-val">3,0 mm</b> <span id="pad-gap-tag" class="pad-tag"></span></label>
+          <input type="range" id="pad-gap" min="2" max="6" step="0.5" value="3" aria-describedby="pad-gap-hint">
+          <span id="pad-gap-hint" class="opt-hint" style="margin:0">2–3 mm = mão de criança · 4,5 mm ou mais = adulto. Evita apertar dois de uma vez sem esticar demais o polegar.</span></div>
+        <div class="ctrl-row ctrl-col"><label for="pad-stick">Superfície do direcional (analógico): <b id="pad-stick-val">18,0 mm</b> <span id="pad-stick-tag" class="pad-tag"></span></label>
+          <input type="range" id="pad-stick" min="15" max="22" step="0.5" value="18" aria-describedby="pad-stick-hint">
+          <span id="pad-stick-hint" class="opt-hint" style="margin:0">15–17 mm = criança · 19 mm ou mais = adulto. Referência: capuz de analógico físico (~18–20 mm) — contato do polegar apoiado, não ponta do dedo.</span></div>
+        <div class="ctrl-row ctrl-col"><label for="pad-travel">Deslocamento do direcional: <b id="pad-travel-val">4,5 mm</b> <span id="pad-travel-tag" class="pad-tag"></span></label>
+          <input type="range" id="pad-travel" min="3" max="7" step="0.5" value="4.5" aria-describedby="pad-travel-hint">
+          <span id="pad-travel-hint" class="opt-hint" style="margin:0">3–4 mm = criança · 5,5 mm ou mais = adulto. Quanto o polegar desliza do centro para registrar a direção.</span></div>
+        <div class="ctrl-row"><span class="pad-warn">⚠ Orientação ergonômica (precautória, não diagnóstico): criança em botões de adulto tende a esforço repetitivo por alongar demais o polegar; adulto em botões de criança tende a fadiga por flexão excessiva das falanges. Use o tamanho da mão de quem joga e faça pausas.</span></div>
       </div>
       <div class="ctrl-list" role="group" aria-label="Mapeamento de controles">
         <div class="ctrl-row"><span><strong>⌨ Mapeamento de controles</strong> — redefina as teclas de cada jogador.</span>
