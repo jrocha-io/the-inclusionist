@@ -653,6 +653,20 @@ function caneTap(pl){ const mat=caneProbe(pl), dir=pl.facing<0?-1:1, pan=dir*0.5
   if(mat==='vazio'){ tonePan(150,0.18,'guard',pan,0.16,'sine'); return; }   // vazio = tom grave oco (nada à frente)
   noiseHit(mat,pan);                                                        // batida no material adiante (panorâmica na direção)
 }
+// NADO CEGO: guia por contato com as bordas (azulejo das paredes, chão) e superfície (cordas flutuantes).
+let _waterNavCount=0;
+function waterNav(pl){ const dir=pl.facing<0?-1:1, tx=Math.floor(pl.x/TILE), tyF=Math.floor((pl.y-1)/TILE), tyH=Math.floor((pl.y-BOX.h)/TILE);
+  const wallAhead = solidAt(tx+dir,tyF)||solidAt(tx+dir,tyH);               // parede lateral (azulejo)
+  const floorBelow = solidAt(tx,tyF+1);                                     // chão (fundo)
+  const openAbove = tileAt(tx,tyH-1)!==3 && !solidAt(tx,tyH-1);             // acima da cabeça é ar → dá p/ subir/sair
+  const moving=(dir!==0)||held(pl,'up')||held(pl,'down');
+  pl.wnT=(pl.wnT||0)+1; if(pl.wnT<18)return; let played=true;
+  if(openAbove && wallAhead) noiseHit('parede', dir*0.5);                   // superfície + parede = batida (fim da corda)
+  else if(openAbove && moving) tonePan(560,0.09,'guide', dir*0.4, 0.12,'sine'); // corda/superfície livre: "dá p/ subir aqui"
+  else if(wallAhead && dir!==0) noiseHit('parede', dir*0.5);               // parede submersa (azulejo) à frente
+  else if(floorBelow && held(pl,'down')) noiseHit('areia', 0);            // fundo (chão)
+  else played=false;
+  if(played){ pl.wnT=0; _waterNavCount++; } else pl.wnT=17; }              // sem contato = SEM som (pronto p/ tocar ao encostar)
 function doorSound(mat){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; try{ // porta: rangido (madeira) ou clangor (ferro) + baque
   const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime; o.type=mat==='ferro'?'square':'sawtooth'; o.frequency.setValueAtTime(mat==='ferro'?520:200,t); o.frequency.exponentialRampToValueAtTime(mat==='ferro'?300:110,t+0.3);
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.14*volume,t+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
@@ -1063,6 +1077,13 @@ const WC_ELEVATORS=[ {cols:[53,54], yTop:42*TILE, yBottom:45*TILE, kind:'wide'} 
 function buildWcGeom(){ wcSolid=new Set(); if(!wheelchair)return; for(const b of WC_BRIDGES) wcSolid.add(b.x+','+b.y); }
 buildWcGeom();
 buildRamps(); // desenha as rampas + coberturas (lava, pontes) se já iniciar em modo cadeirante
+// CORDAS FLUTUANTES na superfície da água (o cego atravessa por elas; visual para todos)
+const ropeLayer=new PIXI.Graphics(); camera.addChildAt(ropeLayer, camera.getChildIndex(worldSprite)+1);
+function buildRopes(){ ropeLayer.clear();
+  for(let y=1;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ if(tileAt(x,y)!==3||tileAt(x,y-1)===3)continue; const X=x*TILE, Y=y*TILE+1; // topo da poça (superfície)
+    ropeLayer.lineStyle(1,0xcaa96a,0.85); ropeLayer.moveTo(X,Y); ropeLayer.lineTo(X+TILE,Y); ropeLayer.lineStyle(0);
+    ropeLayer.beginFill(0x8a6f3a); ropeLayer.drawRect(X+TILE/2-1,Y-1,2,2); ropeLayer.endFill(); } } // nó
+buildRopes();
 // ELEVADOR (cadeirante): trampolim = plataforma LARGA, escada = plataforma FINA. Toque ↑/↓ = viaja até a parada segura.
 const ELEV_SPEED=2.4; let elevShafts=[];
 function buildElevators(){ elevShafts=[]; if(!wheelchair)return;
@@ -1344,6 +1365,7 @@ function stepPlayer(pl,dt){
     else if(pl.onGround && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m); } } } // normal: passo no chão sob os pés
   else if(pl.onLadder && pl.vy!==0){ pl.stepT+=dt; if(pl.stepT>=20){ pl.stepT=0; noiseHit('madeira'); } }
   else if(pl.clinging && (pl.vx!==0||pl.vy!==0)){ pl.stepT+=dt; if(pl.stepT>=16){ pl.stepT=0; noiseHit('parede'); } }
+  else if(pl.inWater && caneOn(pl)){ waterNav(pl); } // NADO CEGO: guia por contato (paredes/chão/superfície-cordas)
   else pl.stepT=99; // parado → próximo passo soa logo ao recomeçar
   // F3: guarda de beirada — bipa ao caminhar em direção a um fosso (só quando a visão está comprometida: blind/baixa visão)
   if(needsAudioCues(pl) && pl.onGround && dir!==0 && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
