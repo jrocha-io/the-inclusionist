@@ -204,6 +204,8 @@ select.vol:focus, .overlay__card select:focus{outline:3px solid var(--accent);ou
 .ctrl-list{display:flex;flex-direction:column;gap:.45rem;text-align:left}
 .ctrl-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;background:#0e1326;border:2px solid var(--ink-soft);border-radius:8px;padding:.4rem .6rem}
 .ctrl-row kbd{background:var(--ink);color:var(--bg);border-radius:5px;padding:.05em .45em;font-weight:700}
+.ctrl-row.row-off{opacity:.42} /* item desabilitado (ex.: modo de teclado indisponível) = só cinza claro, sem texto extra */
+.ctrl-row .mode-btn[disabled]{cursor:not-allowed;opacity:.7}
 .ctrl-row.ctrl-col{flex-direction:column;align-items:stretch;gap:.4rem}
 .ctrl-row.ctrl-col label{font-weight:700}
 .pad-presets{display:flex;gap:.5rem;flex-wrap:wrap}

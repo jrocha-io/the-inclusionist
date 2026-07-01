@@ -516,12 +516,15 @@ addEventListener('keydown',(e)=>{
     m[captureAction]=[e.code]; saveKB(); applyControls(); assignControls();
     captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
   }
-  if(optionsOpen){ if(e.code==='Escape')closeOptions(); return; } // diálogo aberto: não joga
-  if(movementOpen){ if(e.code==='Escape')closeMovement(); return; }
-  if(animationOpen){ if(e.code==='Escape')closeAnimation(); return; }
-  if(visualOpen){ if(e.code==='Escape')closeVisual(); return; }
-  if(empathyOpen){ if(e.code==='Escape')closeEmpathy(); return; }
-  if(audioOpen){ if(e.code==='Escape')closeAudio(); return; }
+  // Diálogo aberto: só bloqueia o jogo se o elemento estiver DE FATO visível (flag preso não trava mais o teclado).
+  const dlgVis=(id)=>{ const el=$('#'+id); return el && !el.hidden; };
+  if(optionsOpen && dlgVis('options')){ if(e.code==='Escape')closeOptions(); return; }
+  if(movementOpen && dlgVis('movement')){ if(e.code==='Escape')closeMovement(); return; }
+  if(animationOpen && dlgVis('animation')){ if(e.code==='Escape')closeAnimation(); return; }
+  if(visualOpen && dlgVis('visual')){ if(e.code==='Escape')closeVisual(); return; }
+  if(empathyOpen && dlgVis('empathy')){ if(e.code==='Escape')closeEmpathy(); return; }
+  if(audioOpen && dlgVis('audio')){ if(e.code==='Escape')closeAudio(); return; }
+  if(dlgVis('touchcfg')){ if(e.code==='Escape'){ const t=$('#touchcfg'); if(t)t.hidden=true; } return; }
   if(!player.quiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
@@ -2099,9 +2102,9 @@ function renderMapHub(){ const el=$('#map-hub'); if(!el)return; const np=numPlay
     {lbl:'🎤 Mapear palavras (fala)', soon:true},
   ];
   el.innerHTML='<h3 class="panel-sub">Mapear controles <span class="panel-sub__tag">por jogador</span></h3>'+
-    items.map((it,i)=>{ const off=it.mode&&it.mode!==np; // teclado: só habilita no modo com esse nº de telas
-      const note=it.soon?' <em style="opacity:.7">(em construção)</em>':(off?` <em style="opacity:.7">(disponível no modo ${it.mode} jogador${it.mode>1?'es':''})</em>`:'');
-      return `<div class="ctrl-row"><span>${it.lbl}${note}</span><button class="mode-btn" type="button" data-map="${i}"${(it.soon||off)?' disabled':''}>${it.soon?'Em breve':(off?'—':'Abrir')}</button></div>`; }).join('');
+    items.map((it,i)=>{ const off=it.mode&&it.mode!==np, dis=it.soon||off; // teclado: só habilita no modo com esse nº de telas (o resto fica cinza)
+      const note=it.soon?' <em style="opacity:.7">(em construção)</em>':'';
+      return `<div class="ctrl-row${dis?' row-off':''}"><span>${it.lbl}${note}</span><button class="mode-btn" type="button" data-map="${i}"${dis?' disabled':''}>${it.soon?'Em breve':'Abrir'}</button></div>`; }).join('');
   el.querySelectorAll('button[data-map]').forEach(b=>b.addEventListener('click',()=>{ const it=items[+b.dataset.map]; if(it.soon){ mapSoon(it.lbl.replace(/^\S+\s/,'')); return; } if(it.mode&&it.mode!==np){ srAlert('Disponível só no modo '+it.mode+' jogador'+(it.mode>1?'es':'')+'. Troque o nº de telas na barra do topo.'); return; } it.act(); }));
 }
 function openAnimation(){ const ov=$('#animation'); if(!ov)return; renderMotion(); ov.hidden=false; frontOverlay(ov); animationOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
@@ -2178,13 +2181,19 @@ function setPhase(p){
   else if(p==='title'){ const b=$('#btn-play'); if(b)b.focus(); }
 }
 // Navegação do menu de pausa: direcionais movem; "sim"/pulo (Space/J) confirma; Enter/ESC/START cancelam (tratados no keydown global).
-function pauseNavKey(e){ if(phase!=='paused')return; const pa=$('#pause-overlay'); if(!pa||pa.hidden)return; const items=[...pa.querySelectorAll('.pm-btn')]; if(!items.length)return;
+function pauseNavKey(e){ if(phase!=='paused')return;
+  if(optionsOpen||movementOpen||animationOpen||visualOpen||empathyOpen||audioOpen)return; // submenu aberto por cima: não navega a pausa atrás
+  const tcfg=$('#touchcfg'); if(tcfg&&!tcfg.hidden)return;
+  const pa=$('#pause-overlay'); if(!pa||pa.hidden)return; const items=[...pa.querySelectorAll('.pm-btn')]; if(!items.length)return;
   let idx=items.findIndex(b=>b.classList.contains('pm-sel')); if(idx<0)idx=0; const cols=2; let ok=true;
+  const yes=(e.code==='Space'||e.code==='KeyJ'||(controls.jump&&controls.jump.includes(e.code)));   // "sim" = pulo (A/✕/0)
+  const no=(controls.especial&&controls.especial.includes(e.code));                                  // "não" = especial (B/○/1)
+  if(no){ setPhase('playing'); e.preventDefault(); return; }      // botão B (não) = Continuar
+  if(yes){ items[idx].click(); e.preventDefault(); return; }      // botão A (sim) = confirma o item
   if(e.code==='ArrowRight'||e.code==='KeyD')idx=Math.min(items.length-1,idx+1);
   else if(e.code==='ArrowLeft'||e.code==='KeyA')idx=Math.max(0,idx-1);
   else if(e.code==='ArrowDown'||e.code==='KeyS')idx=Math.min(items.length-1,idx+cols);
   else if(e.code==='ArrowUp'||e.code==='KeyW')idx=Math.max(0,idx-cols);
-  else if(e.code==='Space'||e.code==='KeyJ'){ items[idx].click(); e.preventDefault(); return; } // "sim" = botão de pulo
   else ok=false;
   if(ok){ e.preventDefault(); items.forEach(b=>b.classList.remove('pm-sel')); items[idx].classList.add('pm-sel'); items[idx].focus(); } }
 addEventListener('keydown', pauseNavKey, true);
