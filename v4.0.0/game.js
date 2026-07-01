@@ -1826,9 +1826,9 @@ function fillExplain(card){ if(!card)return;
 }
 function frontOverlay(el){ if(!el)return; el.style.zIndex=String(++_ovZ); const card=el.querySelector('.overlay__card'); if(card)fillExplain(card); }
 (function inCanvasMenus(){ const gr=document.getElementById('game-region'); if(!gr)return;
-  ['audio','movement','options','animation','visual','empathy'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); });
+  ['audio','movement','options','animation','visual','empathy','touchcfg'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); });
   // Botões puramente on/off viram TOGGLE (switch) — o texto "Ligado/Desligado" fica oculto (font-size:0).
-  ['opt-facil','opt-altmove','opt-hearing','opt-onebtn','opt-wheelchair','opt-modocego','opt-tts','opt-eyes','audio-master','opt-captions'].forEach(id=>{ const b=document.getElementById(id); if(b)b.classList.add('switch'); });
+  ['opt-facil','opt-altmove','opt-hearing','opt-onebtn','opt-wheelchair','opt-modocego','opt-tts','opt-eyes','audio-master','opt-captions','motion-master'].forEach(id=>{ const b=document.getElementById(id); if(b)b.classList.add('switch'); });
 })();
 function openVisual(){ const ov=$('#visual'); if(!ov)return; renderVisual(); ov.hidden=false; frontOverlay(ov); visualOpen=true; const f=ov.querySelector('button[data-viz]')||ov.querySelector('button'); if(f)f.focus(); }
 function closeVisual(){ const ov=$('#visual'); if(!ov)return; ov.hidden=true; visualOpen=false; const b=$('#opt-visual'); if(b)b.focus(); }
@@ -1864,11 +1864,11 @@ const FONT_MODES=[
 ];
 const FKEY='incl_fonte'; let fonteIdx=0; const fonteBtn=$('#opt-fonte');
 function applyFonte(announce){ const m=FONT_MODES[fonteIdx]; document.documentElement.dataset.fonte=m.id;
-  if(fonteBtn){ fonteBtn.textContent='🔤 '+m.nome+' ('+m.uso+')'; fonteBtn.setAttribute('aria-label','Fonte de leitura: '+m.nome+', para '+m.uso+'. Toque para alternar.'); }
-  if(announce) srSay('Fonte '+m.nome+', para '+m.uso+'.'); }
+  if(fonteBtn)fonteBtn.value=m.id; // opt-fonte é uma caixa de seleção (Tipografia do jogo)
+  if(announce) srSay('Tipografia '+m.nome+', para '+m.uso+'.'); }
 try{ const i=FONT_MODES.findIndex(m=>m.id===localStorage.getItem(FKEY)); if(i>=0)fonteIdx=i; }catch(e){}
 applyFonte(false);
-if(fonteBtn) fonteBtn.addEventListener('click',()=>{ fonteIdx=(fonteIdx+1)%FONT_MODES.length; try{localStorage.setItem(FKEY,FONT_MODES[fonteIdx].id);}catch(e){} applyFonte(true); });
+if(fonteBtn) fonteBtn.addEventListener('change',()=>{ const i=FONT_MODES.findIndex(m=>m.id===fonteBtn.value); if(i>=0)fonteIdx=i; try{localStorage.setItem(FKEY,FONT_MODES[fonteIdx].id);}catch(e){} applyFonte(true); });
 
 /* F1: menu de áudio (mixer por categoria) — o botão "Som" abre este menu */
 function reflectAudioMaster(){ const b=$('#audio-master'); if(b){ b.classList.toggle('is-on',soundOn); b.setAttribute('aria-pressed',String(soundOn)); b.textContent=soundOn?'🔊 Ligado':'🔇 Desligado'; } const v=$('#audio-master-vol'); if(v)v.value=Math.round(volume*100); const sb=$('#opt-sound'); if(sb)toggleBtn(sb,soundOn); }
@@ -2036,7 +2036,7 @@ function renderMotion(){ const el=$('#motion-list'); if(!el)return; if(selAnimPl
     tabs.innerHTML=numPlayers<=1?'':Array.from({length:numPlayers},(_,p)=>`<button class="mode-btn${p===selAnimPlayer?' is-on':''}" data-ap="${p}" type="button">Jogador ${p+1}</button>`).join('');
     tabs.querySelectorAll('button[data-ap]').forEach(b=>b.addEventListener('click',()=>{ selAnimPlayer=+b.dataset.ap; renderMotion(); })); }
   const p=players[selAnimPlayer];
-  const row=(lbl,on,attr,soon)=>`<div class="ctrl-row"><span>${lbl}${soon?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn${on?' is-on':''}" ${attr} type="button" aria-pressed="${on}">${on?'❄ Congelado':'▶ Animado'}</button></div>`;
+  const row=(lbl,on,attr,soon)=>`<div class="ctrl-row"><span>${lbl}${soon?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn switch${on?' is-on':''}" ${attr} type="button" aria-pressed="${on}" aria-label="${on?'Congelado':'Animado'}">${on?'❄ Congelado':'▶ Animado'}</button></div>`;
   const charRows=RM_CHAR.map(c=>row(c.lbl, p&&p[c.prop], 'data-rmc="'+c.prop+'"', false)).join('');
   const sceneRows=RM_KEYS.map(k=>row(RM_LABEL[k], rm[k], 'data-rm="'+k+'"', RM_SOON.has(k))).join('');
   el.innerHTML=`<h3 class="panel-sub">Personagem${numPlayers>1?' · Jogador '+(selAnimPlayer+1):''} <span class="panel-sub__tag">por jogador</span></h3>`+charRows+`<h3 class="panel-sub">Cena <span class="panel-sub__tag">todos os jogadores</span></h3>`+sceneRows;
@@ -2051,8 +2051,29 @@ function reflectAltMove(){ const p=players[selMovPlayer], on=!!(p&&p.toggleMove)
 const altMoveBtn=$('#opt-altmove'); if(altMoveBtn)altMoveBtn.addEventListener('click',()=>{ setToggleMove(selMovPlayer, !players[selMovPlayer].toggleMove); reflectAltMove(); });
 reflectFacil(); reflectAltMove();
 // MENU Movimento (GAG: alternância) — separado do menu Animação (WCAG: movimento reduzido)
-function openMovement(){ const ov=$('#movement'); if(!ov)return; renderMovPlayers(); reflectFacil(); reflectAltMove(); ov.hidden=false; frontOverlay(ov); movementOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function openMovement(){ const ov=$('#movement'); if(!ov)return; renderMovPlayers(); reflectFacil(); reflectAltMove(); renderMapHub(); ov.hidden=false; frontOverlay(ov); movementOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeMovement(){ const ov=$('#movement'); if(!ov)return; ov.hidden=true; movementOpen=false; const b=$('#opt-movement'); if(b)b.focus(); }
+// Submenu "Configurar botões de tela touch"
+function openTouchCfg(){ const ov=$('#touchcfg'); if(!ov)return; ov.hidden=false; frontOverlay(ov); const f=ov.querySelector('select,button'); if(f)f.focus(); }
+function closeTouchCfg(){ const ov=$('#touchcfg'); if(!ov)return; ov.hidden=true; const b=$('#opt-touchcfg'); if(b)b.focus(); }
+const touchCfgBtn=$('#opt-touchcfg'); if(touchCfgBtn)touchCfgBtn.addEventListener('click',openTouchCfg);
+const touchCfgClose=$('#touchcfg-close'); if(touchCfgClose)touchCfgClose.addEventListener('click',closeTouchCfg);
+// HUB de mapeamento (por jogador): teclado funciona (abre o remap); gamepad/olhos/setores/fala = em construção.
+function mapSoon(nome){ srAlert(nome+': em construção — chega junto com os subsistemas de webcam e fala.'); }
+function renderMapHub(){ const el=$('#map-hub'); if(!el)return;
+  const items=[
+    {lbl:'⌨ Mapear teclado — 1 jogador', act:openOptions},
+    {lbl:'⌨ Mapear teclado — 2 jogadores', act:openOptions},
+    {lbl:'⌨ Mapear teclado — 3–4 jogadores', act:openOptions},
+    {lbl:'🎮 Mapear gamepad', soon:true},
+    {lbl:'👁 Mapear olhos e boca', soon:true},
+    {lbl:'🎯 Mapear setores de olhar', soon:true},
+    {lbl:'🎤 Mapear palavras (fala)', soon:true},
+  ];
+  el.innerHTML='<h3 class="panel-sub">Mapear controles <span class="panel-sub__tag">por jogador</span></h3>'+
+    items.map((it,i)=>`<div class="ctrl-row"><span>${it.lbl}${it.soon?' <em style="opacity:.7">(em construção)</em>':''}</span><button class="mode-btn" type="button" data-map="${i}">${it.soon?'Em breve':'Abrir'}</button></div>`).join('');
+  el.querySelectorAll('button[data-map]').forEach(b=>b.addEventListener('click',()=>{ const it=items[+b.dataset.map]; it.soon?mapSoon(it.lbl.replace(/^\S+\s/,'')):it.act(); }));
+}
 function openAnimation(){ const ov=$('#animation'); if(!ov)return; renderMotion(); ov.hidden=false; frontOverlay(ov); animationOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeAnimation(){ const ov=$('#animation'); if(!ov)return; ov.hidden=true; animationOpen=false; const b=$('#opt-animation'); if(b)b.focus(); }
 const movBtn=$('#opt-movement'); if(movBtn)movBtn.addEventListener('click',openMovement);

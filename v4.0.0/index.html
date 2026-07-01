@@ -205,9 +205,27 @@
         <div class="ctrl-row"><span><strong>Movimento por alternância</strong> — para quem não consegue manter pressionado (1 dedo): toque a direção para andar sem segurar; toque de novo para parar; <em>segure para ir mais rápido</em> (a corrida que desafia). O pulo não interrompe a caminhada.</span>
           <button id="opt-altmove" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
       </div>
+      <div class="ctrl-list" role="group" aria-label="Botões de tela (toque)">
+        <div class="ctrl-row"><span><strong>📱 Botões de tela (toque)</strong> — tamanho e formato dos controles de toque, em milímetros reais.</span>
+          <button id="opt-touchcfg" class="mode-btn" type="button" aria-haspopup="dialog">⚙ Configurar botões de tela touch</button></div>
+      </div>
+      <div class="ctrl-list" role="group" aria-label="Jogar com os olhos">
+        <div class="ctrl-row"><span><strong>👁 Jogar com os olhos</strong> — controle pela webcam (para quem não usa as mãos): olhar à esquerda/direita anda; fixar o olhar no alto pula. Roda no aparelho (o vídeo não sai dele). Precisa de webcam + permissão; calibra olhando e clicando pela tela.</span>
+          <button id="opt-eyes" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
+      </div>
+      <div class="ctrl-list" role="group" aria-label="Mapear controles (por jogador)"><div id="map-hub"></div></div>
+      <div class="overlay__actions">
+        <button id="movement-close" class="mode-btn is-on" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configurar botões de tela touch (submenu da Acessibilidade motora) -->
+  <div id="touchcfg" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="touchcfg-title">
+      <h2 id="touchcfg-title">Botões de tela touch</h2>
+      <p class="opt-hint">Tamanhos em <em>milímetros reais</em> (referência: tela cheia de um iPhone 16), não pixels. São botões que se <em>segura</em> (andar, correr) com dois ou três dedos ao mesmo tempo — não é toque fino. Ajuste ao tamanho da mão.</p>
       <div class="ctrl-list" role="group" aria-label="Botões de toque na tela">
-        <div class="ctrl-row ctrl-col"><span><strong>📱 Botões de toque — tamanho físico</strong> — em <em>milímetros reais</em> (referência: tela cheia de um iPhone 16), não em pixels. Estes são botões que se <em>segura</em> (andar, correr) com dois ou três dedos ao mesmo tempo — não é toque fino. Ajuste ao tamanho da mão.</span>
-          <div class="pad-presets"><button id="pad-preset-child" class="mode-btn" type="button">🧒 Mão de criança (6–12)</button><button id="pad-preset-adult" class="mode-btn" type="button">🧑 Mão de adulto</button></div></div>
         <div class="ctrl-row ctrl-col"><label for="pad-dir">Tipo de direcional (para andar)</label>
           <select id="pad-dir" class="vol">
             <option value="stick">Analógico (alavanca) — desliza p/ a direção</option>
@@ -230,14 +248,8 @@
           <span id="pad-dpad-hint" class="opt-hint" style="margin:0">10–12 mm = criança · 14 mm ou mais = adulto. Comprimento de cada braço da cruz (referência: D-pad físico ~10–13 mm).</span></div>
         <div class="ctrl-row"><span class="pad-warn">⚠ Orientação ergonômica (precautória, não diagnóstico): criança em botões de adulto tende a esforço repetitivo por alongar demais o polegar; adulto em botões de criança tende a fadiga por flexão excessiva das falanges. Use o tamanho da mão de quem joga e faça pausas.</span></div>
       </div>
-      <div class="ctrl-list" role="group" aria-label="Mapeamento de controles">
-        <div class="ctrl-row"><span><strong>⌨ Mapeamento de controles</strong> — redefina as teclas de cada jogador.</span>
-          <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Mapeamento de controles</button></div>
-        <div class="ctrl-row"><span><strong>👁 Jogar com os olhos</strong> — controle pela webcam (para quem não usa as mãos): olhar à esquerda/direita anda; fixar o olhar no alto pula. Roda no aparelho (o vídeo não sai dele). Precisa de webcam + permissão; calibra olhando e clicando pela tela.</span>
-          <button id="opt-eyes" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
-      </div>
       <div class="overlay__actions">
-        <button id="movement-close" class="mode-btn is-on" type="button">Fechar</button>
+        <button id="touchcfg-close" class="mode-btn is-on" type="button">Fechar</button>
       </div>
     </div>
   </div>
@@ -247,13 +259,18 @@
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="animation-title">
       <h2 id="animation-title">Sensibilidade visual</h2>
       <div id="animation-players" class="ctrl-players" role="group" aria-label="Escolha o jogador" hidden></div>
-      <div style="text-align:center;margin:.2rem 0 .6rem">
-        <button id="motion-master" class="mode-btn" type="button">⏸ Parar todas as animações</button>
+      <div class="ctrl-list" role="group" aria-label="Animações">
+        <div class="ctrl-row"><span><strong>⏸ Parar todas as animações</strong> — congela cena e personagem de uma vez.</span>
+          <button id="motion-master" class="mode-btn" type="button" aria-pressed="false" aria-label="Parar todas as animações">⏸ Parar todas as animações</button></div>
       </div>
       <div id="motion-list" class="ctrl-list" role="group" aria-label="Animações"></div>
-      <div class="ctrl-list" role="group" aria-label="Fonte de leitura">
-        <div class="ctrl-row"><span><strong>🔤 Fonte de leitura</strong> — troca a tipografia (Atkinson, Andika, Lexend…).</span>
-          <button id="opt-fonte" class="mode-btn" type="button" aria-label="Trocar a fonte de leitura">🔤 Atkinson (legibilidade)</button></div>
+      <div class="ctrl-list" role="group" aria-label="Tipografia do jogo">
+        <div class="ctrl-row"><label for="opt-fonte"><strong>🔤 Tipografia do jogo</strong></label>
+          <select id="opt-fonte" class="vol" aria-label="Tipografia do jogo">
+            <option value="padrao">Atkinson — legibilidade</option>
+            <option value="alfabetizacao">Andika — alfabetização</option>
+            <option value="dislexia">Lexend — dislexia</option>
+          </select></div>
       </div>
       <div class="overlay__actions">
         <button id="animation-close" class="mode-btn is-on" type="button">Fechar</button>
