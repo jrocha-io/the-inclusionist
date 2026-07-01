@@ -1030,7 +1030,7 @@ function setupExtras(){
   const _blind = modoCego || players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&m.kind==='blind';}); // experiência de cego ativa?
   powerups = MAP_ITEMS.filter(it=> !wheelchair || it.kind==='fly'||it.kind==='turbo'||it.kind==='key') // cadeirante: só voo/super-corrida (chave mantida p/ o portão)
     .map(it=>({ x:it.tx*TILE+2, y:it.ty*TILE+2, kind:it.kind, taken:false, sprite:null }));
-  if(_blind){ const first=powerups.find(pu=>pu.kind!=='key'); if(first) first.kind='runcane'; } // cego: 1º item de poder vira a bengala de corrida (habilita correr)
+  if(_blind){ const sj=powerups.find(pu=>pu.kind==='superjump'); if(sj) sj.kind='runcane'; } // cego: o item de SUPER-PULO vira a bengala de corrida (habilita correr)
   gateTiles = new Set(MAP_GATE.map(g=>g.tx+','+g.ty));
   gate = MAP_GATE.length ? MAP_GATE : null;
   gateOpen = MAP_GATE.length===0; // havendo portão, começa FECHADO (abre com a chave)
