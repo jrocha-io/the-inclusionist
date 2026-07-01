@@ -1012,6 +1012,9 @@ function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!whee
 }
 // Geometria só-cadeirante: plataformas que dão DESTINO aos elevadores (não existem no modo normal).
 const WC_BRIDGES=[ {x:23,y:47},{x:24,y:47} ]; // ponte do elevador do corredor: liga o poço do trampolim B (x20-22) ao topo da escada (x25)
+// Elevadores SÓ-CADEIRANTE (sem trampolim no modo normal): fosso onde o jogador normalmente PULA.
+// D: fosso x53-54 — sobe do chão (row45) à plataforma (row42), saída à esquerda (x52).
+const WC_ELEVATORS=[ {cols:[53,54], yTop:42*TILE, yBottom:45*TILE, kind:'wide'} ];
 function buildWcGeom(){ wcSolid=new Set(); if(!wheelchair)return; for(const b of WC_BRIDGES) wcSolid.add(b.x+','+b.y); }
 buildWcGeom();
 buildRamps(); // desenha as rampas + coberturas (lava, pontes) se já iniciar em modo cadeirante
@@ -1033,6 +1036,7 @@ function buildElevators(){ elevShafts=[]; if(!wheelchair)return;
     let yTop=yBottom; for(let r=ytop;r<=yb;r++){ if(surfTop(L,r)||surfTop(R,r)){ yTop=r*TILE; break; } } // 1ª parada c/ piso ao lado
     elevShafts.push({cols,xMin:cols[0],xMax:cols[cols.length-1],yTop,yBottom,kind:tileAt(cols[0],y)===5?'wide':'thin'});
   }
+  for(const e of WC_ELEVATORS) elevShafts.push({cols:e.cols,xMin:e.cols[0],xMax:e.cols[e.cols.length-1],yTop:e.yTop,yBottom:e.yBottom,kind:e.kind}); // elevadores só-cadeirante (fossos)
 }
 function elevAt(pl){ const l=Math.floor((pl.x-BOX.w/2)/TILE), r=Math.floor((pl.x+BOX.w/2-0.01)/TILE);
   for(const s of elevShafts){ if(r>=s.xMin&&l<=s.xMax && pl.y>=s.yTop-3 && pl.y<=s.yBottom+3) return s; } return null; }
@@ -1309,8 +1313,9 @@ function stepPlayer(pl,dt){
     const CL = ceil ? TEX_CLING_CEIL : TEX_CLING_WALL;
     if(!pl.rmWalk && (pl.vx!==0||pl.vy!==0)) pl.climbFrame=(Math.floor(pl.walkAnim/ANIM.clingHold))%CL.length; // só avança ao mover; parado MANTÉM o quadro
     tx = CL[(pl.rmWalk?0:(pl.climbFrame||0))%CL.length]; }
-  else if(pl.onLadder){ const CB=TEX_CLIMB; const climbing=(pl.vy!==0)&&!wcFreeze; // sobe/desce = passos alternados; parado/congelado/cadeirante = agarrado (quadro 0)
-    tx = climbing ? CB[Math.floor(pl.walkAnim/ANIM.climbHold)%CB.length] : CB[0]; }
+  else if(pl.onLadder){ const CB=TEX_CLIMB;
+    if(wheelchair){ tx = II[0]; }                                  // ELEVADOR cadeirante: pose PARADA (idle), não de escada
+    else { const climbing=(pl.vy!==0)&&!pl.rmWalk; tx = climbing ? CB[Math.floor(pl.walkAnim/ANIM.climbHold)%CB.length] : CB[0]; } }
   else if(pl.inWater){ const stroking=((dir!==0)||held(pl,'jump'))&&!wcFreeze; // movendo = braçada+pernas; parado/congelado/cadeirante = pernas paradas
     const SW = stroking ? TEX_SWIM : TEX_SWIMIDLE;
     tx = wcFreeze ? SW[0] : SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
