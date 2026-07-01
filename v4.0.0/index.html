@@ -173,6 +173,16 @@
       <p class="opt-hint">Escolha o jogador, clique em “Alterar” e pressione a nova tecla. As escolhas ficam salvas no navegador. (P2–P4 valem nas telas múltiplas.)</p>
       <div id="ctrl-players" class="ctrl-players" role="group" aria-label="Escolha o jogador"></div>
       <div id="ctrl-list" class="ctrl-list"></div>
+      <div class="ctrl-list" role="group" aria-label="Desenho dos botões">
+        <div class="ctrl-row"><span><strong>🎮 Desenho dos botões</strong> — o navegador detecta o controle automaticamente; se ele aparecer como “genérico” (DirectInput no Windows), escolha aqui como os botões na tela devem ser rotulados.</span>
+          <label class="sr-only" for="pad-design">Desenho dos botões do controle</label>
+          <select id="pad-design" class="vol">
+            <option value="generic">Genérico (números 0–3)</option>
+            <option value="microsoft">Xbox / Microsoft (A B X Y)</option>
+            <option value="sony">PlayStation / Sony (✕ ○ □ △)</option>
+            <option value="nintendo">Nintendo (B A Y X)</option>
+          </select></div>
+      </div>
       <div class="overlay__actions">
         <button id="ctrl-reset" class="mode-btn" type="button">Restaurar padrões</button>
         <button id="ctrl-close" class="mode-btn is-on" type="button">Fechar</button>
