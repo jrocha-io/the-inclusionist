@@ -2019,17 +2019,25 @@ function setPhase(p){
   if(pa)pa.hidden = p!=='paused';
   const pb=$('#btn-pause'); if(pb)pb.setAttribute('aria-pressed',String(p==='paused'));
   if(p==='playing'){ const gr=$('#game-region'); if(gr)gr.focus(); }
-  else if(p==='paused'){ const r=$('#btn-resume'); if(r)r.focus(); }
+  else if(p==='paused'){ const r=$('#pm-resume'); if(r)r.focus(); }
   else if(p==='title'){ const b=$('#btn-play'); if(b)b.focus(); }
 }
+function printMode(){ const pa=$('#pause-overlay'); if(pa)pa.hidden=true; // Print: esconde a pausa → vê a tela limpa; qualquer botão volta
+  const back=(e)=>{ if(e&&e.preventDefault)try{e.preventDefault();}catch(_){} window.removeEventListener('keydown',back,true); window.removeEventListener('pointerdown',back,true);
+    if(phase==='paused'&&pa){ pa.hidden=false; const r=$('#pm-resume'); if(r)r.focus(); } };
+  setTimeout(()=>{ window.addEventListener('keydown',back,true); window.addEventListener('pointerdown',back,true); }, 80);
+  srSay('Modo Print: veja a tela sem menus. Aperte qualquer botão para voltar.'); }
+function quitGame(){ // Sair: single → volta ao título; MP → tela do jogador fica preta "jogo abandonado", os outros seguem (B3)
+  if(numPlayers<=1){ restartGame(); setPhase('title'); srSay('Jogo abandonado.'); }
+  else { players[0].quit=true; setPhase('playing'); srSay('Você abandonou o jogo.'); } }
 function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==='paused')setPhase('playing'); }
 (function shellSetup(){
   const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
   wire('btn-play', ()=>{ setPhase('playing'); hideTips(); srSay('Jogo iniciado. Colete 10 moedas.'); });
   wire('btn-pause', togglePause);
-  wire('btn-resume', ()=>setPhase('playing'));
-  wire('btn-pause-restart', ()=>{ restartGame(); setPhase('playing'); });
-  wire('btn-menu', ()=>{ restartGame(); setPhase('title'); });
+  // Menu de pausa in-canvas: Continuar + menus de a11y + Print + Sair
+  const pauseActs={ resume:()=>setPhase('playing'), audio:openAudio, motora:openMovement, anim:openAnimation, visual:openVisual, empatia:openEmpathy, print:printMode, quit:quitGame };
+  const pm=$('#pause-menu'); if(pm)pm.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(!b)return; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); });
   setPhase('title'); // estado inicial: tela de título
 })();
 

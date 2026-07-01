@@ -46,6 +46,14 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .vphud{position:absolute;display:flex;align-items:flex-start;gap:0;padding:.4em .55em;box-sizing:border-box;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000,0 0 6px #000;line-height:1.15}
 .vphud-coins,.vphud-power{flex:1 1 50%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vphud-ico{font-weight:400}
+/* PAUSA dentro do canvas (tela = canvas) — sobreposta ao #game-region, não à página */
+.pause-incanvas{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(4,7,15,.72);font-family:var(--font)}
+.pause-incanvas[hidden]{display:none}
+.pause-card{background:#0e1626;border:2px solid #ffd23f;border-radius:14px;padding:.8rem 1rem;max-width:88%;max-height:92%;overflow:auto;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.pause-card h2{margin:.1rem 0 .6rem;color:#ffd23f}
+.pause-menu{display:grid;grid-template-columns:1fr 1fr;gap:.45rem}
+.pm-btn{background:#1a2740;color:#eaf2f8;border:1px solid #3a4a6a;border-radius:10px;padding:.5rem .6rem;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+.pm-btn:hover,.pm-btn:focus,.pm-btn.pm-sel{background:#2a3a5e;border-color:#ffd23f;outline:2px solid #ffd23f;outline-offset:1px}
 .hud__item strong{font-variant-numeric:tabular-nums}
 .hud__fps{color:var(--ink-soft)}
 

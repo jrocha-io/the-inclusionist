@@ -83,6 +83,22 @@
         <p>Aperte <kbd>L</kbd> para pular</p>
         <p>Segure <kbd>P</kbd> para correr e pular mais alto</p>
       </div>
+      <!-- Pausa DENTRO do canvas (tela = canvas). Um jogador pausa → todos pausam. -->
+      <div id="pause-overlay" class="pause-incanvas" hidden>
+        <div class="pause-card" role="dialog" aria-modal="true" aria-labelledby="pause-h">
+          <h2 id="pause-h">Pausado</h2>
+          <div id="pause-menu" class="pause-menu" role="menu" aria-label="Menu de pausa">
+            <button id="pm-resume" class="pm-btn" role="menuitem" type="button" data-act="resume">▶ Continuar</button>
+            <button class="pm-btn" role="menuitem" type="button" data-act="audio">🦻 A12e auditiva</button>
+            <button class="pm-btn" role="menuitem" type="button" data-act="motora">♿ A12e motora</button>
+            <button class="pm-btn" role="menuitem" type="button" data-act="anim">🎞 S11e visual</button>
+            <button class="pm-btn" role="menuitem" type="button" data-act="visual">🎨 A12e visual</button>
+            <button class="pm-btn" role="menuitem" type="button" data-act="empatia">🫂 Modo empatia</button>
+            <button class="pm-btn" role="menuitem" type="button" data-act="print">📷 Print (ver a tela)</button>
+            <button class="pm-btn" role="menuitem" type="button" data-act="quit">🚪 Sair do jogo</button>
+          </div>
+        </div>
+      </div>
       <!-- Desafio Soma-Sub (DOM, acessível) -->
       <div id="quiz" class="quiz" hidden></div>
       <!-- Legenda de efeitos sonoros (C1): visual + aria-live -->
@@ -146,17 +162,6 @@
     </div>
   </div>
 
-  <!-- E14: tela de pausa -->
-  <div id="pause-overlay" class="overlay" hidden>
-    <div class="overlay__card title-card" role="dialog" aria-modal="true" aria-labelledby="pause-h">
-      <h2 id="pause-h">Pausado</h2>
-      <div class="overlay__actions" style="justify-content:center">
-        <button id="btn-resume" class="mode-btn is-on" type="button">Continuar</button>
-        <button id="btn-pause-restart" class="mode-btn" type="button">Reiniciar</button>
-        <button id="btn-menu" class="mode-btn" type="button">Menu</button>
-      </div>
-    </div>
-  </div>
 
   <!-- E10: diálogo de controles (remap + persistência B2) -->
   <div id="options" class="overlay" hidden>
