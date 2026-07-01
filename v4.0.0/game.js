@@ -506,9 +506,14 @@ function applyControls(){ controls=KB.solo; KJUMP=controls.jump;KLEFT=controls.l
 const PCOLOR=[0xffffff,0xff9a9a,0x8affc0,0xffe08a]; // tint distintivo por jogador (P1 = normal)
 function assignControls(){ players.forEach((p,i)=>p.ctrl=kbFor(i)); }
 assignControls();
+// Conflito: uma tecla não pode ser de dois jogadores no MESMO modo. Retorna o índice do outro dono, ou -1.
+function keyUsedByOther(code, mapRef){ for(let i=0;i<numPlayers;i++){ const m=kbFor(i); if(m===mapRef)continue; for(const a in m){ if(m[a]&&m[a].indexOf(code)>=0)return i; } } return -1; }
 addEventListener('keydown',(e)=>{
   if(captureAction){ // remap: a próxima tecla vira o novo controle (do jogador selecionado)
-    if(e.code!=='Escape'){ const m=captureMapRef||controls; m[captureAction]=[e.code]; saveKB(); applyControls(); assignControls(); }
+    if(e.code==='Escape'){ captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return; }
+    const m=captureMapRef||controls; const other=keyUsedByOther(e.code, m);
+    if(other>=0){ srAlert('Essa tecla já é do Jogador '+(other+1)+'. Escolha outra, ou Esc para cancelar.'); e.preventDefault(); return; } // não associa: segue capturando
+    m[captureAction]=[e.code]; saveKB(); applyControls(); assignControls();
     captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
   }
   if(optionsOpen){ if(e.code==='Escape')closeOptions(); return; } // diálogo aberto: não joga
@@ -2082,19 +2087,22 @@ const touchCfgBtn=$('#opt-touchcfg'); if(touchCfgBtn)touchCfgBtn.addEventListene
 const touchCfgClose=$('#touchcfg-close'); if(touchCfgClose)touchCfgClose.addEventListener('click',closeTouchCfg);
 // HUB de mapeamento (por jogador): teclado funciona (abre o remap); gamepad/olhos/setores/fala = em construção.
 function mapSoon(nome){ srAlert(nome+': em construção — chega junto com os subsistemas de webcam e fala.'); }
-function renderMapHub(){ const el=$('#map-hub'); if(!el)return;
+function renderMapHub(){ const el=$('#map-hub'); if(!el)return; const np=numPlayers;
   const items=[
-    {lbl:'⌨ Mapear teclado — 1 jogador', act:openOptions},
-    {lbl:'⌨ Mapear teclado — 2 jogadores', act:openOptions},
-    {lbl:'⌨ Mapear teclado — 3–4 jogadores', act:openOptions},
+    {lbl:'⌨ Mapear teclado para modo 1 jogador', mode:1, act:openOptions},
+    {lbl:'⌨ Mapear teclado para modo 2 jogadores', mode:2, act:openOptions},
+    {lbl:'⌨ Mapear teclado para modo 3 jogadores', mode:3, act:openOptions},
+    {lbl:'⌨ Mapear teclado para modo 4 jogadores', mode:4, act:openOptions},
     {lbl:'🎮 Mapear gamepad', soon:true},
     {lbl:'👁 Mapear olhos e boca', soon:true},
     {lbl:'🎯 Mapear setores de olhar', soon:true},
     {lbl:'🎤 Mapear palavras (fala)', soon:true},
   ];
   el.innerHTML='<h3 class="panel-sub">Mapear controles <span class="panel-sub__tag">por jogador</span></h3>'+
-    items.map((it,i)=>`<div class="ctrl-row"><span>${it.lbl}${it.soon?' <em style="opacity:.7">(em construção)</em>':''}</span><button class="mode-btn" type="button" data-map="${i}">${it.soon?'Em breve':'Abrir'}</button></div>`).join('');
-  el.querySelectorAll('button[data-map]').forEach(b=>b.addEventListener('click',()=>{ const it=items[+b.dataset.map]; it.soon?mapSoon(it.lbl.replace(/^\S+\s/,'')):it.act(); }));
+    items.map((it,i)=>{ const off=it.mode&&it.mode!==np; // teclado: só habilita no modo com esse nº de telas
+      const note=it.soon?' <em style="opacity:.7">(em construção)</em>':(off?` <em style="opacity:.7">(disponível no modo ${it.mode} jogador${it.mode>1?'es':''})</em>`:'');
+      return `<div class="ctrl-row"><span>${it.lbl}${note}</span><button class="mode-btn" type="button" data-map="${i}"${(it.soon||off)?' disabled':''}>${it.soon?'Em breve':(off?'—':'Abrir')}</button></div>`; }).join('');
+  el.querySelectorAll('button[data-map]').forEach(b=>b.addEventListener('click',()=>{ const it=items[+b.dataset.map]; if(it.soon){ mapSoon(it.lbl.replace(/^\S+\s/,'')); return; } if(it.mode&&it.mode!==np){ srAlert('Disponível só no modo '+it.mode+' jogador'+(it.mode>1?'es':'')+'. Troque o nº de telas na barra do topo.'); return; } it.act(); }));
 }
 function openAnimation(){ const ov=$('#animation'); if(!ov)return; renderMotion(); ov.hidden=false; frontOverlay(ov); animationOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeAnimation(){ const ov=$('#animation'); if(!ov)return; ov.hidden=true; animationOpen=false; const b=$('#opt-animation'); if(b)b.focus(); }
