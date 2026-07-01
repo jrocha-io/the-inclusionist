@@ -632,6 +632,22 @@ function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){
   const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(12*TILE)); tonePan(380+740*near,0.16,'sonar',pan,0.26,'sine'); // mais perto = mais agudo
   const lado=best.x<pl.x-4?'à esquerda':best.x>pl.x+4?'à direita':'à frente', dist=bd<4*TILE?'bem perto':bd<9*TILE?'perto':'longe';
   srSay((numPlayers>1?'Jogador '+(pl.i+1)+': ':'')+'Sonar: moeda '+lado+', '+dist+'.'); }
+// ===== F4: camadas de AMBIENTE (loops sintetizados) + PISTA/GUIA auditivo (beacon em laço) =====
+let _ambient=null, _rainLevel=0, _weatherT=0, _guideCount=0;
+function buildAmbient(ac){ const cat=catNode('ambient'); if(!cat)return null;
+  const n=(ac.sampleRate*2)|0, buf=ac.createBuffer(1,n,ac.sampleRate), d=buf.getChannelData(0); let last=0; for(let i=0;i<n;i++){ const w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; } // ruído rosa em loop
+  const mk=(type,freq,q,vol)=>{ const s=ac.createBufferSource(); s.buffer=buf; s.loop=true; const f=ac.createBiquadFilter(); f.type=type; f.frequency.value=freq; if(q)f.Q.value=q; const g=ac.createGain(); g.gain.value=vol; s.connect(f).connect(g).connect(cat); try{s.start();}catch(e){} return g; };
+  return { hum:mk('lowpass',480,0,0.055), wind:mk('highpass',3200,0,0.028), water:mk('bandpass',820,1.4,0), rain:mk('highpass',1700,0,0) }; } // trânsito/rumor · folhas/vento · água(proximidade) · chuva(ciclo)
+function updateAmbient(){ if(!audioCtx||!soundOn||!audioCat.ambient.on){ return; } if(!_ambient){ _ambient=buildAmbient(audioCtx); if(!_ambient)return; }
+  const ac=audioCtx, pl=players[0], px=Math.floor(pl.x/TILE), py=Math.floor(pl.y/TILE);
+  let nearWater=0; for(let dx=-3;dx<=3;dx++)for(let dy=-3;dy<=3;dy++){ if(tileAt(px+dx,py+dy)===3) nearWater=Math.max(nearWater,1-Math.hypot(dx,dy)/4.2); }
+  _ambient.water.gain.setTargetAtTime(0.15*nearWater, ac.currentTime, 0.3);
+  _weatherT++; const cyc=_weatherT%3600; _rainLevel = cyc<600 ? (cyc<300?cyc/300:(600-cyc)/300) : 0; // ~10s de chuva a cada 60s
+  _ambient.rain.gain.setTargetAtTime(0.11*_rainLevel, ac.currentTime, 0.5); }
+function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
+  for(const pl of players){ if(!needsAudioCues(pl))continue; pl.guideT=(pl.guideT||0)+1; if(pl.guideT<48)continue; pl.guideT=0; // pinga ~0,8s
+    let best=null,bd=1e9; for(const cn of coins){ if(cn.taken)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
+    if(best){ const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(14*TILE)); tonePan(300+380*near,0.12,'guide',pan,0.11,'triangle'); _guideCount++; } } }
 function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
   o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   o.connect(g).connect(catNode('earcons')||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
@@ -1632,8 +1648,9 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 }
 
 /* ===================== loop ===================== */
-app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); }); // Fácil agora ajusta física por eixo (gravidade/pulo/velocidade), não o tempo global
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick();
+  if(phase==='playing'){ updateAmbient(); updateGuide(); } }); // F4: ambiente + guia auditivo (só durante o jogo)
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
