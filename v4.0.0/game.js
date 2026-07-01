@@ -622,7 +622,8 @@ let _noiseBuf=null, _footCount=0;
 function noiseBuffer(ac){ if(_noiseBuf&&_noiseBuf.length===((ac.sampleRate*0.2)|0))return _noiseBuf; const n=(ac.sampleRate*0.2)|0,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0); for(let i=0;i<n;i++)d[i]=Math.random()*2-1; return _noiseBuf=b; }
 // timbre por material: filtro + frequência + duração + volume (grama macia, piso seco, pedra brilhante, areia abafada, madeira grave, ferro metálico)
 const FOOT={ grama:{f:'highpass',hz:2000,d:0.09,v:0.10}, piso:{f:'bandpass',hz:1200,d:0.06,v:0.15}, pedra:{f:'highpass',hz:1600,d:0.05,v:0.19},
-  areia:{f:'lowpass',hz:650,d:0.13,v:0.10}, madeira:{f:'bandpass',hz:480,d:0.08,v:0.15}, ferro:{f:'bandpass',hz:2600,d:0.12,v:0.16}, parede:{f:'highpass',hz:3200,d:0.10,v:0.08} };
+  areia:{f:'lowpass',hz:650,d:0.13,v:0.10}, madeira:{f:'bandpass',hz:480,d:0.08,v:0.15}, ferro:{f:'bandpass',hz:2600,d:0.12,v:0.16}, parede:{f:'highpass',hz:3200,d:0.10,v:0.08},
+  terra:{f:'lowpass',hz:520,d:0.11,v:0.12}, agua:{f:'lowpass',hz:330,d:0.15,v:0.13} }; // bengala (cego): terra abafada, água molhada
 function noiseHit(mat,pan){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; const f=FOOT[mat]||FOOT.piso; try{
   const src=ac.createBufferSource(); src.buffer=noiseBuffer(ac); const bq=ac.createBiquadFilter(); bq.type=f.f; bq.frequency.value=f.hz; bq.Q.value=1.2;
   const g=ac.createGain(),t=ac.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,f.v*volume),t+0.006); g.gain.exponentialRampToValueAtTime(0.0001,t+f.d);
@@ -631,6 +632,22 @@ function noiseHit(mat,pan){ if(!soundOn||volume<=0)return; const ac=ensureAC(); 
 }catch(e){} }
 // material sob os pés (cenário Cidade = concreto → 'piso'; futuros cenários mapeiam grama/areia/pedra)
 function surfaceUnder(pl){ const t=tileAt(Math.floor(pl.x/TILE),Math.floor((pl.y+1)/TILE)); if(t!==2&&t!==6&&t!==5)return null; return CENARIO==='cidade'?'piso':'pedra'; }
+// BENGALA (modo cego / amaurose): bate À FRENTE e o som diz o material adiante (ou vazio).
+const SURF_MAT={ cidade:'piso', campo:'grama', floresta:'grama', cemiterio:'terra', espaco:'pedra', classico:'pedra' }; // chão por tema (piso = cimento)
+const caneOn=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return !!(m&&m.kind==='blind'); };
+function caneProbe(pl){ const dir=pl.facing<0?-1:1;
+  const ax=Math.floor((pl.x+dir*(BOX.w/2+TILE*0.6))/TILE), footTy=Math.floor((pl.y+1)/TILE);
+  if(tileAt(ax,footTy)===3||tileAt(ax,footTy-1)===3) return 'agua';        // água à frente
+  let gty=-1; for(let ty=footTy; ty<=footTy+1; ty++){ if(solidAt(ax,ty)){ gty=ty; break; } } // chão à frente (pé ou 1 abaixo = degrau/rampa)
+  if(gty<0) return 'vazio';                                                 // sem chão → fosso
+  if(tileAt(ax,gty)===4) return 'madeira';                                  // escada
+  return SURF_MAT[CENARIO]||'pedra';
+}
+let _caneCount=0;
+function caneTap(pl){ const mat=caneProbe(pl), dir=pl.facing<0?-1:1, pan=dir*0.5; _caneCount++;
+  if(mat==='vazio'){ tonePan(150,0.18,'guard',pan,0.16,'sine'); return; }   // vazio = tom grave oco (nada à frente)
+  noiseHit(mat,pan);                                                        // batida no material adiante (panorâmica na direção)
+}
 function doorSound(mat){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; try{ // porta: rangido (madeira) ou clangor (ferro) + baque
   const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime; o.type=mat==='ferro'?'square':'sawtooth'; o.frequency.setValueAtTime(mat==='ferro'?520:200,t); o.frequency.exponentialRampToValueAtTime(mat==='ferro'?300:110,t+0.3);
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.14*volume,t+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
@@ -1067,6 +1084,13 @@ function drawElevators(g){ g.clear(); if(!wheelchair)return;
   for(const pl of players){ if(pl.elevTarget==null)continue; const s=elevAt(pl); if(!s)continue; const y=Math.round(pl.y), up=pl.elevTarget<y, ax=(s.xMin*TILE+(s.xMax+1)*TILE)/2, ay=up?y-9:y+11; // seta de destino
     g.beginFill(0xf2c200); g.moveTo(ax,ay+(up?-4:4)); g.lineTo(ax-4,ay); g.lineTo(ax+4,ay); g.closePath(); g.endFill(); }
 }
+const caneLayer=new PIXI.Graphics(); camera.addChild(caneLayer); // bengala (modo cego)
+function drawCane(g,pl){ const dir=pl.facing<0?-1:1, hx=pl.x+dir*3, hy=pl.y-15; // mão
+  const tap=Math.sin(pl.walkAnim*0.55), reach=TILE*0.85+tap*3, tx=pl.x+dir*reach, ty=pl.y-1; // ponta bate à frente, oscilando com o passo
+  g.lineStyle(2,0xf2f2f2); g.moveTo(hx,hy); g.lineTo(tx,ty);                     // haste branca
+  g.lineStyle(2,0xd23b3b); g.moveTo(tx-dir*4,ty-4); g.lineTo(tx,ty);            // faixa vermelha (ponta)
+  g.lineStyle(0); g.beginFill(0xf2f2f2); g.drawCircle(tx,ty,1.6); g.endFill();  // ponteira
+}
 const chairLayer=new PIXI.Graphics(); camera.addChild(chairLayer); // cadeira de rodas (modo cadeirante)
 function drawChair(g,pl){ const cx=pl.x, base=pl.y, f=pl.facing<0?-1:1, MET=0x4a586e, HUB=0x1c2230;
   g.lineStyle(2,MET); g.drawCircle(cx,base-6,7);                                   // roda grande
@@ -1277,7 +1301,9 @@ function stepPlayer(pl,dt){
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
   // F2: passos por superfície · escada (madeira) · escalada (parede). Cadência = ritmo do andar/correr.
-  if(pl.onGround && !pl.inWater && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m); } }
+  if(pl.onGround && !pl.inWater && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0;
+    if(caneOn(pl)) caneTap(pl);                       // cego: bengala bate À FRENTE (material adiante ou vazio)
+    else { const m=surfaceUnder(pl); if(m)noiseHit(m); } } } // normal: passo no chão sob os pés
   else if(pl.onLadder && pl.vy!==0){ pl.stepT+=dt; if(pl.stepT>=20){ pl.stepT=0; noiseHit('madeira'); } }
   else if(pl.clinging && (pl.vx!==0||pl.vy!==0)){ pl.stepT+=dt; if(pl.stepT>=16){ pl.stepT=0; noiseHit('parede'); } }
   else pl.stepT=99; // parado → próximo passo soa logo ao recomeçar
@@ -1388,6 +1414,8 @@ function draw(){
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
   drawElevators(elevLayer); // cadeirante: plataforma do elevador sob os pés (largo/fino)
+  caneLayer.clear(); // modo cego: bengala batendo à frente enquanto anda
+  for(const pl of players){ if(caneOn(pl)&&pl.sprite&&pl.sprite.visible&&pl.onGround&&!pl.inWater&&!pl.flying) drawCane(caneLayer,pl); }
   chairLayer.clear(); // cadeirante: desenha a cadeira nos jogadores (exceto nadando/voando)
   if(wheelchair){ for(const pl of players){ if(pl.sprite&&pl.sprite.visible&&!pl.inWater&&!pl.flying) drawChair(chairLayer,pl); } }
   easyHitbox.clear(); // Fácil: hitbox de coleta tolerante (retângulo translúcido) — só para os jogadores em Fácil
