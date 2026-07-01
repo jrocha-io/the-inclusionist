@@ -57,6 +57,10 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .pause-menu{display:grid;grid-template-columns:1fr 1fr;gap:.45rem}
 .pm-btn{background:#1a2740;color:#eaf2f8;border:1px solid #3a4a6a;border-radius:10px;padding:.5rem .6rem;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
 .pm-btn:hover,.pm-btn:focus,.pm-btn.pm-sel{background:#2a3a5e;border-color:#ffd23f;outline:2px solid #ffd23f;outline-offset:1px}
+/* Legenda sim/não: ícone do botão (conforme layout do controle) + a palavra. Sony/Nintendo invertem 0↔1. */
+.pause-legend{display:flex;gap:1.1rem;justify-content:center;margin:.7rem 0 .1rem;font-size:.82rem;color:#c3cfe0}
+.pause-legend .lg{display:inline-flex;align-items:center;gap:.35rem}
+.pause-legend .lg-ico{display:inline-flex;align-items:center;justify-content:center;width:1.35rem;height:1.35rem;border-radius:50%;font-weight:800;font-size:.8rem;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.55)}
 .hud__item strong{font-variant-numeric:tabular-nums}
 .hud__fps{color:var(--ink-soft)}
 
@@ -181,13 +185,15 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 .touch-jump{background:rgba(18,74,52,.94)}
 /* Botões de ação em LOSANGO (4 bolhas: 0 baixo, 1 direita, 2 esquerda, 3 cima) + START pílula */
 .touch-actions{align-items:center}
-.pad-diamond{position:relative;width:158px;height:158px;pointer-events:none}
-.pad-b{position:absolute;width:52px;height:52px;border-radius:50%;font-size:1.35rem;pointer-events:auto;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+/* Losango no MENOR tamanho que respeita WCAG 2.5.5 AAA: bolhas de 44px (alvo mínimo AAA) com
+   folga ~10px entre vizinhas (não sobrepõem; folga pequena = melhor p/ mãos pequenas e menos tela perdida). */
+.pad-diamond{position:relative;width:120px;height:120px;pointer-events:none}
+.pad-b{position:absolute;width:var(--tap);height:var(--tap);border-radius:50%;font-size:1.2rem;pointer-events:auto;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .pad-top{top:0;left:50%;transform:translateX(-50%)}
 .pad-bottom{bottom:0;left:50%;transform:translateX(-50%)}
 .pad-left{left:0;top:50%;transform:translateY(-50%)}
 .pad-right{right:0;top:50%;transform:translateY(-50%)}
-.touch-start{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);pointer-events:auto;border-radius:999px;padding:7px 24px;font-weight:800;font-size:.82rem;letter-spacing:.08em;background:rgba(13,17,32,.92);color:#fff;border:2px solid rgba(255,255,255,.75);cursor:pointer;z-index:15}
+.touch-start{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);min-height:var(--tap);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;pointer-events:auto;border-radius:999px;padding:0 22px;font-weight:800;font-size:.82rem;letter-spacing:.08em;background:rgba(13,17,32,.92);color:#fff;border:2px solid rgba(255,255,255,.75);cursor:pointer;z-index:15}
 .touch-start:active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 /* joystick digital: base (círculo maior) + manopla (círculo menor) */
 .touch-stick{position:relative;width:124px;height:124px;border-radius:50%;border:3px solid rgba(255,255,255,.7);background:rgba(13,17,32,.85);touch-action:none;pointer-events:auto;-webkit-user-select:none;user-select:none}

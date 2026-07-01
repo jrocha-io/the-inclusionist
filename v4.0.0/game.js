@@ -1415,7 +1415,7 @@ function stepPlayer(pl,dt){
   powerups.forEach(pu=>{ if(puTaken(pu,pl.i))return;
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       takePu(pu,pl.i); if((numPlayers<=1||pu.kind==='key') && pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:''; // chave: some p/ todos; demais: por viewport (no draw)
-      if(pu.kind==='key'){ players.forEach(p=>p.hasKey=true); sfx('key'); srAlert(who+'pegou a chave (compartilhada). Toque no portão para abri-lo.'); }
+      if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); } // chave individual: só quem pegou fica com ela (mas o portão, aberto, vale p/ todos)
       else if(pu.kind==='runcane'){ pl.runCane=true; sfx('power'); const pm=who+'Bengala de corrida! Agora dá para correr — segure Correr.'; srSay(pm); narrate(pm); } // cego: habilita correr (bengala com roda)
       else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); narrate(pm); } // entra no inventário; ativo = o último pego
     }});
@@ -1905,8 +1905,15 @@ const PAD_DESIGNS={ generic:{'0':['0','#3a4a6a'],'1':['1','#3a4a6a'],'2':['2','#
   sony:{'0':['✕','#4f8fd0'],'1':['○','#d23b3b'],'2':['□','#d76fae'],'3':['△','#2fae7e']},
   nintendo:{'0':['B','#d9a400'],'1':['A','#d23b3b'],'2':['Y','#2fae4e'],'3':['X','#2f6fd2']} };
 let padDesign=(()=>{try{return localStorage.getItem('incl_paddesign')||'generic';}catch(e){return 'generic';}})(); // padrão Windows = Genérico (números)
+// Sim/Não nos menus: SÓ Sony e Nintendo invertem os botões 0↔1 (confirmar = ○/A à direita, cultural).
+// Xbox/Genérico: sim = botão 0 (A verde / "0"), não = botão 1 (B vermelho / "1").
+function simNaoGlyphs(){ const set=PAD_DESIGNS[padDesign]||PAD_DESIGNS.generic; const inv=(padDesign==='sony'||padDesign==='nintendo');
+  return { sim:set[inv?'1':'0'], nao:set[inv?'0':'1'] }; }
+function renderPauseLegend(){ const el=$('#pause-legend'); if(!el)return; const g=simNaoGlyphs();
+  const chip=(s,word)=>`<span class="lg"><span class="lg-ico" style="background:${s[1]}">${s[0]}</span> ${word}</span>`;
+  el.innerHTML=chip(g.sim,'Sim')+chip(g.nao,'Não'); }
 function applyPadDesign(d){ if(d&&PAD_DESIGNS[d])padDesign=d; try{localStorage.setItem('incl_paddesign',padDesign);}catch(e){} const set=PAD_DESIGNS[padDesign]||PAD_DESIGNS.generic;
-  document.querySelectorAll('#pad-diamond .pad-b').forEach(b=>{ const s=set[b.dataset.btn]; if(s){ b.textContent=s[0]; b.style.background=s[1]; } }); }
+  document.querySelectorAll('#pad-diamond .pad-b').forEach(b=>{ const s=set[b.dataset.btn]; if(s){ b.textContent=s[0]; b.style.background=s[1]; } }); renderPauseLegend(); }
 applyPadDesign(padDesign);
 const touchStartBtn=$('#touch-start'); if(touchStartBtn)touchStartBtn.addEventListener('click',togglePause); // START (pílula) = pausa/inicia
 function padLayoutFromId(id){ id=(id||'').toLowerCase(); if(/dualshock|dualsense|playstation|054c/.test(id))return 'sony'; if(/switch|nintendo|joy-con|057e/.test(id))return 'nintendo'; if(/xbox|xinput|microsoft|045e/.test(id))return 'microsoft'; return 'generic'; }
@@ -2063,9 +2070,12 @@ function printMode(){ const pa=$('#pause-overlay'); if(pa)pa.hidden=true; // Pri
     if(phase==='paused'&&pa){ pa.hidden=false; const r=$('#pm-resume'); if(r)r.focus(); } };
   setTimeout(()=>{ window.addEventListener('keydown',back,true); window.addEventListener('pointerdown',back,true); }, 80);
   srSay('Modo Print: veja a tela sem menus. Aperte qualquer botão para voltar.'); }
+function releaseKey(pl){ // portador saiu do jogo → a chave volta para a posição inicial (fica disponível de novo)
+  if(!pl||!pl.hasKey)return; pl.hasKey=false;
+  const key=powerups.find(p=>p.kind==='key'); if(key){ key.taken=false; key.by=[]; if(key.sprite)key.sprite.visible=true; srAlert('A chave voltou para o lugar de origem.'); } }
 function quitGame(){ // Sair: single → volta ao título; MP → tela do jogador fica preta "jogo abandonado", os outros seguem (B3)
   if(numPlayers<=1){ restartGame(); setPhase('title'); srSay('Jogo abandonado.'); }
-  else { players[0].quit=true; setPhase('playing'); srSay('Você abandonou o jogo.'); } }
+  else { releaseKey(players[0]); players[0].quit=true; setPhase('playing'); srSay('Você abandonou o jogo.'); } }
 function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==='paused')setPhase('playing'); }
 (function shellSetup(){
   const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
