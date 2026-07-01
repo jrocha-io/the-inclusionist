@@ -110,12 +110,15 @@
             <span class="touch-knob" aria-hidden="true"></span>
           </div>
         </div>
-        <div class="touch-pad">
-          <button class="touch-btn touch-swap" type="button" data-act="swap" aria-label="Trocar poder">⟳</button>
-          <button class="touch-btn touch-special" type="button" data-act="especial" aria-label="Ação especial">★</button>
-          <button class="touch-btn touch-run" type="button" data-act="run" aria-label="Correr / interagir">»</button>
-          <button class="touch-btn touch-jump" type="button" data-act="jump" aria-label="Pular">⤒</button>
+        <div class="touch-pad touch-actions">
+          <div class="pad-diamond" id="pad-diamond" aria-label="Botões de ação">
+            <button class="touch-btn pad-b pad-top" type="button" data-btn="3" data-act="swap" aria-label="Trocar poder (botão 3)"></button>
+            <button class="touch-btn pad-b pad-left" type="button" data-btn="2" data-act="run" aria-label="Interagir / correr (botão 2)"></button>
+            <button class="touch-btn pad-b pad-right" type="button" data-btn="1" data-act="especial" aria-label="Especial (botão 1)"></button>
+            <button class="touch-btn pad-b pad-bottom" type="button" data-btn="0" data-act="jump" aria-label="Pular (botão 0)"></button>
+          </div>
         </div>
+        <button class="touch-start" id="touch-start" type="button" aria-label="Pausar ou iniciar (START)">START</button>
       </div>
     </section>
       <div id="libras-slot" class="libras-slot" aria-hidden="true"></div>

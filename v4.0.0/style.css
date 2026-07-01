@@ -179,6 +179,16 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 .touch-btn{width:56px;height:56px;min-width:var(--tap);min-height:var(--tap);border-radius:12px;border:2px solid rgba(255,255,255,.75);background:rgba(13,17,32,.92);color:#fff;font-size:1.4rem;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;cursor:pointer}
 .touch-btn:active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .touch-jump{background:rgba(18,74,52,.94)}
+/* Botões de ação em LOSANGO (4 bolhas: 0 baixo, 1 direita, 2 esquerda, 3 cima) + START pílula */
+.touch-actions{align-items:center}
+.pad-diamond{position:relative;width:158px;height:158px;pointer-events:none}
+.pad-b{position:absolute;width:52px;height:52px;border-radius:50%;font-size:1.35rem;pointer-events:auto;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.pad-top{top:0;left:50%;transform:translateX(-50%)}
+.pad-bottom{bottom:0;left:50%;transform:translateX(-50%)}
+.pad-left{left:0;top:50%;transform:translateY(-50%)}
+.pad-right{right:0;top:50%;transform:translateY(-50%)}
+.touch-start{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);pointer-events:auto;border-radius:999px;padding:7px 24px;font-weight:800;font-size:.82rem;letter-spacing:.08em;background:rgba(13,17,32,.92);color:#fff;border:2px solid rgba(255,255,255,.75);cursor:pointer;z-index:15}
+.touch-start:active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 /* joystick digital: base (círculo maior) + manopla (círculo menor) */
 .touch-stick{position:relative;width:124px;height:124px;border-radius:50%;border:3px solid rgba(255,255,255,.7);background:rgba(13,17,32,.85);touch-action:none;pointer-events:auto;-webkit-user-select:none;user-select:none}
 .touch-knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 0 0 2px rgba(0,0,0,.45);transition:transform .04s linear;pointer-events:none}
