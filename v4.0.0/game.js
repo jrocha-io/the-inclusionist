@@ -997,8 +997,8 @@ function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!whee
       rampLayer.lineStyle(2,STRIPE); rampLayer.moveTo(X,yL-1); rampLayer.lineTo(X+TILE,yD-1); rampLayer.lineStyle(0);
     }
   }
-  // cadeirante: a LAVA vira chão — cobre cada tile 9 com um bloco de concreto (sem dano; já é sólido em isSolidType)
-  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ if(tileAt(x,y)!==9)continue; const X=x*TILE,Y=y*TILE;
+  // cadeirante: LAVA (9) e TRAMPOLIM (5) viram chão — cada um coberto por um bloco de concreto (o vidro do elevador fica por cima)
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=tileAt(x,y); if(t!==9&&t!==5)continue; const X=x*TILE,Y=y*TILE;
     rampLayer.beginFill(0x6f7481); rampLayer.drawRect(X,Y,TILE,TILE); rampLayer.endFill();
     rampLayer.beginFill(0x8a8f9c); rampLayer.drawRect(X,Y,TILE,2); rampLayer.endFill();               // topo claro
     rampLayer.lineStyle(1,0x4a4e59); rampLayer.drawRect(X+0.5,Y+0.5,TILE-1,TILE-1); rampLayer.lineStyle(0); // borda
