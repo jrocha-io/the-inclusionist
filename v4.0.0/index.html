@@ -134,20 +134,6 @@
       Controles: A e D ou setas movem; L ou Espaço pulam; W e S (ou setas cima/baixo) sobem/descem escadas e nadam; P ou Shift correm.
     </p>
 
-    <details class="help">
-      <summary>Controles &amp; notas desta build</summary>
-      <ul>
-        <li><strong>Mover:</strong> A / D ou ← / →</li>
-        <li><strong>Pular:</strong> L ou Espaço</li>
-        <li><strong>Subir/descer escada · nadar:</strong> W / S ou ↑ / ↓</li>
-        <li><strong>Correr:</strong> P ou Shift</li>
-        <li><strong>Power-ups (bônus):</strong> 🟢 super-corrida · 🔵 ultra-pulo · 🔑 chave abre o 🚪 portão.</li>
-        <li><strong>2–4 jogadores:</strong> telas lado a lado (P1 WASD+Espaço · P2 setas+Enter · P3 FTGH+R · P4 IJKL+U).</li>
-        <li>Esta é a <strong>v4.0.0</strong> — esqueleto PixiJS para <em>validar performance</em> no hardware-alvo
-          (tablets Positivo, Chromebook). Observe o <strong>FPS</strong> no topo.</li>
-        <li>Renderer: PixiJS v7 (WebGL com fallback Canvas) · texto/UI no DOM (acessibilidade) · offline via PWA.</li>
-      </ul>
-    </details>
   </main>
 
   <!-- Banner de vitória -->
@@ -368,6 +354,17 @@
       </div>
       <div class="overlay__actions">
         <button id="visual-close" class="mode-btn is-on" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ajuda (do menu de pausa): controles DO jogador que abriu + notas desta build -->
+  <div id="help" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <h2 id="help-title">Ajuda</h2>
+      <div id="help-content"></div>
+      <div class="overlay__actions">
+        <button id="help-close" class="mode-btn is-on" type="button">Fechar</button>
       </div>
     </div>
   </div>

@@ -481,23 +481,30 @@ let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo for
 const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
+// 4 esquemas base p/ 3–4 jogadores (E3: modos 3 e 4 têm esquemas SEPARADOS, p3 e p4, editáveis por jogador)
+const KB_SCHEMES4=[
+  { left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'], run:['KeyZ'],jump:['KeyX'],swap:['KeyC'],especial:['KeyV'] },
+  { left:['KeyJ'],right:['KeyL'],up:['KeyI'],down:['KeyK'], run:['KeyM'],jump:['Comma'],swap:['Period'],especial:['Semicolon','Slash'] },
+  { left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'], run:['Home'],jump:['End'],swap:['PageUp'],especial:['PageDown'] },
+  { left:['Numpad4'],right:['Numpad6'],up:['Numpad8'],down:['Numpad5'], run:['Numpad2'],jump:['Numpad0'],swap:['Numpad3'],especial:['NumpadDecimal'] },
+];
 const KB_DEFAULTS={
   // 1 jogador: WASD + setas; pulo J/Espaço; UJIK como na mão pequena do DOS. Sem Alt/AltGr/Ctrl/Shift (uso do SO; e Ctrl/Shift ficam pro modo Fácil).
   solo:{ left:['KeyA','ArrowLeft'], right:['KeyD','ArrowRight'], up:['KeyW','ArrowUp'], down:['KeyS','ArrowDown'],
          run:['KeyU'], jump:['KeyJ','Space'], swap:['KeyI'], especial:['KeyK'] },
   p2:[ { left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'], run:['KeyU'],jump:['KeyJ'],swap:['KeyI'],especial:['KeyK'] },
        { left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'], run:['Numpad8'],jump:['Numpad5'],swap:['Numpad9'],especial:['Numpad6'] } ],
-  p34:[ { left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'], run:['KeyZ'],jump:['KeyX'],swap:['KeyC'],especial:['KeyV'] },
-        { left:['KeyJ'],right:['KeyL'],up:['KeyI'],down:['KeyK'], run:['KeyM'],jump:['Comma'],swap:['Period'],especial:['Semicolon','Slash'] },
-        { left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'], run:['Home'],jump:['End'],swap:['PageUp'],especial:['PageDown'] },
-        { left:['Numpad4'],right:['Numpad6'],up:['Numpad8'],down:['Numpad5'], run:['Numpad2'],jump:['Numpad0'],swap:['Numpad3'],especial:['NumpadDecimal'] } ],
+  p3: JSON.parse(JSON.stringify(KB_SCHEMES4.slice(0,3))), // modo 3 jogadores (independente do 4)
+  p4: JSON.parse(JSON.stringify(KB_SCHEMES4)),            // modo 4 jogadores
 };
 function loadKB(){ try{ const s=JSON.parse(localStorage.getItem(CKEY)); if(s){ const d=JSON.parse(JSON.stringify(KB_DEFAULTS));
-  if(s.solo)Object.assign(d.solo,s.solo); ['p2','p34'].forEach(g=>{ if(Array.isArray(s[g]))s[g].forEach((m,i)=>{ if(d[g][i]&&m)Object.assign(d[g][i],m); }); }); return d; } }catch(e){}
+  if(s.solo)Object.assign(d.solo,s.solo);
+  if(Array.isArray(s.p34)){ s.p34.forEach((m,i)=>{ if(m){ if(d.p4[i])Object.assign(d.p4[i],m); if(i<3&&d.p3[i])Object.assign(d.p3[i],m); } }); } // migra dado antigo (p34) p/ p3+p4
+  ['p2','p3','p4'].forEach(g=>{ if(Array.isArray(s[g]))s[g].forEach((m,i)=>{ if(d[g][i]&&m)Object.assign(d[g][i],m); }); }); return d; } }catch(e){}
   return JSON.parse(JSON.stringify(KB_DEFAULTS)); }
 let KB=loadKB();
 function saveKB(){ try{localStorage.setItem(CKEY,JSON.stringify(KB));}catch(e){} }
-function kbFor(i){ return numPlayers<=1 ? KB.solo : (numPlayers<=2 ? (KB.p2[i]||KB.p2[0]) : (KB.p34[i]||KB.p34[0])); } // esquema do jogador i p/ a contagem atual
+function kbFor(i){ if(numPlayers<=1)return KB.solo; if(numPlayers<=2)return KB.p2[i]||KB.p2[0]; if(numPlayers<=3)return KB.p3[i]||KB.p3[0]; return KB.p4[i]||KB.p4[0]; } // esquema do jogador i (modo 3 e 4 separados)
 let controls=KB.solo; // alias do P1 (navegação do quiz + GAME_KEYS)
 let KJUMP=controls.jump, KLEFT=controls.left, KRIGHT=controls.right, KUP=controls.up, KDOWN=controls.down, KRUN=controls.run;
 let GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN];
@@ -1190,7 +1197,7 @@ let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 // HUD por jogador em DOM SOBREPOSTO (alta definição, não pixela): moedas (1ª coluna) + poder (2ª coluna), por viewport.
 let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[], vpPause=[], pauseActor=0;
 // Menu de pausa POR TELA (Etapa 2): um por jogador, dentro da .player-screen dele.
-const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
+const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
 function buildScreenPause(i){ const sp=document.createElement('div'); sp.className='screen-pause'; sp.hidden=true; sp.dataset.player=String(i);
   sp.innerHTML='<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'"><h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
     PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+b.lbl+'</button>').join('')+
@@ -1740,7 +1747,7 @@ if(facilBtn) facilBtn.addEventListener('click',()=>{ setEasy(selMovPlayer, !play
 function reflectFacil(){ const p=players[selMovPlayer], on=!!(p&&p.easy); if(facilBtn){ toggleBtn(facilBtn,on); facilBtn.textContent=on?'❚❚ Ligado':'▶ Desligado'; } reflectMovementBtn(); }
 function reflectMovementBtn(){ const b=$('#opt-movement'); if(b)b.classList.toggle('is-on',players.some(p=>p.easy||p.toggleMove)); } // barra acende se QUALQUER jogador usa Fácil/alternância
 function setEasy(i,on){ const p=players[i]; if(!p)return; p.easy=on; try{localStorage.setItem('incl_easy_p'+i,on?'1':'0');}catch(e){} reflectFacil(); rebuildCoins(); srSay((numPlayers>1?'Jogador '+(i+1)+': ':'')+'Modo Fácil '+(on?'ligado: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais (segure ↓ para descer).':'desligado.')); }
-function renderMovPlayers(){ const tabs=$('#movement-players'); if(!tabs)return; if(selMovPlayer>=numPlayers)selMovPlayer=0; tabs.hidden=(numPlayers<=1);
+function renderMovPlayers(){ const tabs=$('#movement-players'); if(!tabs)return; if(selMovPlayer>=numPlayers)selMovPlayer=0; tabs.hidden=true; // E3: sem abas — cada jogador edita só o seu (escopo = pauseActor)
   tabs.innerHTML = numPlayers<=1 ? '' : Array.from({length:numPlayers},(_,p)=>`<button class="mode-btn${p===selMovPlayer?' is-on':''}" data-mp="${p}" type="button">Jogador ${p+1}</button>`).join('');
   tabs.querySelectorAll('button[data-mp]').forEach(b=>b.addEventListener('click',()=>{ selMovPlayer=+b.dataset.mp; renderMovPlayers(); reflectFacil(); reflectAltMove(); })); }
 
@@ -1823,8 +1830,8 @@ const isSimKind=k=>k==='filter'||k==='lowvision'||k==='blind';
 const VIZ_HELP=VIZ_MODES.filter(m=>!isSimKind(m.kind)), VIZ_SIM=VIZ_MODES.filter(m=>isSimKind(m.kind));
 let selVizPlayer=0;
 function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)return; if(selVizPlayer>=numPlayers)selVizPlayer=0;
-  const tabs=$(tabsSel); if(tabs){ tabs.hidden=(numPlayers<=1);
-    tabs.innerHTML = numPlayers<=1 ? '' : Array.from({length:numPlayers},(_,p)=>`<button class="mode-btn${p===selVizPlayer?' is-on':''}" data-vp="${p}" type="button">Jogador ${p+1}</button>`).join('');
+  const tabs=$(tabsSel); if(tabs){ tabs.hidden=true; // E3: sem abas — cada jogador edita só o seu
+    tabs.innerHTML = '';
     tabs.querySelectorAll('button[data-vp]').forEach(b=>b.addEventListener('click',()=>{ selVizPlayer=+b.dataset.vp; renderVisual(); renderEmpathy(); })); }
   const cur=players[selVizPlayer]?players[selVizPlayer].viz:'normal';
   el.innerHTML=modes.map(m=>{ const sel=m.key===cur; return `<div class="ctrl-row"><span><strong>${m.nome}</strong><br><span class="opt-hint" style="margin:0">${m.desc}</span></span>`+
@@ -1855,7 +1862,7 @@ function fillExplain(card){ if(!card)return;
 }
 function frontOverlay(el){ if(!el)return; el.style.zIndex=String(++_ovZ); const card=el.querySelector('.overlay__card'); if(card)fillExplain(card); }
 (function inCanvasMenus(){ const gr=document.getElementById('game-region'); if(!gr)return;
-  ['audio','movement','options','animation','visual','empathy','touchcfg'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); });
+  ['audio','movement','options','animation','visual','empathy','touchcfg','help'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); });
   // Botões puramente on/off viram TOGGLE (switch) — o texto "Ligado/Desligado" fica oculto (font-size:0).
   ['opt-facil','opt-altmove','opt-hearing','opt-onebtn','opt-wheelchair','opt-modocego','opt-tts','opt-eyes','audio-master','opt-captions','motion-master'].forEach(id=>{ const b=document.getElementById(id); if(b)b.classList.add('switch'); });
 })();
@@ -2066,17 +2073,26 @@ function keyName(code){ return String(code).replace('Arrow','↔').replace('Key'
 let selPlayer=0; // jogador selecionado no diálogo de Controles
 function renderControls(){ const el=$('#ctrl-list'); if(!el)return;
   if(selPlayer>=numPlayers) selPlayer=0;
-  const tabs=$('#ctrl-players');
-  if(tabs){ tabs.innerHTML=Array.from({length:numPlayers},(_,i)=>`<button class="mode-btn${i===selPlayer?' is-on':''}" data-pl="${i}" type="button" aria-pressed="${i===selPlayer}">Jogador ${i+1}</button>`).join('')
-      + `<span class="opt-hint" style="width:100%;margin:.2rem 0 0">Editando o esquema de <strong>${numPlayers===1?'1 tela':numPlayers+' telas'}</strong> (mude o nº de telas para configurar outros).</span>`;
-    tabs.querySelectorAll('button[data-pl]').forEach(b=>b.addEventListener('click',()=>{ selPlayer=+b.dataset.pl; captureAction=null; captureMapRef=null; renderControls(); })); }
+  const tabs=$('#ctrl-players'); // E3: sem abas de outros jogadores — você edita SÓ o seu controle
+  if(tabs){ tabs.hidden=false; tabs.innerHTML=`<span class="opt-hint" style="width:100%;margin:0">Editando o <strong>seu</strong> controle — modo <strong>${numPlayers===1?'1 jogador':numPlayers+' jogadores'}</strong>.</span>`; }
   const map=kbFor(selPlayer);
   el.innerHTML=Object.keys(ACT_LABEL).map(a=>`<div class="ctrl-row"><span>${ACT_LABEL[a]}: ${(map[a]||[]).map(keyName).map(k=>`<kbd>${k}</kbd>`).join(' ')}</span><button class="mode-btn" data-act="${a}" type="button" aria-label="Alterar tecla de ${ACT_LABEL[a]} do Jogador ${selPlayer+1}">Alterar</button></div>`).join('');
   el.querySelectorAll('button[data-act]').forEach(b=>b.addEventListener('click',()=>{ captureAction=b.dataset.act; captureMapRef=kbFor(selPlayer); b.textContent='Pressione…'; srAlert('Pressione a nova tecla para '+ACT_LABEL[b.dataset.act]+' do Jogador '+(selPlayer+1)+', ou Esc para cancelar.'); }));
 }
-function openOptions(){ const ov=$('#options'); if(!ov)return; renderControls(); ov.hidden=false; frontOverlay(ov); optionsOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function openOptions(){ const ov=$('#options'); if(!ov)return; selPlayer=pauseActor; renderControls(); ov.hidden=false; frontOverlay(ov); optionsOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); } // E3: edita o controle do jogador que abriu
 function closeOptions(){ const ov=$('#options'); if(!ov)return; ov.hidden=true; optionsOpen=false; captureAction=null; const b=$('#opt-controls'); if(b)b.focus(); }
 const ctrlBtn=$('#opt-controls'); if(ctrlBtn)ctrlBtn.addEventListener('click',openOptions);
+// AJUDA (do menu de pausa): controles DO jogador que abriu (pauseActor) + notas desta build.
+function openHelp(){ const ov=$('#help'); if(!ov)return; const c=$('#help-content'); const pa=pauseActor||0; const map=kbFor(pa);
+  const rows=Object.keys(ACT_LABEL).map(a=>`<div class="ctrl-row"><span>${ACT_LABEL[a]}</span><span>${(map[a]||[]).map(keyName).map(k=>'<kbd>'+k+'</kbd>').join(' ')||'—'}</span></div>`).join('');
+  if(c)c.innerHTML=`<h3 class="panel-sub">Seus controles${numPlayers>1?' · Jogador '+(pa+1):''} <span class="panel-sub__tag">teclado</span></h3><div class="ctrl-list">${rows}</div>`+
+    `<h3 class="panel-sub">Notas desta build</h3><div class="ctrl-list">`+
+    `<div class="ctrl-row"><span>Power-ups (bônus): 🟢 super-corrida · 🔵 ultra-pulo · 🔑 chave abre o 🚪 portão.</span></div>`+
+    `<div class="ctrl-row"><span>2–4 jogadores: telas lado a lado, cada uma com seu menu e sua configuração.</span></div>`+
+    `<div class="ctrl-row"><span>v4.0.0 — esqueleto PixiJS (WebGL, fallback Canvas) · texto/UI no DOM (acessibilidade) · offline via PWA.</span></div></div>`;
+  ov.hidden=false; frontOverlay(ov); const f=ov.querySelector('button'); if(f)f.focus(); }
+function closeHelp(){ const ov=$('#help'); if(!ov)return; ov.hidden=true; menuFocus(sharedDialogOpen()); }
+const helpCloseBtn=$('#help-close'); if(helpCloseBtn)helpCloseBtn.addEventListener('click',closeHelp);
 const ctrlClose=$('#ctrl-close'); if(ctrlClose)ctrlClose.addEventListener('click',closeOptions);
 
 /* Movimento reduzido (WCAG 2.3.3) + Pause/Stop/Hide (2.2.2) */
@@ -2084,8 +2100,8 @@ const RM_LABEL={parallax:'Parallax do fundo', decor:'Decoração (nuvens, grama)
 const RM_SOON=new Set(['decor','items','particles']); // ainda sem alvo no motor (chega com a Cidade)
 let selAnimPlayer=0;
 function renderMotion(){ const el=$('#motion-list'); if(!el)return; if(selAnimPlayer>=numPlayers)selAnimPlayer=0;
-  const tabs=$('#animation-players'); if(tabs){ tabs.hidden=(numPlayers<=1);
-    tabs.innerHTML=numPlayers<=1?'':Array.from({length:numPlayers},(_,p)=>`<button class="mode-btn${p===selAnimPlayer?' is-on':''}" data-ap="${p}" type="button">Jogador ${p+1}</button>`).join('');
+  const tabs=$('#animation-players'); if(tabs){ tabs.hidden=true; // E3: sem abas — cada jogador edita só o seu
+    tabs.innerHTML='';
     tabs.querySelectorAll('button[data-ap]').forEach(b=>b.addEventListener('click',()=>{ selAnimPlayer=+b.dataset.ap; renderMotion(); })); }
   const p=players[selAnimPlayer];
   const row=(lbl,on,attr,soon)=>`<div class="ctrl-row"><span>${lbl}${soon?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn switch${on?' is-on':''}" ${attr} type="button" aria-pressed="${on}" aria-label="${on?'Congelado':'Animado'}">${on?'❄ Congelado':'▶ Animado'}</button></div>`;
@@ -2209,7 +2225,7 @@ function setPhase(p){
 // NAVEGAÇÃO UNIVERSAL de menus: qualquer menu aberto (pausa OU submenu) é navegável por up/down/left/right/
 // sim/não — as MESMAS ações valem para teclado, controle, olhos e fala. sim = confirma/alterna/entra;
 // não = volta ao menu anterior (na raiz, volta ao jogo = Continuar). left/right ajustam select/slider.
-const OVERLAY_CLOSE={ audio:()=>closeAudio(), movement:()=>closeMovement(), options:()=>closeOptions(), animation:()=>closeAnimation(), visual:()=>closeVisual(), empathy:()=>closeEmpathy(), touchcfg:()=>closeTouchCfg() };
+const OVERLAY_CLOSE={ audio:()=>closeAudio(), movement:()=>closeMovement(), options:()=>closeOptions(), animation:()=>closeAnimation(), visual:()=>closeVisual(), empathy:()=>closeEmpathy(), touchcfg:()=>closeTouchCfg(), help:()=>closeHelp() };
 // Ações do menu de pausa (compartilhadas pelos menus por tela). Ao abrir um submenu de a11y, escopa ao
 // jogador que agiu (pauseActor) — o diálogo abre na aba dele (Etapa 3 remove as abas).
 const pauseActs={ resume:()=>setPhase('playing'),
@@ -2218,7 +2234,7 @@ const pauseActs={ resume:()=>setPhase('playing'),
   motora:()=>{ selMovPlayer=pauseActor; openMovement(); },
   anim:()=>{ selAnimPlayer=pauseActor; openAnimation(); },
   visual:()=>{ selVizPlayer=pauseActor; openVisual(); },
-  empatia:()=>openEmpathy(), print:()=>printMode(), quit:()=>quitGame() };
+  empatia:()=>{ selVizPlayer=pauseActor; openEmpathy(); }, print:()=>printMode(), quit:()=>quitGame(), ajuda:()=>openHelp() };
 // Roteamento de input por jogador: cada tecla é do jogador dono dela (kbFor). Genéricas → jogador 0.
 function actionOf(code,pi){ const m=kbFor(pi); for(const a in m){ if(m[a]&&m[a].indexOf(code)>=0)return a; } return null; }
 function whichPlayer(code){ for(let i=0;i<numPlayers;i++){ if(actionOf(code,i))return i; } return -1; }
