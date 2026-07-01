@@ -48,16 +48,11 @@
       <span class="hud__fpsmin">(mín <strong id="hud-fpsmin">–</strong>)</span></p>
   </div>
 
-  <!-- Barra de controles em UMA fileira: botões CÍCLICOS (1 por função) -->
-  <nav class="opts" aria-label="Jogo e acessibilidade">
+  <!-- Barra superior = só ajustes GLOBAIS do jogo. A acessibilidade é PESSOAL de cada jogador → vive no
+       menu de pausa (cada jogador pausa e configura o seu). -->
+  <nav class="opts" aria-label="Jogo">
     <button id="opt-mode" class="mode-btn" type="button" aria-label="Trocar o modo de jogo (Lúdico, Soma-Sub, Sílabas)">🪙 Lúdico</button>
-    <button id="opt-letra" class="mode-btn" type="button" aria-label="Trocar as letras (ABC, abc, Braille)">🔠 ABC</button>
     <button id="opt-telas" class="mode-btn" type="button" aria-label="Trocar o número de telas (jogadores)">👤 1 tela</button>
-    <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true" aria-haspopup="dialog" aria-label="Acessibilidade auditiva: modo cego, vozes TTS e controles de som">🦻 A12e auditiva</button>
-    <button id="opt-movement" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Acessibilidade motora: modo Fácil, alternância e mapeamento de controles">♿ A12e motora</button>
-    <button id="opt-animation" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Sensibilidade visual: reduzir ou parar animações e escolher a fonte">🎞 S11e visual</button>
-    <button id="opt-visual" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Acessibilidade visual: configuração de cores e legendas">🎨 A12e visual</button>
-    <button id="opt-empathy" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Modo empatia: simular deficiências visuais e auditivas">🫂 Modo empatia</button>
   </nav>
 
   <main>
@@ -89,6 +84,7 @@
           <h2 id="pause-h">Pausado</h2>
           <div id="pause-menu" class="pause-menu" role="menu" aria-label="Menu de pausa">
             <button id="pm-resume" class="pm-btn" role="menuitem" type="button" data-act="resume">▶ Continuar</button>
+            <button id="opt-letra" class="pm-btn" role="menuitem" type="button" aria-label="Trocar as letras (ABC, abc, Braille)">🔠 ABC</button>
             <button class="pm-btn" role="menuitem" type="button" data-act="audio">🦻 A12e auditiva</button>
             <button class="pm-btn" role="menuitem" type="button" data-act="motora">♿ A12e motora</button>
             <button class="pm-btn" role="menuitem" type="button" data-act="anim">🎞 S11e visual</button>
@@ -201,7 +197,7 @@
   <!-- Movimento (GAG): como o jogador anda -->
   <div id="movement" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="movement-title">
-      <h2 id="movement-title">A12e motora <span class="panel-sub__tag">acessibilidade motora</span></h2>
+      <h2 id="movement-title">Acessibilidade motora</h2>
       <div id="movement-players" class="ctrl-players" role="group" aria-label="Escolha o jogador" hidden></div>
       <div class="ctrl-list" role="group" aria-label="Movimento">
         <div class="ctrl-row"><span><strong>♿ Modo Fácil</strong> — para quem ainda não tem coordenação motora fina: gravidade menor, pulo mais alto, coleta tolerante, moedas no chão, sem perigos e sem quedas acidentais.</span>
@@ -249,7 +245,7 @@
   <!-- Animação (WCAG 2.3.3 + Pause/Stop/Hide 2.2.2): movimento na tela -->
   <div id="animation" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="animation-title">
-      <h2 id="animation-title">S11e visual <span class="panel-sub__tag">sensibilidade visual · desligar animações · WCAG 2.3.3</span></h2>
+      <h2 id="animation-title">Sensibilidade visual</h2>
       <div id="animation-players" class="ctrl-players" role="group" aria-label="Escolha o jogador" hidden></div>
       <div style="text-align:center;margin:.2rem 0 .6rem">
         <button id="motion-master" class="mode-btn" type="button">⏸ Parar todas as animações</button>
@@ -268,7 +264,7 @@
   <!-- Áudio (F1): mixer por categoria — liga/desliga + volume -->
   <div id="audio" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="audio-title">
-      <h2 id="audio-title">A12e auditiva <span class="panel-sub__tag">acessibilidade auditiva</span></h2>
+      <h2 id="audio-title">Acessibilidade auditiva</h2>
       <h3 class="panel-sub">Navegação sonora</h3>
       <div class="ctrl-list" role="group" aria-label="Modo cego">
         <div class="ctrl-row"><span><strong>🦯 Modo cego</strong> — bengala que bate à frente + pistas sonoras (sonar, guarda de beirada, narração), sem escurecer a tela. Para quem joga só pelo som.</span>
@@ -338,7 +334,7 @@
   <!-- Acessibilidade visual: escolher a configuração de cor (radio, efeito imediato) -->
   <div id="visual" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="visual-title">
-      <h2 id="visual-title">A12e visual <span class="panel-sub__tag">acessibilidade visual</span></h2>
+      <h2 id="visual-title">Acessibilidade visual</h2>
       <p class="opt-hint">Escolha a configuração de cores por jogador. O efeito é imediato.</p>
       <div id="visual-players" class="ctrl-players" role="group" aria-label="Escolha o jogador" hidden></div>
       <div id="visual-list" class="ctrl-list" role="radiogroup" aria-labelledby="visual-title"></div>
