@@ -1812,7 +1812,10 @@ function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.v
 let _ovZ=60;
 function frontOverlay(el){ if(el)el.style.zIndex=String(++_ovZ); }
 (function inCanvasMenus(){ const gr=document.getElementById('game-region'); if(!gr)return;
-  ['audio','movement','options','animation','visual','empathy'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); }); })();
+  ['audio','movement','options','animation','visual','empathy'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); });
+  // Botões puramente on/off viram TOGGLE (switch) — o texto "Ligado/Desligado" fica oculto (font-size:0).
+  ['opt-facil','opt-altmove','opt-hearing','opt-onebtn','opt-wheelchair','opt-modocego','opt-tts','opt-eyes','audio-master','opt-captions'].forEach(id=>{ const b=document.getElementById(id); if(b)b.classList.add('switch'); });
+})();
 function openVisual(){ const ov=$('#visual'); if(!ov)return; renderVisual(); ov.hidden=false; frontOverlay(ov); visualOpen=true; const f=ov.querySelector('button[data-viz]')||ov.querySelector('button'); if(f)f.focus(); }
 function closeVisual(){ const ov=$('#visual'); if(!ov)return; ov.hidden=true; visualOpen=false; const b=$('#opt-visual'); if(b)b.focus(); }
 function openEmpathy(){ const ov=$('#empathy'); if(!ov)return; renderEmpathy(); ov.hidden=false; frontOverlay(ov); empathyOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }

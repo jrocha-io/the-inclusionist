@@ -89,6 +89,14 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 .modes{max-width:var(--maxw);margin:0 auto .5rem;padding:0 1rem;display:flex;gap:.5rem;flex-wrap:wrap}
 .mode-btn{min-height:var(--tap);padding:.4em .9em;font:inherit;font-weight:700;color:var(--ink);background:var(--panel);border:2px solid var(--ink-soft);border-radius:999px;cursor:pointer}
 .mode-btn.is-on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+/* TOGGLE (switch): substitui os botões "ícone + Ligado/Desligado". Estado = trilho + manopla que desliza.
+   Semântica de botão de alternância via aria-pressed (o texto interno fica oculto por font-size:0). */
+.mode-btn.switch{--sw-w:52px;--sw-h:28px;position:relative;width:var(--sw-w);min-width:var(--sw-w);height:var(--sw-h);min-height:var(--sw-h);padding:0;flex:0 0 auto;border-radius:999px;border:2px solid var(--ink-soft);background:#0e1326;color:transparent;font-size:0;transition:background .18s,border-color .18s}
+.mode-btn.switch::after{content:"";position:absolute;top:50%;left:3px;transform:translateY(-50%);width:calc(var(--sw-h) - 10px);height:calc(var(--sw-h) - 10px);border-radius:50%;background:var(--ink-soft);transition:left .18s,background .18s}
+.mode-btn.switch[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
+.mode-btn.switch[aria-pressed="true"]::after{left:calc(var(--sw-w) - (var(--sw-h) - 10px) - 5px);background:var(--accent-ink)}
+.mode-btn.switch:focus-visible,.mode-btn.switch:focus{outline:3px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){ .mode-btn.switch,.mode-btn.switch::after{transition:none} }
 
 /* desafio Soma-Sub (overlay sobre o canvas) */
 .quiz{position:absolute;inset:0;z-index:12;display:grid;place-items:center;background:rgba(0,0,0,.55)}
@@ -174,7 +182,18 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 .panel-sub{text-align:left;font-size:1rem;margin:1rem 0 .4rem;border-bottom:1px solid var(--accent);padding-bottom:.2rem}
 .panel-sub:first-of-type{margin-top:.4rem}
 .panel-sub__tag{color:var(--ink-soft);font-size:.78rem;font-weight:400}
-.vol{width:140px;max-width:45%;accent-color:var(--accent);height:1.5rem;cursor:pointer} /* barra de volume */
+.vol{width:140px;max-width:45%;accent-color:var(--accent);height:1.5rem;cursor:pointer} /* barra de volume (range) */
+/* Caixas de seleção com a IDENTIDADE do jogo: fonte escolhida, cores e tamanho (não o estilo do SO) */
+select.vol, .overlay__card select, .ctrl-col select{
+  font-family:var(--font);font-size:.95rem;font-weight:600;color:var(--ink);
+  width:auto;max-width:100%;height:auto;min-height:var(--tap);
+  background:#0e1326;border:2px solid var(--ink-soft);border-radius:8px;
+  padding:.35em 2em .35em .7em;cursor:pointer;
+  -webkit-appearance:none;-moz-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23ffd23f' stroke-width='2' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat;background-position:right .7em center}
+select.vol:focus, .overlay__card select:focus{outline:3px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.overlay__card select option{background:#0e1326;color:var(--ink);font-weight:600}
 .ctrl-players{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;margin-bottom:.7rem}
 .ctrl-players .mode-btn{padding:.3em .7em;font-size:.95rem}
 .ctrl-list{display:flex;flex-direction:column;gap:.45rem;text-align:left}
