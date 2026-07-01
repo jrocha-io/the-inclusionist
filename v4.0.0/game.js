@@ -1188,20 +1188,34 @@ function ensureSprites(){
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 // HUD por jogador em DOM SOBREPOSTO (alta definição, não pixela): moedas (1ª coluna) + poder (2ª coluna), por viewport.
-let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[];
+let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[], vpPause=[], pauseActor=0;
+// Menu de pausa POR TELA (Etapa 2): um por jogador, dentro da .player-screen dele.
+const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
+function buildScreenPause(i){ const sp=document.createElement('div'); sp.className='screen-pause'; sp.hidden=true; sp.dataset.player=String(i);
+  sp.innerHTML='<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'"><h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
+    PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+b.lbl+'</button>').join('')+
+    '</div><p class="pause-legend" aria-hidden="true"></p></div>';
+  sp.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(!b)return; pauseActor=i; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); });
+  return sp; }
 // Contêiner "tela do jogador" por viewport (Etapa 1): hospeda o HUD; nas próximas etapas, a pausa e os menus.
 function screenRect(i){ const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
   const col=i%cols, row=Math.floor(i/cols); let colFrac=col/cols;
   if(numPlayers===3 && i===2) colFrac=(1-1/cols)/2; // 3 telas: a 3ª centralizada na linha de baixo (casa com o render)
   return { L:(colFrac*100)+'%', T:(row/rows*100)+'%', W:(100/cols)+'%', H:(100/rows)+'%' }; }
-function buildGameHud(){ if(!gameHudEl) gameHudEl=$('#game-hud'); if(!gameHudEl)return; gameHudEl.innerHTML=''; vpHudDom=[]; vpQuitDom=[]; vpScreens=[];
+function buildGameHud(){ if(!gameHudEl) gameHudEl=$('#game-hud'); if(!gameHudEl)return; gameHudEl.innerHTML=''; vpHudDom=[]; vpQuitDom=[]; vpScreens=[]; vpPause=[];
   for(let i=0;i<Math.max(1,numPlayers);i++){ const r=screenRect(i);
     const scr=document.createElement('div'); scr.className='player-screen'; scr.dataset.player=String(i); scr.style.left=r.L; scr.style.top=r.T; scr.style.width=r.W; scr.style.height=r.H;
     const d=document.createElement('div'); d.className='vphud';
     d.innerHTML='<span class="vphud-coins"><b class="vphud-ico">🪙</b> <b class="vphud-n">0</b> / '+COIN_TARGET+'</span><span class="vphud-power"><b class="vphud-ico">✨</b> <span class="vphud-pw">—</span></span>';
     scr.appendChild(d); vpHudDom.push(d);
     const q=document.createElement('div'); q.className='vphud-quit'; q.hidden=true; q.textContent='Jogo abandonado'; scr.appendChild(q); vpQuitDom.push(q);
-    gameHudEl.appendChild(scr); vpScreens.push(scr); } }
+    const sp=buildScreenPause(i); scr.appendChild(sp); vpPause.push(sp);
+    gameHudEl.appendChild(scr); vpScreens.push(scr); }
+  // reflete ABC + legenda sim/não nos menus recém-criados (no 1º build do init, LETRA/PAD_DESIGNS ainda estão
+  // em TDZ — o try/catch ignora; applyLetra/applyPadDesign preenchem logo depois no fluxo de init).
+  try{ applyLetra(false); }catch(e){}
+  try{ renderPauseLegend(); }catch(e){}
+}
 function updateGameHud(){ for(let i=0;i<vpHudDom.length;i++){ const p=players[i]; if(!p)continue; const d=vpHudDom[i];
   const n=d.querySelector('.vphud-n'); if(n)n.textContent=String(p.collected); const pw=d.querySelector('.vphud-pw'); if(pw)pw.textContent=POWER_SHORT[p.activePower]||'—';
   if(vpQuitDom[i])vpQuitDom[i].hidden=!p.quit; if(d)d.style.visibility=p.quit?'hidden':'visible'; } } // jogador que saiu: tela preta "jogo abandonado"
@@ -1709,6 +1723,7 @@ const LETRA=[
 let letraIdx=0;
 function applyLetra(announce){ const s=LETRA[letraIdx]; letterCase=s.caso; blindMode=s.blind;
   const b=$('#opt-letra'); if(b){ b.textContent=s.lbl; b.classList.toggle('is-on',letraIdx>0); b.setAttribute('aria-pressed',String(letraIdx>0)); }
+  document.querySelectorAll('.pm-letra').forEach(x=>{ x.textContent=s.lbl; }); // ABC nos menus de pausa por tela
   if(typeof rebuildCoins==='function' && MODE==='silabas') rebuildCoins();
   if(player&&player.quiz) renderQuiz();
   if(announce) srSay(s.say);
@@ -1963,9 +1978,10 @@ let padDesign=(()=>{try{return localStorage.getItem('incl_paddesign')||'generic'
 // Xbox/Genérico: sim = botão 0 (A verde / "0"), não = botão 1 (B vermelho / "1").
 function simNaoGlyphs(){ const set=PAD_DESIGNS[padDesign]||PAD_DESIGNS.generic; const inv=(padDesign==='sony'||padDesign==='nintendo');
   return { sim:set[inv?'1':'0'], nao:set[inv?'0':'1'] }; }
-function renderPauseLegend(){ const el=$('#pause-legend'); if(!el)return; const g=simNaoGlyphs();
+function renderPauseLegend(){ const g=simNaoGlyphs();
   const chip=(s,word)=>`<span class="lg"><span class="lg-ico" style="background:${s[1]}">${s[0]}</span> ${word}</span>`;
-  el.innerHTML=chip(g.sim,'Sim')+chip(g.nao,'Não'); }
+  const html=chip(g.sim,'Sim')+chip(g.nao,'Não');
+  document.querySelectorAll('.pause-legend').forEach(el=>{ el.innerHTML=html; }); } // todas as pausas por tela
 function applyPadDesign(d){ if(d&&PAD_DESIGNS[d])padDesign=d; try{localStorage.setItem('incl_paddesign',padDesign);}catch(e){} const set=PAD_DESIGNS[padDesign]||PAD_DESIGNS.generic;
   document.querySelectorAll('#pad-diamond .pad-b').forEach(b=>{ const s=set[b.dataset.btn]; if(s){ b.textContent=s[0]; b.style.background=s[1]; } }); renderPauseLegend(); }
 applyPadDesign(padDesign);
@@ -2183,7 +2199,8 @@ function setPhase(p){
   if(_masterGain&&audioCtx) try{ _masterGain.gain.setTargetAtTime(p==='playing'?1:0, audioCtx.currentTime, 0.04); }catch(e){}
   const t=$('#title-overlay'), pa=$('#pause-overlay');
   if(t)t.hidden = p!=='title';
-  if(pa)pa.hidden = p!=='paused';
+  if(pa)pa.hidden = true; // pausa GLOBAL aposentada (Etapa 2): agora é uma por tela (vpPause)
+  vpPause.forEach(sp=>{ sp.hidden = p!=='paused'; });
   const pb=$('#btn-pause'); if(pb)pb.setAttribute('aria-pressed',String(p==='paused'));
   if(p==='playing'){ const gr=$('#game-region'); if(gr)gr.focus(); }
   else if(p==='paused'){ if(typeof pauseSelect==='function')pauseSelect(); }
@@ -2193,53 +2210,67 @@ function setPhase(p){
 // sim/não — as MESMAS ações valem para teclado, controle, olhos e fala. sim = confirma/alterna/entra;
 // não = volta ao menu anterior (na raiz, volta ao jogo = Continuar). left/right ajustam select/slider.
 const OVERLAY_CLOSE={ audio:()=>closeAudio(), movement:()=>closeMovement(), options:()=>closeOptions(), animation:()=>closeAnimation(), visual:()=>closeVisual(), empathy:()=>closeEmpathy(), touchcfg:()=>closeTouchCfg() };
-function activeMenu(){ const ov=[...document.querySelectorAll('#game-region .overlay')].filter(o=>!o.hidden);
-  if(ov.length){ ov.sort((a,b)=>(+getComputedStyle(a).zIndex||0)-(+getComputedStyle(b).zIndex||0)); return ov[ov.length-1]; } // o de maior z está por cima
-  const pa=$('#pause-overlay'); return (pa&&!pa.hidden)?pa:null; }
-function menuItems(menu){ const card=menu.querySelector('.overlay__card, .pause-card')||menu;
-  return [...card.querySelectorAll('button:not([disabled]), select:not([disabled]), input[type=range]:not([disabled])')].filter(el=>el.offsetParent!==null); }
+// Ações do menu de pausa (compartilhadas pelos menus por tela). Ao abrir um submenu de a11y, escopa ao
+// jogador que agiu (pauseActor) — o diálogo abre na aba dele (Etapa 3 remove as abas).
+const pauseActs={ resume:()=>setPhase('playing'),
+  letra:()=>{ letraIdx=(letraIdx+1)%LETRA.length; applyLetra(true); },
+  audio:()=>openAudio(),
+  motora:()=>{ selMovPlayer=pauseActor; openMovement(); },
+  anim:()=>{ selAnimPlayer=pauseActor; openAnimation(); },
+  visual:()=>{ selVizPlayer=pauseActor; openVisual(); },
+  empatia:()=>openEmpathy(), print:()=>printMode(), quit:()=>quitGame() };
+// Roteamento de input por jogador: cada tecla é do jogador dono dela (kbFor). Genéricas → jogador 0.
+function actionOf(code,pi){ const m=kbFor(pi); for(const a in m){ if(m[a]&&m[a].indexOf(code)>=0)return a; } return null; }
+function whichPlayer(code){ for(let i=0;i<numPlayers;i++){ if(actionOf(code,i))return i; } return -1; }
+function sharedDialogOpen(){ const ov=[...document.querySelectorAll('#game-region .overlay')].filter(o=>!o.hidden); if(!ov.length)return null; ov.sort((a,b)=>(+getComputedStyle(a).zIndex||0)-(+getComputedStyle(b).zIndex||0)); return ov[ov.length-1]; }
+function menuItems(menu){ const card=menu.querySelector('.overlay__card, .pause-card')||menu; return [...card.querySelectorAll('button:not([disabled]), select:not([disabled]), input[type=range]:not([disabled])')].filter(el=>el.offsetParent!==null); }
 function menuFocus(menu){ if(!menu)return; const it=menuItems(menu); if(it.length){ const cur=it.indexOf(document.activeElement); (cur>=0?it[cur]:it[0]).focus(); } }
-function menuBack(menu){ if(menu.id==='pause-overlay'){ setPhase('playing'); return; } const c=OVERLAY_CLOSE[menu.id]; if(c)c(); else menu.hidden=true; menuFocus(activeMenu()); } // não = volta um nível; raiz = joga
-function menuNavKey(e){ if(phase!=='paused'||captureAction)return; const menu=activeMenu(); if(!menu)return; // durante remap (captureAction) deixa a tecla passar
-  const items=menuItems(menu); if(!items.length)return;
-  let idx=items.indexOf(document.activeElement); if(idx<0){ idx=0; items[0].focus(); }
-  const cur=items[idx], C=e.code, has=(a,k)=>controls[a]&&controls[a].includes(k);
-  const yes=C==='Space'||C==='KeyJ'||C==='Enter'||C==='NumpadEnter'||has('jump',C);
-  const no=C==='Escape'||has('especial',C);
-  const up=C==='ArrowUp'||C==='KeyW'||has('up',C), down=C==='ArrowDown'||C==='KeyS'||has('down',C);
-  const left=C==='ArrowLeft'||C==='KeyA'||has('left',C), right=C==='ArrowRight'||C==='KeyD'||has('right',C);
-  const done=()=>{ e.preventDefault(); e.stopPropagation(); };
-  if(no){ done(); menuBack(menu); return; }
-  if(left||right){ const d=right?1:-1;
-    if(cur.tagName==='SELECT'){ done(); cur.selectedIndex=Math.max(0,Math.min(cur.options.length-1,cur.selectedIndex+d)); cur.dispatchEvent(new Event('change',{bubbles:true})); return; }
-    if(cur.tagName==='INPUT'){ done(); const st=+cur.step||1; cur.value=Math.max(+cur.min,Math.min(+cur.max,(+cur.value)+d*st)); cur.dispatchEvent(new Event('input',{bubbles:true})); return; }
-    done(); idx=Math.max(0,Math.min(items.length-1,idx+d)); items[idx].focus(); return; }
-  if(up||down){ done(); idx=Math.max(0,Math.min(items.length-1,idx+(down?1:-1))); items[idx].focus(); return; }
-  if(yes){ done();
-    if(cur.tagName==='SELECT'){ cur.selectedIndex=(cur.selectedIndex+1)%cur.options.length; cur.dispatchEvent(new Event('change',{bubbles:true})); return; }
-    if(cur.tagName==='INPUT')return; // slider: usa left/right
-    cur.click(); return; } }
+function dialogBack(menu){ const c=OVERLAY_CLOSE[menu.id]; if(c)c(); else menu.hidden=true; menuFocus(sharedDialogOpen()); }
+function navDialog(menu,k){ const items=menuItems(menu); if(!items.length)return; let idx=items.indexOf(document.activeElement); if(idx<0){ idx=0; items[0].focus(); } const cur=items[idx];
+  if(k.no){ dialogBack(menu); return; }
+  if(k.left||k.right){ const d=k.right?1:-1;
+    if(cur.tagName==='SELECT'){ cur.selectedIndex=Math.max(0,Math.min(cur.options.length-1,cur.selectedIndex+d)); cur.dispatchEvent(new Event('change',{bubbles:true})); return; }
+    if(cur.tagName==='INPUT'){ const st=+cur.step||1; cur.value=Math.max(+cur.min,Math.min(+cur.max,(+cur.value)+d*st)); cur.dispatchEvent(new Event('input',{bubbles:true})); return; }
+    idx=Math.max(0,Math.min(items.length-1,idx+d)); items[idx].focus(); return; }
+  if(k.up||k.down){ idx=Math.max(0,Math.min(items.length-1,idx+(k.down?1:-1))); items[idx].focus(); return; }
+  if(k.yes){ if(cur.tagName==='SELECT'){ cur.selectedIndex=(cur.selectedIndex+1)%cur.options.length; cur.dispatchEvent(new Event('change',{bubbles:true})); return; } if(cur.tagName==='INPUT')return; cur.click(); return; } }
+function navPause(menu,pi,k){ const items=[...menu.querySelectorAll('.pm-btn')]; if(!items.length)return;
+  if(k.no){ setPhase('playing'); return; } // "não" na raiz → volta ao jogo (retoma todos)
+  let idx=items.findIndex(b=>b.classList.contains('pm-sel')); if(idx<0)idx=0;
+  if(k.yes){ pauseActor=pi; items[idx].click(); return; }
+  const cols=2;
+  if(k.right)idx=Math.min(items.length-1,idx+1); else if(k.left)idx=Math.max(0,idx-1);
+  else if(k.down)idx=Math.min(items.length-1,idx+cols); else if(k.up)idx=Math.max(0,idx-cols);
+  items.forEach(b=>b.classList.remove('pm-sel')); items[idx].classList.add('pm-sel'); }
+function menuNavKey(e){ if(phase!=='paused'||captureAction)return; const C=e.code;
+  const owner=whichPlayer(C); const pi=owner<0?0:owner; const act=owner>=0?actionOf(C,pi):null;
+  const yes=C==='Space'||C==='KeyJ'||C==='Enter'||C==='NumpadEnter'||act==='jump';
+  const no=C==='Escape'||act==='especial';
+  const up=C==='ArrowUp'||C==='KeyW'||act==='up', down=C==='ArrowDown'||C==='KeyS'||act==='down';
+  const left=C==='ArrowLeft'||C==='KeyA'||act==='left', right=C==='ArrowRight'||C==='KeyD'||act==='right';
+  if(!(yes||no||up||down||left||right))return; e.preventDefault(); e.stopPropagation();
+  const k={yes,no,up,down,left,right};
+  const dlg=sharedDialogOpen(); if(dlg){ navDialog(dlg,k); return; } // diálogo de a11y aberto: navega ele (compartilhado nesta etapa)
+  const menu=vpPause[pi]; if(menu&&!menu.hidden)navPause(menu,pi,k); } // senão: menu de pausa do próprio jogador
 addEventListener('keydown', menuNavKey, true);
-function pauseSelect(){ const pa=$('#pause-overlay'); if(!pa)return; pa.querySelectorAll('.pm-btn').forEach(b=>b.classList.remove('pm-sel')); const r=$('#pm-resume'); if(r){ r.classList.add('pm-sel'); r.focus(); } }
-function printMode(){ const pa=$('#pause-overlay'); if(pa)pa.hidden=true; // Print: esconde a pausa → vê a tela limpa; qualquer botão volta
+function pauseSelect(){ vpPause.forEach(sp=>{ const items=[...sp.querySelectorAll('.pm-btn')]; items.forEach(b=>b.classList.remove('pm-sel')); if(items[0])items[0].classList.add('pm-sel'); }); } // 1º item (Continuar) selecionado em cada tela
+function printMode(){ vpPause.forEach(sp=>sp.hidden=true); // Print: esconde as pausas → vê a tela limpa; qualquer botão volta
   const back=(e)=>{ if(e&&e.preventDefault)try{e.preventDefault();}catch(_){} window.removeEventListener('keydown',back,true); window.removeEventListener('pointerdown',back,true);
-    if(phase==='paused'&&pa){ pa.hidden=false; const r=$('#pm-resume'); if(r)r.focus(); } };
+    if(phase==='paused'){ vpPause.forEach(sp=>sp.hidden=false); pauseSelect(); } };
   setTimeout(()=>{ window.addEventListener('keydown',back,true); window.addEventListener('pointerdown',back,true); }, 80);
   srSay('Modo Print: veja a tela sem menus. Aperte qualquer botão para voltar.'); }
 function releaseKey(pl){ // portador saiu do jogo → a chave volta para a posição inicial (fica disponível de novo)
   if(!pl||!pl.hasKey)return; pl.hasKey=false;
   const key=powerups.find(p=>p.kind==='key'); if(key){ key.taken=false; key.by=[]; if(key.sprite)key.sprite.visible=true; srAlert('A chave voltou para o lugar de origem.'); } }
-function quitGame(){ // Sair: single → volta ao título; MP → tela do jogador fica preta "jogo abandonado", os outros seguem (B3)
+function quitGame(){ // Sair: single → volta ao título; MP → a tela DO JOGADOR QUE SAIU fica preta, os outros seguem
   if(numPlayers<=1){ restartGame(); setPhase('title'); srSay('Jogo abandonado.'); }
-  else { releaseKey(players[0]); players[0].quit=true; setPhase('playing'); srSay('Você abandonou o jogo.'); } }
+  else { const q=pauseActor||0; releaseKey(players[q]); players[q].quit=true; setPhase('playing'); srSay('Jogador '+(q+1)+' abandonou o jogo.'); } }
 function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==='paused')setPhase('playing'); }
 (function shellSetup(){
   const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
   wire('btn-play', ()=>{ setPhase('playing'); hideTips(); srSay('Jogo iniciado. Colete 10 moedas.'); });
   wire('btn-pause', togglePause);
-  // Menu de pausa in-canvas: Continuar + menus de a11y + Print + Sair
-  const pauseActs={ resume:()=>setPhase('playing'), audio:openAudio, motora:openMovement, anim:openAnimation, visual:openVisual, empatia:openEmpathy, print:printMode, quit:quitGame };
-  const pm=$('#pause-menu'); if(pm)pm.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(!b)return; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); });
+  // Menu de pausa: agora é POR TELA (buildScreenPause + pauseActs no escopo do módulo). Nada aqui.
   setPhase('title'); // estado inicial: tela de título
 })();
 
