@@ -25,7 +25,7 @@ const TILE_TYPES = {
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=(()=>{try{return localStorage.getItem('incl_onebtn')==='1';}catch(e){return false;}})();
 let wheelchair=(()=>{try{return localStorage.getItem('incl_wheelchair')==='1';}catch(e){return false;}})();
-const isSolidType = (t) => (wheelchair && t===9) ? true : (!!(TILE_TYPES[t] && TILE_TYPES[t].solid) && !(wheelchair && t===5)); // cadeirante: pula-pula vira elevador (não-sólido); lava vira chão sólido
+const isSolidType = (t) => (wheelchair && (t===9||t===5)) ? true : !!(TILE_TYPES[t] && TILE_TYPES[t].solid); // cadeirante: lava (9) e trampolim (5) viram CHÃO sólido (o elevador para em cima, não atravessa)
 const TILE_COLOR = {
   0:'#0a0a14',1:'#241f38',2:'#6b6480',3:'#2f6fae',4:'#8a5a2b',5:'#34e29b',6:'#3a3a46',
   7:'#7fdcff',8:'#ffd23f',9:'#ff5b3a',10:'#9a8a6f',11:'#ffe06a',12:'#3a86ff',13:'#8a5cff',14:'#ff6fae',
@@ -1031,10 +1031,12 @@ function buildElevators(){ elevShafts=[]; if(!wheelchair)return;
     let yb=y; while(yb+1<WORLD_H&&isE(cols[0],yb+1))yb++;              // base do run vertical
     for(const cx of cols)for(let yy=y;yy<=yb;yy++)seen.add(cx+','+yy);
     let ytop=y; while(ytop-1>=0&&!cols.some(cx=>wall(cx,ytop-1)))ytop--; // topo aberto (até um teto sólido)
-    let fr=yb+1; while(fr<WORLD_H&&!wall(cols[0],fr))fr++;             // 1º chão sólido abaixo
-    const yBottom=fr*TILE, L=cols[0]-1, R=cols[cols.length-1]+1;
+    const isTramp=tileAt(cols[0],y)===5;
+    let fr=yb+1; while(fr<WORLD_H&&!wall(cols[0],fr))fr++;             // 1º chão sólido abaixo (p/ escada)
+    const yBottom = isTramp ? y*TILE : fr*TILE;                       // trampolim = CHÃO sólido (para EM CIMA); escada = desce ao chão de baixo
+    const L=cols[0]-1, R=cols[cols.length-1]+1;
     let yTop=yBottom; for(let r=ytop;r<=yb;r++){ if(surfTop(L,r)||surfTop(R,r)){ yTop=r*TILE; break; } } // 1ª parada c/ piso ao lado
-    elevShafts.push({cols,xMin:cols[0],xMax:cols[cols.length-1],yTop,yBottom,kind:tileAt(cols[0],y)===5?'wide':'thin'});
+    elevShafts.push({cols,xMin:cols[0],xMax:cols[cols.length-1],yTop,yBottom,kind:isTramp?'wide':'thin'});
   }
   for(const e of WC_ELEVATORS) elevShafts.push({cols:e.cols,xMin:e.cols[0],xMax:e.cols[e.cols.length-1],yTop:e.yTop,yBottom:e.yBottom,kind:e.kind}); // elevadores só-cadeirante (fossos)
 }
@@ -1048,7 +1050,7 @@ function drawElevators(g){ g.clear(); if(!wheelchair)return;
   for(const s of elevShafts){ if(s.carY==null)s.carY=s.yBottom; for(const pl of players){ if(elevAt(pl)===s) s.carY=pl.y; } } // cabine segue quem está nela; senão fica
   const GLASS=0x9fd0e6, FRAME=0x8aa0b8, WHITE=0xeaf2f8, BLUE=0x4a78b0, INNER=0x24384d;
   for(const s of elevShafts){
-    const x0=s.xMin*TILE, x1=(s.xMax+1)*TILE, w=x1-x0, yt=s.yTop-TILE, yb=s.yBottom+TILE, h=yb-yt;
+    const x0=s.xMin*TILE, x1=(s.xMax+1)*TILE, w=x1-x0, yt=s.yTop-TILE, yb=s.yBottom, h=yb-yt; // vidro só ACIMA do chão (yBottom)
     g.beginFill(GLASS,0.14); g.drawRect(x0,yt,w,h); g.endFill();                                   // fosso de vidro (vê o background)
     for(const cx of s.cols)for(let ry=Math.floor(yt/TILE);ry<=Math.floor((yb-1)/TILE);ry++){ if(tileAt(cx,ry)!==4)continue; const X=cx*TILE,Y=ry*TILE; // ESCADA some → bloco de elevador
       g.beginFill(INNER,0.9); g.drawRect(X,Y,TILE,TILE); g.endFill(); g.beginFill(GLASS,0.22); g.drawRect(X,Y,TILE,TILE); g.endFill(); }
