@@ -1878,13 +1878,18 @@ function populateTTSVoices(){ const sel=$('#tts-voice'); if(!sel)return; let voi
   const saved=(()=>{try{return localStorage.getItem('incl_tts_voice');}catch(e){return null;}})(); const pick=list.find(v=>v.name===saved)||list[0]; sel.value=pick.name; _ttsVoiceObj=pick; }
 const mcBtn=$('#opt-modocego'); if(mcBtn)mcBtn.addEventListener('click',()=>{ setModoCego(!modoCego); reflectModoCego(); });
 const caneDivSel=$('#cane-div'); if(caneDivSel){ caneDivSel.value=String(caneBlockDiv); caneDivSel.addEventListener('change',()=>{ caneBlockDiv=+caneDivSel.value||1; try{localStorage.setItem('incl_cane_div',String(caneBlockDiv));}catch(e){} srSay('Bengala: '+(caneBlockDiv===2?'uma batida a cada meio bloco pisado.':'uma batida por bloco pisado.')); }); }
-// Botões abreviados: hover/foco DESCOMPACTA o número em letras (o "12" vira as 12 letras contando p/ baixo), suave; recomprime ao sair.
-[['opt-sound','🦻 A','cessibilidad','e auditiva'],['opt-movement','♿ A','cessibilidad','e motora'],['opt-animation','🎞 S','ensibilidad','e visual'],['opt-visual','🎨 A','cessibilidad','e visual']]
-  .forEach(([id,pre,hid,suf])=>{ const b=$('#'+id); if(!b)return; const N=hid.length; let k=0,tgt=0,timer=null;
-    const render=()=>{ b.textContent=pre+hid.slice(0,k)+((N-k>0)?String(N-k):'')+suf; };
-    const tick=()=>{ if(k===tgt){ clearInterval(timer); timer=null; return; } k+=k<tgt?1:-1; render(); };
-    const go=(t)=>{ tgt=t; if(!timer)timer=setInterval(tick,16); };
-    render(); b.addEventListener('mouseenter',()=>go(N)); b.addEventListener('mouseleave',()=>go(0)); b.addEventListener('focus',()=>go(N)); b.addEventListener('blur',()=>go(0)); });
+// Botões abreviados: hover/foco DESCOMPACTA o número em letras (o "12" vira as 12 letras contando p/ baixo), suave;
+// recomprime ao sair. Genérico: varre a barra (.mode-btn) E o menu de pausa (.pm-btn) casando A12e/S11e.
+const ABBR_MID={ 'A12e':'cessibilidad', 'S11e':'ensibilidad' }; // token → letras ocultas (Acessibilidade / Sensibilidade)
+function attachAbbr(b){ if(!b||b.dataset.abbrDone)return; const txt=b.textContent; let tok=null;
+  for(const t in ABBR_MID){ if(txt.includes(t)){ tok=t; break; } } if(!tok)return;
+  const i=txt.indexOf(tok), pre=txt.slice(0,i+1), suf=txt.slice(i+tok.length-1), hid=ABBR_MID[tok], N=hid.length; // pre inclui a 1ª letra; suf começa na última
+  b.dataset.abbrDone='1'; let k=0,tgt=0,timer=null;
+  const render=()=>{ b.textContent=pre+hid.slice(0,k)+((N-k>0)?String(N-k):'')+suf; };
+  const tick=()=>{ if(k===tgt){ clearInterval(timer); timer=null; return; } k+=k<tgt?1:-1; render(); };
+  const go=(t)=>{ tgt=t; if(!timer)timer=setInterval(tick,16); };
+  render(); b.addEventListener('mouseenter',()=>go(N)); b.addEventListener('mouseleave',()=>go(0)); b.addEventListener('focus',()=>go(N)); b.addEventListener('blur',()=>go(0)); }
+document.querySelectorAll('.mode-btn, .pm-btn').forEach(attachAbbr);
 const ttsBtn=$('#opt-tts'); if(ttsBtn)ttsBtn.addEventListener('click',()=>{ audioCat.tts.on=!audioCat.tts.on; setCatGain('tts'); reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); if(audioCat.tts.on)narrate('Narração por voz ligada.'); });
 const ttsEngSel=$('#tts-engine'); if(ttsEngSel)ttsEngSel.addEventListener('change',()=>{ ttsEngineSel=ttsEngSel.value; try{localStorage.setItem('incl_tts_engine',ttsEngineSel);}catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); narrate('Motor de voz: '+ttsEngSel.options[ttsEngSel.selectedIndex].text+'.'); });
 const ttsVoiceSel=$('#tts-voice'); if(ttsVoiceSel)ttsVoiceSel.addEventListener('change',()=>{ try{ const vs=window.speechSynthesis.getVoices(); _ttsVoiceObj=vs.find(v=>v.name===ttsVoiceSel.value)||null; localStorage.setItem('incl_tts_voice',ttsVoiceSel.value); }catch(e){} narrate('Voz selecionada.'); });
