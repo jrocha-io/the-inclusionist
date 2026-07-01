@@ -1240,6 +1240,7 @@ function stepPlayer(pl,dt){
   pl.anim += dt;                                   // idle (1 quadro; clock contínuo)
   pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
   const II=TEX_IDLE;
+  const wcFreeze = wheelchair || pl.rmWalk; // cadeirante: pernas paradas (sentado) — mesma via do movimento reduzido
   let tx; pl.idleNow=false;
   // E17: prioridade ventosa → escada → água → voo → aéreo(pulo) → andando → idle
   // movimento reduzido: pl.rmWalk congela TODA a locomoção (escalar, escada, nado, pulo) num quadro único
@@ -1247,16 +1248,16 @@ function stepPlayer(pl,dt){
     const CL = ceil ? TEX_CLING_CEIL : TEX_CLING_WALL;
     if(!pl.rmWalk && (pl.vx!==0||pl.vy!==0)) pl.climbFrame=(Math.floor(pl.walkAnim/ANIM.clingHold))%CL.length; // só avança ao mover; parado MANTÉM o quadro
     tx = CL[(pl.rmWalk?0:(pl.climbFrame||0))%CL.length]; }
-  else if(pl.onLadder){ const CB=TEX_CLIMB; const climbing=(pl.vy!==0)&&!pl.rmWalk; // sobe/desce = passos alternados; parado/congelado = agarrado (quadro 0)
+  else if(pl.onLadder){ const CB=TEX_CLIMB; const climbing=(pl.vy!==0)&&!wcFreeze; // sobe/desce = passos alternados; parado/congelado/cadeirante = agarrado (quadro 0)
     tx = climbing ? CB[Math.floor(pl.walkAnim/ANIM.climbHold)%CB.length] : CB[0]; }
-  else if(pl.inWater){ const stroking=((dir!==0)||held(pl,'jump'))&&!pl.rmWalk; // movendo = braçada+pernas; parado/congelado = quadro fixo
+  else if(pl.inWater){ const stroking=((dir!==0)||held(pl,'jump'))&&!wcFreeze; // movendo = braçada+pernas; parado/congelado/cadeirante = pernas paradas
     const SW = stroking ? TEX_SWIM : TEX_SWIMIDLE;
-    tx = pl.rmWalk ? SW[0] : SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
+    tx = wcFreeze ? SW[0] : SW[Math.floor(pl.walkAnim/ANIM.swimHold)%SW.length]; }
   else if(pl.flying)              tx = TEX_FLY;
-  else if(airborne){ if(pl.rmWalk) tx = TEX_JUMP_UP;               // congelado: pulo num único quadro
+  else if(airborne){ if(wcFreeze) tx = wheelchair ? II[0] : TEX_JUMP_UP; // cadeirante caindo = pose neutra sentado; congelado = pulo num quadro
     else tx = pl.vy<0 ? TEX_JUMP_UP : TEX_JUMP_DOWN; }           // subindo: pernas recolhidas / caindo: estendidas
   else if(moving){
-    if(pl.rmWalk){ tx = II[0]; }                                   // movimento reduzido: anda sem ciclo de passos (pose neutra)
+    if(wcFreeze){ tx = II[0]; }                                    // cadeirante/movimento reduzido: anda sem ciclo de passos (pose neutra)
     else { const running=held(pl,'run');                         // E19: correr (Correr segurado) ≠ andar — passada/cadência distintas
       const M = running ? TEX_RUN : TEX_WALK;
       const hold = running ? ANIM.runHold : ANIM.walkHold;
