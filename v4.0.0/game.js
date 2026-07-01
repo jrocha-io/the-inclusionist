@@ -131,10 +131,13 @@ const WORLD_PX_W = WORLD_W*TILE, WORLD_PX_H = WORLD_H*TILE;
 const tileAt=(tx,ty)=>(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H)?2:WORLD[ty][tx];
 // E12: portão dinâmico — seus tiles são sólidos enquanto fechado (gateOpen=true ⇒ comporta normal)
 let gateTiles=new Set(), gateOpen=true, gate=null;
-const solidAt=(tx,ty)=>(!gateOpen && gateTiles.has(tx+','+ty)) || isSolidType(tileAt(tx,ty));
+// Cadeirante: sólidos SÓ-CADEIRANTE (pontes/plataformas que não existem no modo normal) — não altera CLARITY_MAP.
+let wcSolid=new Set();
+const solidTile=(x,y)=>{ const t=tileAt(x,y); return (wheelchair&&wcSolid.has(x+','+y)) || !!(TILE_TYPES[t]&&TILE_TYPES[t].solid); };
+const solidAt=(tx,ty)=>(!gateOpen && gateTiles.has(tx+','+ty)) || (wheelchair && wcSolid.has(tx+','+ty)) || isSolidType(tileAt(tx,ty));
 // Cadeirante: geometria da rampa de 1 tile. surfTop=topo caminhável; riser=o degrau que a rampa cobre
 // (não é parede p/ o cadeirante: a rampa guia o Y). rampSurfaceY=altura da diagonal 45° num x do mundo.
-const surfTop=(x,y)=>{ const t=tileAt(x,y),a=tileAt(x,y-1); return !!(TILE_TYPES[t]&&TILE_TYPES[t].solid) && !(TILE_TYPES[a]&&TILE_TYPES[a].solid); };
+const surfTop=(x,y)=> solidTile(x,y) && !solidTile(x,y-1);
 const isWcRampRiser=(col,row)=> surfTop(col,row) && (surfTop(col-1,row+1)||surfTop(col+1,row+1));
 function rampSurfaceY(cx,py){ const tcx=Math.floor(cx/TILE), fx=cx-tcx*TILE, ty=Math.floor(py/TILE);
   for(let y=ty-1;y<=ty+1;y++){ if(y<1||!surfTop(tcx,y))continue;
@@ -1000,8 +1003,18 @@ function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!whee
     rampLayer.beginFill(0x8a8f9c); rampLayer.drawRect(X,Y,TILE,2); rampLayer.endFill();               // topo claro
     rampLayer.lineStyle(1,0x4a4e59); rampLayer.drawRect(X+0.5,Y+0.5,TILE-1,TILE-1); rampLayer.lineStyle(0); // borda
   }
+  // cadeirante: PLATAFORMAS só-cadeirante (wcSolid) desenhadas como concreto (ex.: ponte que liga o elevador do corredor à escada)
+  for(const k of wcSolid){ const [x,y]=k.split(',').map(Number); const X=x*TILE,Y=y*TILE;
+    rampLayer.beginFill(0x6f7481); rampLayer.drawRect(X,Y,TILE,TILE); rampLayer.endFill();
+    rampLayer.beginFill(0x8a8f9c); rampLayer.drawRect(X,Y,TILE,2); rampLayer.endFill();
+    rampLayer.lineStyle(1,0x4a4e59); rampLayer.drawRect(X+0.5,Y+0.5,TILE-1,TILE-1); rampLayer.lineStyle(0);
+  }
 }
-buildRamps(); // desenha as rampas se já iniciar em modo cadeirante
+// Geometria só-cadeirante: plataformas que dão DESTINO aos elevadores (não existem no modo normal).
+const WC_BRIDGES=[ {x:23,y:47},{x:24,y:47} ]; // ponte do elevador do corredor: liga o poço do trampolim B (x20-22) ao topo da escada (x25)
+function buildWcGeom(){ wcSolid=new Set(); if(!wheelchair)return; for(const b of WC_BRIDGES) wcSolid.add(b.x+','+b.y); }
+buildWcGeom();
+buildRamps(); // desenha as rampas + coberturas (lava, pontes) se já iniciar em modo cadeirante
 // ELEVADOR (cadeirante): trampolim = plataforma LARGA, escada = plataforma FINA. Toque ↑/↓ = viaja até a parada segura.
 const ELEV_SPEED=2.4; let elevShafts=[];
 function buildElevators(){ elevShafts=[]; if(!wheelchair)return;
@@ -1666,7 +1679,7 @@ function reflectMotorEmpathy(){ const a=$('#opt-onebtn'); if(a){ a.classList.tog
 function setOneButton(on){ oneButton=on; try{localStorage.setItem('incl_onebtn',on?'1':'0');}catch(e){} reflectMotorEmpathy(); srSay('Um botão por vez '+(on?'ligado: só uma tecla/botão de cada vez.':'desligado.')); }
 function setWheelchair(on){ wheelchair=on; try{localStorage.setItem('incl_wheelchair',on?'1':'0');}catch(e){}
   players.forEach(p=>{ if(on && p.activePower!=='fly' && p.activePower!=='turbo') p.activePower='off'; if(on) p.owned=p.owned.filter(k=>k==='fly'||k==='turbo'); showPower(p); });
-  setupExtras(); rebuildCoins(); buildRamps(); buildElevators(); reflectMotorEmpathy(); // só voo/super-corrida; moedas no chão; escada/trampolim viram elevador; rampas sobre os degraus
+  setupExtras(); rebuildCoins(); buildWcGeom(); buildRamps(); buildElevators(); reflectMotorEmpathy(); // só voo/super-corrida; moedas no chão; escada/trampolim viram elevador; rampas+pontes; lava vira chão
   srSay('Modo cadeirante '+(on?'ligado: sem pulo; rampas e elevadores no lugar de degraus e escada; moedas no chão; só voo e super-corrida.':'desligado.')); }
 const oneBtn=$('#opt-onebtn'); if(oneBtn)oneBtn.addEventListener('click',()=>setOneButton(!oneButton));
 const wheelBtn=$('#opt-wheelchair'); if(wheelBtn)wheelBtn.addEventListener('click',()=>setWheelchair(!wheelchair));
