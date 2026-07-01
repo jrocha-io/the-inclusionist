@@ -1931,31 +1931,39 @@ function padPxPerMm(){ return Math.max(window.innerWidth,window.innerHeight)/IPH
 const padLoad=(k,d)=>{ try{ const v=parseFloat(localStorage.getItem(k)); return isNaN(v)?d:v; }catch(e){ return d; } };
 let padBtnMm=padLoad('incl_padbtnmm',12.5), padGapMm=padLoad('incl_padgapmm',3);
 let padStickMm=padLoad('incl_padstickmm',18), padTravelMm=padLoad('incl_padtravelmm',4.5);
+let padDpadMm=padLoad('incl_paddpadmm',12); // comprimento do braço da cruz (D-pad físico real ~10–13mm)
+let padDir=(()=>{try{return localStorage.getItem('incl_paddir')||'stick';}catch(e){return 'stick';}})(); // 'stick' | 'cross'
 let _stickTravelPx=42, _stickDeadPx=12; // atualizados por applyPadPhysical; lidos pelo joystick
 function padHandTag(v,lo,hi){ return v<=lo?'crianca':v>=hi?'adulto':'inter'; }
+function applyDirStyle(){ const st=$('#touch-stick'), cr=$('#touch-cross'); if(st)st.hidden=(padDir==='cross'); if(cr)cr.hidden=(padDir!=='cross'); const sel=$('#pad-dir'); if(sel&&sel.value!==padDir)sel.value=padDir; }
 function applyPadPhysical(){ const r=padPxPerMm();
   const btn=padBtnMm*r, gap=padGapMm*r, diam=btn+Math.SQRT2*(btn+gap); // losango: folga de aresta = gap
   const knob=padStickMm*r, travel=padTravelMm*r, base=knob+2*travel+16; // base do analógico = contato + curso
+  const arm=padDpadMm*r, aw=arm*0.8, span=2*arm+aw; // cruz: braço (comprimento) + largura (0,8×) → vão total
   _stickTravelPx=travel; _stickDeadPx=Math.max(6,travel*0.4); // deslocamento útil + zona-morta (~40% do curso)
   const S=document.documentElement.style;
   S.setProperty('--pad-btn',btn.toFixed(1)+'px'); S.setProperty('--pad-diam',diam.toFixed(1)+'px');
   S.setProperty('--stick-knob',knob.toFixed(1)+'px'); S.setProperty('--stick-base',base.toFixed(1)+'px');
+  S.setProperty('--dpad-arm-l',arm.toFixed(1)+'px'); S.setProperty('--dpad-arm-w',aw.toFixed(1)+'px'); S.setProperty('--dpad-span',span.toFixed(1)+'px');
   const fmt=(n)=>n.toFixed(1).replace('.',','), lbl={crianca:'mão de criança',adulto:'mão de adulto',inter:'intermediário'};
   const upd=(valId,tagId,mm,lo,hi,slId)=>{ const v=$(valId); if(v)v.textContent=fmt(mm)+' mm'; const t=$(tagId); if(t){ const w=padHandTag(mm,lo,hi); t.dataset.who=w; t.textContent=lbl[w]; } const s=$(slId); if(s&&parseFloat(s.value)!==mm)s.value=mm; };
   upd('#pad-size-val','#pad-size-tag',padBtnMm,12.5,13,'#pad-size');
   upd('#pad-gap-val','#pad-gap-tag',padGapMm,3,4.5,'#pad-gap');
   upd('#pad-stick-val','#pad-stick-tag',padStickMm,17,19,'#pad-stick');
-  upd('#pad-travel-val','#pad-travel-tag',padTravelMm,4,5.5,'#pad-travel'); }
-function setPadMm(o){ if(o.btn!=null)padBtnMm=o.btn; if(o.gap!=null)padGapMm=o.gap; if(o.stick!=null)padStickMm=o.stick; if(o.travel!=null)padTravelMm=o.travel;
-  try{localStorage.setItem('incl_padbtnmm',padBtnMm);localStorage.setItem('incl_padgapmm',padGapMm);localStorage.setItem('incl_padstickmm',padStickMm);localStorage.setItem('incl_padtravelmm',padTravelMm);}catch(e){} applyPadPhysical(); }
-applyPadPhysical();
+  upd('#pad-travel-val','#pad-travel-tag',padTravelMm,4,5.5,'#pad-travel');
+  upd('#pad-dpad-val','#pad-dpad-tag',padDpadMm,12,14,'#pad-dpad'); }
+function setPadMm(o){ if(o.btn!=null)padBtnMm=o.btn; if(o.gap!=null)padGapMm=o.gap; if(o.stick!=null)padStickMm=o.stick; if(o.travel!=null)padTravelMm=o.travel; if(o.dpad!=null)padDpadMm=o.dpad;
+  try{localStorage.setItem('incl_padbtnmm',padBtnMm);localStorage.setItem('incl_padgapmm',padGapMm);localStorage.setItem('incl_padstickmm',padStickMm);localStorage.setItem('incl_padtravelmm',padTravelMm);localStorage.setItem('incl_paddpadmm',padDpadMm);}catch(e){} applyPadPhysical(); }
+applyPadPhysical(); applyDirStyle();
 addEventListener('resize',applyPadPhysical); // recalcula os px ao girar/redimensionar; os mm são fixos
 const padSizeEl=$('#pad-size'); if(padSizeEl)padSizeEl.addEventListener('input',()=>setPadMm({btn:parseFloat(padSizeEl.value)}));
 const padGapEl=$('#pad-gap'); if(padGapEl)padGapEl.addEventListener('input',()=>setPadMm({gap:parseFloat(padGapEl.value)}));
 const padStickEl=$('#pad-stick'); if(padStickEl)padStickEl.addEventListener('input',()=>setPadMm({stick:parseFloat(padStickEl.value)}));
 const padTravelEl=$('#pad-travel'); if(padTravelEl)padTravelEl.addEventListener('input',()=>setPadMm({travel:parseFloat(padTravelEl.value)}));
-const padPresetChild=$('#pad-preset-child'); if(padPresetChild)padPresetChild.addEventListener('click',()=>{ setPadMm({btn:12,gap:2.5,stick:16.5,travel:4}); srSay('Controles no tamanho de mão de criança (6 a 12 anos).'); });
-const padPresetAdult=$('#pad-preset-adult'); if(padPresetAdult)padPresetAdult.addEventListener('click',()=>{ setPadMm({btn:14,gap:4.5,stick:20,travel:5.5}); srSay('Controles no tamanho de mão de adulto.'); });
+const padDpadEl=$('#pad-dpad'); if(padDpadEl)padDpadEl.addEventListener('input',()=>setPadMm({dpad:parseFloat(padDpadEl.value)}));
+const padDirSel=$('#pad-dir'); if(padDirSel){ padDirSel.value=padDir; padDirSel.addEventListener('change',()=>{ padDir=padDirSel.value; try{localStorage.setItem('incl_paddir',padDir);}catch(e){} applyDirStyle(); srSay('Direcional: '+(padDir==='cross'?'cruz (D-pad)':'analógico')+'.'); }); }
+const padPresetChild=$('#pad-preset-child'); if(padPresetChild)padPresetChild.addEventListener('click',()=>{ setPadMm({btn:12,gap:2.5,stick:16.5,travel:4,dpad:11.5}); srSay('Controles no tamanho de mão de criança (6 a 12 anos).'); });
+const padPresetAdult=$('#pad-preset-adult'); if(padPresetAdult)padPresetAdult.addEventListener('click',()=>{ setPadMm({btn:14,gap:4.5,stick:20,travel:5.5,dpad:14}); srSay('Controles no tamanho de mão de adulto.'); });
 // JOGAR COM OS OLHOS (webcam): WebGazer lazy (CDN no 1º uso; futuro: vendorizar p/ offline). Olhar esq/dir anda; olhar p/ cima pula.
 let eyeMode=false, _eyeKeys={left:false,right:false,up:false};
 function eyeSet(k,on,code){ if(_eyeKeys[k]===on)return; _eyeKeys[k]=on; const ev=new KeyboardEvent(on?'keydown':'keyup',{code:code,bubbles:true}); window.dispatchEvent(ev); document.dispatchEvent(ev); }
@@ -2174,6 +2182,21 @@ function showTouchControls(){ if(numPlayers>1) return; const tc=document.querySe
     const end=(e)=>{ if(pid!==e.pointerId)return; e.preventDefault(); reset(); };
     stick.addEventListener('pointerup',end); stick.addEventListener('pointercancel',end);
     stick.addEventListener('lostpointercapture',reset); stick.addEventListener('contextmenu',(e)=>e.preventDefault());
+  }
+  // D-pad em CRUZ (estilo alternativo ao analógico): superfície tocável dividida em 8 setores por hit-test
+  // (dá diagonais como um D-pad físico). Zona-morta central evita disparo por encostar no meio.
+  const cross=$('#touch-cross');
+  if(cross){ const arms={up:cross.querySelector('.dpad-up'),down:cross.querySelector('.dpad-down'),left:cross.querySelector('.dpad-left'),right:cross.querySelector('.dpad-right')};
+    const cst={left:false,right:false,up:false,down:false}; let cpid=null;
+    const cset=(d,on)=>{ if(cst[d]===on)return; cst[d]=on; on?press(d):release(d); if(arms[d])arms[d].classList.toggle('on',on); };
+    const at=(px,py)=>{ const r=cross.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2; const dx=px-cx, dy=py-cy; const dead=r.width*0.18; // ~18% do lado = miolo neutro
+      cset('left',dx<-dead); cset('right',dx>dead); cset('up',dy<-dead); cset('down',dy>dead); };
+    const crst=()=>{ ['left','right','up','down'].forEach(d=>cset(d,false)); cpid=null; };
+    cross.addEventListener('pointerdown',(e)=>{ e.preventDefault(); cpid=e.pointerId; try{cross.setPointerCapture(cpid);}catch(_){} at(e.clientX,e.clientY); });
+    cross.addEventListener('pointermove',(e)=>{ if(cpid!==e.pointerId)return; e.preventDefault(); at(e.clientX,e.clientY); });
+    const cend=(e)=>{ if(cpid!==e.pointerId)return; e.preventDefault(); crst(); };
+    cross.addEventListener('pointerup',cend); cross.addEventListener('pointercancel',cend);
+    cross.addEventListener('lostpointercapture',crst); cross.addEventListener('contextmenu',(e)=>e.preventDefault());
   }
   window.__incl.showTouch=()=>{ tc.hidden=false; }; // p/ testes em desktop
 })();

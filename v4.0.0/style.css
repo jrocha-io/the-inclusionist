@@ -207,6 +207,19 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 /* Direcional (analógico/"alavanca"): base = superfície + deslocamento; manopla = superfície de contato. Ambos em mm (JS). */
 .touch-stick{position:relative;width:var(--stick-base,124px);height:var(--stick-base,124px);border-radius:50%;border:3px solid rgba(255,255,255,.7);background:rgba(13,17,32,.85);touch-action:none;pointer-events:auto;-webkit-user-select:none;user-select:none}
 .touch-knob{position:absolute;left:50%;top:50%;width:var(--stick-knob,58px);height:var(--stick-knob,58px);margin:calc(var(--stick-knob,58px)/-2) 0 0 calc(var(--stick-knob,58px)/-2);border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 0 0 2px rgba(0,0,0,.45);transition:transform .04s linear;pointer-events:none}
+/* D-pad em cruz (estilo alternativo): 4 braços + miolo; tamanho do braço em mm (JS → --dpad-arm-l/w, --dpad-span) */
+.touch-cross{position:relative;width:var(--dpad-span,120px);height:var(--dpad-span,120px);touch-action:none;pointer-events:auto;-webkit-user-select:none;user-select:none}
+.touch-cross[hidden]{display:none}
+.dpad-arm{position:absolute;display:flex;align-items:center;justify-content:center;background:rgba(13,17,32,.92);border:2px solid rgba(255,255,255,.75);color:rgba(255,255,255,.85);font-size:calc(var(--dpad-arm-w,34px)*.5);line-height:1;pointer-events:none}
+.dpad-arm.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.dpad-up,.dpad-down{width:var(--dpad-arm-w,34px);height:var(--dpad-arm-l,42px);left:50%;transform:translateX(-50%)}
+.dpad-left,.dpad-right{height:var(--dpad-arm-w,34px);width:var(--dpad-arm-l,42px);top:50%;transform:translateY(-50%)}
+.dpad-up{top:0;border-radius:8px 8px 0 0;border-bottom:none}
+.dpad-down{bottom:0;border-radius:0 0 8px 8px;border-top:none}
+.dpad-left{left:0;border-radius:8px 0 0 8px;border-right:none}
+.dpad-right{right:0;border-radius:0 8px 8px 0;border-left:none}
+.dpad-center{position:absolute;left:50%;top:50%;width:var(--dpad-arm-w,34px);height:var(--dpad-arm-w,34px);margin:calc(var(--dpad-arm-w,34px)/-2) 0 0 calc(var(--dpad-arm-w,34px)/-2);background:rgba(13,17,32,.92);border:2px solid rgba(255,255,255,.4);pointer-events:none}
+@media (prefers-contrast: more){ .touch-cross .dpad-arm,.dpad-center{background:#000;border-color:#fff} .dpad-arm.on{background:#fff;color:#000} }
 @media (prefers-reduced-motion: reduce){ .touch-knob{transition:none} }
 @media (prefers-contrast: more){ .touch-btn{background:#000;border-color:#fff} .touch-btn:active{background:#fff;color:#000} .touch-stick{background:#000;border-color:#fff} .touch-knob{background:#fff} }
 

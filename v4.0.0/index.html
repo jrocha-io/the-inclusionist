@@ -107,6 +107,13 @@
       <!-- E13: controles de toque (mobile) — só aparecem em telas de toque; não cobrem o centro do jogo -->
       <div id="touch-controls" class="touch" role="group" aria-label="Controles de toque" hidden>
         <div class="touch-pad">
+          <div id="touch-cross" class="touch-cross" role="group" aria-label="Direcional em cruz: mover, subir e descer" hidden>
+            <span class="dpad-arm dpad-up" aria-hidden="true">▲</span>
+            <span class="dpad-arm dpad-down" aria-hidden="true">▼</span>
+            <span class="dpad-arm dpad-left" aria-hidden="true">◀</span>
+            <span class="dpad-arm dpad-right" aria-hidden="true">▶</span>
+            <span class="dpad-center" aria-hidden="true"></span>
+          </div>
           <div id="touch-stick" class="touch-stick" role="group" aria-label="Direcional: mover, subir e descer">
             <span class="touch-knob" aria-hidden="true"></span>
           </div>
@@ -205,6 +212,11 @@
       <div class="ctrl-list" role="group" aria-label="Botões de toque na tela">
         <div class="ctrl-row ctrl-col"><span><strong>📱 Botões de toque — tamanho físico</strong> — em <em>milímetros reais</em> (referência: tela cheia de um iPhone 16), não em pixels. Estes são botões que se <em>segura</em> (andar, correr) com dois ou três dedos ao mesmo tempo — não é toque fino. Ajuste ao tamanho da mão.</span>
           <div class="pad-presets"><button id="pad-preset-child" class="mode-btn" type="button">🧒 Mão de criança (6–12)</button><button id="pad-preset-adult" class="mode-btn" type="button">🧑 Mão de adulto</button></div></div>
+        <div class="ctrl-row ctrl-col"><label for="pad-dir">Tipo de direcional (para andar)</label>
+          <select id="pad-dir" class="vol">
+            <option value="stick">Analógico (alavanca) — desliza p/ a direção</option>
+            <option value="cross">Cruz (D-pad) — 4 setas + diagonais</option>
+          </select></div>
         <div class="ctrl-row ctrl-col"><label for="pad-size">Tamanho dos botões de ação: <b id="pad-size-val">12,5 mm</b> <span id="pad-size-tag" class="pad-tag"></span></label>
           <input type="range" id="pad-size" min="11" max="16" step="0.5" value="12.5" aria-describedby="pad-size-hint">
           <span id="pad-size-hint" class="opt-hint" style="margin:0">11–12,5 mm = mão de criança (6–12 anos) · 13 mm ou mais = adulto. Mínimo 11 mm: abaixo disso o polegar erra mais e <em>segurar</em> cansa antes (base: alvo de polegar ~9,6 mm + fadiga de toque sustentado).</span></div>
@@ -214,9 +226,12 @@
         <div class="ctrl-row ctrl-col"><label for="pad-stick">Superfície do direcional (analógico): <b id="pad-stick-val">18,0 mm</b> <span id="pad-stick-tag" class="pad-tag"></span></label>
           <input type="range" id="pad-stick" min="15" max="22" step="0.5" value="18" aria-describedby="pad-stick-hint">
           <span id="pad-stick-hint" class="opt-hint" style="margin:0">15–17 mm = criança · 19 mm ou mais = adulto. Referência: capuz de analógico físico (~18–20 mm) — contato do polegar apoiado, não ponta do dedo.</span></div>
-        <div class="ctrl-row ctrl-col"><label for="pad-travel">Deslocamento do direcional: <b id="pad-travel-val">4,5 mm</b> <span id="pad-travel-tag" class="pad-tag"></span></label>
+        <div class="ctrl-row ctrl-col"><label for="pad-travel">Deslocamento do direcional (analógico): <b id="pad-travel-val">4,5 mm</b> <span id="pad-travel-tag" class="pad-tag"></span></label>
           <input type="range" id="pad-travel" min="3" max="7" step="0.5" value="4.5" aria-describedby="pad-travel-hint">
           <span id="pad-travel-hint" class="opt-hint" style="margin:0">3–4 mm = criança · 5,5 mm ou mais = adulto. Quanto o polegar desliza do centro para registrar a direção.</span></div>
+        <div class="ctrl-row ctrl-col"><label for="pad-dpad">Braço do D-pad (cruz): <b id="pad-dpad-val">12,0 mm</b> <span id="pad-dpad-tag" class="pad-tag"></span></label>
+          <input type="range" id="pad-dpad" min="10" max="16" step="0.5" value="12" aria-describedby="pad-dpad-hint">
+          <span id="pad-dpad-hint" class="opt-hint" style="margin:0">10–12 mm = criança · 14 mm ou mais = adulto. Comprimento de cada braço da cruz (referência: D-pad físico ~10–13 mm).</span></div>
         <div class="ctrl-row"><span class="pad-warn">⚠ Orientação ergonômica (precautória, não diagnóstico): criança em botões de adulto tende a esforço repetitivo por alongar demais o polegar; adulto em botões de criança tende a fadiga por flexão excessiva das falanges. Use o tamanho da mão de quem joga e faça pausas.</span></div>
       </div>
       <div class="ctrl-list" role="group" aria-label="Mapeamento de controles">
