@@ -2021,9 +2021,21 @@ function setPhase(p){
   if(pa)pa.hidden = p!=='paused';
   const pb=$('#btn-pause'); if(pb)pb.setAttribute('aria-pressed',String(p==='paused'));
   if(p==='playing'){ const gr=$('#game-region'); if(gr)gr.focus(); }
-  else if(p==='paused'){ const r=$('#pm-resume'); if(r)r.focus(); }
+  else if(p==='paused'){ if(typeof pauseSelect==='function')pauseSelect(); }
   else if(p==='title'){ const b=$('#btn-play'); if(b)b.focus(); }
 }
+// Navegação do menu de pausa: direcionais movem; "sim"/pulo (Space/J) confirma; Enter/ESC/START cancelam (tratados no keydown global).
+function pauseNavKey(e){ if(phase!=='paused')return; const pa=$('#pause-overlay'); if(!pa||pa.hidden)return; const items=[...pa.querySelectorAll('.pm-btn')]; if(!items.length)return;
+  let idx=items.findIndex(b=>b.classList.contains('pm-sel')); if(idx<0)idx=0; const cols=2; let ok=true;
+  if(e.code==='ArrowRight'||e.code==='KeyD')idx=Math.min(items.length-1,idx+1);
+  else if(e.code==='ArrowLeft'||e.code==='KeyA')idx=Math.max(0,idx-1);
+  else if(e.code==='ArrowDown'||e.code==='KeyS')idx=Math.min(items.length-1,idx+cols);
+  else if(e.code==='ArrowUp'||e.code==='KeyW')idx=Math.max(0,idx-cols);
+  else if(e.code==='Space'||e.code==='KeyJ'){ items[idx].click(); e.preventDefault(); return; } // "sim" = botão de pulo
+  else ok=false;
+  if(ok){ e.preventDefault(); items.forEach(b=>b.classList.remove('pm-sel')); items[idx].classList.add('pm-sel'); items[idx].focus(); } }
+addEventListener('keydown', pauseNavKey, true);
+function pauseSelect(){ const pa=$('#pause-overlay'); if(!pa)return; pa.querySelectorAll('.pm-btn').forEach(b=>b.classList.remove('pm-sel')); const r=$('#pm-resume'); if(r){ r.classList.add('pm-sel'); r.focus(); } }
 function printMode(){ const pa=$('#pause-overlay'); if(pa)pa.hidden=true; // Print: esconde a pausa → vê a tela limpa; qualquer botão volta
   const back=(e)=>{ if(e&&e.preventDefault)try{e.preventDefault();}catch(_){} window.removeEventListener('keydown',back,true); window.removeEventListener('pointerdown',back,true);
     if(phase==='paused'&&pa){ pa.hidden=false; const r=$('#pm-resume'); if(r)r.focus(); } };
