@@ -385,7 +385,7 @@ function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:fa
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
   activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0,
   walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null, easy:false, toggleMove:false,
-  rmWalk:false, rmBreath:false, rmFlavor:false}; } // viz/easy/toggleMove/rm* = acessibilidade por jogador
+  rmWalk:false, rmBreath:false, rmFlavor:false, stepT:0}; } // viz/easy/toggleMove/rm* = acessibilidade por jogador; stepT = cadência de passos (áudio)
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Ventosa (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Ventosa'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
@@ -600,6 +600,24 @@ const audioCat={}; AUDIO_CATS.forEach(c=>{ let on=true,vol=0.8; try{ const s=loc
 const _catNodes={};
 function catNode(cat){ const ac=ensureAC(); if(!ac)return null; const out=audioOut(); if(!_catNodes[cat]){ const g=ac.createGain(); g.gain.value=audioCat[cat].on?audioCat[cat].vol:0; g.connect(out); _catNodes[cat]=g; } return _catNodes[cat]; }
 function setCatGain(cat){ const g=_catNodes[cat]; if(g&&audioCtx)g.gain.setTargetAtTime(audioCat[cat].on?audioCat[cat].vol:0, audioCtx.currentTime, 0.02); try{localStorage.setItem('incl_audiocat_'+cat,JSON.stringify(audioCat[cat]));}catch(e){} }
+// ===== F2: efeitos de interação com o ambiente (passos por superfície, portas, escada) — ruído filtrado sintetizado =====
+let _noiseBuf=null, _footCount=0;
+function noiseBuffer(ac){ if(_noiseBuf&&_noiseBuf.length===((ac.sampleRate*0.2)|0))return _noiseBuf; const n=(ac.sampleRate*0.2)|0,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0); for(let i=0;i<n;i++)d[i]=Math.random()*2-1; return _noiseBuf=b; }
+// timbre por material: filtro + frequência + duração + volume (grama macia, piso seco, pedra brilhante, areia abafada, madeira grave, ferro metálico)
+const FOOT={ grama:{f:'highpass',hz:2000,d:0.09,v:0.10}, piso:{f:'bandpass',hz:1200,d:0.06,v:0.15}, pedra:{f:'highpass',hz:1600,d:0.05,v:0.19},
+  areia:{f:'lowpass',hz:650,d:0.13,v:0.10}, madeira:{f:'bandpass',hz:480,d:0.08,v:0.15}, ferro:{f:'bandpass',hz:2600,d:0.12,v:0.16}, parede:{f:'highpass',hz:3200,d:0.10,v:0.08} };
+function noiseHit(mat,pan){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; const f=FOOT[mat]||FOOT.piso; try{
+  const src=ac.createBufferSource(); src.buffer=noiseBuffer(ac); const bq=ac.createBiquadFilter(); bq.type=f.f; bq.frequency.value=f.hz; bq.Q.value=1.2;
+  const g=ac.createGain(),t=ac.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,f.v*volume),t+0.006); g.gain.exponentialRampToValueAtTime(0.0001,t+f.d);
+  let node=g; if(pan!=null&&ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,pan)); g.connect(p); node=p; } // F3 usará o pan; F2 passa pan=0
+  src.connect(bq).connect(g); node.connect(catNode('interact')||audioOut()||ac.destination); src.start(t); src.stop(t+f.d+0.03); _footCount++;
+}catch(e){} }
+// material sob os pés (cenário Cidade = concreto → 'piso'; futuros cenários mapeiam grama/areia/pedra)
+function surfaceUnder(pl){ const t=tileAt(Math.floor(pl.x/TILE),Math.floor((pl.y+1)/TILE)); if(t!==2&&t!==6&&t!==5)return null; return CENARIO==='cidade'?'piso':'pedra'; }
+function doorSound(mat){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; try{ // porta: rangido (madeira) ou clangor (ferro) + baque
+  const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime; o.type=mat==='ferro'?'square':'sawtooth'; o.frequency.setValueAtTime(mat==='ferro'?520:200,t); o.frequency.exponentialRampToValueAtTime(mat==='ferro'?300:110,t+0.3);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.14*volume,t+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
+  o.connect(g).connect(catNode('interact')||audioOut()||ac.destination); o.start(t); o.stop(t+0.4); noiseHit(mat==='ferro'?'ferro':'madeira'); }catch(e){} }
 function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
   o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   o.connect(g).connect(catNode('earcons')||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
@@ -1082,6 +1100,11 @@ function stepPlayer(pl,dt){
   if(pl.clinging) spiderReattach(pl,_preX,_preY); // E18c: mantém contato e contorna quinas (parede↔teto↔topo)
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
+  // F2: passos por superfície · escada (madeira) · escalada (parede). Cadência = ritmo do andar/correr.
+  if(pl.onGround && !pl.inWater && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m); } }
+  else if(pl.onLadder && pl.vy!==0){ pl.stepT+=dt; if(pl.stepT>=20){ pl.stepT=0; noiseHit('madeira'); } }
+  else if(pl.clinging && (pl.vx!==0||pl.vy!==0)){ pl.stepT+=dt; if(pl.stepT>=16){ pl.stepT=0; noiseHit('parede'); } }
+  else pl.stepT=99; // parado → próximo passo soa logo ao recomeçar
   if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
   // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico). Fácil: hitbox de coleta +4px por lado.
   const pad=pl.easy?EASY.pad:0;
@@ -1104,7 +1127,7 @@ function stepPlayer(pl,dt){
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
-      if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); sfx('gate'); srAlert('Portão aberto!'); break; } }
+      if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); sfx('gate'); doorSound('madeira'); srAlert('Portão aberto!'); break; } }
   }
   // animação por frames (E15). 'moving' baseado no INPUT (direção segurada), NÃO em vx — a colisão
   // zera vx por frames e isso resetava o ciclo (só apareciam 2 quadros). Assim os 8 quadros tocam contínuos.
@@ -1586,7 +1609,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick(); }); // Fácil agora ajusta física por eixo (gravidade/pulo/velocidade), não o tempo global
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
