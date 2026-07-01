@@ -25,6 +25,8 @@ const TILE_TYPES = {
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=(()=>{try{return localStorage.getItem('incl_onebtn')==='1';}catch(e){return false;}})();
 let wheelchair=(()=>{try{return localStorage.getItem('incl_wheelchair')==='1';}catch(e){return false;}})();
+// Modo cego (A12e auditiva): SÓ as ajudas de áudio (bengala + sonar + guarda + narração), sem tela preta. Empatia cegueira liga por padrão.
+let modoCego=(()=>{try{return localStorage.getItem('incl_modocego')==='1';}catch(e){return false;}})();
 const isSolidType = (t) => (wheelchair && (t===9||t===5)) ? true : !!(TILE_TYPES[t] && TILE_TYPES[t].solid); // cadeirante: lava (9) e trampolim (5) viram CHÃO sólido (o elevador para em cima, não atravessa)
 const TILE_COLOR = {
   0:'#0a0a14',1:'#241f38',2:'#6b6480',3:'#2f6fae',4:'#8a5a2b',5:'#34e29b',6:'#3a3a46',
@@ -634,7 +636,8 @@ function noiseHit(mat,pan){ if(!soundOn||volume<=0)return; const ac=ensureAC(); 
 function surfaceUnder(pl){ const t=tileAt(Math.floor(pl.x/TILE),Math.floor((pl.y+1)/TILE)); if(t!==2&&t!==6&&t!==5)return null; return CENARIO==='cidade'?'piso':'pedra'; }
 // BENGALA (modo cego / amaurose): bate À FRENTE e o som diz o material adiante (ou vazio).
 const SURF_MAT={ cidade:'piso', campo:'grama', floresta:'grama', cemiterio:'terra', espaco:'pedra', classico:'pedra' }; // chão por tema (piso = cimento)
-const caneOn=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return !!(m&&m.kind==='blind'); };
+const caneOn=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return modoCego || !!(m&&(m.kind==='blind'||m.kind==='lowvision')); }; // cego (branca), baixa visão (verde) ou modo cego (branca)
+const caneColor=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return (m&&m.kind==='lowvision') ? 0x35d06a : 0xf2f2f2; }; // baixa visão = VERDE; cegueira/modo cego = BRANCA
 function caneProbe(pl){ const dir=pl.facing<0?-1:1;
   const ax=Math.floor((pl.x+dir*(BOX.w/2+TILE*0.6))/TILE), footTy=Math.floor((pl.y+1)/TILE);
   if(tileAt(ax,footTy)===3||tileAt(ax,footTy-1)===3) return 'agua';        // água à frente
@@ -659,7 +662,7 @@ function tonePan(freq,dur,cat,pan,vol,type){ if(!soundOn||volume<=0)return; cons
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.2)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   let node=g; if(pan!=null&&ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,pan)); g.connect(p); node=p; }
   o.connect(g); node.connect(catNode(cat)||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
-function needsAudioCues(pl){ const m=VIZ_BY_KEY[pl.viz]; return !!(m&&(m.kind==='blind'||m.kind==='lowvision')); } // guarda/guia automáticos só quando a visão está comprometida
+function needsAudioCues(pl){ if(modoCego)return true; const m=VIZ_BY_KEY[pl.viz]; return !!(m&&(m.kind==='blind'||m.kind==='lowvision')); } // guarda/guia só quando a visão está comprometida ou no modo cego
 let _sonarCount=0;
 function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){ if(cn.taken)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
   if(!best){ tonePan(300,0.2,'sonar',0,0.2,'sine'); srSay('Nenhuma moeda por perto.'); return; }
@@ -1085,11 +1088,11 @@ function drawElevators(g){ g.clear(); if(!wheelchair)return;
     g.beginFill(0xf2c200); g.moveTo(ax,ay+(up?-4:4)); g.lineTo(ax-4,ay); g.lineTo(ax+4,ay); g.closePath(); g.endFill(); }
 }
 const caneLayer=new PIXI.Graphics(); camera.addChild(caneLayer); // bengala (modo cego)
-function drawCane(g,pl){ const dir=pl.facing<0?-1:1, hx=pl.x+dir*3, hy=pl.y-15; // mão
+function drawCane(g,pl){ const dir=pl.facing<0?-1:1, hx=pl.x+dir*3, hy=pl.y-15, C=caneColor(pl); // mão; cor por modo (branca/verde)
   const tap=Math.sin(pl.walkAnim*0.55), reach=TILE*0.85+tap*3, tx=pl.x+dir*reach, ty=pl.y-1; // ponta bate à frente, oscilando com o passo
-  g.lineStyle(2,0xf2f2f2); g.moveTo(hx,hy); g.lineTo(tx,ty);                     // haste branca
+  g.lineStyle(2,C); g.moveTo(hx,hy); g.lineTo(tx,ty);                           // haste (branca=cego / verde=baixa visão)
   g.lineStyle(2,0xd23b3b); g.moveTo(tx-dir*4,ty-4); g.lineTo(tx,ty);            // faixa vermelha (ponta)
-  g.lineStyle(0); g.beginFill(0xf2f2f2); g.drawCircle(tx,ty,1.6); g.endFill();  // ponteira
+  g.lineStyle(0); g.beginFill(C); g.drawCircle(tx,ty,1.6); g.endFill();         // ponteira
 }
 const chairLayer=new PIXI.Graphics(); camera.addChild(chairLayer); // cadeira de rodas (modo cadeirante)
 function drawChair(g,pl){ const cx=pl.x, base=pl.y, f=pl.facing<0?-1:1, MET=0x4a586e, HUB=0x1c2230;
@@ -1667,7 +1670,9 @@ function renderVpOverlay(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='low
 function updateVpDots(){ for(let i=0;i<vpDots.length;i++){ const g=vpDots[i], m=VIZ_BY_KEY[players[i]&&players[i].viz]; if(!g)continue;
   const on=m&&(m.kind==='blind'||m.kind==='lowvision'); g.visible=!!on; if(on){ g.clear(); g.lineStyle(1,0x000000,.6); g.beginFill(m.kind==='blind'?0xffffff:0x36d36a); g.drawCircle(0,0,5); g.endFill(); } } }
 function applyVpFilters(){ for(let i=0;i<numPlayers;i++){ if(vpSpr[i])vpSpr[i].filters=pixiFilterFor(players[i].viz); } }
+function setModoCego(on){ if(modoCego===on)return; modoCego=on; try{localStorage.setItem('incl_modocego',on?'1':'0');}catch(e){} if(typeof reflectModoCego==='function')reflectModoCego(); srSay('Modo cego '+(on?'ligado: bengala e pistas de áudio ativas.':'desligado.')); }
 function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; players[i].viz=m.key; try{localStorage.setItem('incl_viz_p'+i,m.key);}catch(e){} _lastSharedViz=null;
+  if(m.kind==='blind') setModoCego(true); // empatia cegueira total liga o modo cego (áudio) por padrão
   if(numPlayers<=1 && i===0){ applyVizGlobal(m.key); } else { applyVpFilters(); updateVpDots(); }
   reflectVizButtons(); if(typeof renderVisual==='function'){ renderVisual(); renderEmpathy(); } }
 function applyVizGlobal(mode){
