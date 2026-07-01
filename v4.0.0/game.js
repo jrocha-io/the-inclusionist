@@ -25,7 +25,7 @@ const TILE_TYPES = {
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=(()=>{try{return localStorage.getItem('incl_onebtn')==='1';}catch(e){return false;}})();
 let wheelchair=(()=>{try{return localStorage.getItem('incl_wheelchair')==='1';}catch(e){return false;}})();
-const isSolidType = (t) => !!(TILE_TYPES[t] && TILE_TYPES[t].solid) && !(wheelchair && t===5); // cadeirante: pula-pula deixa de ser sólido (vira elevador)
+const isSolidType = (t) => (wheelchair && t===9) ? true : (!!(TILE_TYPES[t] && TILE_TYPES[t].solid) && !(wheelchair && t===5)); // cadeirante: pula-pula vira elevador (não-sólido); lava vira chão sólido
 const TILE_COLOR = {
   0:'#0a0a14',1:'#241f38',2:'#6b6480',3:'#2f6fae',4:'#8a5a2b',5:'#34e29b',6:'#3a3a46',
   7:'#7fdcff',8:'#ffd23f',9:'#ff5b3a',10:'#9a8a6f',11:'#ffe06a',12:'#3a86ff',13:'#8a5cff',14:'#ff6fae',
@@ -994,6 +994,12 @@ function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!whee
       rampLayer.lineStyle(2,STRIPE); rampLayer.moveTo(X,yL-1); rampLayer.lineTo(X+TILE,yD-1); rampLayer.lineStyle(0);
     }
   }
+  // cadeirante: a LAVA vira chão — cobre cada tile 9 com um bloco de concreto (sem dano; já é sólido em isSolidType)
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ if(tileAt(x,y)!==9)continue; const X=x*TILE,Y=y*TILE;
+    rampLayer.beginFill(0x6f7481); rampLayer.drawRect(X,Y,TILE,TILE); rampLayer.endFill();
+    rampLayer.beginFill(0x8a8f9c); rampLayer.drawRect(X,Y,TILE,2); rampLayer.endFill();               // topo claro
+    rampLayer.lineStyle(1,0x4a4e59); rampLayer.drawRect(X+0.5,Y+0.5,TILE-1,TILE-1); rampLayer.lineStyle(0); // borda
+  }
 }
 buildRamps(); // desenha as rampas se já iniciar em modo cadeirante
 // ELEVADOR (cadeirante): trampolim = plataforma LARGA, escada = plataforma FINA. Toque ↑/↓ = viaja até a parada segura.
@@ -1157,7 +1163,7 @@ function stepPlayer(pl,dt){
   if(dir!==0)pl.facing=dir; pl.leftEdge=false; pl.rightEdge=false;
   const feat=sampleFeatures(pl); pl.inWater=feat.water; pl.onLadder=feat.ladder;
   if(pl.hurtTimer>0)pl.hurtTimer-=dt;
-  if(feat.lava && !pl.easy) triggerLava(pl); // Fácil: imunidade a perigo por jogador
+  if(feat.lava && !pl.easy && !wheelchair) triggerLava(pl); // Fácil e cadeirante: imunidade (cadeirante: lava vira chão)
   if(pl.jumpEdge)pl.jumpBuffer=7; else if(pl.jumpBuffer>0)pl.jumpBuffer--;
   // E18: ventosa (homem-aranha) — gruda na parede ao apertar Correr no ar; solta com Pular
   if(pl.clinging && (pl.onLadder||pl.inWater||pl.activePower!=='wallcling' || pl.onGround || clingSides(pl).D)) pl.clinging=false; // E18d: pés numa superfície estável (sólido logo abaixo) ENCERRAM; pendurado no teto (pés p/ cima) ou na parede alta continua
