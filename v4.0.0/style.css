@@ -133,6 +133,10 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 .btn--primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 
 .overlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(0,0,0,.7);padding:1rem}
+/* "tela = canvas": os diálogos de a11y são reparentados para dentro do #game-region (JS) e ficam
+   presos aos limites do canvas; o último aberto sobe (z-index via JS). Só afeta os que estão dentro. */
+#game-region .overlay{position:absolute;z-index:60;padding:.6rem}
+#game-region .overlay__card{max-height:94%;max-width:96%}
 #visual{background:rgba(0,0,0,.28);align-items:start;padding-top:3.5rem} /* cor: fundo translúcido p/ ver o efeito imediato no jogo */
 
 /* Indicador de simulação (canto sup. dir.): branca=cegueira, verde=baixa visão. Duplo toque volta ao normal. */
