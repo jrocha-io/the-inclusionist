@@ -996,6 +996,39 @@ function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!whee
   }
 }
 buildRamps(); // desenha as rampas se já iniciar em modo cadeirante
+// ELEVADOR (cadeirante): trampolim = plataforma LARGA, escada = plataforma FINA. Toque ↑/↓ = viaja até a parada segura.
+const ELEV_SPEED=2.4; let elevShafts=[];
+function buildElevators(){ elevShafts=[]; if(!wheelchair)return;
+  const isE=(x,y)=>{const t=tileAt(x,y);return t===4||t===5;};
+  const wall=(x,y)=>{const t=tileAt(x,y);return !!(TILE_TYPES[t]&&TILE_TYPES[t].solid)&&t!==5;};
+  const seen=new Set();
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){
+    if(!isE(x,y)||seen.has(x+','+y))continue;
+    let x2=x; while(x2+1<WORLD_W&&isE(x2+1,y))x2++;                    // largura do poço (run horizontal)
+    const cols=[]; for(let cx=x;cx<=x2;cx++)cols.push(cx);
+    let yb=y; while(yb+1<WORLD_H&&isE(cols[0],yb+1))yb++;              // base do run vertical
+    for(const cx of cols)for(let yy=y;yy<=yb;yy++)seen.add(cx+','+yy);
+    let ytop=y; while(ytop-1>=0&&!cols.some(cx=>wall(cx,ytop-1)))ytop--; // topo aberto (até um teto sólido)
+    let fr=yb+1; while(fr<WORLD_H&&!wall(cols[0],fr))fr++;             // 1º chão sólido abaixo
+    const yBottom=fr*TILE, L=cols[0]-1, R=cols[cols.length-1]+1;
+    let yTop=yBottom; for(let r=ytop;r<=yb;r++){ if(surfTop(L,r)||surfTop(R,r)){ yTop=r*TILE; break; } } // 1ª parada c/ piso ao lado
+    elevShafts.push({cols,xMin:cols[0],xMax:cols[cols.length-1],yTop,yBottom,kind:tileAt(cols[0],y)===5?'wide':'thin'});
+  }
+}
+function elevAt(pl){ const l=Math.floor((pl.x-BOX.w/2)/TILE), r=Math.floor((pl.x+BOX.w/2-0.01)/TILE);
+  for(const s of elevShafts){ if(r>=s.xMin&&l<=s.xMax && pl.y>=s.yTop-3 && pl.y<=s.yBottom+3) return s; } return null; }
+buildElevators();
+const elevLayer=new PIXI.Graphics(); camera.addChildAt(elevLayer, camera.getChildIndex(worldSprite)+1);
+function drawElevators(g){ g.clear(); if(!wheelchair)return;
+  for(const pl of players){ if(!pl.sprite||!pl.sprite.visible||pl.inWater||pl.flying)continue;
+    const s=elevAt(pl); if(!s)continue; const y=Math.round(pl.y), x0=s.xMin*TILE-1, x1=(s.xMax+1)*TILE+1;
+    g.lineStyle(2,0x2a3145); g.moveTo(x0+1,y);g.lineTo(x0+1,y-14); g.moveTo(x1-1,y);g.lineTo(x1-1,y-14); g.lineStyle(0); // trilhos
+    g.beginFill(0x3a4560); g.drawRect(x0,y,x1-x0,4); g.endFill();     // tabuleiro
+    g.beginFill(0x8f97a8); g.drawRect(x0,y,x1-x0,2); g.endFill();     // topo claro
+    if(pl.elevTarget!=null && pl.elevTarget!==y){ const up=pl.elevTarget<y, ax=(x0+x1)/2, ay=up?y-6:y+8; // seta p/ destino
+      g.beginFill(0xf2c200); g.moveTo(ax,ay+(up?-4:4)); g.lineTo(ax-4,ay); g.lineTo(ax+4,ay); g.closePath(); g.endFill(); }
+  }
+}
 const chairLayer=new PIXI.Graphics(); camera.addChild(chairLayer); // cadeira de rodas (modo cadeirante)
 function drawChair(g,pl){ const cx=pl.x, base=pl.y, f=pl.facing<0?-1:1, MET=0x4a586e, HUB=0x1c2230;
   g.lineStyle(2,MET); g.drawCircle(cx,base-6,7);                                   // roda grande
@@ -1075,6 +1108,7 @@ function sampleFeatures(pl){
     for(let tx=Math.floor(l/TILE);tx<=Math.floor((r-0.01)/TILE);tx++){
       const tt=tileAt(tx,ty); if(tt===3)water=true; if(tt===4)ladder=true; if(tt===9)lava=true; if(tt===5&&wheelchair)ladder=true; // cadeirante: trampolim = elevador (↑/↓)
     }
+  if(wheelchair && elevAt(pl)) ladder=true; // cadeirante: toda a coluna do poço "segura" o jogador (plataforma), sem gravidade
   return {water,ladder,lava};
 }
 function resolveX(pl){
@@ -1153,8 +1187,16 @@ function stepPlayer(pl,dt){
     else { pl.vx=0; pl.vy = held(pl,'up')?-sp : held(pl,'down')?sp : 0; }                                        // parede: sobe/desce
   } else if(pl.onLadder){
     pl.vy=0;
-    if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
-    if(pl.jumpBuffer>0 && !wheelchair){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); } // cadeirante: escada = elevador, sem pular fora
+    if(wheelchair){ // ELEVADOR: toque ↑/↓ = viaja sozinho até a parada segura (topo/base); andar p/ L/R numa parada sai
+      const s=elevAt(pl);
+      if(s){ if(held(pl,'up')&&s.yTop<pl.y-0.5) pl.elevTarget=s.yTop; else if(held(pl,'down')&&s.yBottom>pl.y+0.5) pl.elevTarget=s.yBottom;
+        if((held(pl,'left')||held(pl,'right'))){ const col=held(pl,'right')?s.xMax+1:s.xMin-1; if(surfTop(col,Math.floor(pl.y/TILE))) pl.elevTarget=null; } }
+      if(pl.elevTarget!=null){ const dy=pl.elevTarget-pl.y;
+        if(Math.abs(dy)<=ELEV_SPEED){ pl.y=pl.elevTarget; pl.vy=0; pl.elevTarget=null; } else pl.vy=Math.sign(dy)*ELEV_SPEED; }
+    } else {
+      if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
+      if(pl.jumpBuffer>0){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+    }
   } else if(pl.flying){ // voo ATIVO: Cima sobe / Baixo desce / plana parado. Pular alterna (tratado acima)
     pl.waterStroke=0; const fs=turbo?3.9:2.6;
     if(held(pl,'up')) pl.vy=-fs; else if(held(pl,'down')) pl.vy=fs; else pl.vy*=0.7;
@@ -1306,6 +1348,7 @@ function draw(){
     pl.sprite.scale.set((pl.facing<0?-1:1), 1); // sem escala procedural (parecia mastigar) — respiração agora é por FRAMES
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
+  drawElevators(elevLayer); // cadeirante: plataforma do elevador sob os pés (largo/fino)
   chairLayer.clear(); // cadeirante: desenha a cadeira nos jogadores (exceto nadando/voando)
   if(wheelchair){ for(const pl of players){ if(pl.sprite&&pl.sprite.visible&&!pl.inWater&&!pl.flying) drawChair(chairLayer,pl); } }
   easyHitbox.clear(); // Fácil: hitbox de coleta tolerante (retângulo translúcido) — só para os jogadores em Fácil
@@ -1617,7 +1660,7 @@ function reflectMotorEmpathy(){ const a=$('#opt-onebtn'); if(a){ a.classList.tog
 function setOneButton(on){ oneButton=on; try{localStorage.setItem('incl_onebtn',on?'1':'0');}catch(e){} reflectMotorEmpathy(); srSay('Um botão por vez '+(on?'ligado: só uma tecla/botão de cada vez.':'desligado.')); }
 function setWheelchair(on){ wheelchair=on; try{localStorage.setItem('incl_wheelchair',on?'1':'0');}catch(e){}
   players.forEach(p=>{ if(on && p.activePower!=='fly' && p.activePower!=='turbo') p.activePower='off'; if(on) p.owned=p.owned.filter(k=>k==='fly'||k==='turbo'); showPower(p); });
-  setupExtras(); rebuildCoins(); buildRamps(); reflectMotorEmpathy(); // só voo/super-corrida; moedas no chão; escada/trampolim viram elevador; rampas sobre os degraus
+  setupExtras(); rebuildCoins(); buildRamps(); buildElevators(); reflectMotorEmpathy(); // só voo/super-corrida; moedas no chão; escada/trampolim viram elevador; rampas sobre os degraus
   srSay('Modo cadeirante '+(on?'ligado: sem pulo; rampas e elevadores no lugar de degraus e escada; moedas no chão; só voo e super-corrida.':'desligado.')); }
 const oneBtn=$('#opt-onebtn'); if(oneBtn)oneBtn.addEventListener('click',()=>setOneButton(!oneButton));
 const wheelBtn=$('#opt-wheelchair'); if(wheelBtn)wheelBtn.addEventListener('click',()=>setWheelchair(!wheelchair));
