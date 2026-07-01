@@ -1888,6 +1888,17 @@ function renderAudioSinks(){ const el=$('#audio-sinks'); if(!el)return; el.inner
     sel.addEventListener('change',()=>{ if(!p)return; p.audioSink=sel.value||null; try{localStorage.setItem('incl_sink_p'+i,p.audioSink||'');}catch(e){} if(p._ac){ try{p._ac.close();}catch(e){} p._ac=null; p._acOut=null; } srSay('Jogador '+(i+1)+' — saída de áudio '+(p.audioSink?'trocada.':'padrão.')); });
     row.appendChild(lbl); row.appendChild(sel); el.appendChild(row); } }
 const audioDetectBtn=$('#audio-detect'); if(audioDetectBtn)audioDetectBtn.addEventListener('click',detectAudioDevices);
+// JOGAR COM OS OLHOS (webcam): WebGazer lazy (CDN no 1º uso; futuro: vendorizar p/ offline). Olhar esq/dir anda; olhar p/ cima pula.
+let eyeMode=false, _eyeKeys={left:false,right:false,up:false};
+function eyeSet(k,on,code){ if(_eyeKeys[k]===on)return; _eyeKeys[k]=on; const ev=new KeyboardEvent(on?'keydown':'keyup',{code:code,bubbles:true}); window.dispatchEvent(ev); document.dispatchEvent(ev); }
+function onGaze(data){ if(!data||!eyeMode)return; const gr=$('#game-region'); if(!gr)return; const r=gr.getBoundingClientRect(); if(!r.width)return;
+  const fx=(data.x-r.left)/r.width, fy=(data.y-r.top)/r.height;
+  eyeSet('left', fx<0.4, 'KeyA'); eyeSet('right', fx>0.6, 'KeyD'); eyeSet('up', fy<0.28, 'Space'); } // olhar esq/dir = andar; alto = pular
+function startEyeControl(){ try{ const wg=window.webgazer; if(!wg){ srAlert('WebGazer não carregou.'); return; } wg.setRegression('ridge').setGazeListener(onGaze).begin(); try{ wg.showVideoPreview(true).showPredictionPoints(true); }catch(e){} srAlert('Jogar com os olhos: olhe pela tela e clique em alguns pontos para calibrar. Olhar esquerda/direita anda; olhar para cima pula.'); }catch(e){} }
+function stopEyeControl(){ try{ if(window.webgazer)window.webgazer.end(); }catch(e){} eyeSet('left',false,'KeyA'); eyeSet('right',false,'KeyD'); eyeSet('up',false,'Space'); }
+function loadWebGazer(cb){ if(window.webgazer){cb&&cb();return;} const s=document.createElement('script'); s.src='https://webgazer.cs.brown.edu/webgazer.js'; s.async=true; s.onload=()=>cb&&cb(); s.onerror=()=>srAlert('Não foi possível carregar o WebGazer (precisa de internet no 1º uso).'); document.head.appendChild(s); }
+const eyesBtn=$('#opt-eyes'); if(eyesBtn)eyesBtn.addEventListener('click',()=>{ eyeMode=!eyeMode; toggleBtn(eyesBtn,eyeMode); eyesBtn.textContent=eyeMode?'❚❚ Ligado':'▶ Desligado';
+  if(eyeMode){ loadWebGazer(startEyeControl); srSay('Jogar com os olhos: carregando a webcam (permita o acesso).'); } else { stopEyeControl(); srSay('Jogar com os olhos desligado.'); } });
 const audioMasterBtn=$('#audio-master'); if(audioMasterBtn)audioMasterBtn.addEventListener('click',()=>{ soundOn=!soundOn; reflectAudioMaster(); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 const audioMasterVol=$('#audio-master-vol'); if(audioMasterVol)audioMasterVol.addEventListener('input',()=>{ volume=(+audioMasterVol.value)/100; if(volume>0&&!soundOn){ soundOn=true; reflectAudioMaster(); } });
 const audioCloseBtn=$('#audio-close'); if(audioCloseBtn)audioCloseBtn.addEventListener('click',closeAudio);
