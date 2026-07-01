@@ -291,6 +291,9 @@
             <option value="1">Uma batida por bloco pisado</option>
             <option value="2">Uma batida a cada meio bloco</option>
           </select></div>
+        <div class="ctrl-row"><label for="navsound-master">Volume geral de navegação sonora</label><input id="navsound-master" class="vol" type="range" min="0" max="100" step="5"></div>
+        <div id="navsound-list"></div>
+        <p class="opt-hint" style="margin:.2rem 0 0">O volume de navegação sonora é separado do som geral do jogo — um não afeta o outro.</p>
       </div>
       <h3 class="panel-sub">Voz (TTS)</h3>
       <div class="ctrl-list" role="group" aria-label="Voz TTS">
@@ -302,12 +305,13 @@
           <select id="tts-voice" class="vol"></select></div>
         <div class="ctrl-row"><span>Ouça uma amostra da voz/motor selecionado.</span>
           <button id="opt-tts-test" class="mode-btn" type="button">🔊 Testar voz</button></div>
+        <div class="ctrl-row"><label for="tts-vol">Volume da narração (TTS)</label><input id="tts-vol" class="vol" type="range" min="0" max="100" step="5"></div>
+        <p class="opt-hint" style="margin:.2rem 0">O controle de som geral não interfere no volume da narração (TTS).</p>
         <p class="opt-hint" id="tts-note">Motores neurais (Piper, Kokoro, Kitten) baixam no 1º uso e rodam offline; enquanto isso, usa a voz do navegador (Web Speech) ou o eSpeak embutido.</p>
       </div>
       <h3 class="panel-sub">Saída de áudio por jogador <span class="panel-sub__tag">1 dispositivo por jogador</span></h3>
       <div class="ctrl-list" role="group" aria-label="Saída de áudio por jogador">
-        <p class="opt-hint">Cada jogador pode usar um fone/caixa diferente — bengala, sonar e guia vão só para o dispositivo dele (impossível jogar com batidas misturadas). Com 1 dispositivo, só 1 jogador por vez aproveita a acessibilidade auditiva; a empatia de perda auditiva desliga a acessibilidade auditiva.</p>
-        <div class="ctrl-row"><span>Detectar fones/caixas conectados</span><button id="audio-detect" class="mode-btn" type="button">🔎 Detectar</button></div>
+        <p class="opt-hint">Cada jogador escolhe seu fone/caixa na caixa de seleção — bengala, sonar e guia vão só para o dispositivo dele (impossível jogar com batidas misturadas). Com 1 dispositivo, só 1 jogador por vez aproveita a acessibilidade auditiva; a empatia de perda auditiva desliga a acessibilidade auditiva.</p>
         <div id="audio-sinks"></div>
       </div>
       <h3 class="panel-sub">Som</h3>

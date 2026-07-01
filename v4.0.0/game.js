@@ -1872,12 +1872,21 @@ if(fonteBtn) fonteBtn.addEventListener('change',()=>{ const i=FONT_MODES.findInd
 
 /* F1: menu de áudio (mixer por categoria) — o botão "Som" abre este menu */
 function reflectAudioMaster(){ const b=$('#audio-master'); if(b){ b.classList.toggle('is-on',soundOn); b.setAttribute('aria-pressed',String(soundOn)); b.textContent=soundOn?'🔊 Ligado':'🔇 Desligado'; } const v=$('#audio-master-vol'); if(v)v.value=Math.round(volume*100); const sb=$('#opt-sound'); if(sb)toggleBtn(sb,soundOn); }
-function renderAudio(){ const el=$('#audio-list'); if(!el)return; reflectAudioMaster();
-  el.innerHTML=AUDIO_CATS.map(c=>`<div class="ctrl-row"><span>${c.lbl}</span><span style="display:flex;gap:.5rem;align-items:center;flex-shrink:0"><input class="vol" type="range" min="0" max="100" step="5" value="${Math.round(audioCat[c.k].vol*100)}" data-avol="${c.k}" aria-label="Volume de ${c.lbl}"><button class="mode-btn${audioCat[c.k].on?' is-on':''}" data-acat="${c.k}" type="button" aria-pressed="${audioCat[c.k].on}" aria-label="${c.lbl}: ${audioCat[c.k].on?'ligado':'desligado'}">${audioCat[c.k].on?'🔊':'🔇'}</button></span></div>`).join('');
-  el.querySelectorAll('button[data-acat]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.acat; audioCat[k].on=!audioCat[k].on; setCatGain(k); renderAudio(); }));
-  el.querySelectorAll('input[data-avol]').forEach(s=>s.addEventListener('input',()=>{ const k=s.dataset.avol; audioCat[k].vol=(+s.value)/100; audioCat[k].on=true; setCatGain(k); const bb=el.querySelector('button[data-acat="'+k+'"]'); if(bb){bb.classList.add('is-on');bb.setAttribute('aria-pressed','true');bb.textContent='🔊';} }));
+// Categorias divididas: NAVEGAÇÃO SONORA (sonar/guarda/guia) e GERAL do jogo. TTS fica na seção Voz.
+const NAV_CATS=['sonar','guard','guide'], GEN_CATS=['music','ambient','interact','earcons','other'];
+function catRowHTML(k){ const c=AUDIO_CATS.find(x=>x.k===k), a=audioCat[k]; return `<div class="ctrl-row"><span>${c.lbl}</span><span style="display:flex;gap:.5rem;align-items:center;flex-shrink:0"><input class="vol" type="range" min="0" max="100" step="5" value="${Math.round(a.vol*100)}" data-avol="${k}" aria-label="Volume de ${c.lbl}"><button class="mode-btn switch${a.on?' is-on':''}" data-acat="${k}" type="button" aria-pressed="${a.on}" aria-label="${c.lbl}"></button></span></div>`; }
+function wireCatControls(el){
+  el.querySelectorAll('button[data-acat]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.acat; audioCat[k].on=!audioCat[k].on; setCatGain(k); b.classList.toggle('is-on',audioCat[k].on); b.setAttribute('aria-pressed',String(audioCat[k].on)); }));
+  el.querySelectorAll('input[data-avol]').forEach(s=>s.addEventListener('input',()=>{ const k=s.dataset.avol; audioCat[k].vol=(+s.value)/100; audioCat[k].on=true; setCatGain(k); const bb=el.querySelector('button[data-acat="'+k+'"]'); if(bb){bb.classList.add('is-on');bb.setAttribute('aria-pressed','true');} }));
 }
-function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); reflectModoCego(); reflectTTS(); populateTTSEngines(); populateTTSVoices(); renderAudioSinks(); const cd=$('#cane-div'); if(cd)cd.value=String(caneBlockDiv); ov.hidden=false; frontOverlay(ov); audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function renderNavSound(){ const el=$('#navsound-list'); if(el){ el.innerHTML=NAV_CATS.map(catRowHTML).join(''); wireCatControls(el); }
+  const m=$('#navsound-master'); if(m)m.value=Math.round(Math.max(...NAV_CATS.map(k=>audioCat[k].vol))*100); }
+function renderAudio(){ reflectAudioMaster();
+  const el=$('#audio-list'); if(el){ el.innerHTML=GEN_CATS.map(catRowHTML).join(''); wireCatControls(el); }
+  renderNavSound();
+  const tv=$('#tts-vol'); if(tv)tv.value=Math.round(audioCat.tts.vol*100);
+}
+function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); reflectModoCego(); reflectTTS(); populateTTSEngines(); populateTTSVoices(); enumerateSinks(); const cd=$('#cane-div'); if(cd)cd.value=String(caneBlockDiv); ov.hidden=false; frontOverlay(ov); audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeAudio(){ const ov=$('#audio'); if(!ov)return; ov.hidden=true; audioOpen=false; const b=$('#opt-sound'); if(b)b.focus(); }
 // A12e auditiva: Modo cego (só áudio) + seleção de voz (Web Speech agora; neurais em breve)
 function reflectModoCego(){ const b=$('#opt-modocego'); if(b){ toggleBtn(b,modoCego); b.textContent=modoCego?'❚❚ Ligado':'▶ Desligado'; } }
@@ -1912,9 +1921,12 @@ const ttsTestBtn=$('#opt-tts-test'); if(ttsTestBtn)ttsTestBtn.addEventListener('
   else { try{ const ss=window.speechSynthesis; if(ss){ ss.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; u.rate=1; u.volume=1; ss.speak(u); } }catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); } // fallback audível (volume 1) + dispara download do neural
   srSay('Testando a voz selecionada.'); });
 try{ if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged=populateTTSVoices; }catch(e){}
+const navMasterEl=$('#navsound-master'); if(navMasterEl)navMasterEl.addEventListener('input',()=>{ const v=(+navMasterEl.value)/100; NAV_CATS.forEach(k=>{ audioCat[k].vol=v; audioCat[k].on=true; setCatGain(k); }); renderNavSound(); }); // volume geral da navegação sonora (separado do som do jogo)
+const ttsVolEl=$('#tts-vol'); if(ttsVolEl)ttsVolEl.addEventListener('input',()=>{ audioCat.tts.vol=(+ttsVolEl.value)/100; audioCat.tts.on=true; setCatGain('tts'); reflectTTS(); }); // volume da narração vive na seção Voz
 // Saída de áudio POR JOGADOR (setSinkId): detecta fones/caixas e atribui 1 por jogador
 let _audioDevices=[];
 async function detectAudioDevices(){ try{ await navigator.mediaDevices.getUserMedia({audio:true}).then(s=>s.getTracks().forEach(t=>t.stop())).catch(()=>{}); const devs=await navigator.mediaDevices.enumerateDevices(); _audioDevices=devs.filter(d=>d.kind==='audiooutput'); }catch(e){ _audioDevices=[]; } renderAudioSinks(); }
+async function enumerateSinks(){ try{ if(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices){ const devs=await navigator.mediaDevices.enumerateDevices(); _audioDevices=devs.filter(d=>d.kind==='audiooutput'); } }catch(e){} renderAudioSinks(); } // sem pedir permissão: só lista as saídas na caixa de seleção
 function renderAudioSinks(){ const el=$('#audio-sinks'); if(!el)return; el.innerHTML='';
   const supported=!!(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices)&&(typeof (window.AudioContext||window.webkitAudioContext)!=='undefined');
   if(!_audioDevices.length){ el.innerHTML='<p class="opt-hint">'+(supported?'Clique em Detectar (pede permissão de áudio para listar os aparelhos).':'Este navegador não suporta troca de saída (ex.: Safari/iOS).')+'</p>'; return; }
