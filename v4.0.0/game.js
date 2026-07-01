@@ -712,7 +712,7 @@ try{ setCenario(localStorage.getItem('incl_cenario')||'cidade'); }catch(e){ setC
 const coinCanvasNormal=coinCanvas();
 const coinTex=tex(coinCanvasNormal);
 // caches de modos acessíveis (preguiçosos), invalidados ao trocar de cenário (worldCanvasNormal muda)
-let _worldTexHC={}, _coinTexHC={};
+let _worldTexHC={}, _coinTexHC={}, _lastSharedViz=null; // _lastSharedViz: cache do modo aplicado (otimização do render MP)
 function worldTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return worldTexNormal;
   if(!_worldTexHC[mode]) _worldTexHC[mode] = m.kind==='hc' ? worldToTextureHC(worldCanvasNormal,hcPal(m)) : worldToTextureBordas(worldCanvasNormal); return _worldTexHC[mode]; }
 function coinTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return coinTex;
@@ -764,6 +764,7 @@ function rebuildCoins(){
     else { s=new PIXI.Sprite(coinTexFor(vizMode)); s.x=cn.x;s.y=cn.y; }
     s.visible=!cn.taken; coinContainer.addChild(s); return s;
   });
+  _lastSharedViz=null; // moedas recriadas → força re-aplicar texturas por viewport no próximo draw
 }
 rebuildCoins();
 // camada de escuridão das áreas secretas (acima de mundo/moedas, ABAIXO do player → player sempre visível)
@@ -876,6 +877,7 @@ function rebuildExtras(){
     }
     extraLayer.addChild(g);
   }
+  _lastSharedViz=null; // power-ups/porta recriados → força re-aplicar texturas por viewport
 }
 function setupExtras(){
   // itens e portão vêm das posições REAIS do mapa Clarity (não mais aleatórios)
@@ -1177,10 +1179,13 @@ function draw(){
     mmPlayer.clear(); mmPlayer.beginFill(0xffd23f,1);
     mmPlayer.drawRect((players[0].x/TILE)*MM_SCALE-1,((players[0].y-BOX.h/2)/TILE)*MM_SCALE-1,2.6,2.6); mmPlayer.endFill();
   } else {
+    // Otimização: se TODOS estão no mesmo modo (caso comum), troca as texturas UMA vez; senão, por viewport.
+    const v0=players[0].viz, allSame=players.every(p=>p.viz===v0), anyOverlay=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&m.kind==='lowvision';});
+    if(allSame) applySharedTextures(v0);
     for(let i=0;i<numPlayers;i++){ const viz=players[i].viz;
-      applySharedTextures(viz);                                  // troca texturas compartilhadas p/ o modo deste jogador
+      if(!allSame) applySharedTextures(viz);                      // só troca por viewport quando os modos diferem
       placeCam(players[i]); app.renderer.render(camera,{renderTexture:vpTex[i]});
-      renderVpOverlay(i,viz);                                    // baixa visão (overlay) + bolinha, dentro da render-texture
+      if(anyOverlay) renderVpOverlay(i,viz);                      // passada extra só se algum jogador está em baixa visão
     }
   }
 }
@@ -1395,13 +1400,16 @@ function lvOverlayCanvas(lv){ const W=LOGICAL_W,H=LOGICAL_H,cv=makeCanvas(W,H),c
 const _lvOverlayTex={}; function lvOverlayTex(lv){ if(lv==='blur')return null; if(!_lvOverlayTex[lv])_lvOverlayTex[lv]=tex(lvOverlayCanvas(lv)); return _lvOverlayTex[lv]; }
 const lvOverlaySpr=new PIXI.Sprite(PIXI.Texture.EMPTY), vpDot=new PIXI.Graphics();
 function playerVizTex(base,mode){ if(!base)return base; const m=VIZ_BY_KEY[mode]; if(m&&m.kind==='hc'){ const mm=(_playerHC[mode]=_playerHC[mode]||new Map()); if(!mm.has(base))mm.set(base,gradientMapTexture(base,hcPal(m).player)); return mm.get(base); } return base; }
-function applySharedTextures(mode){ // troca as texturas compartilhadas para o modo do viewport (antes de renderizá-lo)
-  worldSprite.texture=worldTexFor(mode);
-  parallaxLayers.forEach((ts,j)=>ts.texture=parallaxTexFor(j,mode));
-  decoSprites.forEach(s=>s.texture=treeTexFor(mode));
-  for(const s of coinSprites){ if(s)s.texture=coinTexFor(mode); }
-  for(const pu of powerups){ if(pu.sprite)pu.sprite.texture=pupTexFor(pu.kind,mode); }
-  for(const pl of players){ if(pl.sprite&&pl._tx)pl.sprite.texture=playerVizTex(pl._tx,mode); }
+// estáticos (mundo/parallax/moedas/itens) só re-aplicam quando o modo muda (_lastSharedViz declarado no topo do render)
+function applySharedTextures(mode){
+  if(mode!==_lastSharedViz){ _lastSharedViz=mode;
+    worldSprite.texture=worldTexFor(mode);
+    parallaxLayers.forEach((ts,j)=>ts.texture=parallaxTexFor(j,mode));
+    decoSprites.forEach(s=>s.texture=treeTexFor(mode));
+    for(const s of coinSprites){ if(s)s.texture=coinTexFor(mode); }
+    for(const pu of powerups){ if(pu.sprite)pu.sprite.texture=pupTexFor(pu.kind,mode); }
+  }
+  for(const pl of players){ if(pl.sprite&&pl._tx)pl.sprite.texture=playerVizTex(pl._tx,mode); } // player muda de quadro toda frame
 }
 function renderVpOverlay(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='lowvision')return; // overlay de baixa visão DENTRO da render-texture (a bolinha fica por cima, fora do filtro)
   const t=lvOverlayTex(m.lv); if(t){ lvOverlaySpr.texture=t; app.renderer.render(lvOverlaySpr,{renderTexture:vpTex[i],clear:false}); }
@@ -1410,7 +1418,7 @@ function renderVpOverlay(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='low
 function updateVpDots(){ for(let i=0;i<vpDots.length;i++){ const g=vpDots[i], m=VIZ_BY_KEY[players[i]&&players[i].viz]; if(!g)continue;
   const on=m&&(m.kind==='blind'||m.kind==='lowvision'); g.visible=!!on; if(on){ g.clear(); g.lineStyle(1,0x000000,.6); g.beginFill(m.kind==='blind'?0xffffff:0x36d36a); g.drawCircle(0,0,5); g.endFill(); } } }
 function applyVpFilters(){ for(let i=0;i<numPlayers;i++){ if(vpSpr[i])vpSpr[i].filters=pixiFilterFor(players[i].viz); } }
-function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; players[i].viz=m.key; try{localStorage.setItem('incl_viz_p'+i,m.key);}catch(e){}
+function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; players[i].viz=m.key; try{localStorage.setItem('incl_viz_p'+i,m.key);}catch(e){} _lastSharedViz=null;
   if(numPlayers<=1 && i===0){ applyVizGlobal(m.key); } else { applyVpFilters(); updateVpDots(); }
   reflectVizButtons(); if(typeof renderVisual==='function'){ renderVisual(); renderEmpathy(); } }
 function applyVizGlobal(mode){
@@ -1435,7 +1443,7 @@ function updateVizIndicator(kind){ const el=$('#viz-indicator'); if(!el)return;
   const on=(kind==='blind'||kind==='lowvision'); el.hidden=!on;
   el.classList.toggle('blind',kind==='blind'); el.classList.toggle('low',kind==='lowvision');
   el.setAttribute('aria-label',(kind==='blind'?'Modo cegueira total':'Modo baixa visão')+'. Toque duas vezes para voltar às cores normais.'); }
-function reapplyVizAll(){ if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=''); document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
+function reapplyVizAll(){ _lastSharedViz=null; if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=''); document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
 // Modos que AJUDAM (A12e visual) vs SIMULAÇÕES de empatia (Modo empatia)
 const isSimKind=k=>k==='filter'||k==='lowvision'||k==='blind';
 const VIZ_HELP=VIZ_MODES.filter(m=>!isSimKind(m.kind)), VIZ_SIM=VIZ_MODES.filter(m=>isSimKind(m.kind));
