@@ -72,6 +72,8 @@
       aria-label="Área de jogo. Mova com A e D ou setas; pule com L ou Espaço; suba e desça escadas (e nade na água) com W e S ou setas; corra com P ou Shift. Colete 10 moedas."
       aria-describedby="game-instructions">
       <div id="pixi-mount" class="pixi-mount"></div>
+      <!-- HUD por jogador (DOM sobreposto, alta definição): moedas + poder, por viewport -->
+      <div id="game-hud" aria-hidden="true"></div>
       <!-- Simular baixa visão: névoa + manchas (scotomas) sobre o jogo -->
       <div id="viz-overlay" aria-hidden="true" hidden></div>
       <!-- Indicador/botão de simulação DENTRO da tela (cegueira=branca, baixa visão=verde). Toque/clique 2× volta ao normal. -->

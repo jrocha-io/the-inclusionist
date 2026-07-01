@@ -1165,21 +1165,24 @@ function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
-let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[], vpHud=[];
-// HUD DENTRO da tela de cada jogador (moedas/missão/poder) — sr-only espelha no DOM p/ leitor de tela.
-function makeVpHud(x,y){ const t=new PIXI.Text('', {fontFamily:'Atkinson Hyperlegible, Andika, sans-serif', fontSize:9, fill:0xffffff, stroke:0x05070f, strokeThickness:3, lineHeight:11, letterSpacing:0}); t.x=x+3; t.y=y+2; t.resolution=2; app.stage.addChild(t); return t; }
-function rebuildVpHud(positions){ vpHud.forEach(t=>t.destroy()); vpHud=positions.map(([x,y])=>makeVpHud(x,y)); }
-function updateVpHud(){ const obj=($('#hud-objective')&&$('#hud-objective').textContent)||''; const st=app.stage;
-  for(let i=0;i<vpHud.length;i++){ const p=players[i]; if(!p)continue;
-    vpHud[i].text=`🪙 ${p.collected} / ${COIN_TARGET}\n🎯 ${obj}\n✨ ${POWER_SHORT[p.activePower]||'—'}`;
-    if(vpHud[i].parent===st) st.setChildIndex(vpHud[i], st.children.length-1); } } // HUD sempre no topo (acima de chuva etc.)
+let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
+// HUD por jogador em DOM SOBREPOSTO (alta definição, não pixela): moedas (1ª coluna) + poder (2ª coluna), por viewport.
+let gameHudEl=null, vpHudDom=[];
+function buildGameHud(){ if(!gameHudEl) gameHudEl=$('#game-hud'); if(!gameHudEl)return; gameHudEl.innerHTML=''; vpHudDom=[];
+  const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
+  for(let i=0;i<Math.max(1,numPlayers);i++){ const col=i%cols, row=Math.floor(i/cols);
+    const d=document.createElement('div'); d.className='vphud'; d.style.left=(col/cols*100)+'%'; d.style.top=(row/rows*100)+'%'; d.style.width=(100/cols)+'%';
+    d.innerHTML='<span class="vphud-coins"><b class="vphud-ico">🪙</b> <b class="vphud-n">0</b> / '+COIN_TARGET+'</span><span class="vphud-power"><b class="vphud-ico">✨</b> <span class="vphud-pw">—</span></span>';
+    gameHudEl.appendChild(d); vpHudDom.push(d); } }
+function updateGameHud(){ for(let i=0;i<vpHudDom.length;i++){ const p=players[i]; if(!p)continue; const d=vpHudDom[i];
+  const n=d.querySelector('.vphud-n'); if(n)n.textContent=String(p.collected); const pw=d.querySelector('.vphud-pw'); if(pw)pw.textContent=POWER_SHORT[p.activePower]||'—'; } }
 function configureRender(){
   vpSpr.forEach(s=>s.destroy()); vpSpr=[]; vpTex.forEach(t=>t.destroy(true)); vpTex=[];
   if(vpFrames){ vpFrames.destroy(); vpFrames=null; }
   vpDots.forEach(g=>g.destroy()); vpDots=[];
   if(numPlayers<=1){
     if(camera.parent!==app.stage) app.stage.addChildAt(camera,0);
-    minimap.visible=true; app.renderer.resize(LOGICAL_W,LOGICAL_H); rebuildVpHud([[0,0]]);
+    minimap.visible=true; app.renderer.resize(LOGICAL_W,LOGICAL_H); buildGameHud();
   } else {
     if(camera.parent) camera.parent.removeChild(camera); // câmera renderizada manualmente nas RTs
     minimap.visible=false;
@@ -1198,7 +1201,7 @@ function configureRender(){
     for(const [x,y] of positions){ vpFrames.lineStyle(1,0xcdd6f2,0.95); vpFrames.drawRect(x+0.5,y+0.5,LOGICAL_W-1,LOGICAL_H-1); }
     app.stage.addChild(vpFrames);
     vpDots=positions.map(([x,y])=>{ const g=new PIXI.Graphics(); g.x=x+LOGICAL_W-9; g.y=y+9; g.visible=false; app.stage.addChild(g); return g; }); // bolinhas por viewport (acima de tudo, sem filtro)
-    rebuildVpHud(positions); applyVpFilters(); updateVpDots();
+    buildGameHud(); applyVpFilters(); updateVpDots();
   }
 }
 
@@ -1206,7 +1209,7 @@ function configureRender(){
 const MM_SCALE=0.8, MM_PAD=4, mmW=WORLD_W*MM_SCALE, mmH=WORLD_H*MM_SCALE;
 const minimap=new PIXI.Container(); minimap.x=MM_PAD; minimap.y=LOGICAL_H-mmH-MM_PAD; minimap.alpha=0.92;
 app.stage.addChild(minimap);
-rebuildVpHud([[0,0]]); // HUD por jogador no init (single-screen; configureRender só roda ao trocar nº de telas)
+buildGameHud(); // HUD por jogador no init (single-screen; configureRender só roda ao trocar nº de telas)
 const mmBg=new PIXI.Graphics(); mmBg.beginFill(0x05070f,0.72); mmBg.drawRect(-1,-1,mmW+2,mmH+2); mmBg.endFill();
 const mmTiles=new PIXI.Graphics(), mmPlayer=new PIXI.Graphics();
 minimap.addChild(mmBg,mmTiles,mmPlayer);
@@ -1510,7 +1513,7 @@ function draw(){
     }
   }
   drawWeather(); // chuva/clarão em tela-espaço, sobre tudo
-  updateVpHud(); // HUD por jogador (moedas/missão/poder) DENTRO da tela — acima da chuva
+  updateGameHud(); // HUD por jogador (moedas + poder) em DOM sobreposto (alta definição)
 }
 
 /* ===================== Soma-Sub: quiz (DOM, acessível) ===================== */
@@ -1966,7 +1969,7 @@ function layout(){
   // múltiplo inteiro, MAS tolerando até 5px lógicos de corte por lado (×k) se isso aumentar o k.
   // overflow/lado ≤ 5k  ⇒  baseW·k − avail ≤ 10k  ⇒  k ≤ avail/(base−10)
   const k=Math.max(1,Math.floor(Math.min(availW/(baseW-10), availH/(baseH-10))));
-  const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; }
+  const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
 }
 function vlTick(){ const o=vlibrasOpen(); if(o!==librasOpen){ librasOpen=o; layout(); } }
 addEventListener('resize', layout);
