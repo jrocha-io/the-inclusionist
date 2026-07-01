@@ -1165,14 +1165,21 @@ function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
-let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
+let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[], vpHud=[];
+// HUD DENTRO da tela de cada jogador (moedas/missão/poder) — sr-only espelha no DOM p/ leitor de tela.
+function makeVpHud(x,y){ const t=new PIXI.Text('', {fontFamily:'Atkinson Hyperlegible, Andika, sans-serif', fontSize:9, fill:0xffffff, stroke:0x05070f, strokeThickness:3, lineHeight:11, letterSpacing:0}); t.x=x+3; t.y=y+2; t.resolution=2; app.stage.addChild(t); return t; }
+function rebuildVpHud(positions){ vpHud.forEach(t=>t.destroy()); vpHud=positions.map(([x,y])=>makeVpHud(x,y)); }
+function updateVpHud(){ const obj=($('#hud-objective')&&$('#hud-objective').textContent)||''; const st=app.stage;
+  for(let i=0;i<vpHud.length;i++){ const p=players[i]; if(!p)continue;
+    vpHud[i].text=`🪙 ${p.collected} / ${COIN_TARGET}\n🎯 ${obj}\n✨ ${POWER_SHORT[p.activePower]||'—'}`;
+    if(vpHud[i].parent===st) st.setChildIndex(vpHud[i], st.children.length-1); } } // HUD sempre no topo (acima de chuva etc.)
 function configureRender(){
   vpSpr.forEach(s=>s.destroy()); vpSpr=[]; vpTex.forEach(t=>t.destroy(true)); vpTex=[];
   if(vpFrames){ vpFrames.destroy(); vpFrames=null; }
   vpDots.forEach(g=>g.destroy()); vpDots=[];
   if(numPlayers<=1){
     if(camera.parent!==app.stage) app.stage.addChildAt(camera,0);
-    minimap.visible=true; app.renderer.resize(LOGICAL_W,LOGICAL_H);
+    minimap.visible=true; app.renderer.resize(LOGICAL_W,LOGICAL_H); rebuildVpHud([[0,0]]);
   } else {
     if(camera.parent) camera.parent.removeChild(camera); // câmera renderizada manualmente nas RTs
     minimap.visible=false;
@@ -1191,7 +1198,7 @@ function configureRender(){
     for(const [x,y] of positions){ vpFrames.lineStyle(1,0xcdd6f2,0.95); vpFrames.drawRect(x+0.5,y+0.5,LOGICAL_W-1,LOGICAL_H-1); }
     app.stage.addChild(vpFrames);
     vpDots=positions.map(([x,y])=>{ const g=new PIXI.Graphics(); g.x=x+LOGICAL_W-9; g.y=y+9; g.visible=false; app.stage.addChild(g); return g; }); // bolinhas por viewport (acima de tudo, sem filtro)
-    applyVpFilters(); updateVpDots();
+    rebuildVpHud(positions); applyVpFilters(); updateVpDots();
   }
 }
 
@@ -1199,6 +1206,7 @@ function configureRender(){
 const MM_SCALE=0.8, MM_PAD=4, mmW=WORLD_W*MM_SCALE, mmH=WORLD_H*MM_SCALE;
 const minimap=new PIXI.Container(); minimap.x=MM_PAD; minimap.y=LOGICAL_H-mmH-MM_PAD; minimap.alpha=0.92;
 app.stage.addChild(minimap);
+rebuildVpHud([[0,0]]); // HUD por jogador no init (single-screen; configureRender só roda ao trocar nº de telas)
 const mmBg=new PIXI.Graphics(); mmBg.beginFill(0x05070f,0.72); mmBg.drawRect(-1,-1,mmW+2,mmH+2); mmBg.endFill();
 const mmTiles=new PIXI.Graphics(), mmPlayer=new PIXI.Graphics();
 minimap.addChild(mmBg,mmTiles,mmPlayer);
@@ -1502,6 +1510,7 @@ function draw(){
     }
   }
   drawWeather(); // chuva/clarão em tela-espaço, sobre tudo
+  updateVpHud(); // HUD por jogador (moedas/missão/poder) DENTRO da tela — acima da chuva
 }
 
 /* ===================== Soma-Sub: quiz (DOM, acessível) ===================== */

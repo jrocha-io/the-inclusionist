@@ -39,6 +39,8 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 
 .hud{max-width:var(--maxw);margin:0 auto;padding:0 1rem .5rem;display:flex;gap:1.5rem;flex-wrap:wrap}
 .hud__item{margin:0;font-size:1.05rem}
+/* moedas/missão/poder migraram para dentro da tela de cada jogador; ficam sr-only (leitor de tela) */
+.hud__item--sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .hud__item strong{font-variant-numeric:tabular-nums}
 .hud__fps{color:var(--ink-soft)}
 

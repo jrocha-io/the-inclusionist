@@ -37,12 +37,13 @@
     </div>
   </header>
 
-  <!-- HUD textual (DOM, contraste AAA) -->
+  <!-- HUD textual — moedas/missão/poder migraram para DENTRO da tela de cada jogador (in-canvas);
+       aqui ficam só como espelho para leitor de tela (sr-only). FPS segue visível (dev). -->
   <div class="hud">
-    <p class="hud__item"><span aria-hidden="true">🪙</span> Moedas:
+    <p class="hud__item hud__item--sr"><span aria-hidden="true">🪙</span> Moedas:
       <strong id="hud-coins" aria-live="off">0</strong> / <span id="hud-total">10</span></p>
-    <p class="hud__item"><span aria-hidden="true">🎯</span> <span id="hud-objective">Colete 10 moedas</span></p>
-    <p class="hud__item"><span aria-hidden="true">✨</span> Poder: <strong id="hud-power">—</strong></p>
+    <p class="hud__item hud__item--sr"><span aria-hidden="true">🎯</span> <span id="hud-objective">Colete 10 moedas</span></p>
+    <p class="hud__item hud__item--sr"><span aria-hidden="true">✨</span> Poder: <strong id="hud-power">—</strong></p>
     <p class="hud__item hud__fps" aria-hidden="true">FPS: <strong id="hud-fps">–</strong>
       <span class="hud__fpsmin">(mín <strong id="hud-fpsmin">–</strong>)</span></p>
   </div>
