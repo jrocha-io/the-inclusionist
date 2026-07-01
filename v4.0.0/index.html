@@ -57,6 +57,7 @@
     <button id="opt-movement" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Acessibilidade motora: modo Fácil e movimento por alternância">♿ A12e motora</button>
     <button id="opt-animation" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Sensibilidade visual: reduzir ou parar animações na tela">🎞 S11e visual</button>
     <button id="opt-visual" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Acessibilidade visual: escolher a configuração de cores">🎨 A12e visual</button>
+    <button id="opt-empathy" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Modo empatia: simular deficiências visuais e auditivas">🫂 Modo empatia</button>
     <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Controles</button>
     <button id="opt-fonte" class="mode-btn" type="button" aria-label="Trocar a fonte de leitura">🔤 Atkinson (legibilidade)</button>
   </nav>
@@ -199,6 +200,24 @@
       <div id="motion-list" class="ctrl-list" role="group" aria-label="Animações"></div>
       <div class="overlay__actions">
         <button id="animation-close" class="mode-btn is-on" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modo empatia: simular deficiências (visuais por jogador; auditiva global) -->
+  <div id="empathy" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="empathy-title">
+      <h2 id="empathy-title">Modo empatia <span class="panel-sub__tag">sentir como é ter uma deficiência</span></h2>
+      <h3 class="panel-sub">Perda auditiva <span class="panel-sub__tag">todos</span></h3>
+      <div class="ctrl-list" role="group" aria-label="Audição">
+        <div class="ctrl-row"><span><strong>Simular perda auditiva</strong> — sons fracos ficam abafados e os agudos são cortados (o contrário de um aparelho auditivo); falas ficam difíceis de entender.</span>
+          <button id="opt-hearing" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
+      </div>
+      <h3 class="panel-sub">Visão <span class="panel-sub__tag">por jogador</span></h3>
+      <div id="empathy-players" class="ctrl-players" role="group" aria-label="Escolha o jogador" hidden></div>
+      <div id="empathy-list" class="ctrl-list" role="radiogroup" aria-label="Simulação visual"></div>
+      <div class="overlay__actions">
+        <button id="empathy-close" class="mode-btn is-on" type="button">Fechar</button>
       </div>
     </div>
   </div>

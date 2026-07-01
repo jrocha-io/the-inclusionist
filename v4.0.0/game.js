@@ -452,7 +452,7 @@ let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
 
 /* ===================== input ===================== */
-const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false;
+const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false;
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
 const KB_DEFAULTS={
@@ -489,6 +489,7 @@ addEventListener('keydown',(e)=>{
   if(movementOpen){ if(e.code==='Escape')closeMovement(); return; }
   if(animationOpen){ if(e.code==='Escape')closeAnimation(); return; }
   if(visualOpen){ if(e.code==='Escape')closeVisual(); return; }
+  if(empathyOpen){ if(e.code==='Escape')closeEmpathy(); return; }
   if(!player.quiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
   if(player.quiz){ // navegação do quiz por teclado
     if(player.quiz.kind==='braille'){
@@ -566,7 +567,7 @@ function sfx(name){
     if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC)audioCtx=new AC(); }
     if(!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
     const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    o.type=c.t; o.frequency.value=c.f; g.gain.value=0.0001; o.connect(g).connect(audioCtx.destination);
+    o.type=c.t; o.frequency.value=c.f; g.gain.value=0.0001; o.connect(g).connect(audioOut()||audioCtx.destination);
     const t=audioCtx.currentTime;
     g.gain.exponentialRampToValueAtTime(Math.max(0.02,0.25*volume), t+0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t+c.d);
@@ -575,14 +576,27 @@ function sfx(name){
 }
 // ===== Vitória: jingle 8-bit ascendente + fogos de artifício (assobio subindo → estouro/crepitar) =====
 function ensureAC(){ if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC)audioCtx=new AC(); } if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume(); return audioCtx; }
+// Modo empatia — perda auditiva: passa-baixas (perda de agudos) + EXPANSÃO DESCENDENTE (frames fracos abafados → dificulta a fala).
+// Todos os sons passam por um nó mestre; a cadeia é religada quando o modo liga/desliga.
+let hearingLoss=false, _masterGain=null, _hlChain=null;
+function audioOut(){ const ac=ensureAC(); if(!ac)return null; if(!_masterGain){ _masterGain=ac.createGain(); wireMaster(); } return _masterGain; }
+function buildHearingChain(ac){ const lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400; lp.Q.value=0.7; // agudos primeiro
+  const sp=ac.createScriptProcessor(512,1,1); const TH=0.06, RED=0.12;   // energia do frame < limiar → ×0.12 (contrário de aparelho auditivo)
+  sp.onaudioprocess=(e)=>{ const inp=e.inputBuffer.getChannelData(0), out=e.outputBuffer.getChannelData(0); let s=0; for(let i=0;i<inp.length;i++)s+=inp[i]*inp[i]; const g=Math.sqrt(s/inp.length)<TH?RED:1; for(let i=0;i<inp.length;i++)out[i]=inp[i]*g; };
+  lp.connect(sp); sp.connect(ac.destination); return {input:lp}; }
+function wireMaster(){ const ac=audioCtx; if(!ac||!_masterGain)return; try{_masterGain.disconnect();}catch(e){}
+  if(hearingLoss){ if(!_hlChain)_hlChain=buildHearingChain(ac); _masterGain.connect(_hlChain.input); } else _masterGain.connect(ac.destination); }
+function setHearingLoss(on){ hearingLoss=on; try{localStorage.setItem('incl_hearingloss',on?'1':'0');}catch(e){} if(audioCtx){ audioOut(); wireMaster(); }
+  srSay('Simulação de perda auditiva '+(on?'ligada: sons fracos ficam abafados e os agudos são cortados; falas ficam difíceis de entender.':'desligada.')); }
 function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
   o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
+  o.connect(g).connect(audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
 function firework(when){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const t=ac.currentTime+(when||0);
   const o=ac.createOscillator(),g=ac.createGain(); o.type='sine'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(1200,t+0.35); // assobio subindo
-  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.12*volume,t+0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+0.36); o.connect(g).connect(ac.destination); o.start(t); o.stop(t+0.4);
+  const out=audioOut()||ac.destination;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.12*volume,t+0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+0.36); o.connect(g).connect(out); o.start(t); o.stop(t+0.4);
   [0,0.04,0.09,0.15,0.22].forEach((dt,i)=>{ const po=ac.createOscillator(),pg=ac.createGain(),tt=t+0.36+dt; po.type='square'; po.frequency.setValueAtTime(180+((i*131)%520),tt); // estouro/crepitar
-    pg.gain.setValueAtTime(0.18*volume,tt); pg.gain.exponentialRampToValueAtTime(0.0001,tt+0.09); po.connect(pg).connect(ac.destination); po.start(tt); po.stop(tt+0.11); }); }catch(e){} }
+    pg.gain.setValueAtTime(0.18*volume,tt); pg.gain.exponentialRampToValueAtTime(0.0001,tt+0.09); po.connect(pg).connect(out); po.start(tt); po.stop(tt+0.11); }); }catch(e){} }
 function playVictory(){ [[523,0],[659,0.12],[784,0.24],[1047,0.36],[988,0.52],[1319,0.64]].forEach(([f,w])=>tone(f,0.16,'square',w,0.22)); [0.2,0.8,1.35,1.9].forEach(w=>firework(w)); }
 
 /* ===================== Pixi ===================== */
@@ -1398,8 +1412,7 @@ function updateVpDots(){ for(let i=0;i<vpDots.length;i++){ const g=vpDots[i], m=
 function applyVpFilters(){ for(let i=0;i<numPlayers;i++){ if(vpSpr[i])vpSpr[i].filters=pixiFilterFor(players[i].viz); } }
 function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; players[i].viz=m.key; try{localStorage.setItem('incl_viz_p'+i,m.key);}catch(e){}
   if(numPlayers<=1 && i===0){ applyVizGlobal(m.key); } else { applyVpFilters(); updateVpDots(); }
-  const b=$('#opt-visual'); if(b)b.classList.toggle('is-on',players.some(p=>p.viz!=='normal'));
-  if(typeof renderVisual==='function')renderVisual(); }
+  reflectVizButtons(); if(typeof renderVisual==='function'){ renderVisual(); renderEmpathy(); } }
 function applyVizGlobal(mode){
   const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; mode=m.key;
   vizMode=mode; hcMode=(m.kind==='bordas'||m.kind==='hc'); try{localStorage.setItem('incl_viz',mode);}catch(e){}
@@ -1414,8 +1427,8 @@ function applyVizGlobal(mode){
   const ov=$('#viz-overlay'); if(ov){ ov.hidden=(m.kind!=='lowvision'); ov.className=(m.kind==='lowvision'?('lv-'+m.lv):''); }
   if(m.kind==='blind'){ hideTouchControls('cegueira'); }
   updateVizIndicator(m.kind);
-  const b=$('#opt-visual'); if(b)b.classList.toggle('is-on',mode!=='normal'); // botão da barra realça quando ≠ normal
-  if(typeof renderVisual==='function') renderVisual();
+  if(typeof reflectVizButtons==='function') reflectVizButtons();
+  if(typeof renderVisual==='function'){ renderVisual(); renderEmpathy(); }
 }
 // bolinha indicadora (canto sup. dir.): branca=cegueira, verde=baixa visão; toque/clique 2× volta ao normal
 function updateVizIndicator(kind){ const el=$('#viz-indicator'); if(!el)return;
@@ -1423,21 +1436,34 @@ function updateVizIndicator(kind){ const el=$('#viz-indicator'); if(!el)return;
   el.classList.toggle('blind',kind==='blind'); el.classList.toggle('low',kind==='lowvision');
   el.setAttribute('aria-label',(kind==='blind'?'Modo cegueira total':'Modo baixa visão')+'. Toque duas vezes para voltar às cores normais.'); }
 function reapplyVizAll(){ if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=''); document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
-// MENU Acessibilidade visual: por JOGADOR (abas) — seleção (radio) da configuração de cor, efeito imediato
+// Modos que AJUDAM (A12e visual) vs SIMULAÇÕES de empatia (Modo empatia)
+const isSimKind=k=>k==='filter'||k==='lowvision'||k==='blind';
+const VIZ_HELP=VIZ_MODES.filter(m=>!isSimKind(m.kind)), VIZ_SIM=VIZ_MODES.filter(m=>isSimKind(m.kind));
 let selVizPlayer=0;
-function renderVisual(){ const el=$('#visual-list'); if(!el)return; if(selVizPlayer>=numPlayers)selVizPlayer=0;
-  const tabs=$('#visual-players'); if(tabs){ tabs.hidden=(numPlayers<=1);
+function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)return; if(selVizPlayer>=numPlayers)selVizPlayer=0;
+  const tabs=$(tabsSel); if(tabs){ tabs.hidden=(numPlayers<=1);
     tabs.innerHTML = numPlayers<=1 ? '' : Array.from({length:numPlayers},(_,p)=>`<button class="mode-btn${p===selVizPlayer?' is-on':''}" data-vp="${p}" type="button">Jogador ${p+1}</button>`).join('');
-    tabs.querySelectorAll('button[data-vp]').forEach(b=>b.addEventListener('click',()=>{ selVizPlayer=+b.dataset.vp; renderVisual(); })); }
+    tabs.querySelectorAll('button[data-vp]').forEach(b=>b.addEventListener('click',()=>{ selVizPlayer=+b.dataset.vp; renderVisual(); renderEmpathy(); })); }
   const cur=players[selVizPlayer]?players[selVizPlayer].viz:'normal';
-  el.innerHTML=VIZ_MODES.map(m=>{ const sel=m.key===cur; return `<div class="ctrl-row"><span><strong>${m.nome}</strong><br><span class="opt-hint" style="margin:0">${m.desc}</span></span>`+
+  el.innerHTML=modes.map(m=>{ const sel=m.key===cur; return `<div class="ctrl-row"><span><strong>${m.nome}</strong><br><span class="opt-hint" style="margin:0">${m.desc}</span></span>`+
     `<button class="mode-btn${sel?' is-on':''}" role="radio" aria-checked="${sel}" data-viz="${m.key}" type="button">${sel?'✓ Selecionado':'Selecionar'}</button></div>`; }).join('');
   el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ setPlayerViz(selVizPlayer,btn.dataset.viz); srSay((numPlayers>1?'Jogador '+(selVizPlayer+1)+': ':'')+VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+'.'); }));
 }
+function renderVisual(){ renderVizGroup('#visual-list','#visual-players',VIZ_HELP); }
+function renderEmpathy(){ renderVizGroup('#empathy-list','#empathy-players',VIZ_SIM); const h=$('#opt-hearing'); if(h){ toggleBtn(h,hearingLoss); h.textContent=hearingLoss?'❚❚ Ligado':'▶ Desligado'; } }
+function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&(m.kind==='bordas'||m.kind==='hc');});
+  const sim=players.some(p=>isSimKind((VIZ_BY_KEY[p.viz]||{}).kind));
+  const bv=$('#opt-visual'); if(bv)bv.classList.toggle('is-on',help); const be=$('#opt-empathy'); if(be)be.classList.toggle('is-on',sim||hearingLoss); }
 function openVisual(){ const ov=$('#visual'); if(!ov)return; renderVisual(); ov.hidden=false; visualOpen=true; const f=ov.querySelector('button[data-viz]')||ov.querySelector('button'); if(f)f.focus(); }
 function closeVisual(){ const ov=$('#visual'); if(!ov)return; ov.hidden=true; visualOpen=false; const b=$('#opt-visual'); if(b)b.focus(); }
+function openEmpathy(){ const ov=$('#empathy'); if(!ov)return; renderEmpathy(); ov.hidden=false; empathyOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function closeEmpathy(){ const ov=$('#empathy'); if(!ov)return; ov.hidden=true; empathyOpen=false; const b=$('#opt-empathy'); if(b)b.focus(); }
 const visualBtn=$('#opt-visual'); if(visualBtn)visualBtn.addEventListener('click',openVisual);
 const visualClose=$('#visual-close'); if(visualClose)visualClose.addEventListener('click',closeVisual);
+const empathyBtn=$('#opt-empathy'); if(empathyBtn)empathyBtn.addEventListener('click',openEmpathy);
+const empathyClose=$('#empathy-close'); if(empathyClose)empathyClose.addEventListener('click',closeEmpathy);
+const hearingBtn=$('#opt-hearing'); if(hearingBtn)hearingBtn.addEventListener('click',()=>{ setHearingLoss(!hearingLoss); renderEmpathy(); reflectVizButtons(); });
+try{ if(localStorage.getItem('incl_hearingloss')==='1'){ hearingLoss=true; } }catch(e){}
 // bolinha indicadora: duplo toque/clique → volta às cores normais (em cegueira é a única saída visível)
 (function vizIndicator(){ const el=$('#viz-indicator'); if(!el)return; let last=-9999;
   el.addEventListener('pointerdown',(e)=>{ e.preventDefault(); const t=e.timeStamp||0; if(t-last<450){ setPlayerViz(0,'normal'); last=-9999; srSay('Cores normais reativadas.'); } else last=t; }); })();
