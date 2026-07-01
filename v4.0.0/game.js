@@ -681,8 +681,22 @@ function updateAmbient(){ if(!audioCtx||!soundOn||!audioCat.ambient.on){ return;
   const ac=audioCtx, pl=players[0], px=Math.floor(pl.x/TILE), py=Math.floor(pl.y/TILE);
   let nearWater=0; for(let dx=-3;dx<=3;dx++)for(let dy=-3;dy<=3;dy++){ if(tileAt(px+dx,py+dy)===3) nearWater=Math.max(nearWater,1-Math.hypot(dx,dy)/4.2); }
   _ambient.water.gain.setTargetAtTime(0.15*nearWater, ac.currentTime, 0.3);
-  _weatherT++; const cyc=_weatherT%3600; _rainLevel = cyc<600 ? (cyc<300?cyc/300:(600-cyc)/300) : 0; // ~10s de chuva a cada 60s
-  _ambient.rain.gain.setTargetAtTime(0.11*_rainLevel, ac.currentTime, 0.5); }
+  _ambient.rain.gain.setTargetAtTime(0.09*_rainLevel, ac.currentTime, 0.5); } // chuva: gain segue _rainLevel (calculado em updateWeather); 0 = silêncio total
+// ===== CLIMA: chuva de verdade (visual + trovão), o áudio segue o visual =====
+let weatherLayer=null, _rainDrops=null, _flash=0, _thunderCD=240; // weatherLayer criado após o `app` existir
+function thunder(inten){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; try{ // rumor grave sintetizado (intensidade variável)
+  const src=ac.createBufferSource(); src.buffer=noiseBuffer(ac); src.loop=true; const bq=ac.createBiquadFilter(); bq.type='lowpass'; bq.frequency.value=140+Math.random()*220; bq.Q.value=0.7;
+  const g=ac.createGain(),t=ac.currentTime, dur=0.7+inten*1.4; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.min(0.55,0.2*inten)*volume,t+0.04); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  src.connect(bq).connect(g).connect(catNode('ambient')||audioOut()||ac.destination); src.start(t); src.stop(t+dur+0.1); }catch(e){} }
+function updateWeather(){ _weatherT++; const cyc=_weatherT%3600; _rainLevel = cyc<600 ? (cyc<300?cyc/300:(600-cyc)/300) : 0; // ~10s de chuva a cada 60s (visual SEMPRE calculado)
+  if(_rainLevel>0.45){ _thunderCD--; if(_thunderCD<=0){ _thunderCD=200+Math.floor(rnd()*420); const inten=0.35+rnd()*0.65; _flash=Math.max(_flash,inten); thunder(inten); } } // clarão + trovão em intensidades variadas
+  if(_flash>0) _flash=Math.max(0,_flash-0.05); }
+function drawWeather(){ if(!weatherLayer)return; const g=weatherLayer; if(weatherLayer.parent===app.stage) app.stage.setChildIndex(weatherLayer, app.stage.children.length-1); g.clear();
+  const W=app.screen.width, H=app.screen.height; if(_rainLevel<=0 && _flash<=0) return;
+  if(_rainLevel>0){ g.beginFill(0x0a0e1a, _rainLevel*0.34); g.drawRect(0,0,W,H); g.endFill();                         // céu mais escuro
+    if(!_rainDrops){ _rainDrops=[]; for(let i=0;i<110;i++)_rainDrops.push({x:rnd()*W,y:rnd()*H,len:6+rnd()*9,spd:8+rnd()*7}); }
+    g.lineStyle(1,0xaebfe0,0.5*_rainLevel); for(const d of _rainDrops){ d.y+=d.spd; d.x-=d.spd*0.35; if(d.y>H){ d.y=-d.len; d.x=rnd()*W; } if(d.x<0)d.x+=W; g.moveTo(d.x,d.y); g.lineTo(d.x-2,d.y+d.len); } g.lineStyle(0); }
+  if(_flash>0){ g.beginFill(0xe4ecff, _flash*0.55); g.drawRect(0,0,W,H); g.endFill(); } }                            // clarão do relâmpago
 function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
   for(const pl of players){ if(!needsAudioCues(pl))continue; pl.guideT=(pl.guideT||0)+1; if(pl.guideT<48)continue; pl.guideT=0; // pinga ~0,8s
     let best=null,bd=1e9; for(const cn of coins){ if(cn.taken)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
@@ -722,6 +736,7 @@ const app=new PIXI.Application({width:LOGICAL_W,height:LOGICAL_H,backgroundColor
 $('#pixi-mount').appendChild(app.view);
 app.view.setAttribute('aria-hidden','true');
 const camera=new PIXI.Container(); app.stage.addChild(camera);
+weatherLayer=new PIXI.Graphics(); app.stage.addChild(weatherLayer); // CLIMA (chuva/clarão) em tela-espaço, mantido no topo em draw
 
 /* ===== Parallax: 3 camadas de FUNDO atrás do tileset (Camada 1 = tileset+personagem).
    Camada 4 (fator 0.10) é a mais distante e "quase não se mexe" — receberá a maior
@@ -1460,6 +1475,7 @@ function draw(){
       if(anyOverlay) renderVpOverlay(i,viz);                      // passada extra só se algum jogador está em baixa visão
     }
   }
+  drawWeather(); // chuva/clarão em tela-espaço, sobre tudo
 }
 
 /* ===================== Soma-Sub: quiz (DOM, acessível) ===================== */
@@ -1886,7 +1902,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick();
-  if(phase==='playing'){ updateAmbient(); updateGuide(); } }); // F4: ambiente + guia auditivo (só durante o jogo)
+  if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
 window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
