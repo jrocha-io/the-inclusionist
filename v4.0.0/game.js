@@ -1093,8 +1093,10 @@ function drawElevators(g){ g.clear(); if(!wheelchair)return;
     g.beginFill(0xf2c200); g.moveTo(ax,ay+(up?-4:4)); g.lineTo(ax-4,ay); g.lineTo(ax+4,ay); g.closePath(); g.endFill(); }
 }
 const caneLayer=new PIXI.Graphics(); camera.addChild(caneLayer); // bengala (modo cego)
-function drawCane(g,pl){ const dir=pl.facing<0?-1:1, hx=pl.x+dir*3, hy=pl.y-15, C=caneColor(pl); // mão; cor por modo (branca/verde)
-  const tap=Math.sin(pl.walkAnim*0.55), reach=TILE*0.85+tap*3, tx=pl.x+dir*reach, ty=pl.y-1; // ponta bate à frente, oscilando com o passo
+// Bengala RÍGIDA: extensão da mão dianteira, presa ao corpo — move só com o personagem (sem oscilar sozinha).
+function drawCane(g,pl){ const dir=pl.facing<0?-1:1, C=caneColor(pl);
+  const hx=pl.x+dir*4, hy=pl.y-16;   // punho na mão dianteira (offset fixo ao sprite)
+  const tx=pl.x+dir*12, ty=pl.y-1;   // ponteira no chão logo à frente — posição RÍGIDA (não se move sozinha)
   g.lineStyle(2,C); g.moveTo(hx,hy); g.lineTo(tx,ty);                           // haste (branca=cego / verde=baixa visão)
   g.lineStyle(2,0xd23b3b); g.moveTo(tx-dir*4,ty-4); g.lineTo(tx,ty);            // faixa vermelha (ponta)
   g.lineStyle(0); g.beginFill(C); g.drawCircle(tx,ty,1.6); g.endFill();         // ponteira
