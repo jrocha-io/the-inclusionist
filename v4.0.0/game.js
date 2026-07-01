@@ -389,7 +389,7 @@ function pickCoins(n){
   const shapes = MODE==='somasub' ? shuffle(SOMASUB_SHAPES.map(s=>s.id)) : [];
   const letters = MODE==='silabas' ? shuffle(WORD_INITIALS) : []; // letra = inicial da palavra
   return a.slice(0,Math.min(n,a.length)).map((p,i)=>({
-    x:p.tx*TILE+3, y:p.ty*TILE+3, taken:false,
+    x:p.tx*TILE+3, y:p.ty*TILE+3, taken:false, by:[], // by[i]=1 → coletada por aquele jogador (itens são individuais; ver coinTaken/takeCoin)
     shape: shapes.length ? shapes[i%shapes.length] : '',
     letter: letters.length ? letters[i%letters.length] : '',
   }));
@@ -468,6 +468,13 @@ function wrapConvex(pl,N,mv,preX,preY){ const T=TILE,hw=BOX.w/2,bh=BOX.h;
 let players=[makePlayer(0)]; let player=players[0];
 let numPlayers=1;
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
+// Itens INDIVIDUAIS por jogador (multiplayer em telas separadas): cada moeda/letra/forma é coletada
+// independentemente por cada jogador. Só a CHAVE é compartilhada (ver powerups). taken = espelho do P1 (solo).
+function coinTaken(cn,pi){ return cn.by ? !!cn.by[pi] : !!cn.taken; }
+function takeCoin(cn,pi){ if(!cn.by)cn.by=[]; cn.by[pi]=1; if(pi===0)cn.taken=true; }
+// Power-ups: individuais por jogador, MENOS a CHAVE (compartilhada — vale para o time todo).
+function puTaken(pu,pi){ if(pu.kind==='key') return !!pu.taken; return pu.by ? !!pu.by[pi] : !!pu.taken; }
+function takePu(pu,pi){ if(pu.kind==='key'){ pu.taken=true; return; } if(!pu.by)pu.by=[]; pu.by[pi]=1; if(pi===0)pu.taken=true; }
 let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
 
 /* ===================== input ===================== */
@@ -686,7 +693,7 @@ function tonePan(freq,dur,cat,pan,vol,type,pc){ if(!soundOn||volume<=0)return; c
   o.connect(g); node.connect(pc?pc.out:(catNode(cat)||audioOut()||ac.destination)); o.start(t); o.stop(t+dur+0.02); }catch(e){} } // pc = dispositivo do jogador
 function needsAudioCues(pl){ if(modoCego)return true; const m=VIZ_BY_KEY[pl.viz]; return !!(m&&(m.kind==='blind'||m.kind==='lowvision')); } // guarda/guia só quando a visão está comprometida ou no modo cego
 let _sonarCount=0;
-function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){ if(cn.taken)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
+function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){ if(coinTaken(cn,pl.i))continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
   const pc=playerCtx(pl); if(!best){ tonePan(300,0.2,'sonar',0,0.2,'sine',pc); srSay('Nenhuma moeda por perto.'); return; }
   const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(12*TILE)); tonePan(380+740*near,0.16,'sonar',pan,0.26,'sine',pc); // mais perto = mais agudo (dispositivo do jogador)
   const lado=best.x<pl.x-4?'à esquerda':best.x>pl.x+4?'à direita':'à frente', dist=bd<4*TILE?'bem perto':bd<9*TILE?'perto':'longe';
@@ -719,7 +726,7 @@ function drawWeather(){ if(!weatherLayer)return; const g=weatherLayer; if(weathe
   if(_flash>0){ g.beginFill(0xe4ecff, _flash*0.55); g.drawRect(0,0,W,H); g.endFill(); } }                            // clarão do relâmpago
 function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
   for(const pl of players){ if(!needsAudioCues(pl))continue; pl.guideT=(pl.guideT||0)+1; if(pl.guideT<48)continue; pl.guideT=0; // pinga ~0,8s
-    let best=null,bd=1e9; for(const cn of coins){ if(cn.taken)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
+    let best=null,bd=1e9; for(const cn of coins){ if(coinTaken(cn,pl.i))continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
     if(best){ const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(14*TILE)); tonePan(300+380*near,0.12,'guide',pan,0.11,'triangle',playerCtx(pl)); _guideCount++; } } }
 // ===== F5 (plumbing): camada de narração TTS. Motor NEURAL (Piper pt-BR) é carregado LAZY (ver docs/plano-tts-fase-f5.md).
 // Decisões: pt-BR=Piper (só ele tem pt-BR); lazy-fetch de CDN + cache; voz Faber agora, seleção de voz depois.
@@ -1035,7 +1042,7 @@ function setupExtras(){
   // itens e portão vêm das posições REAIS do mapa Clarity (não mais aleatórios)
   const _blind = modoCego || players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&m.kind==='blind';}); // experiência de cego ativa?
   powerups = MAP_ITEMS.filter(it=> !wheelchair || it.kind==='fly'||it.kind==='turbo'||it.kind==='key') // cadeirante: só voo/super-corrida (chave mantida p/ o portão)
-    .map(it=>({ x:it.tx*TILE+2, y:it.ty*TILE+2, kind:it.kind, taken:false, sprite:null }));
+    .map(it=>({ x:it.tx*TILE+2, y:it.ty*TILE+2, kind:it.kind, taken:false, by:[], sprite:null })); // by[i]=1 → coletado por aquele jogador (chave é global)
   if(_blind){ const sj=powerups.find(pu=>pu.kind==='superjump'); if(sj) sj.kind='runcane'; } // cego: o item de SUPER-PULO vira a bengala de corrida (habilita correr)
   gateTiles = new Set(MAP_GATE.map(g=>g.tx+','+g.ty));
   gate = MAP_GATE.length ? MAP_GATE : null;
@@ -1395,20 +1402,20 @@ function stepPlayer(pl,dt){
   // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico). Fácil: hitbox de coleta +4px por lado.
   const pad=pl.easy?EASY.pad:0;
   const box={x:pl.x-BOX.w/2-pad,y:pl.y-BOX.h-pad,w:BOX.w+2*pad,h:BOX.h+2*pad};
-  coins.forEach((cn,i)=>{ if(cn.taken)return;
+  coins.forEach((cn,i)=>{ if(coinTaken(cn,pl.i))return;
     const big=(MODE!=='ludico'); const sz=big?15:9, ox=big?3:0;
     if(box.x<cn.x+sz-ox&&box.x+box.w>cn.x-ox&&box.y<cn.y+sz-ox&&box.y+box.h>cn.y-ox){
       if(MODE==='somasub'&&cn.shape){ if(pl===player&&!player.quiz) openQuiz(i,cn.shape); }
       else if(MODE==='silabas'&&cn.letter){ if(pl===player&&!player.quiz) openSilabas(i,cn.letter); }
-      else { cn.taken=true; coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin');
+      else { takeCoin(cn,pl.i); if(numPlayers<=1)coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin'); // MP: visibilidade é por viewport (no draw)
         updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); narrate(msg); }
         if(pl.collected>=COIN_TARGET)win(pl); }
     }});
   // E12: power-ups + chave (por jogador) e portão (compartilhado)
-  powerups.forEach(pu=>{ if(pu.taken)return;
+  powerups.forEach(pu=>{ if(puTaken(pu,pl.i))return;
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
-      pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
-      if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
+      takePu(pu,pl.i); if((numPlayers<=1||pu.kind==='key') && pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:''; // chave: some p/ todos; demais: por viewport (no draw)
+      if(pu.kind==='key'){ players.forEach(p=>p.hasKey=true); sfx('key'); srAlert(who+'pegou a chave (compartilhada). Toque no portão para abri-lo.'); }
       else if(pu.kind==='runcane'){ pl.runCane=true; sfx('power'); const pm=who+'Bengala de corrida! Agora dá para correr — segure Correr.'; srSay(pm); narrate(pm); } // cego: habilita correr (bengala com roda)
       else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); narrate(pm); } // entra no inventário; ativo = o último pego
     }});
@@ -1516,6 +1523,8 @@ function draw(){
     if(allSame) applySharedTextures(v0);
     for(let i=0;i<numPlayers;i++){ const viz=players[i].viz;
       if(!allSame) applySharedTextures(viz);                      // só troca por viewport quando os modos diferem
+      for(let j=0;j<coinSprites.length;j++){ const s=coinSprites[j]; if(s)s.visible=!coinTaken(coins[j],i); } // itens individuais: cada tela mostra só o que AQUELE jogador ainda não pegou
+      for(const pu of powerups){ if(pu.sprite)pu.sprite.visible=!puTaken(pu,i); }                            // chave some p/ todos; demais são por jogador
       placeCam(players[i]); app.renderer.render(camera,{renderTexture:vpTex[i]});
       if(anyOverlay) renderVpOverlay(i,viz);                      // passada extra só se algum jogador está em baixa visão
     }
@@ -1593,15 +1602,15 @@ function quizMove(d){ const q=player.quiz; if(!q)return;
 function quizConfirm(){
   const q=player.quiz; if(!q)return;
   if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(); return; }
-  if(q.kind==='braille'){ coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
-    $('#hud-coins').textContent=String(collected); sfx('coin'); srSay('Coletado!'); closeQuiz(); if(collected>=COIN_TARGET)win(); return; }
+  if(q.kind==='braille'){ takeCoin(coins[q.coinIndex],player.i); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
+    sfx('coin'); srSay('Coletado!'); closeQuiz(); if(collected>=COIN_TARGET)win(); return; }
   if(q.kind==='silabas'){
     const N=q.options.length;
     if(q.sel<N){ placeSilaba(q.options[q.sel]); return; }
     if(q.sel===N){ eraseLastSilaba(); return; }
     if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){
-      coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
-      $('#hud-coins').textContent=String(collected); sfx('correct'); srSay('Acertou!'); closeQuiz(); if(collected>=COIN_TARGET)win();
+      takeCoin(coins[q.coinIndex],player.i); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
+      sfx('correct'); srSay('Acertou!'); closeQuiz(); if(collected>=COIN_TARGET)win();
     } else { q.tries++;
       if(q.tries>=2){ q.revealed=true; q.boxes=q.correct.slice(); srAlert(`A palavra é ${disp(q.word)}. Pule para seguir.`); }
       else { q.boxes=[null,null]; sfx('wrong'); srSay('Tente de novo.'); }
@@ -1610,8 +1619,8 @@ function quizConfirm(){
     return;
   }
   if(q.choices[q.sel]===q.answer){
-    coins[q.coinIndex].taken=true; coinSprites[q.coinIndex].visible=false; collected++;
-    $('#hud-coins').textContent=String(collected); sfx('correct'); srSay('Acertou!'); closeQuiz();
+    takeCoin(coins[q.coinIndex],player.i); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
+    sfx('correct'); srSay('Acertou!'); closeQuiz();
     if(collected>=COIN_TARGET)win();
   } else { q.tries++;
     if(q.tries>=2){q.revealed=true; srAlert(`A resposta é ${q.answer}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
@@ -1622,7 +1631,7 @@ function closeQuiz(){ player.quiz=null; const ov=$('#quiz'); if(ov)ov.hidden=tru
 function respawnFigure(i){
   const occ=new Set(); coins.forEach((c,j)=>{ if(j!==i)occ.add(c.x+','+c.y); });
   for(const cand of shuffle(findCoinCandidates())){ const x=cand.tx*TILE+3,y=cand.ty*TILE+3;
-    if(!occ.has(x+','+y)){ coins[i].x=x;coins[i].y=y;coins[i].taken=false;
+    if(!occ.has(x+','+y)){ coins[i].x=x;coins[i].y=y;coins[i].taken=false;coins[i].by=[];
       const s=coinSprites[i]; s.x=(MODE==='somasub')?x-3:x; s.y=(MODE==='somasub')?y-3:y; s.visible=true; return; } }
 }
 
