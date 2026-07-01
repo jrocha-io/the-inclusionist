@@ -688,6 +688,9 @@ function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
 // ===== F5 (plumbing): camada de narração TTS. Motor NEURAL (Piper pt-BR) é carregado LAZY (ver docs/plano-tts-fase-f5.md).
 // Decisões: pt-BR=Piper (só ele tem pt-BR); lazy-fetch de CDN + cache; voz Faber agora, seleção de voz depois.
 let ttsEngine=null, ttsLoading=false, _narrateCount=0, ttsLang='pt-BR', ttsVoice='faber';
+let ttsEngineSel=(()=>{try{return localStorage.getItem('incl_tts_engine')||'webspeech';}catch(e){return 'webspeech';}})(); // webspeech | piper | kokoro | kitten | espeak
+let _ttsVoiceObj=null; // voz do Web Speech selecionada
+function speakWebSpeech(text){ try{ const ss=window.speechSynthesis; if(!ss)return false; ss.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; u.rate=1; u.volume=Math.min(1,volume*1.4); ss.speak(u); return true; }catch(e){ return false; } }
 const TTS_SOURCES={ 'pt-BR':{ engine:'piper', voice:'pt_BR-faber-medium',
   // URL configurável (D1: CDN agora; espelhar no LAN depois). Modelo VITS + fonemizador espeak-ng (só fonemas).
   model:'https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx' } };
@@ -695,7 +698,9 @@ function loadTTS(){ if(ttsEngine||ttsLoading)return; ttsLoading=true; // PONTO D
   // baixar TTS_SOURCES[ttsLang].model (lazy, cache), instanciar e setar ttsEngine={speak(text){ ...PCM→AudioBuffer→catNode('tts')... }}.
   // Deixado como no-op verificável até a sessão de integração+hardware (a voz real precisa das libs + teste no Positivo).
 }
-function ttsSpeak(text){ if(ttsEngine&&ttsEngine.speak){ try{ ttsEngine.speak(text); }catch(e){} return true; } loadTTS(); return false; }
+function ttsSpeak(text){ if(ttsEngineSel!=='webspeech'){ if(ttsEngine&&ttsEngine.speak){ try{ ttsEngine.speak(text); }catch(e){} return true; } loadTTS(); } // motor neural (baixando) → cai no fallback
+  return speakWebSpeech(text); } // fallback imediato: Web Speech (nativo pt-BR); enquanto o neural não carrega
+
 function narrate(text){ if(!soundOn||!audioCat.tts.on||!text)return; _narrateCount++; ttsSpeak(text); } // gated pelo toggle 'Narração (TTS)' do mixer, independente das legendas
 function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
   o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
@@ -1763,8 +1768,24 @@ function renderAudio(){ const el=$('#audio-list'); if(!el)return; reflectAudioMa
   el.querySelectorAll('button[data-acat]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.acat; audioCat[k].on=!audioCat[k].on; setCatGain(k); renderAudio(); }));
   el.querySelectorAll('input[data-avol]').forEach(s=>s.addEventListener('input',()=>{ const k=s.dataset.avol; audioCat[k].vol=(+s.value)/100; audioCat[k].on=true; setCatGain(k); const bb=el.querySelector('button[data-acat="'+k+'"]'); if(bb){bb.classList.add('is-on');bb.setAttribute('aria-pressed','true');bb.textContent='🔊';} }));
 }
-function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); ov.hidden=false; audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
+function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAudio(); reflectModoCego(); reflectTTS(); populateTTSEngines(); populateTTSVoices(); ov.hidden=false; audioOpen=true; const f=ov.querySelector('button'); if(f)f.focus(); }
 function closeAudio(){ const ov=$('#audio'); if(!ov)return; ov.hidden=true; audioOpen=false; const b=$('#opt-sound'); if(b)b.focus(); }
+// A12e auditiva: Modo cego (só áudio) + seleção de voz (Web Speech agora; neurais em breve)
+function reflectModoCego(){ const b=$('#opt-modocego'); if(b){ toggleBtn(b,modoCego); b.textContent=modoCego?'❚❚ Ligado':'▶ Desligado'; } }
+function reflectTTS(){ const b=$('#opt-tts'); if(b){ toggleBtn(b,audioCat.tts.on); b.textContent=audioCat.tts.on?'❚❚ Ligado':'▶ Desligado'; } const e=$('#tts-engine'); if(e)e.value=ttsEngineSel; }
+function populateTTSEngines(){ const sel=$('#tts-engine'); if(!sel||sel.dataset.filled)return; sel.dataset.filled='1';
+  [['webspeech','Voz do navegador (Web Speech)'],['piper','Piper (neural, offline) — baixa no 1º uso'],['kokoro','Kokoro-82M (neural) — baixa no 1º uso'],['kitten','Kitten (neural) — baixa no 1º uso'],['espeak','eSpeak NG (embutido)']]
+    .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; sel.appendChild(o); }); sel.value=ttsEngineSel; }
+function populateTTSVoices(){ const sel=$('#tts-voice'); if(!sel)return; let voices=[]; try{ voices=(window.speechSynthesis&&window.speechSynthesis.getVoices())||[]; }catch(e){}
+  const pt=voices.filter(v=>/^pt/i.test(v.lang)), list=pt.length?pt:voices; sel.innerHTML='';
+  if(!list.length){ const o=document.createElement('option'); o.textContent='(sem vozes do sistema)'; sel.appendChild(o); _ttsVoiceObj=null; return; }
+  list.forEach(v=>{ const o=document.createElement('option'); o.value=v.name; o.textContent=v.name+' ('+v.lang+')'; sel.appendChild(o); });
+  const saved=(()=>{try{return localStorage.getItem('incl_tts_voice');}catch(e){return null;}})(); const pick=list.find(v=>v.name===saved)||list[0]; sel.value=pick.name; _ttsVoiceObj=pick; }
+const mcBtn=$('#opt-modocego'); if(mcBtn)mcBtn.addEventListener('click',()=>{ setModoCego(!modoCego); reflectModoCego(); });
+const ttsBtn=$('#opt-tts'); if(ttsBtn)ttsBtn.addEventListener('click',()=>{ audioCat.tts.on=!audioCat.tts.on; setCatGain('tts'); reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); if(audioCat.tts.on)narrate('Narração por voz ligada.'); });
+const ttsEngSel=$('#tts-engine'); if(ttsEngSel)ttsEngSel.addEventListener('change',()=>{ ttsEngineSel=ttsEngSel.value; try{localStorage.setItem('incl_tts_engine',ttsEngineSel);}catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); narrate('Motor de voz: '+ttsEngSel.options[ttsEngSel.selectedIndex].text+'.'); });
+const ttsVoiceSel=$('#tts-voice'); if(ttsVoiceSel)ttsVoiceSel.addEventListener('change',()=>{ try{ const vs=window.speechSynthesis.getVoices(); _ttsVoiceObj=vs.find(v=>v.name===ttsVoiceSel.value)||null; localStorage.setItem('incl_tts_voice',ttsVoiceSel.value); }catch(e){} narrate('Voz selecionada.'); });
+try{ if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged=populateTTSVoices; }catch(e){}
 const audioMasterBtn=$('#audio-master'); if(audioMasterBtn)audioMasterBtn.addEventListener('click',()=>{ soundOn=!soundOn; reflectAudioMaster(); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 const audioMasterVol=$('#audio-master-vol'); if(audioMasterVol)audioMasterVol.addEventListener('input',()=>{ volume=(+audioMasterVol.value)/100; if(volume>0&&!soundOn){ soundOn=true; reflectAudioMaster(); } });
 const audioCloseBtn=$('#audio-close'); if(audioCloseBtn)audioCloseBtn.addEventListener('click',closeAudio);

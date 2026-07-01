@@ -52,14 +52,11 @@
     <button id="opt-mode" class="mode-btn" type="button" aria-label="Trocar o modo de jogo (Lúdico, Soma-Sub, Sílabas)">🪙 Lúdico</button>
     <button id="opt-letra" class="mode-btn" type="button" aria-label="Trocar as letras (ABC, abc, Braille)">🔠 ABC</button>
     <button id="opt-telas" class="mode-btn" type="button" aria-label="Trocar o número de telas (jogadores)">👤 1 tela</button>
-    <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true">🔊 Som</button>
-    <button id="opt-captions" class="mode-btn is-on" type="button" aria-pressed="true">💬 Legendas</button>
-    <button id="opt-movement" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Acessibilidade motora: modo Fácil e movimento por alternância">♿ A12e motora</button>
-    <button id="opt-animation" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Sensibilidade visual: reduzir ou parar animações na tela">🎞 S11e visual</button>
-    <button id="opt-visual" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Acessibilidade visual: escolher a configuração de cores">🎨 A12e visual</button>
+    <button id="opt-sound" class="mode-btn is-on" type="button" aria-pressed="true" aria-haspopup="dialog" aria-label="Acessibilidade auditiva: modo cego, vozes TTS e controles de som">🦻 A12e auditiva</button>
+    <button id="opt-movement" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Acessibilidade motora: modo Fácil, alternância e mapeamento de controles">♿ A12e motora</button>
+    <button id="opt-animation" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Sensibilidade visual: reduzir ou parar animações e escolher a fonte">🎞 S11e visual</button>
+    <button id="opt-visual" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Acessibilidade visual: configuração de cores e legendas">🎨 A12e visual</button>
     <button id="opt-empathy" class="mode-btn" type="button" aria-haspopup="dialog" aria-label="Modo empatia: simular deficiências visuais e auditivas">🫂 Modo empatia</button>
-    <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Controles</button>
-    <button id="opt-fonte" class="mode-btn" type="button" aria-label="Trocar a fonte de leitura">🔤 Atkinson (legibilidade)</button>
   </nav>
 
   <main>
@@ -161,7 +158,7 @@
   <!-- E10: diálogo de controles (remap + persistência B2) -->
   <div id="options" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="opt-title">
-      <h2 id="opt-title">Controles</h2>
+      <h2 id="opt-title">Mapeamento de controles</h2>
       <p class="opt-hint">Escolha o jogador, clique em “Alterar” e pressione a nova tecla. As escolhas ficam salvas no navegador. (P2–P4 valem nas telas múltiplas.)</p>
       <div id="ctrl-players" class="ctrl-players" role="group" aria-label="Escolha o jogador"></div>
       <div id="ctrl-list" class="ctrl-list"></div>
@@ -183,6 +180,10 @@
         <div class="ctrl-row"><span><strong>Movimento por alternância</strong> — para quem não consegue manter pressionado (1 dedo): toque a direção para andar sem segurar; toque de novo para parar; <em>segure para ir mais rápido</em> (a corrida que desafia). O pulo não interrompe a caminhada.</span>
           <button id="opt-altmove" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
       </div>
+      <div class="ctrl-list" role="group" aria-label="Mapeamento de controles">
+        <div class="ctrl-row"><span><strong>⌨ Mapeamento de controles</strong> — redefina as teclas de cada jogador.</span>
+          <button id="opt-controls" class="mode-btn" type="button" aria-haspopup="dialog">⌨ Mapeamento de controles</button></div>
+      </div>
       <div class="overlay__actions">
         <button id="movement-close" class="mode-btn is-on" type="button">Fechar</button>
       </div>
@@ -198,6 +199,10 @@
         <button id="motion-master" class="mode-btn" type="button">⏸ Parar todas as animações</button>
       </div>
       <div id="motion-list" class="ctrl-list" role="group" aria-label="Animações"></div>
+      <div class="ctrl-list" role="group" aria-label="Fonte de leitura">
+        <div class="ctrl-row"><span><strong>🔤 Fonte de leitura</strong> — troca a tipografia (Atkinson, Andika, Lexend…).</span>
+          <button id="opt-fonte" class="mode-btn" type="button" aria-label="Trocar a fonte de leitura">🔤 Atkinson (legibilidade)</button></div>
+      </div>
       <div class="overlay__actions">
         <button id="animation-close" class="mode-btn is-on" type="button">Fechar</button>
       </div>
@@ -207,7 +212,23 @@
   <!-- Áudio (F1): mixer por categoria — liga/desliga + volume -->
   <div id="audio" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="audio-title">
-      <h2 id="audio-title">Áudio</h2>
+      <h2 id="audio-title">A12e auditiva <span class="panel-sub__tag">acessibilidade auditiva</span></h2>
+      <h3 class="panel-sub">Navegação sonora</h3>
+      <div class="ctrl-list" role="group" aria-label="Modo cego">
+        <div class="ctrl-row"><span><strong>🦯 Modo cego</strong> — bengala que bate à frente + pistas sonoras (sonar, guarda de beirada, narração), sem escurecer a tela. Para quem joga só pelo som.</span>
+          <button id="opt-modocego" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
+      </div>
+      <h3 class="panel-sub">Voz (TTS)</h3>
+      <div class="ctrl-list" role="group" aria-label="Voz TTS">
+        <div class="ctrl-row"><span><strong>🗣 Narração por voz</strong> — lê menus e eventos em voz alta.</span>
+          <button id="opt-tts" class="mode-btn" type="button" aria-pressed="false">▶ Desligado</button></div>
+        <div class="ctrl-row"><label for="tts-engine">Motor</label>
+          <select id="tts-engine" class="vol"></select></div>
+        <div class="ctrl-row"><label for="tts-voice">Voz</label>
+          <select id="tts-voice" class="vol"></select></div>
+        <p class="opt-hint" id="tts-note">Motores neurais (Piper, Kokoro, Kitten) baixam no 1º uso e rodam offline; enquanto isso, usa a voz do navegador (Web Speech) ou o eSpeak embutido.</p>
+      </div>
+      <h3 class="panel-sub">Som</h3>
       <div class="ctrl-list" role="group" aria-label="Som geral">
         <div class="ctrl-row"><span><strong>Som</strong> (mestre)</span><button id="audio-master" class="mode-btn" type="button" aria-pressed="true">🔊 Ligado</button></div>
         <div class="ctrl-row"><label for="audio-master-vol">Volume geral</label><input id="audio-master-vol" class="vol" type="range" min="0" max="100" step="5" value="60"></div>
@@ -252,6 +273,10 @@
       <p class="opt-hint">Escolha a configuração de cores por jogador. O efeito é imediato.</p>
       <div id="visual-players" class="ctrl-players" role="group" aria-label="Escolha o jogador" hidden></div>
       <div id="visual-list" class="ctrl-list" role="radiogroup" aria-labelledby="visual-title"></div>
+      <div class="ctrl-list" role="group" aria-label="Legendas">
+        <div class="ctrl-row"><span><strong>💬 Legendas</strong> — texto na tela para falas e efeitos sonoros.</span>
+          <button id="opt-captions" class="mode-btn is-on" type="button" aria-pressed="true">💬 Legendas</button></div>
+      </div>
       <div class="overlay__actions">
         <button id="visual-close" class="mode-btn is-on" type="button">Fechar</button>
       </div>
