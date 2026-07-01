@@ -1042,15 +1042,28 @@ function elevAt(pl){ const l=Math.floor((pl.x-BOX.w/2)/TILE), r=Math.floor((pl.x
   for(const s of elevShafts){ if(r>=s.xMin&&l<=s.xMax && pl.y>=s.yTop-3 && pl.y<=s.yBottom+3) return s; } return null; }
 buildElevators();
 const elevLayer=new PIXI.Graphics(); camera.addChildAt(elevLayer, camera.getChildIndex(worldSprite)+1);
+// Estilo VIDRO PREDIAL (rodoviária/shopping/aeroporto): fosso de vidro translúcido (vê o background),
+// moldura cinza/branco/azul, escada some virando blocos de elevador, e a cabine PERMANECE onde foi deixada.
 function drawElevators(g){ g.clear(); if(!wheelchair)return;
-  for(const pl of players){ if(!pl.sprite||!pl.sprite.visible||pl.inWater||pl.flying)continue;
-    const s=elevAt(pl); if(!s)continue; const y=Math.round(pl.y), x0=s.xMin*TILE-1, x1=(s.xMax+1)*TILE+1;
-    g.lineStyle(2,0x2a3145); g.moveTo(x0+1,y);g.lineTo(x0+1,y-14); g.moveTo(x1-1,y);g.lineTo(x1-1,y-14); g.lineStyle(0); // trilhos
-    g.beginFill(0x3a4560); g.drawRect(x0,y,x1-x0,4); g.endFill();     // tabuleiro
-    g.beginFill(0x8f97a8); g.drawRect(x0,y,x1-x0,2); g.endFill();     // topo claro
-    if(pl.elevTarget!=null && pl.elevTarget!==y){ const up=pl.elevTarget<y, ax=(x0+x1)/2, ay=up?y-6:y+8; // seta p/ destino
-      g.beginFill(0xf2c200); g.moveTo(ax,ay+(up?-4:4)); g.lineTo(ax-4,ay); g.lineTo(ax+4,ay); g.closePath(); g.endFill(); }
+  for(const s of elevShafts){ if(s.carY==null)s.carY=s.yBottom; for(const pl of players){ if(elevAt(pl)===s) s.carY=pl.y; } } // cabine segue quem está nela; senão fica
+  const GLASS=0x9fd0e6, FRAME=0x8aa0b8, WHITE=0xeaf2f8, BLUE=0x4a78b0, INNER=0x24384d;
+  for(const s of elevShafts){
+    const x0=s.xMin*TILE, x1=(s.xMax+1)*TILE, w=x1-x0, yt=s.yTop-TILE, yb=s.yBottom+TILE, h=yb-yt;
+    g.beginFill(GLASS,0.14); g.drawRect(x0,yt,w,h); g.endFill();                                   // fosso de vidro (vê o background)
+    for(const cx of s.cols)for(let ry=Math.floor(yt/TILE);ry<=Math.floor((yb-1)/TILE);ry++){ if(tileAt(cx,ry)!==4)continue; const X=cx*TILE,Y=ry*TILE; // ESCADA some → bloco de elevador
+      g.beginFill(INNER,0.9); g.drawRect(X,Y,TILE,TILE); g.endFill(); g.beginFill(GLASS,0.22); g.drawRect(X,Y,TILE,TILE); g.endFill(); }
+    g.lineStyle(1,BLUE,0.45); for(let yy=yt+TILE; yy<yb; yy+=TILE){ g.moveTo(x0,yy); g.lineTo(x1,yy); } for(let xx=x0+TILE; xx<x1; xx+=TILE){ g.moveTo(xx,yt); g.lineTo(xx,yb); } // divisões dos painéis
+    g.lineStyle(2,FRAME,0.95); g.drawRect(x0,yt,w,h);                                               // contorno da estrutura
+    g.lineStyle(2,WHITE,0.22); g.moveTo(x0+2,yt+h*0.6); g.lineTo(x0+w*0.55,yt+2); g.lineStyle(0);   // reflexo de vidro
+    const cy=Math.round(s.carY);                                                                    // CABINE persistente
+    g.beginFill(INNER,0.92); g.drawRect(x0+1,cy-15,w-2,15); g.endFill();
+    g.beginFill(GLASS,0.35); g.drawRect(x0+2,cy-14,w-4,13); g.endFill();
+    g.lineStyle(2,FRAME); g.drawRect(x0+1,cy-15,w-2,15); g.lineStyle(0);
+    g.beginFill(0x2a3145); g.drawRect(x0,cy,w,4); g.endFill();                                      // piso da cabine
+    g.beginFill(WHITE,0.85); g.drawRect(x0,cy-1,w,2); g.endFill();                                  // faixa clara
   }
+  for(const pl of players){ if(pl.elevTarget==null)continue; const s=elevAt(pl); if(!s)continue; const y=Math.round(pl.y), up=pl.elevTarget<y, ax=(s.xMin*TILE+(s.xMax+1)*TILE)/2, ay=up?y-9:y+11; // seta de destino
+    g.beginFill(0xf2c200); g.moveTo(ax,ay+(up?-4:4)); g.lineTo(ax-4,ay); g.lineTo(ax+4,ay); g.closePath(); g.endFill(); }
 }
 const chairLayer=new PIXI.Graphics(); camera.addChild(chairLayer); // cadeira de rodas (modo cadeirante)
 function drawChair(g,pl){ const cx=pl.x, base=pl.y, f=pl.facing<0?-1:1, MET=0x4a586e, HUB=0x1c2230;
