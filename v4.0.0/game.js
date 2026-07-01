@@ -695,7 +695,7 @@ function drawWeather(){ if(!weatherLayer)return; const g=weatherLayer; if(weathe
   const W=app.screen.width, H=app.screen.height; if(_rainLevel<=0 && _flash<=0) return;
   if(_rainLevel>0){ g.beginFill(0x0a0e1a, _rainLevel*0.34); g.drawRect(0,0,W,H); g.endFill();                         // céu mais escuro
     if(!_rainDrops){ _rainDrops=[]; for(let i=0;i<110;i++)_rainDrops.push({x:rnd()*W,y:rnd()*H,len:6+rnd()*9,spd:8+rnd()*7}); }
-    g.lineStyle(1,0xaebfe0,0.5*_rainLevel); for(const d of _rainDrops){ d.y+=d.spd; d.x-=d.spd*0.35; if(d.y>H){ d.y=-d.len; d.x=rnd()*W; } if(d.x<0)d.x+=W; g.moveTo(d.x,d.y); g.lineTo(d.x-2,d.y+d.len); } g.lineStyle(0); }
+    const mv=(phase==='playing'); g.lineStyle(1,0xaebfe0,0.5*_rainLevel); for(const d of _rainDrops){ if(mv){ d.y+=d.spd; d.x-=d.spd*0.35; if(d.y>H){ d.y=-d.len; d.x=rnd()*W; } if(d.x<0)d.x+=W; } g.moveTo(d.x,d.y); g.lineTo(d.x-2,d.y+d.len); } g.lineStyle(0); } // GAG: gotas congelam na pausa
   if(_flash>0){ g.beginFill(0xe4ecff, _flash*0.55); g.drawRect(0,0,W,H); g.endFill(); } }                            // clarão do relâmpago
 function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
   for(const pl of players){ if(!needsAudioCues(pl))continue; pl.guideT=(pl.guideT||0)+1; if(pl.guideT<48)continue; pl.guideT=0; // pinga ~0,8s
@@ -1942,6 +1942,8 @@ window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
 /* ===================== E14: shell — título/splash + pausa ===================== */
 function setPhase(p){
   phase=p;
+  // GAG: na pausa, silencia TODO o som do jogo (loops de ambiente/chuva inclusive) — o áudio volta ao retomar.
+  if(_masterGain&&audioCtx) try{ _masterGain.gain.setTargetAtTime(p==='playing'?1:0, audioCtx.currentTime, 0.04); }catch(e){}
   const t=$('#title-overlay'), pa=$('#pause-overlay');
   if(t)t.hidden = p!=='title';
   if(pa)pa.hidden = p!=='paused';
