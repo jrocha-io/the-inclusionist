@@ -1173,15 +1173,17 @@ function ensureSprites(){
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 // HUD por jogador em DOM SOBREPOSTO (alta definição, não pixela): moedas (1ª coluna) + poder (2ª coluna), por viewport.
-let gameHudEl=null, vpHudDom=[];
-function buildGameHud(){ if(!gameHudEl) gameHudEl=$('#game-hud'); if(!gameHudEl)return; gameHudEl.innerHTML=''; vpHudDom=[];
+let gameHudEl=null, vpHudDom=[], vpQuitDom=[];
+function buildGameHud(){ if(!gameHudEl) gameHudEl=$('#game-hud'); if(!gameHudEl)return; gameHudEl.innerHTML=''; vpHudDom=[]; vpQuitDom=[];
   const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
-  for(let i=0;i<Math.max(1,numPlayers);i++){ const col=i%cols, row=Math.floor(i/cols);
-    const d=document.createElement('div'); d.className='vphud'; d.style.left=(col/cols*100)+'%'; d.style.top=(row/rows*100)+'%'; d.style.width=(100/cols)+'%';
+  for(let i=0;i<Math.max(1,numPlayers);i++){ const col=i%cols, row=Math.floor(i/cols), L=(col/cols*100)+'%', T=(row/rows*100)+'%', W=(100/cols)+'%', H=(100/rows)+'%';
+    const d=document.createElement('div'); d.className='vphud'; d.style.left=L; d.style.top=T; d.style.width=W;
     d.innerHTML='<span class="vphud-coins"><b class="vphud-ico">🪙</b> <b class="vphud-n">0</b> / '+COIN_TARGET+'</span><span class="vphud-power"><b class="vphud-ico">✨</b> <span class="vphud-pw">—</span></span>';
-    gameHudEl.appendChild(d); vpHudDom.push(d); } }
+    gameHudEl.appendChild(d); vpHudDom.push(d);
+    const q=document.createElement('div'); q.className='vphud-quit'; q.style.left=L; q.style.top=T; q.style.width=W; q.style.height=H; q.hidden=true; q.textContent='Jogo abandonado'; gameHudEl.appendChild(q); vpQuitDom.push(q); } }
 function updateGameHud(){ for(let i=0;i<vpHudDom.length;i++){ const p=players[i]; if(!p)continue; const d=vpHudDom[i];
-  const n=d.querySelector('.vphud-n'); if(n)n.textContent=String(p.collected); const pw=d.querySelector('.vphud-pw'); if(pw)pw.textContent=POWER_SHORT[p.activePower]||'—'; } }
+  const n=d.querySelector('.vphud-n'); if(n)n.textContent=String(p.collected); const pw=d.querySelector('.vphud-pw'); if(pw)pw.textContent=POWER_SHORT[p.activePower]||'—';
+  if(vpQuitDom[i])vpQuitDom[i].hidden=!p.quit; if(d)d.style.visibility=p.quit?'hidden':'visible'; } } // jogador que saiu: tela preta "jogo abandonado"
 function configureRender(){
   vpSpr.forEach(s=>s.destroy()); vpSpr=[]; vpTex.forEach(t=>t.destroy(true)); vpTex=[];
   if(vpFrames){ vpFrames.destroy(); vpFrames=null; }
@@ -1277,7 +1279,7 @@ function triggerLava(pl){
   srAlert('Cuidado! Tocou na lava. As moedas voltaram para posições aleatórias.');
 }
 function stepPlayer(pl,dt){
-  if(pl.quiz)return; // P1 em desafio (Soma-Sub/Sílabas; MP é Lúdico)
+  if(pl.quiz||pl.quit)return; // P1 em desafio; ou jogador que abandonou (tela preta)
   const run=held(pl,'run') && !pl.easy && !pl.toggleMove && (!caneOn(pl)||!!pl.runCane), turbo=pl.activePower==='turbo'; // cego só corre com a bengala de corrida
   let dir;
   if(pl.toggleMove){ // movimento por alternância (1 dedo): tocar trava a direção; segurar acelera
@@ -1640,7 +1642,7 @@ function restartGame(){
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
-  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.activePower='off'; p.owned=[]; p.swapEdge=false; p.specialEdge=false; p.hasKey=false; if(i===0)showPower(p); p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; p.idleTime=0; p.flavor=-1; if(p.sprite)p.sprite.alpha=1; });
+  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.quit=false; p.runCane=false; p.activePower='off'; p.owned=[]; p.swapEdge=false; p.specialEdge=false; p.hasKey=false; if(i===0)showPower(p); p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; p.idleTime=0; p.flavor=-1; if(p.sprite){p.sprite.alpha=1;p.sprite.visible=true;} });
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
