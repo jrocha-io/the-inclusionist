@@ -2285,7 +2285,10 @@ function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==
 (function shellSetup(){
   const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
   wire('btn-play', ()=>{ setPhase('playing'); hideTips(); srSay('Jogo iniciado. Colete 10 moedas.'); });
-  wire('btn-pause', togglePause);
+  wire('btn-pause', togglePause); // (o botão saiu da barra; a fiação fica guardada p/ compat)
+  // Barra de topo: ferramentas da direita (modo · nº telas · debug · FPS) só com ?debug=true.
+  const tools=$('#topbar-tools'); if(tools){ if(/[?&]debug=true/.test(location.search))tools.hidden=false;
+    const db=$('#btn-debug'); if(db)db.addEventListener('click',()=>{ tools.hidden=true; if(typeof layout==='function')layout(); }); }
   // Menu de pausa: agora é POR TELA (buildScreenPause + pauseActs no escopo do módulo). Nada aqui.
   setPhase('title'); // estado inicial: tela de título
 })();
