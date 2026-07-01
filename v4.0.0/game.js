@@ -1095,13 +1095,19 @@ function drawElevators(g){ g.clear(); if(!wheelchair)return;
     g.beginFill(0xf2c200); g.moveTo(ax,ay+(up?-4:4)); g.lineTo(ax-4,ay); g.lineTo(ax+4,ay); g.closePath(); g.endFill(); }
 }
 const caneLayer=new PIXI.Graphics(); camera.addChild(caneLayer); // bengala (modo cego)
-// Bengala RÍGIDA: extensão da mão dianteira, presa ao corpo — move só com o personagem (sem oscilar sozinha).
+// Bengala RÍGIDA de MEIO BLOCO (~8px): extensão da mão dianteira, presa ao corpo (não oscila sozinha).
 function drawCane(g,pl){ const dir=pl.facing<0?-1:1, C=caneColor(pl);
-  const hx=pl.x+dir*4, hy=pl.y-16;   // punho na mão dianteira (offset fixo ao sprite)
-  const tx=pl.x+dir*12, ty=pl.y-1;   // ponteira no chão logo à frente — posição RÍGIDA (não se move sozinha)
-  g.lineStyle(2,C); g.moveTo(hx,hy); g.lineTo(tx,ty);                           // haste (branca=cego / verde=baixa visão)
-  g.lineStyle(2,0xd23b3b); g.moveTo(tx-dir*4,ty-4); g.lineTo(tx,ty);            // faixa vermelha (ponta)
-  g.lineStyle(0); g.beginFill(C); g.drawCircle(tx,ty,1.6); g.endFill();         // ponteira
+  const hx=pl.x+dir*4, hy=pl.y-9, tx=pl.x+dir*8, ty=pl.y-1;                     // punho na mão → ponteira no chão à frente
+  g.lineStyle(2,C); g.moveTo(hx,hy); g.lineTo(tx,ty);                           // haste curta (branca=cego / verde=baixa visão)
+  g.lineStyle(1,0xd23b3b); g.moveTo(tx-dir*2,ty-2); g.lineTo(tx,ty);            // faixa vermelha (ponta)
+  g.lineStyle(0); g.beginFill(C); g.drawCircle(tx,ty,1.3); g.endFill();         // ponteira
+}
+// Bengala de CORRIDA (item): RODA na ponta, contato constante com o chão (alta performance).
+function drawRunCane(g,pl){ const dir=pl.facing<0?-1:1, C=caneColor(pl);
+  const hx=pl.x+dir*4, hy=pl.y-9, wx=pl.x+dir*10, wy=pl.y-2;                     // haste até o eixo da roda, à frente
+  g.lineStyle(2,C); g.moveTo(hx,hy); g.lineTo(wx,wy-1);
+  g.lineStyle(1.5,C); g.drawCircle(wx,wy,2.4);                                   // RODA na ponta (contato constante)
+  g.lineStyle(1,0xd23b3b); g.moveTo(wx-2.4,wy); g.lineTo(wx+2.4,wy); g.lineStyle(0); // eixo/faixa
 }
 const chairLayer=new PIXI.Graphics(); camera.addChild(chairLayer); // cadeira de rodas (modo cadeirante)
 function drawChair(g,pl){ const cx=pl.x, base=pl.y, f=pl.facing<0?-1:1, MET=0x4a586e, HUB=0x1c2230;
@@ -1216,7 +1222,7 @@ function triggerLava(pl){
 }
 function stepPlayer(pl,dt){
   if(pl.quiz)return; // P1 em desafio (Soma-Sub/Sílabas; MP é Lúdico)
-  const run=held(pl,'run') && !pl.easy && !pl.toggleMove, turbo=pl.activePower==='turbo';
+  const run=held(pl,'run') && !pl.easy && !pl.toggleMove && (!caneOn(pl)||!!pl.runCane), turbo=pl.activePower==='turbo'; // cego só corre com a bengala de corrida
   let dir;
   if(pl.toggleMove){ // movimento por alternância (1 dedo): tocar trava a direção; segurar acelera
     if(pl.leftEdge)  pl.walkDir = pl.walkDir===-1?0:-1;   // toque inverte/para
@@ -1313,9 +1319,11 @@ function stepPlayer(pl,dt){
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
   // F2: passos por superfície · escada (madeira) · escalada (parede). Cadência = ritmo do andar/correr.
-  if(!pl.inWater && dir!==0){
-    if(caneOn(pl)){ if(pl.airTime<=5){ pl.caneDist=(pl.caneDist||0)+Math.abs(pl.vx*dt); if(pl.caneDist>=caneBlockPx()){ pl.caneDist=0; caneTap(pl); } } } // cego: batida À FRENTE por DISTÂNCIA — chão ESTÁVEL (coyote), senão o flicker do onGround subconta
-    else if(pl.onGround){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m); } } } // normal: passo no chão sob os pés
+  if(!pl.inWater){
+    if(caneOn(pl)){ if(pl.airTime<=5){ // modo cego: chão ESTÁVEL (coyote) evita o flicker do onGround
+      if(dir!==0){ pl.caneDist=(pl.caneDist||0)+Math.abs(pl.vx*dt); if(pl.caneDist>=caneBlockPx()){ pl.caneDist=0; caneTap(pl); } } // ANDANDO: batida por DISTÂNCIA
+      else { pl.caneDist=0; if(held(pl,'run')){ pl.stepT+=dt; if(pl.stepT>=25){ pl.stepT=0; caneTap(pl); } } else pl.stepT=99; } } } // PARADO: sem batida; segurar corrida = sondagem (batida no chão à frente)
+    else if(pl.onGround && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m); } } } // normal: passo no chão sob os pés
   else if(pl.onLadder && pl.vy!==0){ pl.stepT+=dt; if(pl.stepT>=20){ pl.stepT=0; noiseHit('madeira'); } }
   else if(pl.clinging && (pl.vx!==0||pl.vy!==0)){ pl.stepT+=dt; if(pl.stepT>=16){ pl.stepT=0; noiseHit('parede'); } }
   else pl.stepT=99; // parado → próximo passo soa logo ao recomeçar
@@ -1355,6 +1363,8 @@ function stepPlayer(pl,dt){
   const COYOTE=5, grounded = pl.airTime<=COYOTE;
   const airborne = !pl.clinging && ((pl.vy<0 && !pl.onGround) || !grounded);
   const moving=(dir!==0) && grounded && !pl.clinging;
+  pl.walking = moving && !pl.inWater && !pl.onLadder && !pl.flying; // andando no chão (para a bengala: só aparece andando)
+  pl.running = pl.walking && held(pl,'run') && !!pl.runCane;        // correndo (bengala de corrida): só com o item
   pl.anim += dt;                                   // idle (1 quadro; clock contínuo)
   pl.walkAnim += dt;                               // clock do passo NUNCA reseta → ciclo de 8 sem reinício
   const II=TEX_IDLE;
@@ -1426,8 +1436,9 @@ function draw(){
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
   drawElevators(elevLayer); // cadeirante: plataforma do elevador sob os pés (largo/fino)
-  caneLayer.clear(); // modo cego: bengala sempre segurada (SEM depender de onGround, que pisca 1 frame ao repousar → flicker)
-  for(const pl of players){ if(caneOn(pl)&&pl.sprite&&pl.sprite.visible&&!pl.inWater&&!pl.flying) drawCane(caneLayer,pl); }
+  caneLayer.clear(); // modo cego: bengala SÓ andando (corrida = bengala de roda); nada parado/nadando/voando/escada
+  for(const pl of players){ if(!caneOn(pl)||!pl.sprite||!pl.sprite.visible)continue;
+    if(pl.running) drawRunCane(caneLayer,pl); else if(pl.walking) drawCane(caneLayer,pl); }
   chairLayer.clear(); // cadeirante: desenha a cadeira nos jogadores (exceto nadando/voando)
   if(wheelchair){ for(const pl of players){ if(pl.sprite&&pl.sprite.visible&&!pl.inWater&&!pl.flying) drawChair(chairLayer,pl); } }
   easyHitbox.clear(); // Fácil: hitbox de coleta tolerante (retângulo translúcido) — só para os jogadores em Fácil
@@ -1787,10 +1798,13 @@ function populateTTSVoices(){ const sel=$('#tts-voice'); if(!sel)return; let voi
   const saved=(()=>{try{return localStorage.getItem('incl_tts_voice');}catch(e){return null;}})(); const pick=list.find(v=>v.name===saved)||list[0]; sel.value=pick.name; _ttsVoiceObj=pick; }
 const mcBtn=$('#opt-modocego'); if(mcBtn)mcBtn.addEventListener('click',()=>{ setModoCego(!modoCego); reflectModoCego(); });
 const caneDivSel=$('#cane-div'); if(caneDivSel){ caneDivSel.value=String(caneBlockDiv); caneDivSel.addEventListener('change',()=>{ caneBlockDiv=+caneDivSel.value||1; try{localStorage.setItem('incl_cane_div',String(caneBlockDiv));}catch(e){} srSay('Bengala: '+(caneBlockDiv===2?'uma batida a cada meio bloco pisado.':'uma batida por bloco pisado.')); }); }
-// Botões abreviados: hover/foco mostra o nome completo; volta ao abreviado ao sair (só o rótulo; a classe is-on é mexida por reflect e não conflita)
-[['opt-sound','🦻 A12e auditiva','🦻 Acessibilidade auditiva'],['opt-movement','♿ A12e motora','♿ Acessibilidade motora'],['opt-animation','🎞 S11e visual','🎞 Sensibilidade visual'],['opt-visual','🎨 A12e visual','🎨 Acessibilidade visual']]
-  .forEach(([id,abbr,full])=>{ const b=$('#'+id); if(!b)return; const show=()=>{b.textContent=full;}, hide=()=>{b.textContent=abbr;};
-    b.addEventListener('mouseenter',show); b.addEventListener('mouseleave',hide); b.addEventListener('focus',show); b.addEventListener('blur',hide); });
+// Botões abreviados: hover/foco DESCOMPACTA o número em letras (o "12" vira as 12 letras contando p/ baixo), suave; recomprime ao sair.
+[['opt-sound','🦻 A','cessibilidad','e auditiva'],['opt-movement','♿ A','cessibilidad','e motora'],['opt-animation','🎞 S','ensibilidad','e visual'],['opt-visual','🎨 A','cessibilidad','e visual']]
+  .forEach(([id,pre,hid,suf])=>{ const b=$('#'+id); if(!b)return; const N=hid.length; let k=0,tgt=0,timer=null;
+    const render=()=>{ b.textContent=pre+hid.slice(0,k)+((N-k>0)?String(N-k):'')+suf; };
+    const tick=()=>{ if(k===tgt){ clearInterval(timer); timer=null; return; } k+=k<tgt?1:-1; render(); };
+    const go=(t)=>{ tgt=t; if(!timer)timer=setInterval(tick,16); };
+    render(); b.addEventListener('mouseenter',()=>go(N)); b.addEventListener('mouseleave',()=>go(0)); b.addEventListener('focus',()=>go(N)); b.addEventListener('blur',()=>go(0)); });
 const ttsBtn=$('#opt-tts'); if(ttsBtn)ttsBtn.addEventListener('click',()=>{ audioCat.tts.on=!audioCat.tts.on; setCatGain('tts'); reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); if(audioCat.tts.on)narrate('Narração por voz ligada.'); });
 const ttsEngSel=$('#tts-engine'); if(ttsEngSel)ttsEngSel.addEventListener('change',()=>{ ttsEngineSel=ttsEngSel.value; try{localStorage.setItem('incl_tts_engine',ttsEngineSel);}catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); narrate('Motor de voz: '+ttsEngSel.options[ttsEngSel.selectedIndex].text+'.'); });
 const ttsVoiceSel=$('#tts-voice'); if(ttsVoiceSel)ttsVoiceSel.addEventListener('change',()=>{ try{ const vs=window.speechSynthesis.getVoices(); _ttsVoiceObj=vs.find(v=>v.name===ttsVoiceSel.value)||null; localStorage.setItem('incl_tts_voice',ttsVoiceSel.value); }catch(e){} narrate('Voz selecionada.'); });
