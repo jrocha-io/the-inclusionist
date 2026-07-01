@@ -2180,23 +2180,37 @@ function setPhase(p){
   else if(p==='paused'){ if(typeof pauseSelect==='function')pauseSelect(); }
   else if(p==='title'){ const b=$('#btn-play'); if(b)b.focus(); }
 }
-// Navegação do menu de pausa: direcionais movem; "sim"/pulo (Space/J) confirma; Enter/ESC/START cancelam (tratados no keydown global).
-function pauseNavKey(e){ if(phase!=='paused')return;
-  if(optionsOpen||movementOpen||animationOpen||visualOpen||empathyOpen||audioOpen)return; // submenu aberto por cima: não navega a pausa atrás
-  const tcfg=$('#touchcfg'); if(tcfg&&!tcfg.hidden)return;
-  const pa=$('#pause-overlay'); if(!pa||pa.hidden)return; const items=[...pa.querySelectorAll('.pm-btn')]; if(!items.length)return;
-  let idx=items.findIndex(b=>b.classList.contains('pm-sel')); if(idx<0)idx=0; const cols=2; let ok=true;
-  const yes=(e.code==='Space'||e.code==='KeyJ'||(controls.jump&&controls.jump.includes(e.code)));   // "sim" = pulo (A/✕/0)
-  const no=(controls.especial&&controls.especial.includes(e.code));                                  // "não" = especial (B/○/1)
-  if(no){ setPhase('playing'); e.preventDefault(); return; }      // botão B (não) = Continuar
-  if(yes){ items[idx].click(); e.preventDefault(); return; }      // botão A (sim) = confirma o item
-  if(e.code==='ArrowRight'||e.code==='KeyD')idx=Math.min(items.length-1,idx+1);
-  else if(e.code==='ArrowLeft'||e.code==='KeyA')idx=Math.max(0,idx-1);
-  else if(e.code==='ArrowDown'||e.code==='KeyS')idx=Math.min(items.length-1,idx+cols);
-  else if(e.code==='ArrowUp'||e.code==='KeyW')idx=Math.max(0,idx-cols);
-  else ok=false;
-  if(ok){ e.preventDefault(); items.forEach(b=>b.classList.remove('pm-sel')); items[idx].classList.add('pm-sel'); items[idx].focus(); } }
-addEventListener('keydown', pauseNavKey, true);
+// NAVEGAÇÃO UNIVERSAL de menus: qualquer menu aberto (pausa OU submenu) é navegável por up/down/left/right/
+// sim/não — as MESMAS ações valem para teclado, controle, olhos e fala. sim = confirma/alterna/entra;
+// não = volta ao menu anterior (na raiz, volta ao jogo = Continuar). left/right ajustam select/slider.
+const OVERLAY_CLOSE={ audio:()=>closeAudio(), movement:()=>closeMovement(), options:()=>closeOptions(), animation:()=>closeAnimation(), visual:()=>closeVisual(), empathy:()=>closeEmpathy(), touchcfg:()=>closeTouchCfg() };
+function activeMenu(){ const ov=[...document.querySelectorAll('#game-region .overlay')].filter(o=>!o.hidden);
+  if(ov.length){ ov.sort((a,b)=>(+getComputedStyle(a).zIndex||0)-(+getComputedStyle(b).zIndex||0)); return ov[ov.length-1]; } // o de maior z está por cima
+  const pa=$('#pause-overlay'); return (pa&&!pa.hidden)?pa:null; }
+function menuItems(menu){ const card=menu.querySelector('.overlay__card, .pause-card')||menu;
+  return [...card.querySelectorAll('button:not([disabled]), select:not([disabled]), input[type=range]:not([disabled])')].filter(el=>el.offsetParent!==null); }
+function menuFocus(menu){ if(!menu)return; const it=menuItems(menu); if(it.length){ const cur=it.indexOf(document.activeElement); (cur>=0?it[cur]:it[0]).focus(); } }
+function menuBack(menu){ if(menu.id==='pause-overlay'){ setPhase('playing'); return; } const c=OVERLAY_CLOSE[menu.id]; if(c)c(); else menu.hidden=true; menuFocus(activeMenu()); } // não = volta um nível; raiz = joga
+function menuNavKey(e){ if(phase!=='paused'||captureAction)return; const menu=activeMenu(); if(!menu)return; // durante remap (captureAction) deixa a tecla passar
+  const items=menuItems(menu); if(!items.length)return;
+  let idx=items.indexOf(document.activeElement); if(idx<0){ idx=0; items[0].focus(); }
+  const cur=items[idx], C=e.code, has=(a,k)=>controls[a]&&controls[a].includes(k);
+  const yes=C==='Space'||C==='KeyJ'||C==='Enter'||C==='NumpadEnter'||has('jump',C);
+  const no=C==='Escape'||has('especial',C);
+  const up=C==='ArrowUp'||C==='KeyW'||has('up',C), down=C==='ArrowDown'||C==='KeyS'||has('down',C);
+  const left=C==='ArrowLeft'||C==='KeyA'||has('left',C), right=C==='ArrowRight'||C==='KeyD'||has('right',C);
+  const done=()=>{ e.preventDefault(); e.stopPropagation(); };
+  if(no){ done(); menuBack(menu); return; }
+  if(left||right){ const d=right?1:-1;
+    if(cur.tagName==='SELECT'){ done(); cur.selectedIndex=Math.max(0,Math.min(cur.options.length-1,cur.selectedIndex+d)); cur.dispatchEvent(new Event('change',{bubbles:true})); return; }
+    if(cur.tagName==='INPUT'){ done(); const st=+cur.step||1; cur.value=Math.max(+cur.min,Math.min(+cur.max,(+cur.value)+d*st)); cur.dispatchEvent(new Event('input',{bubbles:true})); return; }
+    done(); idx=Math.max(0,Math.min(items.length-1,idx+d)); items[idx].focus(); return; }
+  if(up||down){ done(); idx=Math.max(0,Math.min(items.length-1,idx+(down?1:-1))); items[idx].focus(); return; }
+  if(yes){ done();
+    if(cur.tagName==='SELECT'){ cur.selectedIndex=(cur.selectedIndex+1)%cur.options.length; cur.dispatchEvent(new Event('change',{bubbles:true})); return; }
+    if(cur.tagName==='INPUT')return; // slider: usa left/right
+    cur.click(); return; } }
+addEventListener('keydown', menuNavKey, true);
 function pauseSelect(){ const pa=$('#pause-overlay'); if(!pa)return; pa.querySelectorAll('.pm-btn').forEach(b=>b.classList.remove('pm-sel')); const r=$('#pm-resume'); if(r){ r.classList.add('pm-sel'); r.focus(); } }
 function printMode(){ const pa=$('#pause-overlay'); if(pa)pa.hidden=true; // Print: esconde a pausa → vê a tela limpa; qualquer botão volta
   const back=(e)=>{ if(e&&e.preventDefault)try{e.preventDefault();}catch(_){} window.removeEventListener('keydown',back,true); window.removeEventListener('pointerdown',back,true);
