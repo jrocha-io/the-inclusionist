@@ -1424,8 +1424,8 @@ function draw(){
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
   drawElevators(elevLayer); // cadeirante: plataforma do elevador sob os pés (largo/fino)
-  caneLayer.clear(); // modo cego: bengala batendo à frente enquanto anda
-  for(const pl of players){ if(caneOn(pl)&&pl.sprite&&pl.sprite.visible&&pl.onGround&&!pl.inWater&&!pl.flying) drawCane(caneLayer,pl); }
+  caneLayer.clear(); // modo cego: bengala sempre segurada (SEM depender de onGround, que pisca 1 frame ao repousar → flicker)
+  for(const pl of players){ if(caneOn(pl)&&pl.sprite&&pl.sprite.visible&&!pl.inWater&&!pl.flying) drawCane(caneLayer,pl); }
   chairLayer.clear(); // cadeirante: desenha a cadeira nos jogadores (exceto nadando/voando)
   if(wheelchair){ for(const pl of players){ if(pl.sprite&&pl.sprite.visible&&!pl.inWater&&!pl.flying) drawChair(chairLayer,pl); } }
   easyHitbox.clear(); // Fácil: hitbox de coleta tolerante (retângulo translúcido) — só para os jogadores em Fácil
@@ -1787,6 +1787,10 @@ const mcBtn=$('#opt-modocego'); if(mcBtn)mcBtn.addEventListener('click',()=>{ se
 const ttsBtn=$('#opt-tts'); if(ttsBtn)ttsBtn.addEventListener('click',()=>{ audioCat.tts.on=!audioCat.tts.on; setCatGain('tts'); reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); if(audioCat.tts.on)narrate('Narração por voz ligada.'); });
 const ttsEngSel=$('#tts-engine'); if(ttsEngSel)ttsEngSel.addEventListener('change',()=>{ ttsEngineSel=ttsEngSel.value; try{localStorage.setItem('incl_tts_engine',ttsEngineSel);}catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); narrate('Motor de voz: '+ttsEngSel.options[ttsEngSel.selectedIndex].text+'.'); });
 const ttsVoiceSel=$('#tts-voice'); if(ttsVoiceSel)ttsVoiceSel.addEventListener('change',()=>{ try{ const vs=window.speechSynthesis.getVoices(); _ttsVoiceObj=vs.find(v=>v.name===ttsVoiceSel.value)||null; localStorage.setItem('incl_tts_voice',ttsVoiceSel.value); }catch(e){} narrate('Voz selecionada.'); });
+const ttsTestBtn=$('#opt-tts-test'); if(ttsTestBtn)ttsTestBtn.addEventListener('click',()=>{ const txt='Olá! Esta é a voz da narração do Inclusionista. Um, dois, três, testando.';
+  if(ttsEngineSel!=='webspeech' && ttsEngine && ttsEngine.speak){ try{ ttsEngine.speak(txt); }catch(e){} } // motor neural já carregado
+  else { try{ const ss=window.speechSynthesis; if(ss){ ss.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; u.rate=1; u.volume=1; ss.speak(u); } }catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); } // fallback audível (volume 1) + dispara download do neural
+  srSay('Testando a voz selecionada.'); });
 try{ if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged=populateTTSVoices; }catch(e){}
 const audioMasterBtn=$('#audio-master'); if(audioMasterBtn)audioMasterBtn.addEventListener('click',()=>{ soundOn=!soundOn; reflectAudioMaster(); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 const audioMasterVol=$('#audio-master-vol'); if(audioMasterVol)audioMasterVol.addEventListener('input',()=>{ volume=(+audioMasterVol.value)/100; if(volume>0&&!soundOn){ soundOn=true; reflectAudioMaster(); } });
