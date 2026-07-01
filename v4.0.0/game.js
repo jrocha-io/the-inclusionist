@@ -1188,14 +1188,20 @@ function ensureSprites(){
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 // HUD por jogador em DOM SOBREPOSTO (alta definição, não pixela): moedas (1ª coluna) + poder (2ª coluna), por viewport.
-let gameHudEl=null, vpHudDom=[], vpQuitDom=[];
-function buildGameHud(){ if(!gameHudEl) gameHudEl=$('#game-hud'); if(!gameHudEl)return; gameHudEl.innerHTML=''; vpHudDom=[]; vpQuitDom=[];
-  const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
-  for(let i=0;i<Math.max(1,numPlayers);i++){ const col=i%cols, row=Math.floor(i/cols), L=(col/cols*100)+'%', T=(row/rows*100)+'%', W=(100/cols)+'%', H=(100/rows)+'%';
-    const d=document.createElement('div'); d.className='vphud'; d.style.left=L; d.style.top=T; d.style.width=W;
+let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[];
+// Contêiner "tela do jogador" por viewport (Etapa 1): hospeda o HUD; nas próximas etapas, a pausa e os menus.
+function screenRect(i){ const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
+  const col=i%cols, row=Math.floor(i/cols); let colFrac=col/cols;
+  if(numPlayers===3 && i===2) colFrac=(1-1/cols)/2; // 3 telas: a 3ª centralizada na linha de baixo (casa com o render)
+  return { L:(colFrac*100)+'%', T:(row/rows*100)+'%', W:(100/cols)+'%', H:(100/rows)+'%' }; }
+function buildGameHud(){ if(!gameHudEl) gameHudEl=$('#game-hud'); if(!gameHudEl)return; gameHudEl.innerHTML=''; vpHudDom=[]; vpQuitDom=[]; vpScreens=[];
+  for(let i=0;i<Math.max(1,numPlayers);i++){ const r=screenRect(i);
+    const scr=document.createElement('div'); scr.className='player-screen'; scr.dataset.player=String(i); scr.style.left=r.L; scr.style.top=r.T; scr.style.width=r.W; scr.style.height=r.H;
+    const d=document.createElement('div'); d.className='vphud';
     d.innerHTML='<span class="vphud-coins"><b class="vphud-ico">🪙</b> <b class="vphud-n">0</b> / '+COIN_TARGET+'</span><span class="vphud-power"><b class="vphud-ico">✨</b> <span class="vphud-pw">—</span></span>';
-    gameHudEl.appendChild(d); vpHudDom.push(d);
-    const q=document.createElement('div'); q.className='vphud-quit'; q.style.left=L; q.style.top=T; q.style.width=W; q.style.height=H; q.hidden=true; q.textContent='Jogo abandonado'; gameHudEl.appendChild(q); vpQuitDom.push(q); } }
+    scr.appendChild(d); vpHudDom.push(d);
+    const q=document.createElement('div'); q.className='vphud-quit'; q.hidden=true; q.textContent='Jogo abandonado'; scr.appendChild(q); vpQuitDom.push(q);
+    gameHudEl.appendChild(scr); vpScreens.push(scr); } }
 function updateGameHud(){ for(let i=0;i<vpHudDom.length;i++){ const p=players[i]; if(!p)continue; const d=vpHudDom[i];
   const n=d.querySelector('.vphud-n'); if(n)n.textContent=String(p.collected); const pw=d.querySelector('.vphud-pw'); if(pw)pw.textContent=POWER_SHORT[p.activePower]||'—';
   if(vpQuitDom[i])vpQuitDom[i].hidden=!p.quit; if(d)d.style.visibility=p.quit?'hidden':'visible'; } } // jogador que saiu: tela preta "jogo abandonado"
