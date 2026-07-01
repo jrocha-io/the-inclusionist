@@ -1810,7 +1810,21 @@ function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.v
 // "tela = canvas": reparenta os diálogos de a11y para dentro do #game-region (ficam presos ao canvas)
 // e empilha o último aberto por cima (z crescente). frontOverlay é chamado em cada open*.
 let _ovZ=60;
-function frontOverlay(el){ if(el)el.style.zIndex=String(++_ovZ); }
+// Explicações no RODAPÉ (não embaixo de cada opção): coleta a descrição de cada linha para data-explain,
+// deixa só o rótulo na linha e mostra a descrição num rodapé fixo ao focar/passar o mouse. Menos cansativo.
+function fillExplain(card){ if(!card)return;
+  let f=card.querySelector('.opt-explain');
+  if(!f){ f=document.createElement('div'); f.className='opt-explain'; f.setAttribute('aria-live','polite'); f.dataset.idle='Passe o mouse ou navegue pelas opções para ver a explicação.'; f.textContent=f.dataset.idle; card.appendChild(f); }
+  card.querySelectorAll('.ctrl-row').forEach(row=>{ if(row.dataset.explainDone)return;
+    const span=row.querySelector(':scope > span'); const strong=span&&span.querySelector('strong'); if(!span||!strong){ row.dataset.explainDone='1'; return; }
+    const hint=span.querySelector('.opt-hint');
+    let desc = hint ? hint.textContent.trim() : span.textContent.slice(strong.textContent.length).replace(/^\s*[—–-]\s*/,'').trim();
+    row.dataset.explainDone='1'; if(!desc)return;
+    row.dataset.explain=desc; span.innerHTML=strong.outerHTML; // deixa só o rótulo curto
+    const show=()=>{ f.textContent=desc; }; const clear=()=>{ f.textContent=f.dataset.idle||''; };
+    row.addEventListener('mouseenter',show); row.addEventListener('focusin',show); row.addEventListener('mouseleave',clear); });
+}
+function frontOverlay(el){ if(!el)return; el.style.zIndex=String(++_ovZ); const card=el.querySelector('.overlay__card'); if(card)fillExplain(card); }
 (function inCanvasMenus(){ const gr=document.getElementById('game-region'); if(!gr)return;
   ['audio','movement','options','animation','visual','empathy'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); });
   // Botões puramente on/off viram TOGGLE (switch) — o texto "Ligado/Desligado" fica oculto (font-size:0).

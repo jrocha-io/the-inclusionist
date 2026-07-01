@@ -145,6 +145,11 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
    presos aos limites do canvas; o último aberto sobe (z-index via JS). Só afeta os que estão dentro. */
 #game-region .overlay{position:absolute;z-index:60;padding:.6rem}
 #game-region .overlay__card{max-height:94%;max-width:96%}
+/* Rodapé de explicação: branco sobre preto translúcido 0,82 → contraste do branco >7:1 mesmo sobre 100% branco
+   (composição: 1-0,82=0,18 → L≈0,027 → ~13:1), sem ser 100% opaco. Fixo no rodapé do card. */
+.opt-explain{position:sticky;bottom:calc(-1 * var(--card-pad,1.5rem));margin:.8rem calc(-1 * var(--card-pad,1.5rem)) calc(-1 * var(--card-pad,1.5rem));padding:.6rem .9rem;min-height:2.8rem;display:flex;align-items:center;text-align:left;
+  background:rgba(0,0,0,.82);color:#fff;font-size:.9rem;line-height:1.35;border-top:1px solid rgba(255,255,255,.18);border-radius:0 0 9px 9px;backdrop-filter:blur(1px)}
+#game-region .overlay__actions{position:static;background:transparent;padding:.5rem 0 0;margin:0}
 #visual{background:rgba(0,0,0,.28);align-items:start;padding-top:3.5rem} /* cor: fundo translúcido p/ ver o efeito imediato no jogo */
 
 /* Indicador de simulação (canto sup. dir.): branca=cegueira, verde=baixa visão. Duplo toque volta ao normal. */
