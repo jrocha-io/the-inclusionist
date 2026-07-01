@@ -631,7 +631,7 @@ function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){
   if(!best){ tonePan(300,0.2,'sonar',0,0.2,'sine'); srSay('Nenhuma moeda por perto.'); return; }
   const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(12*TILE)); tonePan(380+740*near,0.16,'sonar',pan,0.26,'sine'); // mais perto = mais agudo
   const lado=best.x<pl.x-4?'à esquerda':best.x>pl.x+4?'à direita':'à frente', dist=bd<4*TILE?'bem perto':bd<9*TILE?'perto':'longe';
-  srSay((numPlayers>1?'Jogador '+(pl.i+1)+': ':'')+'Sonar: moeda '+lado+', '+dist+'.'); }
+  const msg=(numPlayers>1?'Jogador '+(pl.i+1)+': ':'')+'Sonar: moeda '+lado+', '+dist+'.'; srSay(msg); narrate(msg); }
 // ===== F4: camadas de AMBIENTE (loops sintetizados) + PISTA/GUIA auditivo (beacon em laço) =====
 let _ambient=null, _rainLevel=0, _weatherT=0, _guideCount=0;
 function buildAmbient(ac){ const cat=catNode('ambient'); if(!cat)return null;
@@ -648,6 +648,18 @@ function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
   for(const pl of players){ if(!needsAudioCues(pl))continue; pl.guideT=(pl.guideT||0)+1; if(pl.guideT<48)continue; pl.guideT=0; // pinga ~0,8s
     let best=null,bd=1e9; for(const cn of coins){ if(cn.taken)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
     if(best){ const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(14*TILE)); tonePan(300+380*near,0.12,'guide',pan,0.11,'triangle'); _guideCount++; } } }
+// ===== F5 (plumbing): camada de narração TTS. Motor NEURAL (Piper pt-BR) é carregado LAZY (ver docs/plano-tts-fase-f5.md).
+// Decisões: pt-BR=Piper (só ele tem pt-BR); lazy-fetch de CDN + cache; voz Faber agora, seleção de voz depois.
+let ttsEngine=null, ttsLoading=false, _narrateCount=0, ttsLang='pt-BR', ttsVoice='faber';
+const TTS_SOURCES={ 'pt-BR':{ engine:'piper', voice:'pt_BR-faber-medium',
+  // URL configurável (D1: CDN agora; espelhar no LAN depois). Modelo VITS + fonemizador espeak-ng (só fonemas).
+  model:'https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx' } };
+function loadTTS(){ if(ttsEngine||ttsLoading)return; ttsLoading=true; // PONTO DE INTEGRAÇÃO F5: vendorizar piper-tts-web + onnxruntime-web + espeak WASM,
+  // baixar TTS_SOURCES[ttsLang].model (lazy, cache), instanciar e setar ttsEngine={speak(text){ ...PCM→AudioBuffer→catNode('tts')... }}.
+  // Deixado como no-op verificável até a sessão de integração+hardware (a voz real precisa das libs + teste no Positivo).
+}
+function ttsSpeak(text){ if(ttsEngine&&ttsEngine.speak){ try{ ttsEngine.speak(text); }catch(e){} return true; } loadTTS(); return false; }
+function narrate(text){ if(!soundOn||!audioCat.tts.on||!text)return; _narrateCount++; ttsSpeak(text); } // gated pelo toggle 'Narração (TTS)' do mixer, independente das legendas
 function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
   o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   o.connect(g).connect(catNode('earcons')||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
@@ -1155,7 +1167,7 @@ function stepPlayer(pl,dt){
       if(MODE==='somasub'&&cn.shape){ if(pl===player&&!player.quiz) openQuiz(i,cn.shape); }
       else if(MODE==='silabas'&&cn.letter){ if(pl===player&&!player.quiz) openSilabas(i,cn.letter); }
       else { cn.taken=true; coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin');
-        updateHud(); srSay((numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`);
+        updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); narrate(msg); }
         if(pl.collected>=COIN_TARGET)win(pl); }
     }});
   // E12: power-ups + chave (por jogador) e portão (compartilhado)
@@ -1163,7 +1175,7 @@ function stepPlayer(pl,dt){
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       pu.taken=true; if(pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:'';
       if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); }
-      else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); srSay(who+(POWER_MSG[pu.kind]||'Poder ativado!')+' (Trocar poder cicla entre os coletados.)'); } // entra no inventário; ativo = o último pego
+      else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); narrate(pm); } // entra no inventário; ativo = o último pego
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
@@ -1375,7 +1387,7 @@ function updateHud(){
 function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); playVictory(); $('#hud-objective').textContent='Concluído! 🎉';
   const who = numPlayers>1 ? `Jogador ${(pl?pl.i:0)+1} venceu! ` : '';
   $('#win-msg').textContent=`${who}Coletou as ${COIN_TARGET} moedas.`;
-  $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
+  $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); narrate(`${who}Venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
 function restartGame(){
   closeQuiz();
   coins=pickCoins(COIN_TARGET);
@@ -1650,7 +1662,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick();
   if(phase==='playing'){ updateAmbient(); updateGuide(); } }); // F4: ambiente + guia auditivo (só durante o jogo)
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
