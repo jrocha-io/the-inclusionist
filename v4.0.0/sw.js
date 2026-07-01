@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Service worker — cache do app-shell para rodar 100% offline (PWA).
-const CACHE = 'inclusionist-v4.0.0-170'; // bump invalida cache antigo (dev gotcha)
+const CACHE = 'inclusionist-v4.0.0-171'; // bump invalida cache antigo (dev gotcha)
 const SHELL = [
   './', 'index.html', 'game.js', 'style.css',
   'manifest.webmanifest', 'icon.svg', 'vendor/pixi.min.js',
@@ -23,7 +23,22 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   // só gerencia o próprio app-shell; cross-origin (ex.: VLibras) passa direto ao navegador
-  if (new URL(e.request.url).origin !== self.location.origin) return;
+  const url = new URL(e.request.url);
+  if (url.origin !== self.location.origin) return;
+  // App-shell (navegação + html/css/js) = NETWORK-FIRST: online sempre pega a versão nova e reescreve
+  // o cache; offline cai no cache. Evita o quirk de "CSS/JS velho preso" sem perder o offline (PWA).
+  const isShell = e.request.mode === 'navigate' || url.pathname === '/' || /\.(html|css|js)$/i.test(url.pathname);
+  if (isShell) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+  // Demais (fontes, ícones, imagens) = CACHE-FIRST (imutáveis; rápido e offline)
   e.respondWith(
     caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
       const copy = res.clone();
