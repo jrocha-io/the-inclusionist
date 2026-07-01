@@ -132,6 +132,15 @@ const tileAt=(tx,ty)=>(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H)?2:WORLD[ty][tx];
 // E12: portão dinâmico — seus tiles são sólidos enquanto fechado (gateOpen=true ⇒ comporta normal)
 let gateTiles=new Set(), gateOpen=true, gate=null;
 const solidAt=(tx,ty)=>(!gateOpen && gateTiles.has(tx+','+ty)) || isSolidType(tileAt(tx,ty));
+// Cadeirante: geometria da rampa de 1 tile. surfTop=topo caminhável; riser=o degrau que a rampa cobre
+// (não é parede p/ o cadeirante: a rampa guia o Y). rampSurfaceY=altura da diagonal 45° num x do mundo.
+const surfTop=(x,y)=>{ const t=tileAt(x,y),a=tileAt(x,y-1); return !!(TILE_TYPES[t]&&TILE_TYPES[t].solid) && !(TILE_TYPES[a]&&TILE_TYPES[a].solid); };
+const isWcRampRiser=(col,row)=> surfTop(col,row) && (surfTop(col-1,row+1)||surfTop(col+1,row+1));
+function rampSurfaceY(cx,py){ const tcx=Math.floor(cx/TILE), fx=cx-tcx*TILE, ty=Math.floor(py/TILE);
+  for(let y=ty-1;y<=ty+1;y++){ if(y<1||!surfTop(tcx,y))continue;
+    if(surfTop(tcx+1,y-1)) return y*TILE-fx;       // degrau sobe p/ direita: y*TILE → (y-1)*TILE
+    if(surfTop(tcx-1,y-1)) return (y-1)*TILE+fx;   // degrau sobe p/ esquerda: (y-1)*TILE → y*TILE
+  } return null; }
 // Itens do mapa Clarity → viram ITENS/barreira (não tiles): 7=pulo-turbo, 8=voo, 11=chave; 10=portão.
 // Removemos o tile do grid (vira ar) e o item/barreira é desenhado/colidido à parte; some ao pegar/abrir.
 const MAP_ITEMS=[], MAP_GATE=[];
@@ -973,14 +982,16 @@ const easyHitbox=new PIXI.Graphics(); camera.addChild(easyHitbox);
 const rampLayer=new PIXI.Graphics(); camera.addChildAt(rampLayer, camera.getChildIndex(worldSprite)+1);
 function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!wheelchair)return;
   const sol=(x,y)=>{ const t=tileAt(x,y); return !!(TILE_TYPES[t]&&TILE_TYPES[t].solid); }, surf=(x,y)=> sol(x,y)&&!sol(x,y-1); // topo caminhável
-  const FILL=0x7b7f8b, EDGE=0x4a4e59;
+  const FILL=0x7b7f8b, EDGE=0x4a4e59, STRIPE=0xf2c200; // STRIPE = faixa amarela de acessibilidade (na superfície da rampa)
   for(let y=1;y<WORLD_H;y++)for(let x=0;x<WORLD_W-1;x++){ if(!surf(x,y))continue;
     if(surf(x+1,y-1)){ const X=(x+1)*TILE, yL=y*TILE, yU=(y-1)*TILE;                 // degrau SOBE p/ direita
       rampLayer.beginFill(FILL); rampLayer.moveTo(X-TILE,yL); rampLayer.lineTo(X,yU); rampLayer.lineTo(X,yL); rampLayer.closePath(); rampLayer.endFill();
-      rampLayer.lineStyle(1,EDGE); rampLayer.moveTo(X-TILE,yL); rampLayer.lineTo(X,yU); rampLayer.lineStyle(0);
+      rampLayer.lineStyle(1,EDGE); rampLayer.moveTo(X-TILE,yL); rampLayer.lineTo(X,yU);
+      rampLayer.lineStyle(2,STRIPE); rampLayer.moveTo(X-TILE,yL-1); rampLayer.lineTo(X,yU-1); rampLayer.lineStyle(0);
     } else if(surf(x+1,y+1)){ const X=(x+1)*TILE, yL=y*TILE, yD=(y+1)*TILE;          // degrau DESCE p/ direita
       rampLayer.beginFill(FILL); rampLayer.moveTo(X,yL); rampLayer.lineTo(X+TILE,yD); rampLayer.lineTo(X,yD); rampLayer.closePath(); rampLayer.endFill();
-      rampLayer.lineStyle(1,EDGE); rampLayer.moveTo(X,yL); rampLayer.lineTo(X+TILE,yD); rampLayer.lineStyle(0);
+      rampLayer.lineStyle(1,EDGE); rampLayer.moveTo(X,yL); rampLayer.lineTo(X+TILE,yD);
+      rampLayer.lineStyle(2,STRIPE); rampLayer.moveTo(X,yL-1); rampLayer.lineTo(X+TILE,yD-1); rampLayer.lineStyle(0);
     }
   }
 }
@@ -1070,6 +1081,7 @@ function resolveX(pl){
   const l=pl.x-BOX.w/2,r=pl.x+BOX.w/2,t=pl.y-BOX.h,b=pl.y;
   const c0=Math.floor(l/TILE),c1=Math.floor((r-0.01)/TILE),r0=Math.floor(t/TILE),r1=Math.floor((b-0.01)/TILE);
   for(let row=r0;row<=r1;row++)for(let col=c0;col<=c1;col++){ if(!solidAt(col,row))continue;
+    if(wheelchair && isWcRampRiser(col,row))continue; // cadeirante: degrau com rampa não é parede — a rampa guia o Y
     const tl=col*TILE;
     if(pl.vx>0)pl.x=tl-BOX.w/2-0.01; else if(pl.vx<0)pl.x=tl+TILE+BOX.w/2+0.01;
     pl.vx=0; return;
@@ -1168,17 +1180,19 @@ function stepPlayer(pl,dt){
   }
   // Proteção de borda (Fácil e alternância) — andar não derruba em fosso; só cai segurando ↓ (não vale na água/escada/voo/aranha)
   if((pl.easy||pl.toggleMove||wheelchair) && pl.onGround && pl.vx!==0 && !held(pl,'down') && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
-    const dirX=pl.vx>0?1:-1, leadX=pl.x+dirX*(BOX.w/2)+pl.vx*dt;
-    if(!solidAt(Math.floor(leadX/TILE), Math.floor((pl.y+1)/TILE))) pl.vx=0;
+    const dirX=pl.vx>0?1:-1, leadX=pl.x+dirX*(BOX.w/2)+pl.vx*dt, leadTx=Math.floor(leadX/TILE), belowTy=Math.floor((pl.y+1)/TILE);
+    const grounded = solidAt(leadTx,belowTy) || (wheelchair && solidAt(leadTx,belowTy+1)); // cadeirante: rampa = chão a até 1 tile abaixo (não é fosso)
+    if(!grounded) pl.vx=0;
   }
   const _preX=pl.x, _preY=pl.y;
   pl.x+=pl.vx*dt; resolveX(pl);
-  // Cadeirante: RAMPA automática — encostou num degrau de 1 tile (com espaço acima) → sobe suavemente (sem pulo)
-  if(wheelchair && dir!==0 && pl.onGround && !pl.onLadder && !pl.inWater && !pl.flying){
-    const ax=Math.floor((pl.x+dir*(BOX.w/2+1))/TILE), footTy=Math.floor((pl.y-1)/TILE);
-    if(solidAt(ax,footTy) && !solidAt(ax,footTy-1) && !solidAt(ax,Math.floor((pl.y-BOX.h-1)/TILE))){ pl.y-=3; pl.x+=dir*0.6; } // sobe a rampa
+  // Cadeirante: anda COLADO na superfície da rampa 45° (sobe e desce a diagonal desenhada), em vez do antigo empurrão
+  const _ry = (wheelchair && !pl.onLadder && !pl.inWater && !pl.flying) ? rampSurfaceY(pl.x, pl.y) : null;
+  if(_ry!=null && Math.abs(_ry-pl.y)<=TILE+4 && (_ry<pl.y || pl.onGround)){
+    pl.y=_ry; pl.vy=0; pl.onGround=true;                 // superfície da rampa (subindo sempre; descendo só se já apoiado)
+  } else {
+    pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
   }
-  pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
   if(pl.clinging) spiderReattach(pl,_preX,_preY); // E18c: mantém contato e contorna quinas (parede↔teto↔topo)
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
