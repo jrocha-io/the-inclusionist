@@ -403,7 +403,7 @@ const BOX={w:10,h:30};
 function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
   facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
   activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0,
-  walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null, easy:false, toggleMove:false,
+  walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null, easy:false, toggleMove:false, pad:-1,
   rmWalk:false, rmBreath:false, rmFlavor:false, stepT:0, guardT:0, _swapDown:false, _swapT:0, _swapSonar:false}; } // stepT/guardT = cadência de áudio; _swap* = detecção segurar-swap p/ sonar
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Escalada (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Escalada'};
@@ -479,6 +479,8 @@ let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo for
 
 /* ===================== input ===================== */
 const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
+// Gamepad (Lote B, B3): estado por controle. padCur[gi]=ações seguradas neste frame; joinedPads=ordem de entrada (P1=teclado, P2..=gamepads).
+const padCur={}, padPrevAct={}, padPrevStart={}, joinedPads=[]; const PAD_DEAD=0.4;
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
 // 4 esquemas base p/ 3–4 jogadores (E3: modos 3 e 4 têm esquemas SEPARADOS, p3 e p4, editáveis por jogador)
@@ -563,7 +565,7 @@ addEventListener('keydown',(e)=>{
 addEventListener('keyup',(e)=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 const anyOf=(arr)=>arr.some(k=>keys.has(k));
-const held=(pl,act)=>pl.ctrl[act].some(k=>keys.has(k));
+const held=(pl,act)=>pl.ctrl[act].some(k=>keys.has(k)) || (pl.pad>=0 && padCur[pl.pad] && !!padCur[pl.pad][act]); // teclado OU gamepad do jogador
 
 /* ===================== a11y ===================== */
 const srSay=(t)=>{const el=$('#sr-status');el.textContent='';requestAnimationFrame(()=>el.textContent=t);};
@@ -1739,7 +1741,7 @@ function restartGame(){
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
   collected=0; ended=false;
-  players.forEach((p,i)=>{ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.quit=false; p.runCane=false; p.activePower='off'; p.owned=[]; p.swapEdge=false; p.specialEdge=false; p.hasKey=false; if(i===0)showPower(p); p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; p.idleTime=0; p.flavor=-1; if(p.sprite){p.sprite.alpha=1;p.sprite.visible=true;} });
+  players.forEach(resetPlayerState);
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
@@ -1764,7 +1766,7 @@ function setNumPlayers(n){
   if(n>players.length){ for(let i=players.length;i<n;i++){ const p=makePlayer(i); loadPlayerA11y(p,i); players.push(p); } }
   else if(n<players.length){ players.length=n; }
   player=players[0]; numPlayers=n;
-  assignControls(); ensureSprites();
+  assignControls(); applyPadAssign(); ensureSprites();
   const TEL=['👤 1 tela','👥 2 telas','👨‍👧 3 telas','👨‍👩‍👧‍👦 4 telas'];
   const tb=$('#opt-telas'); if(tb){ tb.textContent=TEL[n-1]; tb.setAttribute('aria-label','Telas: '+n+'. Toque para trocar.'); }
   if(n>1) hideTouchControls(); // E13: várias telas → sem controle por toque (ambíguo)
@@ -1785,6 +1787,40 @@ function activateScreens(n){ n=Math.max(1,Math.min(4,n|0));
   if(n===numPlayers){ srSay(n>1?(n+' telas já ativas.'):'1 tela.'); return; }
   if(n>numPlayers && !fitsN(n)){ srAlert('Não cabem '+n+' telas nesta janela — cada tela precisa de ao menos 640×360. Aumente a janela ou use tela cheia.'); return; }
   setNumPlayers(n); srSay(n>1?(n+' telas ativas — nova rodada.'):'1 tela — nova rodada.'); }
+
+/* ===================== B3: entrada de gamepad ===================== */
+// Reatribui os controles: P1 (índice 0) = teclado (pad -1); P2.. = gamepads na ordem de entrada. Chamado em setNumPlayers.
+function applyPadAssign(){ players.forEach((p,i)=>{ p.pad = (i===0) ? -1 : (joinedPads[i-1]!==undefined ? joinedPads[i-1] : -1); }); }
+// Reseta UM jogador ao spawn (rodada nova só na tela dele). Compartilha os campos com o restartGame.
+function resetPlayerState(p,i){ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.quit=false; p.runCane=false; p.activePower='off'; p.owned=[]; p.swapEdge=false; p.specialEdge=false; p.hasKey=false; if(i===0)showPower(p); p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; p.idleTime=0; p.flavor=-1; if(p.sprite){p.sprite.alpha=1;p.sprite.visible=true;} }
+function respawnPlayer(k){ const p=players[k]; if(!p)return; resetPlayerState(p,k); if(typeof updateGameHud==='function')updateGameHud(); srSay('Jogador '+(k+1)+' recomeçou nesta tela.'); }
+// Gamepad não-atribuído aperta 0/START → abre nova tela já com aquele controle (o teclado segue no P1).
+function padTryJoin(gi){
+  if(isMobile()) return;
+  if(numPlayers>=4){ srAlert('Já são 4 jogadores.'); return; }
+  if(!fitsN(numPlayers+1)){ srAlert('Não cabe mais uma tela nesta janela para o novo controle.'); return; }
+  if(joinedPads.indexOf(gi)<0) joinedPads.push(gi);
+  activateScreens(numPlayers+1); srSay('Controle entrou como Jogador '+numPlayers+'.'); }
+// Mapa botão/eixo → ação (layout padrão Gamepad API: 0=pulo/sim · 1=especial/não · 3=troca-poder · D-pad 12-15 · anal.esq · RB/RT=correr).
+function padActions(gp){ const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed), ax=i=>gp.axes[i]||0;
+  return { left:ax(0)<-PAD_DEAD||b(14), right:ax(0)>PAD_DEAD||b(15), up:ax(1)<-PAD_DEAD||b(12), down:ax(1)>PAD_DEAD||b(13),
+    jump:b(0), run:b(5)||b(7), swap:b(3), especial:b(1), _start:b(0)||b(9) }; }
+function pollPads(){ const pads=navigator.getGamepads?navigator.getGamepads():[]; if(!pads)return;
+  for(const gp of pads){ if(!gp)continue; const gi=gp.index; const cur=padActions(gp); const prev=padPrevAct[gi]||{};
+    const startEdge = cur._start && !padPrevStart[gi]; padPrevStart[gi]=cur._start; padCur[gi]=cur;
+    if(phase==='playing'){ const owner=players.findIndex(p=>p.pad===gi);
+      if(owner<0){ if(startEdge) padTryJoin(gi); }                       // livre → entra
+      else if(players[owner].quit){ if(startEdge) respawnPlayer(owner); } // tela abandonada → recomeça (aviso e)
+      else { const p=players[owner];                                     // ativo → alimenta o input do jogador
+        if(cur.jump&&!prev.jump)p.jumpEdge=true;
+        if(cur.run&&!prev.run&&!p.easy)p.runEdge=true;
+        if(cur.left&&!prev.left)p.leftEdge=true;
+        if(cur.right&&!prev.right)p.rightEdge=true;
+        if(cur.swap&&!prev.swap)p.swapEdge=true;
+        if(cur.especial&&!prev.especial)p.specialEdge=true; } }
+    padPrevAct[gi]=cur; } }
+addEventListener('gamepaddisconnected',(e)=>{ try{ const owner=players.findIndex(p=>p.pad===e.gamepad.index); if(owner>=0){ players[owner].quit=true; releaseKey(players[owner]); srAlert('Controle do Jogador '+(owner+1)+' desconectou — tela em espera.'); } delete padCur[e.gamepad.index]; }catch(err){} });
+
 const optTelasBtn=$('#opt-telas'); // botão único: cicla 1→2→3→4 telas
 if(optTelasBtn)optTelasBtn.addEventListener('click',()=>{ setNumPlayers((numPlayers%4)+1); srSay(numPlayers+(numPlayers>1?' telas.':' tela.')); });
 // Botão único de LETRAS: ABC (padrão) → abc → Braille
@@ -2237,9 +2273,9 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 }
 
 /* ===================== loop ===================== */
-app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick();
+app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw(); fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
