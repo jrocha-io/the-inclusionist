@@ -403,8 +403,9 @@ function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:fa
   activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0,
   walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null, easy:false, toggleMove:false, pad:-1,
   rmWalk:false, rmBreath:false, rmFlavor:false, stepT:0, guardT:0, _swapDown:false, _swapT:0, _swapSonar:false}; } // stepT/guardT = cadência de áudio; _swap* = detecção segurar-swap p/ sonar
-const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Asas! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Escalada (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
-const POWER_SHORT={off:'—',superjump:'Super-pulo',ultrajump:'Ultra-pulo',turbo:'Super-corrida',fly:'Voo',wallcling:'Escalada'};
+const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Voo! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Escalada (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
+// Ícones canônicos dos power-ups (decisão do José 2026-07-02): 👟 corrida/bengala · 🕷️ escalada · 🎈 voo (jetpack) · 🐇 super pulo · 🦘 ultra pulo
+const POWER_SHORT={off:'—',superjump:'🐇 Super-pulo',ultrajump:'🦘 Ultra-pulo',turbo:'👟 Super-corrida',fly:'🎈 Voo',wallcling:'🕷️ Escalada',runcane:'👟 Bengala de corrida'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5)*(pl.easy?EASY.jump:1); } // Fácil: pulo ×8/7
 function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
@@ -477,7 +478,7 @@ let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo for
 /* ===================== input ===================== */
 const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
 // Gamepad (B3/L1): estado por controle. padCur[gi]=ações seguradas neste frame; associação pad↔jogador vive em p.pad.
-const padCur={}, padPrevAct={}, padPrevStart={}; const PAD_DEAD=0.4;
+const padCur={}, padPrevAct={}, padPrevStart={}; const PAD_DEAD=0.5; // zona morta = primeira METADE do curso (ergonomia — José 2026-07-02)
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
 // 4 esquemas base p/ 3–4 jogadores (E3: modos 3 e 4 têm esquemas SEPARADOS, p3 e p4, editáveis por jogador)
@@ -1880,28 +1881,50 @@ function closePadWiz(save){ if(!padWiz)return; clearInterval(padWiz.timer);
   else if(padWiz.id && !_padMaps[padWiz.id]) _padMaps[padWiz.id]={_skip:true}; // cancelou: usa o mapa PADRÃO nesta sessão (não salva; evita reabrir o wizard em loop)
   padWiz=null; const ov=$('#padwiz'); if(ov)ov.hidden=true;
   if(padWizAutoResume){ padWizAutoResume=false; if(phase==='paused')setPhase('playing'); } }
-const PADWIZ_FX={up:'⬆',down:'⬇',left:'⬅',right:'➡',jump:'⤒',run:'💨',swap:'🔄',especial:'✨',start:'⏸'};
-function padWizDemo(k){ const d=$('#padwiz-demo'); if(!d)return; d.className=k?('pw-'+k):''; const fx=$('#padwiz-demo-fx'); if(fx)fx.textContent=k?(PADWIZ_FX[k]||''):''; }
+// Demo do wizard com ANIMAÇÃO REAL (frames do jogo): subir/descer escada, andar, pular, correr;
+// TROCA = slide dos ícones de power-up; START = palavra PAUSA; ESPECIAL = a definir (✨ provisório).
+const PADWIZ_ANIM={
+  up:   {seq:['escada/0','escada/1'], hold:9, cls:'pw-up'},
+  down: {seq:['escada/1','escada/0'], hold:9, cls:'pw-down'},
+  left: {seq:['andar/0','andar/1','andar/2','andar/3','andar/4','andar/5','andar/6','andar/7'], hold:4, cls:'pw-left', flip:1},
+  right:{seq:['andar/0','andar/1','andar/2','andar/3','andar/4','andar/5','andar/6','andar/7'], hold:4, cls:'pw-right'},
+  jump: {seq:['pulo/0','pulo/0','pulo/1','pulo/1'], hold:7, cls:'pw-jump'},
+  run:  {seq:['correr/0','correr/1','correr/2','correr/3'], hold:3, cls:'pw-run'},
+  swap: {fx:'👟 🕷️ 🎈 🐇 🦘', cls:'pw-swap', noimg:1},
+  especial:{seq:['idle/0','idle/1','idle/2','idle/3'], hold:8, fx:'✨', cls:'pw-especial'},
+  start:{fx:'PAUSA', cls:'pw-start', noimg:1},
+};
+let padWizAnim=null; // {seq,hold,t} — frames trocados no padWizTick
+function padWizDemo(k){ const d=$('#padwiz-demo'), img=$('#padwiz-demo-img'), fx=$('#padwiz-demo-fx'); if(!d)return;
+  const a=k?PADWIZ_ANIM[k]:null; d.className=a?a.cls:''; padWizAnim=null;
+  if(fx)fx.textContent=(a&&a.fx)||'';
+  if(img){ img.style.display=(a&&a.noimg)?'none':''; img.style.transform=(a&&a.flip)?'scaleX(-1)':'';
+    if(a&&a.seq){ img.src=SPR+a.seq[0]+'.png'; padWizAnim={seq:a.seq,hold:a.hold||6,t:0}; }
+    else if(!a) img.src=SPR+'idle/0.png'; } }
+function padWizDemoTick(){ if(!padWizAnim)return; const a=padWizAnim; a.t++;
+  const img=$('#padwiz-demo-img'); if(img)img.src=SPR+a.seq[Math.floor(a.t/a.hold)%a.seq.length]+'.png'; }
 function padWizPrompt(){ const s=PADWIZ_STEPS[padWiz.step]; padWizSay((padWiz.step+1)+' de '+PADWIZ_STEPS.length+' — aperte: '+s[1]);
   padWizDemo(s[0]); // demonstração animada do que a ação FAZ
   const pr=$('#padwiz-progress'); if(pr)pr.textContent='Mapeados: '+(Object.keys(padWiz.map).join(' · ')||'—'); }
 function padWizBind(bd){ padWiz.map[PADWIZ_STEPS[padWiz.step][0]]=bd; padWiz.step++; padWiz.release=true;
   if(padWiz.step>=PADWIZ_STEPS.length) closePadWiz(true); }
-function padWizTick(){ if(!padWiz)return; const pads=navigator.getGamepads?navigator.getGamepads():[];
+function padWizTick(){ if(!padWiz)return; padWizDemoTick(); const pads=navigator.getGamepads?navigator.getGamepads():[];
   if(padWiz.gi<0){ for(const gp of pads){ if(gp&&gp.buttons.some(b=>b&&b.pressed)){ padWiz.gi=gp.index; padWiz.id=gp.id; padWiz.baseWait=true; padWizSay('Controle: '+gp.id+'. Agora SOLTE tudo.'); break; } } return; }
   const gp=pads[padWiz.gi]; if(!gp)return;
   if(padWiz.baseWait){ if(!gp.buttons.some(b=>b&&b.pressed)){ padWiz.baseWait=false; padWiz.base={b:gp.buttons.map(x=>!!(x&&x.pressed)), a:gp.axes.slice()}; padWiz.step=0; padWizPrompt(); } return; }
   if(padWiz.release){ const idle = !gp.buttons.some((b,i)=>b&&b.pressed&&!padWiz.base.b[i]) && gp.axes.every((v,i)=>Math.abs((v||0)-padWiz.base.a[i])<0.35);
     if(idle){ padWiz.release=false; padWizPrompt(); } return; }
-  // eixo em rastreio: guarda o PICO da deflexão por ~240ms antes de classificar (senão um stick amostrado
-  // no MEIO do curso vira "valor exato" e só ativa de passagem — o bug dos flicks repetidos)
+  // eixo em rastreio (~240ms): classifica pelo COMPORTAMENTO, não pela magnitude — nada de exigir curso
+  // máximo (ergonomia). Valor que VARIA continuamente = analógico → limiar por sinal (ativa na metade do
+  // curso); valor que salta e fica CONSTANTE = D-pad/POV hat (ou stick digital) → valor exato (±0.13).
   if(padWiz.axTrack){ const t=padWiz.axTrack, v=gp.axes[t.i]||0;
+    if(Math.abs(v-t.last)>0.03)t.changes++; t.last=v;
     if(Math.abs(v-padWiz.base.a[t.i])>Math.abs(t.v-padWiz.base.a[t.i])) t.v=v;
     if(++t.ticks>=8){ const pv=t.v; padWiz.axTrack=null;
-      padWizBind(Math.abs(pv)>=0.8 ? {ax:t.i,s:pv>0?1:-1} : {av:t.i,v:Math.round(pv*10000)/10000}); }
+      padWizBind(t.changes>=2 ? {ax:t.i,s:pv>0?1:-1} : {av:t.i,v:Math.round(pv*10000)/10000}); }
     return; }
   for(let i=0;i<gp.buttons.length;i++){ if(gp.buttons[i]&&gp.buttons[i].pressed&&!padWiz.base.b[i]){ padWizBind({b:i}); return; } }
-  for(let i=0;i<gp.axes.length;i++){ const v=gp.axes[i]||0; if(Math.abs(v-padWiz.base.a[i])>0.45){ padWiz.axTrack={i,v,ticks:0}; return; } }
+  for(let i=0;i<gp.axes.length;i++){ const v=gp.axes[i]||0; if(Math.abs(v-padWiz.base.a[i])>0.45){ padWiz.axTrack={i,v,last:v,changes:0,ticks:0}; return; } }
 }
 { const c=$('#padwiz-cancel'); if(c)c.addEventListener('click',()=>closePadWiz(false)); }
 
@@ -2297,7 +2320,7 @@ function openHelp(){ const ov=$('#help'); if(!ov)return; const c=$('#help-conten
   const rows=Object.keys(ACT_LABEL).map(a=>`<div class="ctrl-row"><span>${ACT_LABEL[a]}</span><span>${(map[a]||[]).map(keyName).map(k=>'<kbd>'+k+'</kbd>').join(' ')||'—'}</span></div>`).join('');
   if(c)c.innerHTML=`<h3 class="panel-sub">Seus controles${numPlayers>1?' · Jogador '+(pa+1):''} <span class="panel-sub__tag">teclado</span></h3><div class="ctrl-list">${rows}</div>`+
     `<h3 class="panel-sub">Notas desta build</h3><div class="ctrl-list">`+
-    `<div class="ctrl-row"><span>Power-ups (bônus): 🟢 super-corrida · 🔵 ultra-pulo · 🔑 chave abre o 🚪 portão.</span></div>`+
+    `<div class="ctrl-row"><span>Power-ups: 👟 super-corrida · 🕷️ escalada · 🎈 voo · 🐇 super-pulo · 🦘 ultra-pulo · 🔑 chave abre o 🚪 portão.</span></div>`+
     `<div class="ctrl-row"><span>2–4 jogadores: telas lado a lado, cada uma com seu menu e sua configuração.</span></div>`+
     `<div class="ctrl-row"><span>v4.0.0 — esqueleto PixiJS (WebGL, fallback Canvas) · texto/UI no DOM (acessibilidade) · offline via PWA.</span></div></div>`;
   ov.hidden=false; frontOverlay(ov); const f=ov.querySelector('button'); if(f)f.focus(); }
