@@ -313,47 +313,29 @@ function worldToTextureBordas(srcCanvas){
 function _dimDesat(c,w,h,mul,blue,off){ off=off||0; const img=c.getImageData(0,0,w,h),d=img.data;
   for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const l=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], g=off+l*mul;
     d[i]=Math.min(255,g)|0; d[i+1]=Math.min(255,g*1.02)|0; d[i+2]=Math.min(255,g*blue)|0; } c.putImageData(img,0,0); }
-function _scaleBright(c,w,h,f){ const img=c.getImageData(0,0,w,h),d=img.data; for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; d[i]=Math.min(255,d[i]*f)|0;d[i+1]=Math.min(255,d[i+1]*f)|0;d[i+2]=Math.min(255,d[i+2]*f)|0; } c.putImageData(img,0,0); }
-// "Paleta CLAHE/VCEA": a transformação é BAKED na textura em resolução nativa (não no framebuffer ampliado),
-// então o realce de cor permanece mas os halos do CLAHE ficam sub-pixel; VCEA é ponto-a-ponto (LUT) = zero halo.
-let _vceaLut=null;
-function _vceaLutArr(){ if(_vceaLut)return _vceaLut; const src=worldCanvasNormal,c=src.getContext('2d'),d=c.getImageData(0,0,src.width,src.height).data;
-  const hist=new Float64Array(256); let tot=0; for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const l=(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])|0; hist[l]++; tot++; } if(!tot)tot=1;
-  const lut=new Uint8Array(256); let acc=0; const beta=0.85; for(let i=0;i<256;i++){ acc+=hist[i]; lut[i]=Math.round(i*(1-beta)+(acc/tot)*255*beta); } return _vceaLut=lut; }
-function _vceaBake(cv){ const c=cv.getContext('2d'),img=c.getImageData(0,0,cv.width,cv.height),d=img.data,lut=_vceaLutArr();
-  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const l=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]; if(l<1)continue; const s=lut[Math.min(255,l|0)]/l; d[i]=Math.min(255,d[i]*s)|0;d[i+1]=Math.min(255,d[i+1]*s)|0;d[i+2]=Math.min(255,d[i+2]*s)|0; } c.putImageData(img,0,0); return cv; }
-function _claheBake(cv,strength,R){ const c=cv.getContext('2d'),w=cv.width,h=cv.height,img=c.getImageData(0,0,w,h),d=img.data;
-  const luma=(i)=>0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], out=new Float32Array(d.length);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){ const i=(y*w+x)*4; if(d[i+3]<8)continue;
-    let m=0,n=0; for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){ const xx=x+dx,yy=y+dy; if(xx<0||yy<0||xx>=w||yy>=h)continue; const j=(yy*w+xx)*4; if(d[j+3]<8)continue; m+=luma(j); n++; } m/=(n||1);
-    const l=luma(i); let dd=(l-m)*strength; dd=dd<-115?-115:dd>115?115:dd; let nl=l+dd+(l-128)*(strength*0.12); nl=nl<0?0:nl>255?255:nl; const s=l>1?nl/l:1;
-    out[i]=d[i]*s;out[i+1]=d[i+1]*s;out[i+2]=d[i+2]*s; }
-  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; d[i]=Math.min(255,out[i])|0;d[i+1]=Math.min(255,out[i+1])|0;d[i+2]=Math.min(255,out[i+2])|0; } c.putImageData(img,0,0); return cv; }
-// Config das variantes de Renderização Direta: dark=escurece o fundo (Direta pura); bake=recolore por CLAHE/VCEA (fundo fica visível)
-const DIRECT_CFG={ 'hc-direto':{bake:null,dark:true,bgMul:0.3}, 'hc-direto-clahe':{bake:'clahe',dark:false,bgMul:0.62}, 'hc-direto-vcea':{bake:'vcea',dark:false,bgMul:0.62} };
-function _applyBake(cv,kind){ if(kind==='clahe')return _claheBake(cv,1.9,1); if(kind==='vcea')return _vceaBake(cv); return cv; }
-function _copyCanvas(src){ const cp=makeCanvas(src.width,src.height); cp.getContext('2d').drawImage(src,0,0); return cp; }
-function worldToTextureDirect(srcCanvas, mode){ const cfg=DIRECT_CFG[mode]||DIRECT_CFG['hc-direto'];
+// 3 níveis de contraste. off/mul = mapa da plataforma (mais off = mais clara → mais contraste); bgMul = fundo
+// (menor = mais escuro/recuado); outline = espessura do contorno do 1º plano. Contraste plataforma×fundo ≈ 3 / 4,5 / 7.
+const DIRECT_CFG={ 'hc-direto':{off:55,mul:0.5,bgMul:0.30,outline:1}, 'hc-direto-45':{off:66,mul:0.5,bgMul:0.28,outline:1}, 'hc-direto-7':{off:100,mul:0.48,bgMul:0.13,outline:2} };
+function _dcfg(mode){ return DIRECT_CFG[mode]||DIRECT_CFG['hc-direto']; }
+function worldToTextureDirect(srcCanvas, mode){ const cfg=_dcfg(mode);
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
-  if(cfg.dark) _dimDesat(c,cv.width,cv.height,0.5,1.22,55); else _applyBake(cv,cfg.bake); // Direta pura: plataformas cinza-azuladas MÉDIAS (visíveis, ~3:1 vs fundo escuro); paletas recolorem
+  _dimDesat(c,cv.width,cv.height,cfg.mul,1.22,cfg.off); // plataformas cinza-azuladas; mais claras = mais contraste vs fundo
   const air=(x,y)=>{ const t=tileAt(x,y); return t===0||t===1; };
-  c.fillStyle='rgba(190,215,255,0.92)'; // contorno CLARO na borda voltada ao ar → estrutura salta
+  c.fillStyle='rgba(200,222,255,0.95)'; // contorno CLARO na borda voltada ao ar → estrutura salta
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue; const X=x*TILE,Y=y*TILE;
     if(air(x,y-1))c.fillRect(X,Y,TILE,1); if(air(x,y+1))c.fillRect(X,Y+TILE-1,TILE,1);
     if(air(x-1,y))c.fillRect(X,Y,1,TILE); if(air(x+1,y))c.fillRect(X+TILE-1,Y,1,TILE); }
   return tex(cv);
 }
-function directBgTexture(srcTex,mode){ const cfg=DIRECT_CFG[mode]||DIRECT_CFG['hc-direto']; const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
+function directBgTexture(srcTex,mode){ const cfg=_dcfg(mode); const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
   const paint=()=>{ const s=srcTex.baseTexture.resource&&srcTex.baseTexture.resource.source; if(!s||!s.width)return;
-    cv.width=s.width;cv.height=s.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(s,0,0);
-    if(cfg.dark) _dimDesat(c,cv.width,cv.height,cfg.bgMul,1.2); else { _applyBake(cv,cfg.bake); _scaleBright(c,cv.width,cv.height,cfg.bgMul); } dst.update(); };
+    cv.width=s.width;cv.height=s.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(s,0,0); _dimDesat(c,cv.width,cv.height,cfg.bgMul,1.2); dst.update(); };
   if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
-// sprite de primeiro plano (player/moeda/power-up): recolore pela paleta (se houver) + contorno escuro (salta)
-function directSpriteCanvas(srcCanvas,mode){ const cfg=DIRECT_CFG[mode]; let base=srcCanvas; if(cfg&&cfg.bake) base=_applyBake(_copyCanvas(srcCanvas),cfg.bake); return outlineCanvas(base,1); }
-function directSpriteTexture(srcTex,mode){ const cfg=DIRECT_CFG[mode]; const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
+// sprite de primeiro plano (player/moeda/power-up): mantém a cor da arte + contorno escuro (salta)
+function directSpriteCanvas(srcCanvas,mode){ return outlineCanvas(srcCanvas,_dcfg(mode).outline); }
+function directSpriteTexture(srcTex,mode){ const th=_dcfg(mode).outline; const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
   const paint=()=>{ const s=srcTex.baseTexture.resource&&srcTex.baseTexture.resource.source; if(!s||!s.width)return;
-    let base=s; if(cfg&&cfg.bake) base=_applyBake(_copyCanvas(s),cfg.bake); const o=outlineCanvas(base,1);
-    cv.width=o.width;cv.height=o.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(o,0,0); dst.update(); };
+    const o=outlineCanvas(s,th); cv.width=o.width;cv.height=o.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(o,0,0); dst.update(); };
   if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
 // Alto contraste (re-adicionado): recolore cada tile pela PALETA do grupo (gradient-map por matiz, mantém claro-escuro).
 function worldToTextureHC(srcCanvas, pal){
@@ -914,10 +896,10 @@ const PALETTES={
 const VIZ_MODES=[
   {key:'normal', kind:'normal', nome:'Cores normais',        desc:'Arte original do jogo.'},
   {key:'bordas', kind:'bordas', nome:'Contorno (Normal AA)', desc:'Contorno escuro em personagem, itens e bordas das plataformas (WCAG AA).'},
-  // Alto contraste = Renderização Direta (ver docs/PESQUISA-ALTO-CONTRASTE.md): pura + variantes de paleta.
-  {key:'hc-direto', kind:'hcnew', nome:'Alto contraste: Renderização Direta', desc:'Fundo dessaturado que recua + estrutura com contorno claro + personagem/itens com contorno escuro (saltam).'},
-  {key:'hc-direto-clahe', kind:'hcnew', nome:'Renderização Direta + paleta CLAHE', desc:'A Direta, mas recolorindo tudo pela paleta CLAHE (baked, sem halos) — fundo e plataformas ficam visíveis e distinguíveis.'},
-  {key:'hc-direto-vcea', kind:'hcnew', nome:'Renderização Direta + paleta VCEA', desc:'A Direta, mas recolorindo tudo pela paleta VCEA (LUT ponto-a-ponto, zero halo) — experimental.'},
+  // Alto contraste = Renderização Direta em 3 níveis de contraste (ver docs/PESQUISA-ALTO-CONTRASTE.md).
+  {key:'hc-direto', kind:'hcnew', nome:'Alto contraste: Renderização Direta (3:1)', desc:'Fundo recua + contornos + cor por papel; plataforma×fundo ~3:1 (AA gráficos), tons agradáveis.'},
+  {key:'hc-direto-45', kind:'hcnew', nome:'Alto contraste: Renderização Direta (4,5:1)', desc:'Mais contraste (AA texto): plataformas mais claras e fundo mais escuro.'},
+  {key:'hc-direto-7', kind:'hcnew', nome:'Alto contraste: Renderização Direta (7:1)', desc:'Contraste máximo (AAA texto): quase preto e branco. Menos agradável, para quem precisa do máximo.'},
   {key:'sim-deuter', kind:'filter', filter:'url(#cvd-deuter)', nome:'Simular Deuteranopia', desc:'Como vê quem não enxerga o verde (mais comum).'},
   {key:'sim-protan', kind:'filter', filter:'url(#cvd-protan)', nome:'Simular Protanopia',   desc:'Como vê quem não enxerga o vermelho.'},
   {key:'sim-tritan', kind:'filter', filter:'url(#cvd-tritan)', nome:'Simular Tritanopia',   desc:'Como vê quem não enxerga o azul.'},
