@@ -316,6 +316,8 @@ function _dimDesat(c,w,h,mul,blue,off){ off=off||0; const img=c.getImageData(0,0
 // 3 níveis de contraste. off/mul = mapa da plataforma (mais off = mais clara → mais contraste); bgMul = fundo
 // (menor = mais escuro/recuado); outline = espessura do contorno do 1º plano. Contraste plataforma×fundo ≈ 3 / 4,5 / 7.
 const DIRECT_CFG={ 'hc-direto':{off:55,mul:0.5,bgMul:0.30}, 'hc-direto-45':{off:66,mul:0.5,bgMul:0.28}, 'hc-direto-7':{off:100,mul:0.48,bgMul:0.13} };
+const HC_SEQ=['normal','hc-direto','hc-direto-45','hc-direto-7']; // ciclo do botão de contraste
+const HC_LABEL={'normal':'off','hc-direto':'3:1','hc-direto-45':'4,5:1','hc-direto-7':'7:1'};
 function _dcfg(mode){ return DIRECT_CFG[mode]||DIRECT_CFG['hc-direto']; }
 // Dois contornos configuráveis (0=nenhum · 1=fino/1px · 2=grosso/2px):
 //  fg = 1º plano (personagem/itens) — WCAG 2.4.7 foco visível; bg = 2º plano (perímetro externo de
@@ -915,7 +917,6 @@ const PALETTES={
 // kind: normal | bordas | hc (recolor por paleta de grupo) | filter (SVG na canvas) | lowvision | blind
 const VIZ_MODES=[
   {key:'normal', kind:'normal', nome:'Cores normais',        desc:'Arte original do jogo.'},
-  {key:'bordas', kind:'bordas', nome:'Contorno (Normal AA)', desc:'Contorno escuro em personagem, itens e bordas das plataformas (WCAG AA).'},
   // Alto contraste = Renderização Direta em 3 níveis de contraste (ver docs/PESQUISA-ALTO-CONTRASTE.md).
   {key:'hc-direto', kind:'hcnew', nome:'Alto contraste: Renderização Direta (3:1)', desc:'Fundo recua + contornos + cor por papel; plataforma×fundo ~3:1 (AA gráficos), tons agradáveis.'},
   {key:'hc-direto-45', kind:'hcnew', nome:'Alto contraste: Renderização Direta (4,5:1)', desc:'Mais contraste (AA texto): plataformas mais claras e fundo mais escuro.'},
@@ -1299,7 +1300,7 @@ function iconAct(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k);
   else if(k==='tts'){ audioCat.tts.on=!audioCat.tts.on; if(typeof setCatGain==='function')setCatGain('tts'); if(typeof reflectTTS==='function')reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); }
   else if(k==='tea'){ calmMode=(calmMode+1)%3; applyCalm(); srSay('Modo TEA: '+['off','calmo','silencioso'][calmMode]+'.'); }
   else if(k==='altmove'){ if(typeof setToggleMove==='function')setToggleMove(i,!players[i].toggleMove); }
-  else if(k==='contrast'){ const cur=(players[i]||{}).viz; setPlayerViz(i,(cur&&cur!=='normal')?'normal':'hc3'); }
+  else if(k==='contrast'){ const cur=(players[i]||{}).viz; let idx=HC_SEQ.indexOf(cur); idx=idx<0?0:idx; const nx=HC_SEQ[(idx+1)%HC_SEQ.length]; setPlayerViz(i,nx); srSay('Alto contraste: '+HC_LABEL[nx]+'.'); }
   else if(k==='cvd'){ const seq=['normal','fix-protan','fix-deuter','fix-tritan']; let idx=seq.indexOf((players[i]||{}).viz); idx=idx<0?1:(idx+1)%seq.length; setPlayerViz(i,seq[idx]); srSay('Correção de daltonismo: '+['off','protanopia','deuteranopia','tritanopia'][idx]+'.'); }
 }
 // Legenda do botão refletindo o ESTADO atual (on/off ou o nível). Vira o aria-label e o rodapé de legenda.
@@ -1310,7 +1311,7 @@ function iconLabel(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k); if(!ic)return ''
   if(k==='tts')     return 'Narração por voz (TTS): '+((audioCat.tts&&audioCat.tts.on)?'on':'off');
   if(k==='tea')     return 'Modo TEA: '+['off','calmo','silencioso'][calmMode];
   if(k==='altmove') return 'Teclas de alternância: '+(p.toggleMove?'on':'off');
-  if(k==='contrast'){ const m=VIZ_BY_KEY[p.viz]; return 'Alto contraste: '+((m&&(m.kind==='hc'||m.kind==='bordas'))?'on':'off'); }
+  if(k==='contrast'){ return 'Alto contraste: '+(HC_LABEL[p.viz]||'off'); }
   if(k==='cvd'){ const map={'fix-protan':'protanopia','fix-deuter':'deuteranopia','fix-tritan':'tritanopia'}; return 'Correção de daltonismo: '+(map[p.viz]||'off'); }
   return ic.n; }
 function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi-btn').forEach(b=>{ const k=b.dataset.pi; let on=false,dis=false;
@@ -1319,7 +1320,7 @@ function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi
   else if(k==='tts'){ on=!!(audioCat.tts&&audioCat.tts.on); dis=!hasPrivateOutput(i); }
   else if(k==='tea'){ on=(calmMode===2); if(calmMode===1)b.classList.add('pi-calm'); } // 2=silencioso (amarelo) · 1=calmo (branco) · 0=off (base)
   else if(k==='altmove'){ on=!!(players[i]&&players[i].toggleMove); }
-  else if(k==='contrast'){ const m=VIZ_BY_KEY[(players[i]||{}).viz]; on=!!(m&&(m.kind==='hc'||m.kind==='bordas')); }
+  else if(k==='contrast'){ on=/^hc-direto/.test((players[i]||{}).viz||''); }
   else if(k==='cvd'){ const v=(players[i]||{}).viz||''; if(v==='fix-protan')b.classList.add('pi-cvd-protan'); else if(v==='fix-deuter')b.classList.add('pi-cvd-deuter'); else if(v==='fix-tritan')b.classList.add('pi-cvd-tritan'); } // fundo bicolor = o próprio sinal de ativo; off=base
   b.classList.toggle('pi-on',on); b.classList.toggle('pi-dis',dis);
   const active=on||b.classList.contains('pi-calm')||/pi-cvd-/.test(b.className); b.setAttribute('aria-pressed',String(active));
@@ -1980,7 +1981,7 @@ function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; play
   reflectVizButtons(); if(typeof renderVisual==='function'){ renderVisual(); renderEmpathy(); } }
 function applyVizGlobal(mode){
   const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; mode=m.key;
-  vizMode=mode; hcMode=(m.kind==='bordas'||m.kind==='hc'); try{localStorage.setItem('incl_viz',mode);}catch(e){}
+  vizMode=mode; hcMode=(m.kind==='hcnew'); try{localStorage.setItem('incl_viz',mode);}catch(e){}
   if(app&&app.view) app.view.style.filter=VIZ_FILTER[mode]||''; // sim. daltonismo/baixa-visão/cegueira = filtro na canvas
   camera.filters = (m.kind==='hcnew') ? pixiFilterFor(mode) : null; // solo: alto contraste experimental = filtro GPU na câmera
   worldSprite.texture=worldTexFor(mode);            // bordas=contorno · hc=recolor por paleta · resto=normal
@@ -2004,7 +2005,7 @@ function updateVizIndicator(kind){ const el=$('#viz-indicator'); if(!el)return;
 function reapplyVizAll(){ _lastSharedViz=null; if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=''); camera.filters=null; document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
 // Modos que AJUDAM (A12e visual) vs SIMULAÇÕES de empatia (Modo empatia)
 const isSimKind=k=>k==='filter'||k==='lowvision'||k==='blind';
-const VIZ_HELP=VIZ_MODES.filter(m=>!isSimKind(m.kind)), VIZ_SIM=VIZ_MODES.filter(m=>isSimKind(m.kind));
+const VIZ_SIM=VIZ_MODES.filter(m=>isSimKind(m.kind));
 let selVizPlayer=0;
 function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)return; if(selVizPlayer>=numPlayers)selVizPlayer=0;
   const tabs=$(tabsSel); if(tabs){ tabs.hidden=true; // E3: sem abas — cada jogador edita só o seu
@@ -2015,7 +2016,12 @@ function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)retu
     `<button class="mode-btn${sel?' is-on':''}" role="radio" aria-checked="${sel}" data-viz="${m.key}" type="button">${sel?'✓ Selecionado':'Selecionar'}</button></div>`; }).join('');
   el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ setPlayerViz(selVizPlayer,btn.dataset.viz); srSay((numPlayers>1?'Jogador '+(selVizPlayer+1)+': ':'')+VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+'.'); }));
 }
-function renderVisual(){ renderVizGroup('#visual-list','#visual-players',VIZ_HELP); }
+function renderVisual(){ const el=$('#visual-list'); if(!el)return; if(selVizPlayer>=numPlayers)selVizPlayer=0; // Contraste = 1 select (Desligado/3:1/4,5:1/7:1); o contorno tem os 2 selects próprios (no HTML abaixo)
+  const cur=players[selVizPlayer]?players[selVizPlayer].viz:'normal', val=HC_SEQ.includes(cur)?cur:'normal';
+  el.innerHTML='<div class="ctrl-row"><span><strong>Alto contraste</strong> — recolore o cenário para destacar o que importa; escolha o nível de contraste.</span>'+
+    '<select id="opt-contrast" aria-label="Nível de alto contraste"><option value="normal">Desligado</option><option value="hc-direto">3:1 (agradável)</option><option value="hc-direto-45">4,5:1</option><option value="hc-direto-7">7:1 (máximo)</option></select></div>';
+  const s=$('#opt-contrast'); if(s){ s.value=val; s.addEventListener('change',()=>{ setPlayerViz(selVizPlayer,s.value); srSay('Alto contraste: '+HC_LABEL[s.value]+'.'); }); }
+  if(typeof reflectOutlines==='function')reflectOutlines(); }
 // Dois contornos configuráveis (1º plano personagem/itens · 2º plano perímetro de plataforma/água/lava).
 function _rebakeDirect(){ // invalida os caches de textura direta (mundo depende de bg; sprites de fg) e re-renderiza
   for(const k in _worldTexHC)delete _worldTexHC[k]; for(const k in _coinTexHC)delete _coinTexHC[k]; for(const k in _pupTexHC)delete _pupTexHC[k]; _playerDirect={}; _lastSharedViz=null;
@@ -2025,7 +2031,7 @@ function setOutlineFg(v){ hcOutlineFg=Math.max(0,Math.min(2,v|0)); try{localStor
 function setOutlineBg(v){ hcOutlineBg=Math.max(0,Math.min(2,v|0)); try{localStorage.setItem('incl_outbg',hcOutlineBg);}catch(e){} _rebakeDirect(); reflectOutlines(); srSay('Contorno do segundo plano: '+['nenhum','fino','grosso'][hcOutlineBg]+'.'); }
 { const f=$('#opt-outline-fg'); if(f)f.addEventListener('change',()=>setOutlineFg(+f.value)); const b=$('#opt-outline-bg'); if(b)b.addEventListener('change',()=>setOutlineBg(+b.value)); reflectOutlines(); }
 function renderEmpathy(){ renderVizGroup('#empathy-list','#empathy-players',VIZ_SIM); const h=$('#opt-hearing'); if(h){ toggleBtn(h,hearingLoss); h.textContent=hearingLoss?'❚❚ Ligado':'▶ Desligado'; } if(typeof reflectMotorEmpathy==='function')reflectMotorEmpathy(); }
-function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&(m.kind==='bordas'||m.kind==='hc'||m.kind==='hcnew');});
+function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&m.kind==='hcnew';});
   const sim=players.some(p=>isSimKind((VIZ_BY_KEY[p.viz]||{}).kind));
   const bv=$('#opt-visual'); if(bv)bv.classList.toggle('is-on',help); const be=$('#opt-empathy'); if(be)be.classList.toggle('is-on',sim||hearingLoss||oneButton||wheelchair); }
 // "tela = canvas": reparenta os diálogos de a11y para dentro do #game-region (ficam presos ao canvas)
