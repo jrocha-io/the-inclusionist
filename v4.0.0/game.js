@@ -1203,8 +1203,9 @@ const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'
 let calmMode=0; // 0=normal · 1=calmo (reduz) · 2=silencioso (desliga) — nunca mexe em TTS/modo cego
 function buildScreenPause(i){ const sp=document.createElement('div'); sp.className='screen-pause'; sp.hidden=true; sp.dataset.player=String(i);
   const icons=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+'">'+ic.e+'</button>').join('');
-  sp.innerHTML='<div class="pause-icons" role="group" aria-label="Atalhos de acessibilidade">'+icons+'<p class="pause-icons-cap" aria-live="polite"></p></div>'+
-    '<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'"><h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
+  sp.innerHTML='<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'">'+
+    '<div class="pause-icons" role="group" aria-label="Atalhos de acessibilidade">'+icons+'</div><p class="pause-icons-cap" aria-live="polite"></p>'+
+    '<h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
     PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+b.lbl+'</button>').join('')+
     '</div><p class="pause-legend" aria-hidden="true"></p></div>';
   sp.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(b){ pauseActor=i; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); return; }
@@ -2283,14 +2284,24 @@ function navDialog(menu,k){ const items=menuItems(menu); if(!items.length)return
     idx=Math.max(0,Math.min(items.length-1,idx+d)); items[idx].focus(); return; }
   if(k.up||k.down){ idx=Math.max(0,Math.min(items.length-1,idx+(k.down?1:-1))); items[idx].focus(); return; }
   if(k.yes){ if(cur.tagName==='SELECT'){ cur.selectedIndex=(cur.selectedIndex+1)%cur.options.length; cur.dispatchEvent(new Event('change',{bubbles:true})); return; } if(cur.tagName==='INPUT')return; cur.click(); return; } }
-function navPause(menu,pi,k){ const items=[...menu.querySelectorAll('.pm-btn')]; if(!items.length)return;
+function pauseSetSel(menu,el){ if(!el)return; menu.querySelectorAll('.pm-sel,.pi-sel').forEach(b=>b.classList.remove('pm-sel','pi-sel')); el.classList.add(el.classList.contains('pi-btn')?'pi-sel':'pm-sel');
+  const cap=menu.querySelector('.pause-icons-cap'); if(cap){ if(el.classList.contains('pi-btn')){ cap.textContent=el.getAttribute('aria-label')||''; } else cap.textContent=''; } }
+function navPause(menu,pi,k){ const icons=[...menu.querySelectorAll('.pi-btn')], items=[...menu.querySelectorAll('.pm-btn')];
   if(k.no){ setPhase('playing'); return; } // "não" na raiz → volta ao jogo (retoma todos)
-  let idx=items.findIndex(b=>b.classList.contains('pm-sel')); if(idx<0)idx=0;
-  if(k.yes){ pauseActor=pi; items[idx].click(); return; }
+  let cur=menu.querySelector('.pi-sel')||menu.querySelector('.pm-sel'); if(!cur)cur=items[0];
+  if(k.yes){ pauseActor=pi; if(cur)cur.click(); return; }
   const cols=2;
-  if(k.right)idx=Math.min(items.length-1,idx+1); else if(k.left)idx=Math.max(0,idx-1);
-  else if(k.down)idx=Math.min(items.length-1,idx+cols); else if(k.up)idx=Math.max(0,idx-cols);
-  items.forEach(b=>b.classList.remove('pm-sel')); items[idx].classList.add('pm-sel'); }
+  if(cur.classList.contains('pi-btn')){ // zona dos ícones (linha horizontal)
+    let idx=icons.indexOf(cur); if(idx<0)idx=0;
+    if(k.left)idx=Math.max(0,idx-1); else if(k.right)idx=Math.min(icons.length-1,idx+1);
+    else if(k.down){ pauseSetSel(menu, items[0]); return; } // desce da barra → menu (Continuar)
+    pauseSetSel(menu, icons[idx]); return; // "cima" na barra: fica
+  }
+  let idx=items.indexOf(cur); if(idx<0)idx=0;
+  if(k.up){ if(idx<cols && icons.length){ pauseSetSel(menu, icons[Math.min(idx,icons.length-1)]); return; } idx=Math.max(0,idx-cols); } // sobe da 1ª linha → barra de ícones
+  else if(k.down)idx=Math.min(items.length-1,idx+cols);
+  else if(k.left)idx=Math.max(0,idx-1); else if(k.right)idx=Math.min(items.length-1,idx+1);
+  pauseSetSel(menu, items[idx]); }
 function menuNavKey(e){ if(phase!=='paused'||captureAction)return; const C=e.code;
   const owner=whichPlayer(C); const pi=owner<0?0:owner; const act=owner>=0?actionOf(C,pi):null;
   const yes=C==='Space'||C==='KeyJ'||C==='Enter'||C==='NumpadEnter'||act==='jump';
