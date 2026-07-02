@@ -1032,10 +1032,11 @@ function rebuildExtras(){
   extraLayer.removeChildren().forEach(s=>s.destroy());
   powerups.forEach(pu=>{ const s=new PIXI.Sprite(pupTexFor(pu.kind,vizMode)); s.x=pu.x; s.y=pu.y; s.visible=!pu.taken; extraLayer.addChild(s); pu.sprite=s; });
   if(gate && !gateOpen){ const g=new PIXI.Graphics();
-    const DARK=parseInt(OUTLINE_DARK.slice(1),16);
+    const hc=!!DIRECT_CFG[vizMode]; // alto contraste: portão trancado = MAGENTA (papel próprio, distinto de perigo/escalável/água); normal = madeira
+    const base=hc?0xc23ad4:0x8a5a2b, plank=hc?0x4a0f56:0x5a3a1b;
     for(const k of gateTiles){ const [tx,ty]=k.split(',').map(Number); const X=tx*TILE,Y=ty*TILE;
-      g.beginFill(0x8a5a2b).drawRect(X,Y,TILE,TILE).endFill();
-      g.beginFill(0x5a3a1b); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
+      g.beginFill(base).drawRect(X,Y,TILE,TILE).endFill();
+      g.beginFill(plank); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
     }
     extraLayer.addChild(g);
   }
