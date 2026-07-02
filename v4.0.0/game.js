@@ -476,8 +476,8 @@ let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo for
 
 /* ===================== input ===================== */
 const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
-// Gamepad (Lote B, B3): estado por controle. padCur[gi]=ações seguradas neste frame; joinedPads=ordem de entrada (P1=teclado, P2..=gamepads).
-const padCur={}, padPrevAct={}, padPrevStart={}, joinedPads=[]; const PAD_DEAD=0.4;
+// Gamepad (B3/L1): estado por controle. padCur[gi]=ações seguradas neste frame; associação pad↔jogador vive em p.pad.
+const padCur={}, padPrevAct={}, padPrevStart={}; const PAD_DEAD=0.4;
 const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
 // 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
 // 4 esquemas base p/ 3–4 jogadores (E3: modos 3 e 4 têm esquemas SEPARADOS, p3 e p4, editáveis por jogador)
@@ -1541,6 +1541,7 @@ function stepPlayer(pl,dt){
 }
 function update(dt){
   if(ended||phase!=='playing')return; // E14: congelado no título e na pausa
+  players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
   for(const pl of players) stepPlayer(pl,dt);
   // E1 (corrigido): revela a área secreta ENQUANTO houver jogador dentro e RE-ESCURECE ao sair.
   // Não é inversão — só mostra o que estava escondido e some de novo ao deixar o ambiente.
@@ -1746,7 +1747,7 @@ function setNumPlayers(n){
   if(n>players.length){ for(let i=players.length;i<n;i++){ const p=makePlayer(i); loadPlayerA11y(p,i); players.push(p); } }
   else if(n<players.length){ players.length=n; }
   player=players[0]; numPlayers=n;
-  assignControls(); applyPadAssign(); ensureSprites();
+  assignControls(); ensureSprites(); // p.pad é PRESERVADO no objeto do jogador (associação direta, sem lista posicional)
   const TEL=['👤 1 tela','👥 2 telas','👨‍👧 3 telas','👨‍👩‍👧‍👦 4 telas'];
   const tb=$('#opt-telas'); if(tb){ tb.textContent=TEL[n-1]; tb.setAttribute('aria-label','Telas: '+n+'. Toque para trocar.'); }
   if(n>1) hideTouchControls(); // E13: várias telas → sem controle por toque (ambíguo)
@@ -1761,45 +1762,77 @@ function fitsN(n){ const wrap=$('#stage-wrap'); if(!wrap)return true;
   return availW>=2*(baseW-10) && availH>=2*(baseH-10); }
 // Celular/tablet: ponteiro grosso + sem hover (não dispara em notebook com touch). No mobile o jogo é 1 tela só.
 function isMobile(){ try{ return matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches; }catch(e){ return 'ontouchstart' in window; } }
-// Ativa dinamicamente N telas (Alt+1/2/3/4). Só cresce se couber; senão anuncia e bloqueia. Reinicia a rodada.
+// Ativa dinamicamente N telas (Alt+1/2/3/4). CRESCER = novos jogadores ENTRAM no jogo em andamento (sem reinício,
+// L1 — correção do José 2026-07-02); DIMINUIR = nova rodada (remover jogador muda a corrida).
 function activateScreens(n){ n=Math.max(1,Math.min(4,n|0));
   if(isMobile() && n>1){ srAlert('No celular o jogo roda em uma tela só.'); return; } // B2: mobile = 1 jogador
   if(n===numPlayers){ srSay(n>1?(n+' telas já ativas.'):'1 tela.'); return; }
-  if(n>numPlayers && !fitsN(n)){ srAlert('Não cabem '+n+' telas nesta janela — cada tela precisa de ao menos 640×360. Aumente a janela ou use tela cheia.'); return; }
+  if(n>numPlayers){ if(!fitsN(n)){ srAlert('Não cabem '+n+' telas nesta janela — cada tela precisa de ao menos 640×360. Aumente a janela ou use tela cheia.'); return; }
+    while(numPlayers<n){ if(!joinPlayer(null))break; } srSay(numPlayers+' telas ativas.'); return; }
   setNumPlayers(n); srSay(n>1?(n+' telas ativas — nova rodada.'):'1 tela — nova rodada.'); }
 
-/* ===================== B3: entrada de gamepad ===================== */
-// Reatribui os controles: P1 (índice 0) = teclado (pad -1); P2.. = gamepads na ordem de entrada. Chamado em setNumPlayers.
-function applyPadAssign(){ players.forEach((p,i)=>{ p.pad = (i===0) ? -1 : (joinedPads[i-1]!==undefined ? joinedPads[i-1] : -1); }); }
+/* ===================== B3/L1: entrada de gamepad ===================== */
 // Reseta UM jogador ao spawn (rodada nova só na tela dele). Compartilha os campos com o restartGame.
 function resetPlayerState(p,i){ p.x=SPAWN_X+i*22; p.y=SPAWN_Y; p.vx=p.vy=0; p.hurtTimer=0; p.collected=0; p.jumpBuffer=0; p.waterStroke=0; p.onLadder=false; p.quiz=null; p.quit=false; p.runCane=false; p.activePower='off'; p.owned=[]; p.swapEdge=false; p.specialEdge=false; p.hasKey=false; if(i===0)showPower(p); p.jumpChain=0; p.groundIdle=0; p.clinging=false; p.clingN=null; p.flying=false; p.idleTime=0; p.flavor=-1; if(p.sprite){p.sprite.alpha=1;p.sprite.visible=true;} }
-function respawnPlayer(k){ const p=players[k]; if(!p)return; resetPlayerState(p,k); if(typeof updateGameHud==='function')updateGameHud(); srSay('Jogador '+(k+1)+' recomeçou nesta tela.'); }
-// Gamepad não-atribuído aperta 0/START → abre nova tela já com aquele controle (o teclado segue no P1).
-function padTryJoin(gi){
-  if(isMobile()) return;
-  if(numPlayers>=4){ srAlert('Já são 4 jogadores.'); return; }
-  if(!fitsN(numPlayers+1)){ srAlert('Não cabe mais uma tela nesta janela para o novo controle.'); return; }
-  if(joinedPads.indexOf(gi)<0) joinedPads.push(gi);
-  activateScreens(numPlayers+1); srSay('Controle entrou como Jogador '+numPlayers+'.'); }
-// Mapa botão/eixo → ação (layout padrão Gamepad API: 0=pulo/sim · 1=especial/não · 3=troca-poder · D-pad 12-15 · anal.esq · RB/RT=correr).
+// L1: gera/renova os itens de UM dono sem tocar os dos outros (entrada/recomeço em jogo EM ANDAMENTO).
+function addCoinsForOwner(owner){ const a=shuffle(findCoinCandidates());
+  const sh=MODE==='somasub'?shuffle(SOMASUB_SHAPES.map(s=>s.id)):[], lt=MODE==='silabas'?shuffle(WORD_INITIALS):[];
+  a.slice(0,Math.min(COIN_TARGET,a.length)).forEach((c,i2)=>coins.push({ x:c.tx*TILE+3, y:c.ty*TILE+3, owner, taken:false,
+    shape:sh.length?sh[i2%sh.length]:'', letter:lt.length?lt[i2%lt.length]:'' }));
+  rebuildCoins(); }
+function respawnCoinsForOwner(owner){ coins=coins.filter(c=>c.owner!==owner); addCoinsForOwner(owner); }
+function respawnPlayer(k){ const p=players[k]; if(!p)return; resetPlayerState(p,k); respawnCoinsForOwner(k); // recomeça SÓ este jogador: coleta tudo do zero, itens re-sorteados
+  if(typeof updateGameHud==='function')updateGameHud(); srSay('Jogador '+(k+1)+' recomeçou nesta tela.'); }
+// L1: entra num jogo EM ANDAMENTO (sem reiniciar a rodada dos outros): cria o jogador, a tela e os itens dele.
+function joinPlayer(padIdx){
+  if(isMobile()){ srAlert('No celular o jogo roda em uma tela só.'); return false; }
+  if(numPlayers>=4){ srAlert('Já são 4 jogadores.'); return false; }
+  if(!fitsN(numPlayers+1)){ srAlert('Não cabe mais uma tela nesta janela — cada tela precisa de ao menos 640×360.'); return false; }
+  const i=players.length, p=makePlayer(i); loadPlayerA11y(p,i); if(padIdx!=null)p.pad=padIdx; players.push(p); numPlayers=players.length;
+  assignControls(); ensureSprites(); hideTouchControls(); // teclado migra p/ o esquema N jogadores; toque sai (ambíguo em MP)
+  configureRender(); if(typeof reapplyVizAll==='function')reapplyVizAll(); layout();
+  resetPlayerState(p,i); addCoinsForOwner(i); // itens PRÓPRIOS dão spawn; os dos outros ficam intactos
+  const TEL=['👤 1 tela','👥 2 telas','👨‍👧 3 telas','👨‍👩‍👧‍👦 4 telas']; const tb=$('#opt-telas'); if(tb)tb.textContent=TEL[numPlayers-1];
+  srSay('Jogador '+(i+1)+' entrou no jogo em andamento.'); return true; }
+// Mapa padrão (Gamepad API "standard"): 0=pulo/sim · 1=especial/não · 2=correr/interagir (X/esquerda) · 3=troca ·
+// D-pad 12-15 + analógico esq. · RB/RT também correm · 9=START (pausa). Controles fora do padrão → wizard de mapeamento.
 function padActions(gp){ const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed), ax=i=>gp.axes[i]||0;
   return { left:ax(0)<-PAD_DEAD||b(14), right:ax(0)>PAD_DEAD||b(15), up:ax(1)<-PAD_DEAD||b(12), down:ax(1)>PAD_DEAD||b(13),
-    jump:b(0), run:b(5)||b(7), swap:b(3), especial:b(1), _start:b(0)||b(9) }; }
+    jump:b(0), run:b(2)||b(5)||b(7), swap:b(3), especial:b(1), _start:b(0)||b(9), _pause:b(9) }; }
 function pollPads(){ const pads=navigator.getGamepads?navigator.getGamepads():[]; if(!pads)return;
   for(const gp of pads){ if(!gp)continue; const gi=gp.index; const cur=padActions(gp); const prev=padPrevAct[gi]||{};
-    const startEdge = cur._start && !padPrevStart[gi]; padPrevStart[gi]=cur._start; padCur[gi]=cur;
+    const startEdge = cur._start && !padPrevStart[gi]; padPrevStart[gi]=cur._start;
+    const pauseEdge = cur._pause && !prev._pause;
+    const edge=k=>cur[k]&&!prev[k];
+    padCur[gi]=cur; padPrevAct[gi]=cur;
+    // Vitória: START/pulo fecham o modal (Jogar de novo)
+    const winOv=$('#win-overlay'); if(winOv&&!winOv.hidden){ if(startEdge){ const b=$('#btn-again'); if(b)b.click(); } continue; }
+    if(phase==='title'){ if(startEdge){ const b=$('#btn-play'); if(b)b.click(); } continue; } // splash: START/A = Jogar
+    if(phase==='paused'){ const owner=players.findIndex(p=>p.pad===gi); const pi=owner<0?0:owner;
+      if(pauseEdge){ setPhase('playing'); continue; } // START retoma
+      const k={yes:edge('jump'), no:edge('especial'), up:edge('up'), down:edge('down'), left:edge('left'), right:edge('right')};
+      if(k.yes||k.no||k.up||k.down||k.left||k.right){ const dlg=(typeof sharedDialogOpen==='function')&&sharedDialogOpen();
+        if(dlg)navDialog(dlg,k); else { const menu=vpPause[pi]; if(menu&&!menu.hidden)navPause(menu,pi,k); } }
+      continue; }
     if(phase==='playing'){ const owner=players.findIndex(p=>p.pad===gi);
-      if(owner<0){ if(startEdge) padTryJoin(gi); }                       // livre → entra
-      else if(players[owner].quit){ if(startEdge) respawnPlayer(owner); } // tela abandonada → recomeça (aviso e)
-      else { const p=players[owner];                                     // ativo → alimenta o input do jogador
-        if(cur.jump&&!prev.jump)p.jumpEdge=true;
-        if(cur.run&&!prev.run&&!p.easy)p.runEdge=true;
-        if(cur.left&&!prev.left)p.leftEdge=true;
-        if(cur.right&&!prev.right)p.rightEdge=true;
-        if(cur.swap&&!prev.swap)p.swapEdge=true;
-        if(cur.especial&&!prev.especial)p.specialEdge=true; } }
-    padPrevAct[gi]=cur; } }
-addEventListener('gamepaddisconnected',(e)=>{ try{ const owner=players.findIndex(p=>p.pad===e.gamepad.index); if(owner>=0){ players[owner].quit=true; releaseKey(players[owner]); srAlert('Controle do Jogador '+(owner+1)+' desconectou — tela em espera.'); } delete padCur[e.gamepad.index]; }catch(err){} });
+      if(owner<0){ if(startEdge){ // L1: 1º controle → assume o primeiro jogador SEM pad (P1); senão entra como novo jogador
+          const free=players.findIndex(p=>p&&p.pad<0&&!p.quit);
+          if(free>=0){ players[free].pad=gi; srSay('Controle associado ao Jogador '+(free+1)+'. O teclado continua funcionando.'); }
+          else joinPlayer(gi); } }
+      else if(players[owner].quit){ if(startEdge) respawnPlayer(owner); } // tela abandonada → recomeça SÓ ela
+      else { const p=players[owner];
+        if(pauseEdge){ setPhase('paused'); pauseActor=owner; continue; }  // START pausa (todos pausam; cada tela navega a sua)
+        if(edge('jump'))p.jumpEdge=true;
+        if(edge('run')&&!p.easy)p.runEdge=true;
+        if(edge('left'))p.leftEdge=true;
+        if(edge('right'))p.rightEdge=true;
+        if(edge('swap'))p.swapEdge=true;
+        if(edge('especial'))p.specialEdge=true; } }
+  } }
+// Desconectar NÃO abandona o jogo: o teclado é sempre fallback. Só solta a associação do pad.
+addEventListener('gamepaddisconnected',(e)=>{ try{ const owner=players.findIndex(p=>p.pad===e.gamepad.index);
+  if(owner>=0){ players[owner].pad=-1; srAlert('Controle do Jogador '+(owner+1)+' desconectado — o teclado continua funcionando. Aperte START para reassociar.'); }
+  delete padCur[e.gamepad.index]; }catch(err){} });
 
 const optTelasBtn=$('#opt-telas'); // botão único: cicla 1→2→3→4 telas
 if(optTelasBtn)optTelasBtn.addEventListener('click',()=>{ setNumPlayers((numPlayers%4)+1); srSay(numPlayers+(numPlayers>1?' telas.':' tela.')); });
