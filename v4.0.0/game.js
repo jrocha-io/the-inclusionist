@@ -1798,13 +1798,21 @@ function joinPlayer(padIdx){
   srSay('Jogador '+(i+1)+' entrou no jogo em andamento.'); return true; }
 // Mapa padrão (Gamepad API "standard"): 0=pulo/sim · 1=especial/não · 2=correr/interagir (X/esquerda) · 3=troca ·
 // D-pad 12-15 + analógico esq. · RB/RT também correm · 9=START (pausa). Controles fora do padrão → wizard de mapeamento.
+// Direções pelas FONTES PADRÃO (stick 0/1, D-pad botões 12-15, POV hat em eixos altos ≥6): o controle tem
+// DOIS direcionais — quem mapeou só o stick continua com o D-pad vivo (menus!) e vice-versa.
+const HAT_STEPS=[[-1,1,0,0,0],[-0.7143,1,0,0,1],[-0.4286,0,0,0,1],[-0.1429,0,1,0,1],[0.1429,0,1,0,0],[0.4286,0,1,1,0],[0.7143,0,0,1,0],[1,1,0,1,0]]; // [v,cima,baixo,esq,dir]
+function stdDirs(gp){ const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed), ax=i=>gp.axes[i]||0;
+  const d={ left:ax(0)<-PAD_DEAD||b(14), right:ax(0)>PAD_DEAD||b(15), up:ax(1)<-PAD_DEAD||b(12), down:ax(1)>PAD_DEAD||b(13) };
+  for(let i=6;i<gp.axes.length;i++){ const v=gp.axes[i]; if(typeof v!=='number'||Math.abs(v)>1.001)continue; // repouso do hat (~1.286) fica fora de [-1,1]
+    for(const [hv,u,dn,l,r] of HAT_STEPS){ if(Math.abs(v-hv)<=0.09){ if(u)d.up=true; if(dn)d.down=true; if(l)d.left=true; if(r)d.right=true; break; } } }
+  return d; }
 function padActions(gp){
   const custom=padMapFor(gp.id); // wizard salvo p/ este modelo → usa o mapa do usuário (_skip = cancelou: padrão)
-  if(custom && !custom._skip){ const A=k=>bindActive(gp,custom[k]);
-    return { left:A('left'), right:A('right'), up:A('up'), down:A('down'), jump:A('jump'), run:A('run'),
-      swap:A('swap'), especial:A('especial'), _start:A('jump')||A('start'), _pause:A('start') }; }
-  const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed), ax=i=>gp.axes[i]||0;
-  return { left:ax(0)<-PAD_DEAD||b(14), right:ax(0)>PAD_DEAD||b(15), up:ax(1)<-PAD_DEAD||b(12), down:ax(1)>PAD_DEAD||b(13),
+  if(custom && !custom._skip){ const A=k=>bindActive(gp,custom[k]); const sd=stdDirs(gp);
+    return { left:A('left')||sd.left, right:A('right')||sd.right, up:A('up')||sd.up, down:A('down')||sd.down,
+      jump:A('jump'), run:A('run'), swap:A('swap'), especial:A('especial'), _start:A('jump')||A('start'), _pause:A('start') }; }
+  const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed), sd=stdDirs(gp);
+  return { left:sd.left, right:sd.right, up:sd.up, down:sd.down,
     jump:b(0), run:b(2)||b(5)||b(7), swap:b(3), especial:b(1), _start:b(0)||b(9), _pause:b(9) }; }
 function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só com ele
   const pads=navigator.getGamepads?navigator.getGamepads():[]; if(!pads)return;
@@ -1879,7 +1887,9 @@ function closePadWiz(save){ if(!padWiz)return; clearInterval(padWiz.timer);
   if(save&&padWiz.id){ try{ localStorage.setItem('incl_padmap_'+padWiz.id, JSON.stringify(padWiz.map)); }catch(e){}
     _padMaps[padWiz.id]=padWiz.map; srAlert('Mapeamento salvo para: '+padWiz.id+'.'); }
   else if(padWiz.id && !_padMaps[padWiz.id]) _padMaps[padWiz.id]={_skip:true}; // cancelou: usa o mapa PADRÃO nesta sessão (não salva; evita reabrir o wizard em loop)
-  padWiz=null; const ov=$('#padwiz'); if(ov)ov.hidden=true;
+  const gi=padWiz.gi; padWiz=null; const ov=$('#padwiz'); if(ov)ov.hidden=true;
+  // sem edges fantasmas: o botão ainda SEGURADO do último passo (START) não pode pausar/agir ao retomar
+  try{ const gp=(navigator.getGamepads?navigator.getGamepads():[])[gi]; if(gp){ const c=padActions(gp); padCur[gi]=c; padPrevAct[gi]=c; padPrevStart[gi]=c._start; } }catch(e){}
   if(padWizAutoResume){ padWizAutoResume=false; if(phase==='paused')setPhase('playing'); } }
 // Demo do wizard com ANIMAÇÃO REAL (frames do jogo): subir/descer escada, andar, pular, correr;
 // TROCA = slide dos ícones de power-up; START = palavra PAUSA; ESPECIAL = a definir (✨ provisório).
@@ -2402,7 +2412,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw(); fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
