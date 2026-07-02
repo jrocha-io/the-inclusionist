@@ -2217,6 +2217,10 @@ function setPhase(p){
   if(t)t.hidden = p!=='title';
   if(pa)pa.hidden = true; // pausa GLOBAL aposentada (Etapa 2): agora é uma por tela (vpPause)
   vpPause.forEach(sp=>{ sp.hidden = p!=='paused'; });
+  const tc=$('#touch-controls'); // controles de toque somem na pausa (o menu por tela é clicável direto) e voltam ao retomar
+  if(tc){ if(p==='paused'){ if(!tc.hidden){ tc.dataset.wasOn='1'; tc.hidden=true; } }
+    else if(p==='playing'){ if(tc.dataset.wasOn==='1' && numPlayers<=1)tc.hidden=false; delete tc.dataset.wasOn; }
+    else { tc.hidden=true; delete tc.dataset.wasOn; } }
   const pb=$('#btn-pause'); if(pb)pb.setAttribute('aria-pressed',String(p==='paused'));
   if(p==='playing'){ const gr=$('#game-region'); if(gr)gr.focus(); }
   else if(p==='paused'){ if(typeof pauseSelect==='function')pauseSelect(); }
@@ -2288,7 +2292,7 @@ function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==
   wire('btn-pause', togglePause); // (o botão saiu da barra; a fiação fica guardada p/ compat)
   // Barra de topo: ferramentas da direita (modo · nº telas · debug · FPS) só com ?debug=true.
   const tools=$('#topbar-tools'); if(tools){ if(/[?&]debug=true/.test(location.search))tools.hidden=false;
-    const db=$('#btn-debug'); if(db)db.addEventListener('click',()=>{ tools.hidden=true; if(typeof layout==='function')layout(); }); }
+    const db=$('#btn-debug'); if(db)db.addEventListener('click',()=>{ const p=$('#debug-panel'); if(p){ p.hidden=!p.hidden; db.setAttribute('aria-pressed',String(!p.hidden)); } }); } // abre/fecha o painel de afinação
   // Menu de pausa: agora é POR TELA (buildScreenPause + pauseActs no escopo do módulo). Nada aqui.
   setPhase('title'); // estado inicial: tela de título
 })();
@@ -2302,7 +2306,7 @@ function setMinimapCorner(touch){ if(!minimap) return;
 // teclado/controle → esconde os botões e devolve o minimapa ao canto inferior esquerdo
 function hideTouchControls(){ const tc=document.querySelector('#touch-controls'); if(tc && !tc.hidden) tc.hidden=true; document.body.classList.remove('touch-mode'); setMinimapCorner(false); }
 // toque/clique → mostra os botões e move o MINIMAPA p/ o canto sup. direito. Em multi-tela, NÃO ativa.
-function showTouchControls(){ if(numPlayers>1) return; const tc=document.querySelector('#touch-controls'); if(tc) tc.hidden=false; document.body.classList.add('touch-mode'); setMinimapCorner(true); }
+function showTouchControls(){ if(numPlayers>1 || phase==='paused') return; const tc=document.querySelector('#touch-controls'); if(tc) tc.hidden=false; document.body.classList.add('touch-mode'); setMinimapCorner(true); } // não revela na pausa (o menu é clicável direto)
 (function touchSetup(){
   const tc=$('#touch-controls'); if(!tc)return;
   // alternância por modalidade: toque/clique MOSTRA; teclado/controle OCULTA (hideTouchControls).
@@ -2369,20 +2373,36 @@ function showTouchControls(){ if(numPlayers>1) return; const tc=document.querySe
 (function debugPanel(){
   if(!/[?&]debug=true/.test(location.search)) return;
   const KNOBS=[
-    {label:'Cadência do andar (ticks/quadro — menor = mais rápido)', get:()=>ANIM.walkHold, set:v=>ANIM.walkHold=v, min:1, max:20, step:1},
-    {label:'Cadência do correr (ticks/quadro)', get:()=>ANIM.runHold, set:v=>ANIM.runHold=v, min:1, max:20, step:1},
-    {label:'Cadência do idle (ticks/quadro)', get:()=>ANIM.idleHold, set:v=>ANIM.idleHold=v, min:2, max:40, step:1},
-    {label:'Cadência do nado (ticks/quadro)', get:()=>ANIM.swimHold, set:v=>ANIM.swimHold=v, min:2, max:24, step:1},
+    {h:'Movimento (valores absolutos)'},
+    {label:'Velocidade de andar', get:()=>TUNE.hWalk, set:v=>TUNE.hWalk=v, min:0.5, max:5, step:0.1},
+    {label:'Velocidade de correr', get:()=>TUNE.hRun, set:v=>TUNE.hRun=v, min:1, max:7, step:0.1},
+    {label:'Super-corrida (turbo)', get:()=>TUNE.hTurbo, set:v=>TUNE.hTurbo=v, min:1, max:9, step:0.1},
+    {label:'Pulo (impulso inicial)', get:()=>TUNE.jumpVel, set:v=>TUNE.jumpVel=v, min:1, max:8, step:0.1},
+    {label:'Ultra-pulo', get:()=>TUNE.ultraJumpVel, set:v=>TUNE.ultraJumpVel=v, min:3, max:16, step:0.1},
+    {label:'Trampolim (base)', get:()=>TUNE.trampBase, set:v=>TUNE.trampBase=v, min:2, max:10, step:0.1},
+    {label:'Trampolim (máximo)', get:()=>TUNE.trampMax, set:v=>TUNE.trampMax=v, min:3, max:14, step:0.1},
+    {label:'Nado: impulso', get:()=>TUNE.waterJump, set:v=>TUNE.waterJump=v, min:1, max:7, step:0.1},
+    {label:'Nado: impulso correndo', get:()=>TUNE.waterJumpRun, set:v=>TUNE.waterJumpRun=v, min:1, max:8, step:0.1},
+    {label:'Nado: quadros/braçada', get:()=>TUNE.waterStrokeFrames, set:v=>TUNE.waterStrokeFrames=v, min:10, max:60, step:1},
+    {label:'Escalada (velocidade)', get:()=>TUNE.climbSpeed, set:v=>TUNE.climbSpeed=v, min:0.5, max:4, step:0.1},
+    {label:'Gravidade', get:()=>TUNE.gravity, set:v=>TUNE.gravity=v, min:0.05, max:0.4, step:0.01},
+    {label:'Queda máxima', get:()=>TUNE.maxFall, set:v=>TUNE.maxFall=v, min:3, max:14, step:0.5},
+    {label:'Queda máxima na água', get:()=>TUNE.waterMaxFall, set:v=>TUNE.waterMaxFall=v, min:1, max:8, step:0.5},
+    {h:'Animação (cadência: ticks/quadro)'},
+    {label:'Andar', get:()=>ANIM.walkHold, set:v=>ANIM.walkHold=v, min:1, max:20, step:1, cad:true},
+    {label:'Correr', get:()=>ANIM.runHold, set:v=>ANIM.runHold=v, min:1, max:20, step:1, cad:true},
+    {label:'Parado (idle)', get:()=>ANIM.idleHold, set:v=>ANIM.idleHold=v, min:2, max:40, step:1, cad:true},
+    {label:'Nado', get:()=>ANIM.swimHold, set:v=>ANIM.swimHold=v, min:2, max:24, step:1, cad:true},
   ];
-  const p=document.createElement('div'); p.id='debug-panel'; p.setAttribute('role','group'); p.setAttribute('aria-label','Painel de depuração');
-  p.style.cssText='position:fixed;top:8px;right:8px;z-index:200;background:rgba(11,16,32,.96);color:#fff;border:2px solid #ffd23f;border-radius:8px;padding:.6rem .7rem;font:13px/1.45 system-ui,sans-serif;max-width:250px;box-shadow:0 4px 16px rgba(0,0,0,.5)';
-  p.innerHTML='<strong>🔧 ?debug — afinação</strong>';
+  const p=document.createElement('div'); p.id='debug-panel'; p.hidden=true; p.setAttribute('role','group'); p.setAttribute('aria-label','Painel de depuração'); // começa oculto; abre pelo botão 🐞 Debug
+  p.style.cssText='position:fixed;top:8px;right:8px;z-index:200;background:rgba(11,16,32,.97);color:#fff;border:2px solid #ffd23f;border-radius:8px;padding:.6rem .7rem;font:13px/1.4 system-ui,sans-serif;max-width:270px;max-height:86vh;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.5)';
+  p.innerHTML='<strong>🔧 ?debug — valores ao vivo</strong>';
   KNOBS.forEach(k=>{
-    const row=document.createElement('div'); row.style.cssText='margin-top:.55rem';
+    if(k.h){ const h=document.createElement('div'); h.textContent=k.h; h.style.cssText='margin:.7rem 0 .1rem;font-weight:700;color:#ffd23f;border-bottom:1px solid rgba(255,210,63,.4)'; p.appendChild(h); return; }
+    const row=document.createElement('div'); row.style.cssText='margin-top:.5rem';
     const lab=document.createElement('label'); lab.style.cssText='display:block;font-size:12px;margin-bottom:2px';
     const val=document.createElement('strong'); val.style.cssText='color:#ffd23f;float:right';
-    const fps=()=>Math.round(60/k.get())+'fps'; // ciclo aprox. (1 tick ≈ 1/60s)
-    const upd=()=>{ val.textContent=k.get()+' ('+fps()+')'; };
+    const upd=()=>{ val.textContent = k.cad ? (k.get()+' ('+Math.round(60/k.get())+'fps)') : k.get(); };
     lab.textContent=k.label; lab.appendChild(val);
     const inp=document.createElement('input'); inp.type='range'; inp.min=k.min;inp.max=k.max;inp.step=k.step;inp.value=k.get(); inp.style.cssText='width:100%';
     inp.setAttribute('aria-label',k.label);
