@@ -1777,8 +1777,11 @@ function fitsN(n){ const wrap=$('#stage-wrap'); if(!wrap)return true;
   const availW=(wrap.clientWidth||320)-(librasOpen?LIBRAS_RESERVE:0), availH=wrap.clientHeight||180;
   const cols=n<=1?1:(n<=2?n:2), rows=n<=2?1:2, baseW=320*cols, baseH=180*rows;
   return availW>=2*(baseW-10) && availH>=2*(baseH-10); }
+// Celular/tablet: ponteiro grosso + sem hover (não dispara em notebook com touch). No mobile o jogo é 1 tela só.
+function isMobile(){ try{ return matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches; }catch(e){ return 'ontouchstart' in window; } }
 // Ativa dinamicamente N telas (Alt+1/2/3/4). Só cresce se couber; senão anuncia e bloqueia. Reinicia a rodada.
 function activateScreens(n){ n=Math.max(1,Math.min(4,n|0));
+  if(isMobile() && n>1){ srAlert('No celular o jogo roda em uma tela só.'); return; } // B2: mobile = 1 jogador
   if(n===numPlayers){ srSay(n>1?(n+' telas já ativas.'):'1 tela.'); return; }
   if(n>numPlayers && !fitsN(n)){ srAlert('Não cabem '+n+' telas nesta janela — cada tela precisa de ao menos 640×360. Aumente a janela ou use tela cheia.'); return; }
   setNumPlayers(n); srSay(n>1?(n+' telas ativas — nova rodada.'):'1 tela — nova rodada.'); }
@@ -2236,7 +2239,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); update(dt); draw(); fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'bordas':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,PALETTES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
@@ -2366,7 +2369,10 @@ function quitGame(){ // Sair: single → volta ao título; MP → a tela DO JOGA
 function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==='paused')setPhase('playing'); }
 (function shellSetup(){
   const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
-  wire('btn-play', ()=>{ setPhase('playing'); hideTips(); srSay('Jogo iniciado. Colete 10 moedas.'); });
+  wire('btn-play', ()=>{ // B2: no celular, força 1 jogador e entra em tela cheia (gesto do clique autoriza o fullscreen)
+    if(isMobile()){ if(numPlayers>1)setNumPlayers(1);
+      try{ const el=document.documentElement, rf=el.requestFullscreen||el.webkitRequestFullscreen; if(rf)rf.call(el); }catch(e){} }
+    setPhase('playing'); hideTips(); srSay('Jogo iniciado. Colete 10 moedas.'); });
   wire('btn-pause', togglePause); // (o botão saiu da barra; a fiação fica guardada p/ compat)
   // Barra de topo: ferramentas da direita (modo · nº telas · debug · FPS) só com ?debug=true.
   const tools=$('#topbar-tools'); if(tools){ if(/[?&]debug=true/.test(location.search))tools.hidden=false;
