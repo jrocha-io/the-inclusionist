@@ -317,9 +317,20 @@ function _dimDesat(c,w,h,mul,blue,off){ off=off||0; const img=c.getImageData(0,0
 // (menor = mais escuro/recuado); outline = espessura do contorno do 1º plano. Contraste plataforma×fundo ≈ 3 / 4,5 / 7.
 const DIRECT_CFG={ 'hc-direto':{off:55,mul:0.5,bgMul:0.30,outline:1}, 'hc-direto-45':{off:66,mul:0.5,bgMul:0.28,outline:1}, 'hc-direto-7':{off:100,mul:0.48,bgMul:0.13,outline:2} };
 function _dcfg(mode){ return DIRECT_CFG[mode]||DIRECT_CFG['hc-direto']; }
+let hcOutline=0; try{ hcOutline=+localStorage.getItem('incl_hcoutline')||0; }catch(e){} // 0=auto(por nível) · 1=fino · 2=grosso
+function _outlineThick(mode){ return hcOutline>0?hcOutline:_dcfg(mode).outline; }
+// Color-blocking por PAPEL: perigo=laranja-quente, escalável/interativo(escada/trampolim/portão)=ciano, água=azul;
+// estrutura(pedra/parede) fica no cinza-azulado do nível. Cores distintas de matiz p/ separar a função do tile.
+const HC_ROLE={ hazard:[255,110,45], climb:[55,225,205], water:[70,140,255] };
+function _roleOf(t){ if(t===9)return 'hazard'; if(t===4||t===5||t===10)return 'climb'; if(t===3)return 'water'; return null; }
 function worldToTextureDirect(srcCanvas, mode){ const cfg=_dcfg(mode);
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
-  _dimDesat(c,cv.width,cv.height,cfg.mul,1.22,cfg.off); // plataformas cinza-azuladas; mais claras = mais contraste vs fundo
+  _dimDesat(c,cv.width,cv.height,cfg.mul,1.22,cfg.off); // base: estrutura vira cinza-azulado (mais clara = mais contraste)
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const role=_roleOf(WORLD[y][x]); if(!role)continue; // repinta tiles não-estruturais pela cor do papel
+    const rc=HC_ROLE[role], X=x*TILE,Y=y*TILE, img=c.getImageData(X,Y,TILE,TILE), d=img.data, lo=role==='hazard'?0.58:0.44;
+    for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const g=(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])/255, f=lo+(1-lo)*g;
+      d[i]=Math.min(255,rc[0]*f)|0; d[i+1]=Math.min(255,rc[1]*f)|0; d[i+2]=Math.min(255,rc[2]*f)|0; }
+    c.putImageData(img,X,Y); }
   const air=(x,y)=>{ const t=tileAt(x,y); return t===0||t===1; };
   c.fillStyle='rgba(200,222,255,0.95)'; // contorno CLARO na borda voltada ao ar → estrutura salta
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue; const X=x*TILE,Y=y*TILE;
@@ -332,8 +343,8 @@ function directBgTexture(srcTex,mode){ const cfg=_dcfg(mode); const cv=makeCanva
     cv.width=s.width;cv.height=s.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(s,0,0); _dimDesat(c,cv.width,cv.height,cfg.bgMul,1.2); dst.update(); };
   if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
 // sprite de primeiro plano (player/moeda/power-up): mantém a cor da arte + contorno escuro (salta)
-function directSpriteCanvas(srcCanvas,mode){ return outlineCanvas(srcCanvas,_dcfg(mode).outline); }
-function directSpriteTexture(srcTex,mode){ const th=_dcfg(mode).outline; const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
+function directSpriteCanvas(srcCanvas,mode){ return outlineCanvas(srcCanvas,_outlineThick(mode)); }
+function directSpriteTexture(srcTex,mode){ const th=_outlineThick(mode); const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
   const paint=()=>{ const s=srcTex.baseTexture.resource&&srcTex.baseTexture.resource.source; if(!s||!s.width)return;
     const o=outlineCanvas(s,th); cv.width=o.width;cv.height=o.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(o,0,0); dst.update(); };
   if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
@@ -1996,6 +2007,13 @@ function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)retu
   el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ setPlayerViz(selVizPlayer,btn.dataset.viz); srSay((numPlayers>1?'Jogador '+(selVizPlayer+1)+': ':'')+VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+'.'); }));
 }
 function renderVisual(){ renderVizGroup('#visual-list','#visual-players',VIZ_HELP); }
+// Contorno configurável dos modos de alto contraste (0=automático por nível · 1=fino · 2=grosso)
+function reflectHcOutline(){ const b=$('#opt-hc-outline'); if(b){ b.textContent=['▢ Automático','▢ Fino','▣ Grosso'][hcOutline]; b.classList.toggle('is-on',hcOutline>0); b.setAttribute('aria-pressed',String(hcOutline>0)); } }
+function setHcOutline(v){ hcOutline=((v%3)+3)%3; try{localStorage.setItem('incl_hcoutline',hcOutline);}catch(e){}
+  for(const k in _coinTexHC)delete _coinTexHC[k]; for(const k in _pupTexHC)delete _pupTexHC[k]; _playerDirect={}; _lastSharedViz=null; // invalida os sprites diretos → recontorna (limpa in-place; _pupTexHC é const)
+  if(numPlayers<=1)applyVizGlobal(players[0].viz); else applyVpFilters();                       // reaplica (MP recontorna no próximo draw via applySharedTextures)
+  reflectHcOutline(); srSay('Contorno do alto contraste: '+['automático','fino','grosso'][hcOutline]+'.'); }
+{ const b=$('#opt-hc-outline'); if(b)b.addEventListener('click',()=>setHcOutline(hcOutline+1)); reflectHcOutline(); }
 function renderEmpathy(){ renderVizGroup('#empathy-list','#empathy-players',VIZ_SIM); const h=$('#opt-hearing'); if(h){ toggleBtn(h,hearingLoss); h.textContent=hearingLoss?'❚❚ Ligado':'▶ Desligado'; } if(typeof reflectMotorEmpathy==='function')reflectMotorEmpathy(); }
 function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&(m.kind==='bordas'||m.kind==='hc'||m.kind==='hcnew');});
   const sim=players.some(p=>isSimKind((VIZ_BY_KEY[p.viz]||{}).kind));
