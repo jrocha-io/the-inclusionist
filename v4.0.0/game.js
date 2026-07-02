@@ -872,6 +872,7 @@ const VIZ_MODES=[
   {key:'hc4', kind:'hc', bg:13, player:4, item:6, nome:'Alto contraste: noturno', desc:'Fundo quase preto colorido.'},
   // Comparação de alto contraste (pesquisa docs/PESQUISA-ALTO-CONTRASTE.md): 3 abordagens lado a lado.
   {key:'hc-clahe', kind:'hcnew', nome:'Alto contraste: CLAHE (teste)', desc:'Realce de contraste LOCAL adaptativo (shader). Técnica fotográfica — teste de comparação.'},
+  {key:'hc-vcea', kind:'hcnew', nome:'Alto contraste: VCEA (teste)', desc:'Equalização de histograma GLOBAL do nível com ajuste anti-super-realce (shader). Técnica fotográfica — teste.'},
   {key:'sim-deuter', kind:'filter', filter:'url(#cvd-deuter)', nome:'Simular Deuteranopia', desc:'Como vê quem não enxerga o verde (mais comum).'},
   {key:'sim-protan', kind:'filter', filter:'url(#cvd-protan)', nome:'Simular Protanopia',   desc:'Como vê quem não enxerga o vermelho.'},
   {key:'sim-tritan', kind:'filter', filter:'url(#cvd-tritan)', nome:'Simular Tritanopia',   desc:'Como vê quem não enxerga o azul.'},
@@ -1895,9 +1896,37 @@ void main(){
 }`;
 function makeClaheFilter(){ const f=new PIXI.Filter(undefined, CLAHE_FRAG, { uStrength:2.2, uSpread:3.0 }); return f; }
 
+// VCEA (Visual Contrast Enhancement Algorithm, Sensors 2015): equalização de histograma GLOBAL com ajuste
+// para limitar super-realce/perda de detalhe. Aqui: histograma de luminância do canvas do NÍVEL (uma vez,
+// sem readback por frame) → CDF → LUT 256×1, misturada com a identidade (β) p/ conter o super-realce.
+function buildVceaLut(srcCanvas, beta){
+  const w=srcCanvas.width,h=srcCanvas.height,c=srcCanvas.getContext('2d'),d=c.getImageData(0,0,w,h).data;
+  const hist=new Float64Array(256); let total=0;
+  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const l=(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])|0; hist[l]++; total++; }
+  if(!total)total=1; const cdf=new Float64Array(256); let acc=0;
+  for(let i=0;i<256;i++){ acc+=hist[i]; cdf[i]=acc/total; }
+  const lut=makeCanvas(256,1),lc=lut.getContext('2d');
+  for(let i=0;i<256;i++){ const v=Math.round(i*(1-beta)+cdf[i]*255*beta); lc.fillStyle='rgb('+v+','+v+','+v+')'; lc.fillRect(i,0,1,1); }
+  return tex(lut);
+}
+const VCEA_FRAG = `
+varying vec2 vTextureCoord;
+uniform sampler2D uSampler;
+uniform sampler2D uLut;
+float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
+void main(){
+  vec4 src = texture2D(uSampler, vTextureCoord);
+  float l = luma(src.rgb);
+  float nl = texture2D(uLut, vec2(clamp(l,0.0,1.0), 0.5)).r;
+  float scale = l > 0.001 ? nl / l : 1.0;
+  gl_FragColor = vec4(clamp(src.rgb * scale, 0.0, 1.0) * src.a, src.a);
+}`;
+function makeVceaFilter(){ return new PIXI.Filter(undefined, VCEA_FRAG, { uLut: buildVceaLut(worldCanvasNormal, 0.75) }); }
+
 const _vpFilterCache={};
 function pixiFilterFor(mode){ if(mode in _vpFilterCache)return _vpFilterCache[mode]; let f=null;
   if(mode==='hc-clahe'){ f=[makeClaheFilter()]; return _vpFilterCache[mode]=f; }
+  if(mode==='hc-vcea'){ f=[makeVceaFilter()]; return _vpFilterCache[mode]=f; }
   const CM=PIXI.ColorMatrixFilter, BL=PIXI.BlurFilter;
   const cvd={'sim-deuter':[0.625,0.375,0,0,0, 0.7,0.3,0,0,0, 0,0.3,0.7,0,0, 0,0,0,1,0],
              'sim-protan':[0.567,0.433,0,0,0, 0.558,0.442,0,0,0, 0,0.242,0.758,0,0, 0,0,0,1,0],
