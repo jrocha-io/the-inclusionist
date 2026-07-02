@@ -3,8 +3,10 @@
   --bg:#0b1020; --panel:#1b2440; --ink:#f5f8ff; --ink-soft:#cdd6f2;
   --accent:#ffd23f; --accent-ink:#1a1400; --focus:#ffd23f; --good:#34e29b;
   --maxw:1000px; --tap:44px;
+  --ui-fs:16px; /* fonte-base da UI (<p>): 16px = MÍNIMO a 640×360; o JS (layout) aumenta conforme o canvas cresce */
   /* ===== Tipografia oficial EdSP ===== */
-  --font-fallback:system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+  /* 'Noto Color Emoji' no fim do stack → emoji consistentes (nativo no Chromebook/Android; woff2 abaixo p/ Windows) */
+  --font-fallback:system-ui,"Segoe UI",Roboto,Arial,sans-serif,'Noto Color Emoji';
   --font:'Atkinson Hyperlegible',var(--font-fallback);          /* PADRÃO */
   --font-math:'Atkinson Hyperlegible Mono',ui-monospace,"Cascadia Mono",Consolas,monospace; /* matemática */
   /* Espaçamento padrão do projeto (≥ recomendações WCAG 2.2 §1.4.12) */
@@ -12,6 +14,9 @@
   --ws:0.16em;   /* word-spacing */
   --lh:1.5;      /* line-height */
 }
+/* Emoji: usa o Noto Color Emoji do sistema (Chromebook/Android/Linux) e, se ausente, o woff2 embutido
+   (offline). Se o arquivo não estiver presente, o navegador cai no emoji do SO — sem quebrar. */
+@font-face{ font-family:'Noto Color Emoji'; src:local('Noto Color Emoji'), url('vendor/fonts/NotoColorEmoji.woff2') format('woff2'); font-display:swap; }
 /* Modo ALFABETIZAÇÃO → Andika */
 :root[data-fonte="alfabetizacao"]{ --font:'Andika',var(--font-fallback); }
 /* Modo DISLEXIA/TDAH → Lexend + espaçamento da British Dyslexia Association
@@ -56,26 +61,30 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .pause-incanvas{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(4,7,15,.72);font-family:var(--font)}
 .pause-incanvas[hidden]{display:none}
 /* Etapa 2: menu de pausa POR TELA (dentro de cada .player-screen). Cada jogador vê e navega o seu. */
-.screen-pause{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(4,7,15,.72);font-family:var(--font);font-size:16px;pointer-events:auto}
+.screen-pause{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(4,7,15,.72);font-family:var(--font);font-size:var(--ui-fs,16px);pointer-events:auto} /* base = --ui-fs (16 no mínimo, escala com o canvas) */
 .screen-pause[hidden]{display:none}
-.screen-pause .pause-card{max-width:94%;max-height:96%} /* fonte fixa 16px = MÍNIMO confortável (≥16); não herda o --hud-fs gigante do HUD, então cabe sem rolagem */
-.screen-pause .pause-card h2{font-size:1.25rem}
+.screen-pause .pause-card{max-width:94%;max-height:98%;padding:.5rem .7rem}
+.screen-pause .pause-card h2{font-size:1.2em;margin:.05rem 0 .28rem}
+.screen-pause .pause-menu{gap:.3rem}
+.screen-pause .pm-btn{padding:.3rem .5rem}
+.screen-pause .pause-icons{margin:.04rem 0 .16rem;gap:.3rem}
+.screen-pause .pause-legend{margin:.28rem 0 0}
 /* Atalhos de a11y = botões do menu em forma de ícone, DENTRO do card (sem barra/sombra própria).
    Navegáveis por teclado (cima a partir de Continuar) e por toque/clique. */
 .pause-icons{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;align-items:center;margin:.1rem 0 .35rem}
-.pi-btn{width:var(--tap);height:var(--tap);min-width:var(--tap);min-height:var(--tap);border-radius:10px;border:2px solid var(--ink-soft);background:#1a2740;font-size:1.25rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pi-btn{width:var(--tap);height:var(--tap);min-width:var(--tap);min-height:var(--tap);border-radius:10px;border:2px solid var(--ink-soft);background:#1a2740;font-size:1.25em;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pi-btn.pi-on{background:var(--accent);border-color:var(--accent)}
 .pi-btn.pi-dis{opacity:.35;cursor:not-allowed}
 .pi-btn.pi-soon{opacity:.55}
 .pi-btn.pi-sel,.pi-btn:focus,.pi-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
-.pause-icons-cap{text-align:center;margin:0 0 .3rem;font-size:.82rem;color:var(--ink-soft);min-height:1.1em}
+.pause-icons-cap{text-align:center;margin:0 0 .3rem;font-size:.82em;color:var(--ink-soft);min-height:1.1em}
 .pause-card{background:#0e1626;border:2px solid #ffd23f;border-radius:14px;padding:.8rem 1rem;max-width:88%;max-height:92%;overflow:auto;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .pause-card h2{margin:.1rem 0 .6rem;color:#ffd23f}
 .pause-menu{display:grid;grid-template-columns:1fr 1fr;gap:.45rem}
 .pm-btn{background:#1a2740;color:#eaf2f8;border:1px solid #3a4a6a;border-radius:10px;padding:.5rem .6rem;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
 .pm-btn:hover,.pm-btn:focus,.pm-btn.pm-sel{background:#2a3a5e;border-color:#ffd23f;outline:2px solid #ffd23f;outline-offset:1px}
 /* Legenda sim/não: ícone do botão (conforme layout do controle) + a palavra. Sony/Nintendo invertem 0↔1. */
-.pause-legend{display:flex;gap:1.1rem;justify-content:center;margin:.7rem 0 .1rem;font-size:.82rem;color:#c3cfe0}
+.pause-legend{display:flex;gap:1.1rem;justify-content:center;margin:.7rem 0 .1rem;font-size:.82em;color:#c3cfe0}
 .pause-legend .lg{display:inline-flex;align-items:center;gap:.35rem}
 .pause-legend .lg-ico{display:inline-flex;align-items:center;justify-content:center;width:1.35rem;height:1.35rem;border-radius:50%;font-weight:800;font-size:.8rem;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.55)}
 .hud__item strong{font-variant-numeric:tabular-nums}
@@ -165,7 +174,7 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 /* Rodapé de explicação: branco sobre preto translúcido 0,82 → contraste do branco >7:1 mesmo sobre 100% branco
    (composição: 1-0,82=0,18 → L≈0,027 → ~13:1), sem ser 100% opaco. Fixo no rodapé do card. */
 .opt-explain{position:sticky;bottom:calc(-1 * var(--card-pad,1.5rem));margin:.8rem calc(-1 * var(--card-pad,1.5rem)) calc(-1 * var(--card-pad,1.5rem));padding:.6rem .9rem;min-height:2.8rem;display:flex;align-items:center;text-align:left;
-  background:rgba(0,0,0,.82);color:#fff;font-size:.9rem;line-height:1.35;border-top:1px solid rgba(255,255,255,.18);border-radius:0 0 9px 9px;backdrop-filter:blur(1px)}
+  background:rgba(0,0,0,.82);color:#fff;font-size:.9em;line-height:1.35;border-top:1px solid rgba(255,255,255,.18);border-radius:0 0 9px 9px;backdrop-filter:blur(1px)}
 #game-region .overlay__actions{position:static;background:transparent;padding:.5rem 0 0;margin:0}
 #visual{background:rgba(0,0,0,.28);align-items:start;padding-top:3.5rem} /* cor: fundo translúcido p/ ver o efeito imediato no jogo */
 
@@ -190,8 +199,8 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-tips, body.blind-mode #caption{visibility:hidden}
 [hidden]{display:none!important}
 /* menus nunca ultrapassam a tela: limitados à altura do viewport e roláveis (rodapé de ações fica fixo embaixo) */
-.overlay__card{background:var(--panel);border:3px solid var(--accent);border-radius:12px;padding:1.5rem;max-width:420px;width:100%;text-align:center;
-  max-height:92dvh;overflow-y:auto;overscroll-behavior:contain}
+.overlay__card{background:var(--panel);border:3px solid var(--accent);border-radius:12px;padding:1.5rem;max-width:420px;width:100%;text-align:center;font-size:var(--ui-fs,16px);
+  max-height:92dvh;overflow-y:auto;overscroll-behavior:contain} /* base = --ui-fs (16 mín, escala com o canvas); internos em em */
 .overlay__card h2{margin-top:0}
 .topbar__right{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
 .title-card{text-align:center}
@@ -200,14 +209,14 @@ body.blind-mode .hud, body.blind-mode #touch-controls, body.blind-mode #start-ti
 .title-card .btn{margin-top:.4rem;font-size:1.1rem;padding:.6em 1.6em}
 .overlay__actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;justify-content:flex-end;
   position:sticky;bottom:-1.5rem;background:var(--panel);padding:.6rem 0 1.5rem;margin-bottom:-1.5rem}
-.opt-hint{color:var(--ink-soft);font-size:.9rem;margin:.2rem 0 .8rem}
+.opt-hint{color:var(--ink-soft);font-size:.9em;margin:.2rem 0 .8rem}
 .panel-sub{text-align:left;font-size:1rem;margin:1rem 0 .4rem;border-bottom:1px solid var(--accent);padding-bottom:.2rem}
 .panel-sub:first-of-type{margin-top:.4rem}
-.panel-sub__tag{color:var(--ink-soft);font-size:.78rem;font-weight:400}
+.panel-sub__tag{color:var(--ink-soft);font-size:.78em;font-weight:400}
 .vol{width:140px;max-width:45%;accent-color:var(--accent);height:1.5rem;cursor:pointer} /* barra de volume (range) */
 /* Caixas de seleção com a IDENTIDADE do jogo: fonte escolhida, cores e tamanho (não o estilo do SO) */
 select.vol, .overlay__card select, .ctrl-col select{
-  font-family:var(--font);font-size:.95rem;font-weight:600;color:var(--ink);
+  font-family:var(--font);font-size:.95em;font-weight:600;color:var(--ink);
   width:auto;max-width:100%;height:auto;min-height:var(--tap);
   background:#0e1326;border:2px solid var(--ink-soft);border-radius:8px;
   padding:.35em 2em .35em .7em;cursor:pointer;

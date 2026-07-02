@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Service worker — cache do app-shell para rodar 100% offline (PWA).
-const CACHE = 'inclusionist-v4.0.0-196'; // bump invalida cache antigo (dev gotcha)
+const CACHE = 'inclusionist-v4.0.0-198'; // bump invalida cache antigo (dev gotcha)
 const SHELL = [
   './', 'index.html', 'game.js', 'style.css',
   'manifest.webmanifest', 'icon.svg', 'vendor/pixi.min.js',
