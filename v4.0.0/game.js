@@ -1843,13 +1843,14 @@ function parallaxTexFor(i,mode){
 const _vpFilterCache={};
 function pixiFilterFor(mode){ if(mode in _vpFilterCache)return _vpFilterCache[mode]; let f=null;
   const CM=PIXI.ColorMatrixFilter, BL=PIXI.BlurFilter;
-  const cvd={'sim-deuter':[0.625,0.375,0,0,0, 0.7,0.3,0,0,0, 0,0.3,0.7,0,0, 0,0,0,1,0],
-             'sim-protan':[0.567,0.433,0,0,0, 0.558,0.442,0,0,0, 0,0.242,0.758,0,0, 0,0,0,1,0],
-             'sim-tritan':[0.95,0.05,0,0,0, 0,0.433,0.567,0,0, 0,0.475,0.525,0,0, 0,0,0,1,0],
-             // CORREÇÃO (daltonize = I + desvio·(I−simulação)): realça matizes confundíveis. Valores = dados ajustáveis.
-             'fix-protan':[1,0,0,0,0, -0.2549,1.2549,0,0,0, 0.3031,-0.5451,1.242,0,0, 0,0,0,1,0],
-             'fix-deuter':[1,0,0,0,0, -0.4375,1.4375,0,0,0, 0.2625,-0.5625,1.3,0,0, 0,0,0,1,0],
-             'fix-tritan':[1.05,-0.3825,0.3325,0,0, 0,1.2345,-0.2345,0,0, 0,0,1,0,0, 0,0,0,1,0]};
+  // SIMULAÇÃO = Machado 2009 sev. 1.0 · CORREÇÃO = C = I + M_err·(I−Sim), M_err de Fidaner et al. (daltonize).
+  // Valores canônicos — ver docs/PESQUISA-DALTONIZACAO.md. (PIXI aplica em sRGB = aproximação padrão web; idem SVG do solo.)
+  const cvd={'sim-protan':[0.152286,1.052583,-0.204868,0,0, 0.114503,0.786281,0.099216,0,0, -0.003882,-0.048116,1.051998,0,0, 0,0,0,1,0],
+             'sim-deuter':[0.367322,0.860646,-0.227968,0,0, 0.280085,0.672501,0.047413,0,0, -0.011820,0.042940,0.968881,0,0, 0,0,0,1,0],
+             'sim-tritan':[1.255528,-0.076749,-0.178779,0,0, -0.078411,0.930809,0.147602,0,0, 0.004733,0.691367,0.303900,0,0, 0,0,0,1,0],
+             'fix-protan':[1,0,0,0,0, 0.478897,0.476911,0.044192,0,0, 0.597282,-0.688692,1.091410,0,0, 0,0,0,1,0],
+             'fix-deuter':[1,0,0,0,0, 0.162790,0.725047,0.112165,0,0, 0.454695,-0.645392,1.190697,0,0, 0,0,0,1,0],
+             'fix-tritan':[1,0,0,0,0, -0.100459,1.122915,-0.022457,0,0, -0.183603,-0.637643,1.821245,0,0, 0,0,0,1,0]};
   if(cvd[mode]&&CM){ const c=new CM(); c.matrix=cvd[mode]; f=[c]; }
   else if(mode==='blind'&&CM){ const c=new CM(); c.brightness(0,false); f=[c]; }
   else if(mode==='lv-blur'&&BL){ f=[new BL(5)]; }
