@@ -1206,16 +1206,16 @@ const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',l
 const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo (protan/deutan/tritan)'},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
 let calmMode=0; // 0=normal · 1=calmo (reduz) · 2=silencioso (desliga) — nunca mexe em TTS/modo cego
 function buildScreenPause(i){ const sp=document.createElement('div'); sp.className='screen-pause'; sp.hidden=true; sp.dataset.player=String(i);
-  const icons=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+'">'+ic.e+'</button>').join('');
+  const icons=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+(ic.soon?' (em construção)':'')+'">'+ic.e+'</button>').join('');
   sp.innerHTML='<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'">'+
     '<div class="pause-icons" role="group" aria-label="Atalhos de acessibilidade">'+icons+'</div><p class="pause-icons-cap" aria-live="polite"></p>'+
     '<h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
     PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+b.lbl+'</button>').join('')+
     '</div><p class="pause-legend" aria-hidden="true"></p></div>';
   sp.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(b){ pauseActor=i; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); return; }
-    const ib=e.target.closest('.pi-btn'); if(ib){ pauseActor=i; iconAct(ib.dataset.pi,i); reflectPauseIcons(); } });
+    const ib=e.target.closest('.pi-btn'); if(ib){ pauseActor=i; iconAct(ib.dataset.pi,i); reflectPauseIcons(); const cp=sp.querySelector('.pause-icons-cap'); if(cp)cp.textContent=ib.getAttribute('aria-label')||''; } });
   const cap=sp.querySelector('.pause-icons-cap');
-  sp.querySelectorAll('.pi-btn').forEach(b=>{ const ic=PAUSE_ICONS.find(x=>x.k===b.dataset.pi); const show=()=>{ cap.textContent=ic.n+(ic.soon?' (em construção)':''); };
+  sp.querySelectorAll('.pi-btn').forEach(b=>{ const show=()=>{ cap.textContent=b.getAttribute('aria-label')||''; }; // legenda = aria-label (reflete o estado on/off atual)
     b.addEventListener('mouseenter',show); b.addEventListener('focus',show); });
   return sp; }
 function hasPrivateOutput(i){ if(numPlayers<=1)return true; const p=players[i]; if(!p||!p.audioSink)return false; return !players.some((q,j)=>j!==i&&q&&q.audioSink===p.audioSink); }
@@ -1227,19 +1227,33 @@ function iconAct(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k);
   if((k==='blind'||k==='tts')&&!hasPrivateOutput(i)){ srAlert('Só dá para mexer em som/TTS/modo cego com uma saída de áudio SÓ sua (não compartilhada). Escolha um dispositivo próprio em A12e auditiva.'); return; }
   if(k==='blind'){ setModoCego(!modoCego); srSay('Modo cego '+(modoCego?'ligado.':'desligado.')); }
   else if(k==='tts'){ audioCat.tts.on=!audioCat.tts.on; if(typeof setCatGain==='function')setCatGain('tts'); if(typeof reflectTTS==='function')reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); }
-  else if(k==='tea'){ calmMode=(calmMode+1)%3; applyCalm(); srSay('Modo TEA: '+['normal','calmo','silencioso'][calmMode]+'.'); }
+  else if(k==='tea'){ calmMode=(calmMode+1)%3; applyCalm(); srSay('Modo TEA: '+['off','calmo','silencioso'][calmMode]+'.'); }
   else if(k==='altmove'){ if(typeof setToggleMove==='function')setToggleMove(i,!players[i].toggleMove); }
   else if(k==='contrast'){ const cur=(players[i]||{}).viz; setPlayerViz(i,(cur&&cur!=='normal')?'normal':'hc3'); }
-  else if(k==='cvd'){ const seq=['normal','fix-protan','fix-deuter','fix-tritan']; let idx=seq.indexOf((players[i]||{}).viz); idx=idx<0?1:(idx+1)%seq.length; setPlayerViz(i,seq[idx]); srSay('Correção de daltonismo: '+['desligada','protanopia','deuteranopia','tritanopia'][idx]+'.'); }
+  else if(k==='cvd'){ const seq=['normal','fix-protan','fix-deuter','fix-tritan']; let idx=seq.indexOf((players[i]||{}).viz); idx=idx<0?1:(idx+1)%seq.length; setPlayerViz(i,seq[idx]); srSay('Correção de daltonismo: '+['off','protanopia','deuteranopia','tritanopia'][idx]+'.'); }
 }
+// Legenda do botão refletindo o ESTADO atual (on/off ou o nível). Vira o aria-label e o rodapé de legenda.
+function iconLabel(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k); if(!ic)return '';
+  if(ic.soon) return ic.n+' (em construção)';
+  const p=players[i]||{};
+  if(k==='blind')   return 'Modo cego (navegação sonora): '+(modoCego?'on':'off');
+  if(k==='tts')     return 'Narração por voz (TTS): '+((audioCat.tts&&audioCat.tts.on)?'on':'off');
+  if(k==='tea')     return 'Modo TEA: '+['off','calmo','silencioso'][calmMode];
+  if(k==='altmove') return 'Teclas de alternância: '+(p.toggleMove?'on':'off');
+  if(k==='contrast'){ const m=VIZ_BY_KEY[p.viz]; return 'Alto contraste: '+((m&&(m.kind==='hc'||m.kind==='bordas'))?'on':'off'); }
+  if(k==='cvd'){ const map={'fix-protan':'protanopia','fix-deuter':'deuteranopia','fix-tritan':'tritanopia'}; return 'Correção de daltonismo: '+(map[p.viz]||'off'); }
+  return ic.n; }
 function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi-btn').forEach(b=>{ const k=b.dataset.pi; let on=false,dis=false;
+  b.classList.remove('pi-outline','pi-cvd-protan','pi-cvd-deuter','pi-cvd-tritan');
   if(k==='blind'){ on=modoCego; dis=!hasPrivateOutput(i); }
   else if(k==='tts'){ on=!!(audioCat.tts&&audioCat.tts.on); dis=!hasPrivateOutput(i); }
-  else if(k==='tea'){ on=calmMode>0; }
+  else if(k==='tea'){ on=(calmMode===2); if(calmMode===1)b.classList.add('pi-outline'); } // 2=silencioso (preenchido) · 1=calmo (só contorno) · 0=off (base)
   else if(k==='altmove'){ on=!!(players[i]&&players[i].toggleMove); }
   else if(k==='contrast'){ const m=VIZ_BY_KEY[(players[i]||{}).viz]; on=!!(m&&(m.kind==='hc'||m.kind==='bordas')); }
-  else if(k==='cvd'){ on=/^fix-/.test((players[i]||{}).viz||''); }
-  b.classList.toggle('pi-on',on); b.setAttribute('aria-pressed',String(on)); b.classList.toggle('pi-dis',dis); }); }); }
+  else if(k==='cvd'){ const v=(players[i]||{}).viz||''; if(v==='fix-protan')b.classList.add('pi-cvd-protan'); else if(v==='fix-deuter')b.classList.add('pi-cvd-deuter'); else if(v==='fix-tritan')b.classList.add('pi-cvd-tritan'); } // fundo bicolor = o próprio sinal de ativo; off=base
+  b.classList.toggle('pi-on',on); b.classList.toggle('pi-dis',dis);
+  const active=on||b.classList.contains('pi-outline')||/pi-cvd-/.test(b.className); b.setAttribute('aria-pressed',String(active));
+  if(!(PAUSE_ICONS.find(x=>x.k===k)||{}).soon) b.setAttribute('aria-label',iconLabel(k,i)); }); }); }
 // Contêiner "tela do jogador" por viewport (Etapa 1): hospeda o HUD; nas próximas etapas, a pausa e os menus.
 function screenRect(i){ const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
   const col=i%cols, row=Math.floor(i/cols); let colFrac=col/cols;
