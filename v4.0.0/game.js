@@ -310,8 +310,8 @@ function worldToTextureBordas(srcCanvas){
 // Renderização Direta (alto contraste de acessibilidade — ver docs/PESQUISA-ALTO-CONTRASTE.md):
 // fundo dessaturado+escuro (recua), estrutura com contorno CLARO, primeiro plano (player/itens) com contorno
 // escuro → o que importa "salta". É a abordagem que a indústria usa; atinge o contraste por construção.
-function _dimDesat(c,w,h,mul,blue){ const img=c.getImageData(0,0,w,h),d=img.data;
-  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const l=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], g=l*mul;
+function _dimDesat(c,w,h,mul,blue,off){ off=off||0; const img=c.getImageData(0,0,w,h),d=img.data;
+  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const l=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], g=off+l*mul;
     d[i]=Math.min(255,g)|0; d[i+1]=Math.min(255,g*1.02)|0; d[i+2]=Math.min(255,g*blue)|0; } c.putImageData(img,0,0); }
 function _scaleBright(c,w,h,f){ const img=c.getImageData(0,0,w,h),d=img.data; for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; d[i]=Math.min(255,d[i]*f)|0;d[i+1]=Math.min(255,d[i+1]*f)|0;d[i+2]=Math.min(255,d[i+2]*f)|0; } c.putImageData(img,0,0); }
 // "Paleta CLAHE/VCEA": a transformação é BAKED na textura em resolução nativa (não no framebuffer ampliado),
@@ -330,12 +330,12 @@ function _claheBake(cv,strength,R){ const c=cv.getContext('2d'),w=cv.width,h=cv.
     out[i]=d[i]*s;out[i+1]=d[i+1]*s;out[i+2]=d[i+2]*s; }
   for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; d[i]=Math.min(255,out[i])|0;d[i+1]=Math.min(255,out[i+1])|0;d[i+2]=Math.min(255,out[i+2])|0; } c.putImageData(img,0,0); return cv; }
 // Config das variantes de Renderização Direta: dark=escurece o fundo (Direta pura); bake=recolore por CLAHE/VCEA (fundo fica visível)
-const DIRECT_CFG={ 'hc-direto':{bake:null,dark:true,bgMul:0.2}, 'hc-direto-clahe':{bake:'clahe',dark:false,bgMul:0.62}, 'hc-direto-vcea':{bake:'vcea',dark:false,bgMul:0.62} };
+const DIRECT_CFG={ 'hc-direto':{bake:null,dark:true,bgMul:0.3}, 'hc-direto-clahe':{bake:'clahe',dark:false,bgMul:0.62}, 'hc-direto-vcea':{bake:'vcea',dark:false,bgMul:0.62} };
 function _applyBake(cv,kind){ if(kind==='clahe')return _claheBake(cv,1.9,1); if(kind==='vcea')return _vceaBake(cv); return cv; }
 function _copyCanvas(src){ const cp=makeCanvas(src.width,src.height); cp.getContext('2d').drawImage(src,0,0); return cp; }
 function worldToTextureDirect(srcCanvas, mode){ const cfg=DIRECT_CFG[mode]||DIRECT_CFG['hc-direto'];
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
-  if(cfg.dark) _dimDesat(c,cv.width,cv.height,0.42,1.25); else _applyBake(cv,cfg.bake); // Direta pura escurece; paletas recolorem (fundo visível)
+  if(cfg.dark) _dimDesat(c,cv.width,cv.height,0.5,1.22,55); else _applyBake(cv,cfg.bake); // Direta pura: plataformas cinza-azuladas MÉDIAS (visíveis, ~3:1 vs fundo escuro); paletas recolorem
   const air=(x,y)=>{ const t=tileAt(x,y); return t===0||t===1; };
   c.fillStyle='rgba(190,215,255,0.92)'; // contorno CLARO na borda voltada ao ar → estrutura salta
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue; const X=x*TILE,Y=y*TILE;
@@ -914,14 +914,8 @@ const PALETTES={
 const VIZ_MODES=[
   {key:'normal', kind:'normal', nome:'Cores normais',        desc:'Arte original do jogo.'},
   {key:'bordas', kind:'bordas', nome:'Contorno (Normal AA)', desc:'Contorno escuro em personagem, itens e bordas das plataformas (WCAG AA).'},
-  {key:'hc1', kind:'hc', bg:10, player:1, item:3, nome:'Alto contraste: claro',   desc:'Fundo escuro colorido; personagem e itens em paletas separadas (provisório, p/ alguns níveis de baixa visão).'},
-  {key:'hc2', kind:'hc', bg:11, player:2, item:4, nome:'Alto contraste: médio',   desc:'Fundo mais escuro; personagem e itens recoloridos por matiz.'},
-  {key:'hc3', kind:'hc', bg:12, player:3, item:5, nome:'Alto contraste: escuro',  desc:'Fundo bem escuro; máximo destaque do personagem.'},
-  {key:'hc4', kind:'hc', bg:13, player:4, item:6, nome:'Alto contraste: noturno', desc:'Fundo quase preto colorido.'},
-  // Comparação de alto contraste (pesquisa docs/PESQUISA-ALTO-CONTRASTE.md): 3 abordagens lado a lado.
-  {key:'hc-clahe', kind:'hcnew', nome:'Alto contraste: CLAHE (teste)', desc:'Realce de contraste LOCAL adaptativo (shader). Técnica fotográfica — teste de comparação.'},
-  {key:'hc-vcea', kind:'hcnew', nome:'Alto contraste: VCEA (teste)', desc:'Equalização de histograma GLOBAL do nível com ajuste anti-super-realce (shader). Técnica fotográfica — teste.'},
-  {key:'hc-direto', kind:'hcnew', nome:'Renderização Direta (normal)', desc:'Fundo dessaturado/escuro (recua) + estrutura com contorno claro + personagem/itens com contorno escuro (saltam).'},
+  // Alto contraste = Renderização Direta (ver docs/PESQUISA-ALTO-CONTRASTE.md): pura + variantes de paleta.
+  {key:'hc-direto', kind:'hcnew', nome:'Alto contraste: Renderização Direta', desc:'Fundo dessaturado que recua + estrutura com contorno claro + personagem/itens com contorno escuro (saltam).'},
   {key:'hc-direto-clahe', kind:'hcnew', nome:'Renderização Direta + paleta CLAHE', desc:'A Direta, mas recolorindo tudo pela paleta CLAHE (baked, sem halos) — fundo e plataformas ficam visíveis e distinguíveis.'},
   {key:'hc-direto-vcea', kind:'hcnew', nome:'Renderização Direta + paleta VCEA', desc:'A Direta, mas recolorindo tudo pela paleta VCEA (LUT ponto-a-ponto, zero halo) — experimental.'},
   {key:'sim-deuter', kind:'filter', filter:'url(#cvd-deuter)', nome:'Simular Deuteranopia', desc:'Como vê quem não enxerga o verde (mais comum).'},
@@ -1929,65 +1923,8 @@ function parallaxTexFor(i,mode){ const m=VIZ_BY_KEY[mode];
 /* ===== Cor POR JOGADOR (E11): cada viewport do multiplayer renderiza no modo do seu jogador.
    - solo: filtro CSS na canvas + texturas globais + overlay DOM + bolinha (applyVizGlobal).
    - MP: filtro PIXI por viewport + troca das texturas compartilhadas antes de cada render (no draw). */
-// ===== Alto contraste experimental (comparação) — filtros de pós-processamento (PIXI.Filter) =====
-// CLAHE (aproximação em tempo real): realce de contraste LOCAL — empurra cada pixel para longe da média
-// da vizinhança, com clip limit (evita estourar). Fiel ao ESPÍRITO do CLAHE (contraste local + clip);
-// a versão canônica é por-tile com histograma+interpolação (caro, multi-pass) — ver pesquisa.
-const CLAHE_FRAG = `
-varying vec2 vTextureCoord;
-uniform sampler2D uSampler;
-uniform vec4 filterArea;
-uniform float uStrength;
-uniform float uSpread;
-float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
-void main(){
-  vec2 t = uSpread / filterArea.xy;
-  vec4 src = texture2D(uSampler, vTextureCoord);
-  float l = luma(src.rgb);
-  float m = luma(texture2D(uSampler, vTextureCoord + t*vec2(-1.0,-1.0)).rgb)
-          + luma(texture2D(uSampler, vTextureCoord + t*vec2( 1.0,-1.0)).rgb)
-          + luma(texture2D(uSampler, vTextureCoord + t*vec2(-1.0, 1.0)).rgb)
-          + luma(texture2D(uSampler, vTextureCoord + t*vec2( 1.0, 1.0)).rgb)
-          + luma(texture2D(uSampler, vTextureCoord).rgb);
-  m /= 5.0;
-  float d = clamp((l - m) * uStrength, -0.45, 0.45);           // clip limit
-  float nl = clamp(l + d + (l - 0.5) * (uStrength * 0.12), 0.0, 1.0); // + leve esticão global
-  float scale = l > 0.001 ? nl / l : 1.0;
-  gl_FragColor = vec4(clamp(src.rgb * scale, 0.0, 1.0) * src.a, src.a);
-}`;
-function makeClaheFilter(){ const f=new PIXI.Filter(undefined, CLAHE_FRAG, { uStrength:2.2, uSpread:3.0 }); return f; }
-
-// VCEA (Visual Contrast Enhancement Algorithm, Sensors 2015): equalização de histograma GLOBAL com ajuste
-// para limitar super-realce/perda de detalhe. Aqui: histograma de luminância do canvas do NÍVEL (uma vez,
-// sem readback por frame) → CDF → LUT 256×1, misturada com a identidade (β) p/ conter o super-realce.
-function buildVceaLut(srcCanvas, beta){
-  const w=srcCanvas.width,h=srcCanvas.height,c=srcCanvas.getContext('2d'),d=c.getImageData(0,0,w,h).data;
-  const hist=new Float64Array(256); let total=0;
-  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const l=(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])|0; hist[l]++; total++; }
-  if(!total)total=1; const cdf=new Float64Array(256); let acc=0;
-  for(let i=0;i<256;i++){ acc+=hist[i]; cdf[i]=acc/total; }
-  const lut=makeCanvas(256,1),lc=lut.getContext('2d');
-  for(let i=0;i<256;i++){ const v=Math.round(i*(1-beta)+cdf[i]*255*beta); lc.fillStyle='rgb('+v+','+v+','+v+')'; lc.fillRect(i,0,1,1); }
-  return tex(lut);
-}
-const VCEA_FRAG = `
-varying vec2 vTextureCoord;
-uniform sampler2D uSampler;
-uniform sampler2D uLut;
-float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
-void main(){
-  vec4 src = texture2D(uSampler, vTextureCoord);
-  float l = luma(src.rgb);
-  float nl = texture2D(uLut, vec2(clamp(l,0.0,1.0), 0.5)).r;
-  float scale = l > 0.001 ? nl / l : 1.0;
-  gl_FragColor = vec4(clamp(src.rgb * scale, 0.0, 1.0) * src.a, src.a);
-}`;
-function makeVceaFilter(){ return new PIXI.Filter(undefined, VCEA_FRAG, { uLut: buildVceaLut(worldCanvasNormal, 0.75) }); }
-
 const _vpFilterCache={};
 function pixiFilterFor(mode){ if(mode in _vpFilterCache)return _vpFilterCache[mode]; let f=null;
-  if(mode==='hc-clahe'){ f=[makeClaheFilter()]; return _vpFilterCache[mode]=f; }
-  if(mode==='hc-vcea'){ f=[makeVceaFilter()]; return _vpFilterCache[mode]=f; }
   const CM=PIXI.ColorMatrixFilter, BL=PIXI.BlurFilter;
   const cvd={'sim-deuter':[0.625,0.375,0,0,0, 0.7,0.3,0,0,0, 0,0.3,0.7,0,0, 0,0,0,1,0],
              'sim-protan':[0.567,0.433,0,0,0, 0.558,0.442,0,0,0, 0,0.242,0.758,0,0, 0,0,0,1,0],
