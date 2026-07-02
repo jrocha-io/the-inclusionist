@@ -78,7 +78,7 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .pi-btn.pi-outline{background:#1a2740;border-color:var(--accent)}
 /* Correção de daltonismo (🚥): fundo bicolor tipo Ishihara por deficiência (só quem vê normal ou tem a
    deficiência-alvo distingue as duas metades); off = base (azul, borda cinza). Bordas claras p/ sinalizar ativo. */
-.pi-btn.pi-cvd-protan{background:linear-gradient(90deg,#552200 0 50%,#552200 50% 100%);border-color:var(--ink)}
+.pi-btn.pi-cvd-protan{background:linear-gradient(90deg,#552200 0 50%,#224400 50% 100%);border-color:var(--ink)}
 .pi-btn.pi-cvd-deuter{background:linear-gradient(90deg,#990066 0 50%,#002288 50% 100%);border-color:var(--ink)}
 .pi-btn.pi-cvd-tritan{background:linear-gradient(90deg,#FF6666 0 50%,#EEEE00 50% 100%);border-color:var(--ink)}
 .pi-btn.pi-dis{opacity:.35;cursor:not-allowed}
