@@ -77,11 +77,13 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 /* Modo TEA (🧩): pi-on preenchido de amarelo = silencioso · fundo branco = calmo · base (azul) = off.
    (fundo, não borda — a borda é reservada ao realce de seleção :focus/.pi-sel e sobreporia o sinal.) */
 .pi-btn.pi-calm{background:#fff;border-color:var(--ink-soft)}
-/* Correção de daltonismo (🚥): fundo bicolor tipo Ishihara por deficiência (só quem vê normal ou tem a
-   deficiência-alvo distingue as duas metades); off = base (azul, borda cinza). Bordas claras p/ sinalizar ativo. */
-.pi-btn.pi-cvd-protan{background:linear-gradient(90deg,#552200 0 50%,#224400 50% 100%);border-color:var(--ink)}
-.pi-btn.pi-cvd-deuter{background:linear-gradient(90deg,#990066 0 50%,#002288 50% 100%);border-color:var(--ink)}
-.pi-btn.pi-cvd-tritan{background:linear-gradient(90deg,#FF6666 0 50%,#EEEE00 50% 100%);border-color:var(--ink)}
+/* Correção de daltonismo (🚥): fundo bicolor "diagnóstico" — pares escolhidos por busca (simulação Machado
+   2009, ΔE Lab) p/ que quem TEM a deficiência-alvo veja o maior contraste e as outras duas o menor. Tritan
+   (eixo azul-amarelo, isolado) separa limpo com vermelho/verde; protan e deutan compartilham o eixo
+   vermelho-verde → separação só PARCIAL (limite físico). off = base (azul, borda cinza); borda clara = ativo. */
+.pi-btn.pi-cvd-protan{background:linear-gradient(90deg,#b3671b 0 50%,#b31b41 50% 100%);border-color:var(--ink)}
+.pi-btn.pi-cvd-deuter{background:linear-gradient(90deg,#0000f2 0 50%,#aa61f2 50% 100%);border-color:var(--ink)}
+.pi-btn.pi-cvd-tritan{background:linear-gradient(90deg,#f23d00 0 50%,#1bb341 50% 100%);border-color:var(--ink)}
 .pi-btn.pi-dis{opacity:.35;cursor:not-allowed}
 .pi-btn.pi-soon{opacity:.55}
 .pi-btn.pi-sel,.pi-btn:focus,.pi-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
