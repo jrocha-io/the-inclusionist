@@ -1198,12 +1198,41 @@ let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[], vpPause=[], pauseActor=0;
 // Menu de pausa POR TELA (Etapa 2): um por jogador, dentro da .player-screen dele.
 const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
+// Barra de atalhos de a11y no topo da pausa (por tela). Sons (cego/TTS) só com saída própria; webcam/voz em construção.
+const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo',soon:true},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
+let calmMode=0; // 0=normal · 1=calmo (reduz) · 2=silencioso (desliga) — nunca mexe em TTS/modo cego
 function buildScreenPause(i){ const sp=document.createElement('div'); sp.className='screen-pause'; sp.hidden=true; sp.dataset.player=String(i);
-  sp.innerHTML='<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'"><h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
+  const icons=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+'">'+ic.e+'</button>').join('');
+  sp.innerHTML='<div class="pause-icons" role="group" aria-label="Atalhos de acessibilidade">'+icons+'<p class="pause-icons-cap" aria-live="polite"></p></div>'+
+    '<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'"><h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
     PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+b.lbl+'</button>').join('')+
     '</div><p class="pause-legend" aria-hidden="true"></p></div>';
-  sp.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(!b)return; pauseActor=i; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); });
+  sp.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(b){ pauseActor=i; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); return; }
+    const ib=e.target.closest('.pi-btn'); if(ib){ pauseActor=i; iconAct(ib.dataset.pi,i); reflectPauseIcons(); } });
+  const cap=sp.querySelector('.pause-icons-cap');
+  sp.querySelectorAll('.pi-btn').forEach(b=>{ const ic=PAUSE_ICONS.find(x=>x.k===b.dataset.pi); const show=()=>{ cap.textContent=ic.n+(ic.soon?' (em construção)':''); };
+    b.addEventListener('mouseenter',show); b.addEventListener('focus',show); });
   return sp; }
+function hasPrivateOutput(i){ if(numPlayers<=1)return true; const p=players[i]; if(!p||!p.audioSink)return false; return !players.some((q,j)=>j!==i&&q&&q.audioSink===p.audioSink); }
+function applyCalm(){ const scene=calmMode>=1; RM_KEYS.forEach(k=>{ rm[k]=scene; }); if(typeof saveRM==='function')saveRM();
+  players.forEach(p=>RM_CHAR.forEach(c=>{ p[c.prop]=(calmMode===2); })); // silencioso congela o personagem também
+  ['ambient','music','earcons','other','interact'].forEach(k=>{ if(audioCat[k]){ if(calmMode===0){audioCat[k].on=true;} else if(calmMode===1){audioCat[k].on=true;audioCat[k].vol=Math.min(audioCat[k].vol,0.3);} else {audioCat[k].on=false;} if(typeof setCatGain==='function')setCatGain(k); } }); } // TTS/sonar/guarda/guia intactos
+function iconAct(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k);
+  if(ic&&ic.soon){ srAlert(ic.n+': em construção — chega com os subsistemas de webcam/fala e o filtro de daltonismo.'); return; }
+  if((k==='blind'||k==='tts')&&!hasPrivateOutput(i)){ srAlert('Só dá para mexer em som/TTS/modo cego com uma saída de áudio SÓ sua (não compartilhada). Escolha um dispositivo próprio em A12e auditiva.'); return; }
+  if(k==='blind'){ setModoCego(!modoCego); srSay('Modo cego '+(modoCego?'ligado.':'desligado.')); }
+  else if(k==='tts'){ audioCat.tts.on=!audioCat.tts.on; if(typeof setCatGain==='function')setCatGain('tts'); if(typeof reflectTTS==='function')reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); }
+  else if(k==='tea'){ calmMode=(calmMode+1)%3; applyCalm(); srSay('Modo TEA: '+['normal','calmo','silencioso'][calmMode]+'.'); }
+  else if(k==='altmove'){ if(typeof setToggleMove==='function')setToggleMove(i,!players[i].toggleMove); }
+  else if(k==='contrast'){ const cur=(players[i]||{}).viz; setPlayerViz(i,(cur&&cur!=='normal')?'normal':'hc3'); }
+}
+function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi-btn').forEach(b=>{ const k=b.dataset.pi; let on=false,dis=false;
+  if(k==='blind'){ on=modoCego; dis=!hasPrivateOutput(i); }
+  else if(k==='tts'){ on=!!(audioCat.tts&&audioCat.tts.on); dis=!hasPrivateOutput(i); }
+  else if(k==='tea'){ on=calmMode>0; }
+  else if(k==='altmove'){ on=!!(players[i]&&players[i].toggleMove); }
+  else if(k==='contrast'){ const m=VIZ_BY_KEY[(players[i]||{}).viz]; on=!!(m&&(m.kind==='hc'||m.kind==='bordas')); }
+  b.classList.toggle('pi-on',on); b.setAttribute('aria-pressed',String(on)); b.classList.toggle('pi-dis',dis); }); }); }
 // Contêiner "tela do jogador" por viewport (Etapa 1): hospeda o HUD; nas próximas etapas, a pausa e os menus.
 function screenRect(i){ const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
   const col=i%cols, row=Math.floor(i/cols); let colFrac=col/cols;
@@ -2223,7 +2252,7 @@ function setPhase(p){
     else { tc.hidden=true; delete tc.dataset.wasOn; } }
   const pb=$('#btn-pause'); if(pb)pb.setAttribute('aria-pressed',String(p==='paused'));
   if(p==='playing'){ const gr=$('#game-region'); if(gr)gr.focus(); }
-  else if(p==='paused'){ if(typeof pauseSelect==='function')pauseSelect(); }
+  else if(p==='paused'){ if(typeof pauseSelect==='function')pauseSelect(); if(typeof reflectPauseIcons==='function')reflectPauseIcons(); }
   else if(p==='title'){ const b=$('#btn-play'); if(b)b.focus(); }
 }
 // NAVEGAÇÃO UNIVERSAL de menus: qualquer menu aberto (pausa OU submenu) é navegável por up/down/left/right/

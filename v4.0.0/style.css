@@ -58,7 +58,15 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 /* Etapa 2: menu de pausa POR TELA (dentro de cada .player-screen). Cada jogador vê e navega o seu. */
 .screen-pause{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(4,7,15,.72);font-family:var(--font);pointer-events:auto}
 .screen-pause[hidden]{display:none}
-.screen-pause .pause-card{max-width:94%;max-height:94%}
+.screen-pause .pause-card{max-width:94%;max-height:78%}
+/* Barra de atalhos de a11y no topo da pausa (por tela). Emoji + aria-label + legenda no rodapé (.pause-icons-cap). */
+.pause-icons{position:absolute;top:0;left:0;right:0;display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;align-items:center;padding:.45rem;background:rgba(4,7,15,.72)}
+.pi-btn{width:var(--tap);height:var(--tap);min-width:var(--tap);min-height:var(--tap);border-radius:10px;border:2px solid var(--ink-soft);background:#0e1326;font-size:1.25rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pi-btn.pi-on{background:var(--accent);border-color:var(--accent)}
+.pi-btn.pi-dis{opacity:.35;cursor:not-allowed}
+.pi-btn.pi-soon{opacity:.55}
+.pi-btn:focus-visible,.pi-btn:focus{outline:3px solid var(--accent);outline-offset:2px}
+.pause-icons-cap{width:100%;text-align:center;margin:.15rem 0 0;font-size:.82rem;color:#fff;min-height:1.1em}
 .pause-card{background:#0e1626;border:2px solid #ffd23f;border-radius:14px;padding:.8rem 1rem;max-width:88%;max-height:92%;overflow:auto;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .pause-card h2{margin:.1rem 0 .6rem;color:#ffd23f}
 .pause-menu{display:grid;grid-template-columns:1fr 1fr;gap:.45rem}
