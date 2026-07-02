@@ -307,6 +307,26 @@ function worldToTextureBordas(srcCanvas){
   }
   return tex(cv);
 }
+// Renderização Direta (alto contraste de acessibilidade — ver docs/PESQUISA-ALTO-CONTRASTE.md):
+// fundo dessaturado+escuro (recua), estrutura com contorno CLARO, primeiro plano (player/itens) com contorno
+// escuro → o que importa "salta". É a abordagem que a indústria usa; atinge o contraste por construção.
+function _dimDesat(c,w,h,mul,blue){ const img=c.getImageData(0,0,w,h),d=img.data;
+  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const l=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], g=l*mul;
+    d[i]=Math.min(255,g)|0; d[i+1]=Math.min(255,g*1.02)|0; d[i+2]=Math.min(255,g*blue)|0; } c.putImageData(img,0,0); }
+function worldToTextureDirect(srcCanvas){
+  const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
+  _dimDesat(c,cv.width,cv.height,0.42,1.25); // plataformas: cinza-azulado escuro (recua, mas legível)
+  const air=(x,y)=>{ const t=tileAt(x,y); return t===0||t===1; };
+  c.fillStyle='rgba(190,215,255,0.92)'; // contorno CLARO na borda voltada ao ar → estrutura salta
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue; const X=x*TILE,Y=y*TILE;
+    if(air(x,y-1))c.fillRect(X,Y,TILE,1); if(air(x,y+1))c.fillRect(X,Y+TILE-1,TILE,1);
+    if(air(x-1,y))c.fillRect(X,Y,1,TILE); if(air(x+1,y))c.fillRect(X+TILE-1,Y,1,TILE); }
+  return tex(cv);
+}
+function dimTexture(srcTex,mul,blue){ const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
+  const paint=()=>{ const s=srcTex.baseTexture.resource&&srcTex.baseTexture.resource.source; if(!s||!s.width)return;
+    cv.width=s.width;cv.height=s.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(s,0,0); _dimDesat(c,cv.width,cv.height,mul,blue); dst.update(); };
+  if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
 // Alto contraste (re-adicionado): recolore cada tile pela PALETA do grupo (gradient-map por matiz, mantém claro-escuro).
 function worldToTextureHC(srcCanvas, pal){
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
@@ -873,6 +893,7 @@ const VIZ_MODES=[
   // Comparação de alto contraste (pesquisa docs/PESQUISA-ALTO-CONTRASTE.md): 3 abordagens lado a lado.
   {key:'hc-clahe', kind:'hcnew', nome:'Alto contraste: CLAHE (teste)', desc:'Realce de contraste LOCAL adaptativo (shader). Técnica fotográfica — teste de comparação.'},
   {key:'hc-vcea', kind:'hcnew', nome:'Alto contraste: VCEA (teste)', desc:'Equalização de histograma GLOBAL do nível com ajuste anti-super-realce (shader). Técnica fotográfica — teste.'},
+  {key:'hc-direto', kind:'hcnew', nome:'Alto contraste: Renderização Direta', desc:'Fundo dessaturado/escuro (recua) + estrutura com contorno claro + personagem/itens com contorno escuro (saltam). Recomendado.'},
   {key:'sim-deuter', kind:'filter', filter:'url(#cvd-deuter)', nome:'Simular Deuteranopia', desc:'Como vê quem não enxerga o verde (mais comum).'},
   {key:'sim-protan', kind:'filter', filter:'url(#cvd-protan)', nome:'Simular Protanopia',   desc:'Como vê quem não enxerga o vermelho.'},
   {key:'sim-tritan', kind:'filter', filter:'url(#cvd-tritan)', nome:'Simular Tritanopia',   desc:'Como vê quem não enxerga o azul.'},
@@ -904,9 +925,11 @@ const coinCanvasNormal=coinCanvas();
 const coinTex=tex(coinCanvasNormal);
 // caches de modos acessíveis (preguiçosos), invalidados ao trocar de cenário (worldCanvasNormal muda)
 let _worldTexHC={}, _coinTexHC={}, _lastSharedViz=null; // _lastSharedViz: cache do modo aplicado (otimização do render MP)
-function worldTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return worldTexNormal;
+function worldTexFor(mode){ const m=VIZ_BY_KEY[mode];
+  if(mode==='hc-direto'){ if(!_worldTexHC[mode])_worldTexHC[mode]=worldToTextureDirect(worldCanvasNormal); return _worldTexHC[mode]; }
+  if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return worldTexNormal;
   if(!_worldTexHC[mode]) _worldTexHC[mode] = m.kind==='hc' ? worldToTextureHC(worldCanvasNormal,hcPal(m)) : worldToTextureBordas(worldCanvasNormal); return _worldTexHC[mode]; }
-function coinTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return coinTex;
+function coinTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'&&m.key!=='hc-direto'))return coinTex;
   if(!_coinTexHC[mode]) _coinTexHC[mode] = m.kind==='hc' ? tex(gradientMapCanvas(coinCanvasNormal,hcPal(m).item)) : tex(outlineCanvas(coinCanvasNormal,1)); return _coinTexHC[mode]; }
 function shapeTexture(id){
   const cv=makeCanvas(16,16),c=cv.getContext('2d');
@@ -1021,7 +1044,9 @@ const TEX_SWIMIDLE=A('nadar-parado',2); // nado PARADO: só pernas batendo
 // E4: decoração de fundo (árvores) ATRÁS do jogador — sempre visível, NÃO some ao pular
 const decoLayer=new PIXI.Container(); camera.addChild(decoLayer);
 const treeCanvasNormal=treeCanvas(), treeTexNormal=tex(treeCanvasNormal); // árvore = grupo fundo (recolorida no alto contraste)
-const _treeTexHC={}; function treeTexFor(mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='hc')return treeTexNormal; if(!_treeTexHC[mode])_treeTexHC[mode]=tex(gradientMapCanvas(treeCanvasNormal,hcPal(m).bg)); return _treeTexHC[mode]; } // HC recolore a árvore p/ o fundo
+const _treeTexHC={}; function treeTexFor(mode){ const m=VIZ_BY_KEY[mode];
+  if(mode==='hc-direto'){ if(!_treeTexHC[mode])_treeTexHC[mode]=dimTexture(treeTexNormal,0.28,1.15); return _treeTexHC[mode]; } // direto: decoração escurece (recua)
+  if(!m||m.kind!=='hc')return treeTexNormal; if(!_treeTexHC[mode])_treeTexHC[mode]=tex(gradientMapCanvas(treeCanvasNormal,hcPal(m).bg)); return _treeTexHC[mode]; } // HC recolore a árvore p/ o fundo
 const decoSprites=[];
 (function placeTrees(){ let last=-99;
   for(let tx=2;tx<WORLD_W-2;tx++){
@@ -1054,7 +1079,7 @@ function powerupCanvas(kind){
 const PUP_CANVAS={}, PUP_TEX={};
 ['superjump','ultrajump','turbo','fly','wallcling','key','runcane'].forEach(k=>{ PUP_CANVAS[k]=powerupCanvas(k); PUP_TEX[k]=tex(PUP_CANVAS[k]); });
 const _pupTexHC={}; // {mode:{kind:tex}} — power-up: contorno (bordas) ou recolor (hc)
-function pupTexFor(kind,mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'))return PUP_TEX[kind]; (_pupTexHC[mode]=_pupTexHC[mode]||{});
+function pupTexFor(kind,mode){ const m=VIZ_BY_KEY[mode]; if(!m||(m.kind!=='bordas'&&m.kind!=='hc'&&m.key!=='hc-direto'))return PUP_TEX[kind]; (_pupTexHC[mode]=_pupTexHC[mode]||{});
   if(!_pupTexHC[mode][kind]) _pupTexHC[mode][kind] = m.kind==='hc' ? tex(gradientMapCanvas(PUP_CANVAS[kind],hcPal(m).item)) : tex(outlineCanvas(PUP_CANVAS[kind],1)); return _pupTexHC[mode][kind]; }
 const extraLayer=new PIXI.Container(); camera.addChild(extraLayer); // power-ups + portão (atrás do player)
 let powerups=[];
@@ -1864,7 +1889,9 @@ function renderMovPlayers(){ const tabs=$('#movement-players'); if(!tabs)return;
   tabs.querySelectorAll('button[data-mp]').forEach(b=>b.addEventListener('click',()=>{ selMovPlayer=+b.dataset.mp; renderMovPlayers(); reflectFacil(); reflectAltMove(); })); }
 
 /* Modos de visualização (C): Normal → Alto contraste (forma) → Alto contraste (4.5:1) */
-function parallaxTexFor(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='hc')return parallaxTexNormal[i]; (_parallaxTexHC[mode]=_parallaxTexHC[mode]||[]); if(!_parallaxTexHC[mode][i])_parallaxTexHC[mode][i]=gradientMapTexture(parallaxTexNormal[i],hcPal(m).bg); return _parallaxTexHC[mode][i]; } // HC recolore o fundo
+function parallaxTexFor(i,mode){ const m=VIZ_BY_KEY[mode];
+  if(mode==='hc-direto'){ (_parallaxTexHC[mode]=_parallaxTexHC[mode]||[]); if(!_parallaxTexHC[mode][i])_parallaxTexHC[mode][i]=dimTexture(parallaxTexNormal[i],0.2,1.2); return _parallaxTexHC[mode][i]; } // direto: fundo bem escuro (recua)
+  if(!m||m.kind!=='hc')return parallaxTexNormal[i]; (_parallaxTexHC[mode]=_parallaxTexHC[mode]||[]); if(!_parallaxTexHC[mode][i])_parallaxTexHC[mode][i]=gradientMapTexture(parallaxTexNormal[i],hcPal(m).bg); return _parallaxTexHC[mode][i]; } // HC recolore o fundo
 /* ===== Cor POR JOGADOR (E11): cada viewport do multiplayer renderiza no modo do seu jogador.
    - solo: filtro CSS na canvas + texturas globais + overlay DOM + bolinha (applyVizGlobal).
    - MP: filtro PIXI por viewport + troca das texturas compartilhadas antes de cada render (no draw). */
@@ -1951,7 +1978,10 @@ function lvOverlayCanvas(lv){ const W=LOGICAL_W,H=LOGICAL_H,cv=makeCanvas(W,H),c
   return cv; }
 const _lvOverlayTex={}; function lvOverlayTex(lv){ if(lv==='blur')return null; if(!_lvOverlayTex[lv])_lvOverlayTex[lv]=tex(lvOverlayCanvas(lv)); return _lvOverlayTex[lv]; }
 const lvOverlaySpr=new PIXI.Sprite(PIXI.Texture.EMPTY), vpDot=new PIXI.Graphics();
-function playerVizTex(base,mode){ if(!base)return base; const m=VIZ_BY_KEY[mode]; if(m&&m.kind==='hc'){ const mm=(_playerHC[mode]=_playerHC[mode]||new Map()); if(!mm.has(base))mm.set(base,gradientMapTexture(base,hcPal(m).player)); return mm.get(base); } return base; }
+let _playerDirect=new Map();
+function playerVizTex(base,mode){ if(!base)return base; const m=VIZ_BY_KEY[mode];
+  if(mode==='hc-direto'){ if(!_playerDirect.has(base))_playerDirect.set(base,outlineTexture(base,1)); return _playerDirect.get(base); } // direto: player fica com contorno escuro (salta do fundo)
+  if(m&&m.kind==='hc'){ const mm=(_playerHC[mode]=_playerHC[mode]||new Map()); if(!mm.has(base))mm.set(base,gradientMapTexture(base,hcPal(m).player)); return mm.get(base); } return base; }
 // estáticos (mundo/parallax/moedas/itens) só re-aplicam quando o modo muda (_lastSharedViz declarado no topo do render)
 function applySharedTextures(mode){
   if(mode!==_lastSharedViz){ _lastSharedViz=mode;
