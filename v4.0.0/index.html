@@ -138,6 +138,16 @@
   </main>
 
   <!-- Banner de vitória -->
+  <div id="padwiz" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="padwiz-title">
+      <h2 id="padwiz-title">Mapear controle</h2>
+      <p id="padwiz-prompt" aria-live="assertive">Aperte qualquer botão no controle que deseja mapear.</p>
+      <p id="padwiz-progress" class="opt-hint" aria-live="polite"></p>
+      <p class="opt-hint">O mapa fica salvo para este modelo de controle. Esc cancela.</p>
+      <div class="overlay__actions"><button id="padwiz-cancel" class="mode-btn" type="button">Cancelar</button></div>
+    </div>
+  </div>
+
   <div id="win-overlay" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="win-title">
       <h2 id="win-title">🎉 Você coletou as 10 moedas!</h2>

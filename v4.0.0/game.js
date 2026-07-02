@@ -531,6 +531,7 @@ addEventListener('keydown',(e)=>{
   if(empathyOpen && dlgVis('empathy')){ if(e.code==='Escape')closeEmpathy(); return; }
   if(audioOpen && dlgVis('audio')){ if(e.code==='Escape')closeAudio(); return; }
   if(dlgVis('touchcfg')){ if(e.code==='Escape'){ const t=$('#touchcfg'); if(t)t.hidden=true; } return; }
+  if(dlgVis('padwiz')){ if(e.code==='Escape')closePadWiz(false); return; } // wizard de gamepad: Esc cancela
   // Lote B: Alt+1/2/3/4 (fileira de números) ativa dinamicamente 1..4 telas (aviso c). Alt fica livre (solo não o usa).
   if(e.altKey && !e.ctrlKey && /^Digit[1234]$/.test(e.code) && (phase==='playing'||phase==='paused') && !player.quiz){
     e.preventDefault(); activateScreens(+e.code.slice(5)); return; }
@@ -1796,10 +1797,16 @@ function joinPlayer(padIdx){
   srSay('Jogador '+(i+1)+' entrou no jogo em andamento.'); return true; }
 // Mapa padrão (Gamepad API "standard"): 0=pulo/sim · 1=especial/não · 2=correr/interagir (X/esquerda) · 3=troca ·
 // D-pad 12-15 + analógico esq. · RB/RT também correm · 9=START (pausa). Controles fora do padrão → wizard de mapeamento.
-function padActions(gp){ const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed), ax=i=>gp.axes[i]||0;
+function padActions(gp){
+  const custom=padMapFor(gp.id); // wizard salvo p/ este modelo → usa o mapa do usuário
+  if(custom){ const A=k=>bindActive(gp,custom[k]);
+    return { left:A('left'), right:A('right'), up:A('up'), down:A('down'), jump:A('jump'), run:A('run'),
+      swap:A('swap'), especial:A('especial'), _start:A('jump')||A('start'), _pause:A('start') }; }
+  const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed), ax=i=>gp.axes[i]||0;
   return { left:ax(0)<-PAD_DEAD||b(14), right:ax(0)>PAD_DEAD||b(15), up:ax(1)<-PAD_DEAD||b(12), down:ax(1)>PAD_DEAD||b(13),
     jump:b(0), run:b(2)||b(5)||b(7), swap:b(3), especial:b(1), _start:b(0)||b(9), _pause:b(9) }; }
-function pollPads(){ const pads=navigator.getGamepads?navigator.getGamepads():[]; if(!pads)return;
+function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só com ele
+  const pads=navigator.getGamepads?navigator.getGamepads():[]; if(!pads)return;
   for(const gp of pads){ if(!gp)continue; const gi=gp.index; const cur=padActions(gp); const prev=padPrevAct[gi]||{};
     const startEdge = cur._start && !padPrevStart[gi]; padPrevStart[gi]=cur._start;
     const pauseEdge = cur._pause && !prev._pause;
@@ -1833,6 +1840,45 @@ function pollPads(){ const pads=navigator.getGamepads?navigator.getGamepads():[]
 addEventListener('gamepaddisconnected',(e)=>{ try{ const owner=players.findIndex(p=>p.pad===e.gamepad.index);
   if(owner>=0){ players[owner].pad=-1; srAlert('Controle do Jogador '+(owner+1)+' desconectado — o teclado continua funcionando. Aperte START para reassociar.'); }
   delete padCur[e.gamepad.index]; }catch(err){} });
+
+/* ===== L1: wizard de mapeamento de gamepad (DirectInput e controles fora do padrão) =====
+   Captura botões por índice; analógicos como limiar por eixo/sinal ({ax,s}); D-pad "POV hat" do
+   DirectInput como VALOR de eixo ({av,v}, casamento por proximidade ±0.13 — os 8 passos do hat
+   distam ~0.286). Mapa salvo por gamepad.id em localStorage → vale p/ aquele modelo de controle. */
+const _padMaps={}; // cache id → mapa custom (null = sem mapa, usa o padrão)
+function padMapFor(id){ if(_padMaps[id]===undefined){ try{ const s=localStorage.getItem('incl_padmap_'+id); _padMaps[id]=s?JSON.parse(s):null; }catch(e){ _padMaps[id]=null; } } return _padMaps[id]; }
+function bindActive(gp,bd){ if(!bd)return false;
+  if(bd.b!=null) return !!(gp.buttons[bd.b]&&gp.buttons[bd.b].pressed);
+  if(bd.ax!=null) return ((gp.axes[bd.ax]||0)*bd.s)>0.5;                 // analógico: limiar com sinal
+  if(bd.av!=null) return Math.abs((gp.axes[bd.av]||0)-bd.v)<=0.13;       // hat: valor exato do passo
+  return false; }
+let padWiz=null; // {gi,id,step,base,map,timer,release,baseWait}
+const PADWIZ_STEPS=[['up','CIMA'],['down','BAIXO'],['left','ESQUERDA'],['right','DIREITA'],['jump','PULAR'],['run','CORRER / INTERAGIR'],['swap','TROCAR PODER'],['especial','ESPECIAL'],['start','START (pausa)']];
+function padWizSay(t){ const el=$('#padwiz-prompt'); if(el)el.textContent=t; srSay(t); }
+function openPadWiz(){ const ov=$('#padwiz'); if(!ov)return; ov.hidden=false; frontOverlay(ov);
+  padWiz={gi:-1,id:'',step:-1,base:null,map:{},release:false,baseWait:false};
+  padWizSay('Aperte QUALQUER botão no controle que deseja mapear.');
+  const pr=$('#padwiz-progress'); if(pr)pr.textContent='';
+  padWiz.timer=setInterval(padWizTick,30); }
+function closePadWiz(save){ if(!padWiz)return; clearInterval(padWiz.timer);
+  if(save&&padWiz.id){ try{ localStorage.setItem('incl_padmap_'+padWiz.id, JSON.stringify(padWiz.map)); }catch(e){}
+    _padMaps[padWiz.id]=padWiz.map; srAlert('Mapeamento salvo para: '+padWiz.id+'.'); }
+  padWiz=null; const ov=$('#padwiz'); if(ov)ov.hidden=true; }
+function padWizPrompt(){ const s=PADWIZ_STEPS[padWiz.step]; padWizSay((padWiz.step+1)+' de '+PADWIZ_STEPS.length+' — aperte: '+s[1]);
+  const pr=$('#padwiz-progress'); if(pr)pr.textContent='Mapeados: '+(Object.keys(padWiz.map).join(' · ')||'—'); }
+function padWizBind(bd){ padWiz.map[PADWIZ_STEPS[padWiz.step][0]]=bd; padWiz.step++; padWiz.release=true;
+  if(padWiz.step>=PADWIZ_STEPS.length) closePadWiz(true); }
+function padWizTick(){ if(!padWiz)return; const pads=navigator.getGamepads?navigator.getGamepads():[];
+  if(padWiz.gi<0){ for(const gp of pads){ if(gp&&gp.buttons.some(b=>b&&b.pressed)){ padWiz.gi=gp.index; padWiz.id=gp.id; padWiz.baseWait=true; padWizSay('Controle: '+gp.id+'. Agora SOLTE tudo.'); break; } } return; }
+  const gp=pads[padWiz.gi]; if(!gp)return;
+  if(padWiz.baseWait){ if(!gp.buttons.some(b=>b&&b.pressed)){ padWiz.baseWait=false; padWiz.base={b:gp.buttons.map(x=>!!(x&&x.pressed)), a:gp.axes.slice()}; padWiz.step=0; padWizPrompt(); } return; }
+  if(padWiz.release){ const idle = !gp.buttons.some((b,i)=>b&&b.pressed&&!padWiz.base.b[i]) && gp.axes.every((v,i)=>Math.abs((v||0)-padWiz.base.a[i])<0.35);
+    if(idle){ padWiz.release=false; padWizPrompt(); } return; }
+  for(let i=0;i<gp.buttons.length;i++){ if(gp.buttons[i]&&gp.buttons[i].pressed&&!padWiz.base.b[i]){ padWizBind({b:i}); return; } }
+  for(let i=0;i<gp.axes.length;i++){ const v=gp.axes[i]||0; if(Math.abs(v-padWiz.base.a[i])>0.45){
+      padWizBind(Math.abs(v)>=0.9 ? {ax:i,s:v>0?1:-1} : {av:i,v:Math.round(v*10000)/10000}); return; } }
+}
+{ const c=$('#padwiz-cancel'); if(c)c.addEventListener('click',()=>closePadWiz(false)); }
 
 const optTelasBtn=$('#opt-telas'); // botão único: cicla 1→2→3→4 telas
 if(optTelasBtn)optTelasBtn.addEventListener('click',()=>{ setNumPlayers((numPlayers%4)+1); srSay(numPlayers+(numPlayers>1?' telas.':' tela.')); });
@@ -2273,7 +2319,7 @@ function renderMapHub(){ const el=$('#map-hub'); if(!el)return; const np=numPlay
     {lbl:'⌨ Mapear teclado para modo 2 jogadores', mode:2, act:openOptions},
     {lbl:'⌨ Mapear teclado para modo 3 jogadores', mode:3, act:openOptions},
     {lbl:'⌨ Mapear teclado para modo 4 jogadores', mode:4, act:openOptions},
-    {lbl:'🎮 Mapear gamepad', soon:true},
+    {lbl:'🎮 Mapear gamepad', act:openPadWiz}, // L1: wizard (DirectInput e afins) — mapa salvo por modelo de controle
     {lbl:'👁 Mapear olhos e boca', soon:true},
     {lbl:'🎯 Mapear setores de olhar', soon:true},
     {lbl:'🎤 Mapear palavras (fala)', soon:true},
@@ -2308,7 +2354,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw(); fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
