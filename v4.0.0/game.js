@@ -384,15 +384,22 @@ const BRAILLE={a:[1],b:[1,2],c:[1,4],d:[1,4,5],e:[1,5],f:[1,2,4],g:[1,2,4,5],h:[
 const NUMW={1:'um',2:'dois',3:'três',4:'quatro',5:'cinco',6:'seis'};
 const brailleText=(ch)=>{const d=BRAILLE[String(ch).toLowerCase()]; return d?d.map(n=>NUMW[n]).join(' '):'';};
 let blindMode=false; // modo pessoa cega: no Sílabas, dita os pontos Braille
+// Lote C: cada jogador tem SEU conjunto de n itens em posições ALEATÓRIAS próprias e com a COR do dono
+// (owner). Todos os itens de todos os jogadores existem no mundo; cada um coleta só os `owner===seu i`.
 function pickCoins(n){
-  const a=shuffle(findCoinCandidates());
-  const shapes = MODE==='somasub' ? shuffle(SOMASUB_SHAPES.map(s=>s.id)) : [];
-  const letters = MODE==='silabas' ? shuffle(WORD_INITIALS) : []; // letra = inicial da palavra
-  return a.slice(0,Math.min(n,a.length)).map((p,i)=>({
-    x:p.tx*TILE+3, y:p.ty*TILE+3, taken:false, by:[], // by[i]=1 → coletada por aquele jogador (itens são individuais; ver coinTaken/takeCoin)
-    shape: shapes.length ? shapes[i%shapes.length] : '',
-    letter: letters.length ? letters[i%letters.length] : '',
-  }));
+  const shapes = MODE==='somasub' ? SOMASUB_SHAPES.map(s=>s.id) : [];
+  const letters = MODE==='silabas' ? WORD_INITIALS : []; // letra = inicial da palavra
+  const out=[], np=Math.max(1,numPlayers);
+  for(let owner=0; owner<np; owner++){
+    const a=shuffle(findCoinCandidates());                 // sorteio de posições independente por jogador
+    const sh = shapes.length ? shuffle(shapes.slice()) : [], lt = letters.length ? shuffle(letters.slice()) : [];
+    a.slice(0,Math.min(n,a.length)).forEach((p,i)=>out.push({
+      x:p.tx*TILE+3, y:p.ty*TILE+3, owner, taken:false,
+      shape: sh.length ? sh[i%sh.length] : '',
+      letter: lt.length ? lt[i%lt.length] : '',
+    }));
+  }
+  return out;
 }
 
 /* ===================== estado ===================== */
@@ -470,8 +477,7 @@ let numPlayers=1;
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 // Itens INDIVIDUAIS por jogador (multiplayer em telas separadas): cada moeda/letra/forma é coletada
 // independentemente por cada jogador. Só a CHAVE é compartilhada (ver powerups). taken = espelho do P1 (solo).
-function coinTaken(cn,pi){ return cn.by ? !!cn.by[pi] : !!cn.taken; }
-function takeCoin(cn,pi){ if(!cn.by)cn.by=[]; cn.by[pi]=1; if(pi===0)cn.taken=true; }
+function takeCoin(cn){ cn.taken=true; } // item tem 1 dono; coletar = some do mundo (todas as telas)
 // Power-ups: individuais por jogador, MENOS a CHAVE (compartilhada — vale para o time todo).
 function puTaken(pu,pi){ if(pu.kind==='key') return !!pu.taken; return pu.by ? !!pu.by[pi] : !!pu.taken; }
 function takePu(pu,pi){ if(pu.kind==='key'){ pu.taken=true; return; } if(!pu.by)pu.by=[]; pu.by[pi]=1; if(pi===0)pu.taken=true; }
@@ -713,7 +719,7 @@ function tonePan(freq,dur,cat,pan,vol,type,pc){ if(!soundOn||volume<=0)return; c
   o.connect(g); node.connect(pc?pc.out:(catNode(cat)||audioOut()||ac.destination)); o.start(t); o.stop(t+dur+0.02); }catch(e){} } // pc = dispositivo do jogador
 function needsAudioCues(pl){ if(modoCego)return true; const m=VIZ_BY_KEY[pl.viz]; return !!(m&&(m.kind==='blind'||m.kind==='lowvision')); } // guarda/guia só quando a visão está comprometida ou no modo cego
 let _sonarCount=0;
-function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){ if(coinTaken(cn,pl.i))continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
+function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){ if(cn.taken||cn.owner!==pl.i)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
   const pc=playerCtx(pl); if(!best){ tonePan(300,0.2,'sonar',0,0.2,'sine',pc); srSay('Nenhuma moeda por perto.'); return; }
   const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(12*TILE)); tonePan(380+740*near,0.16,'sonar',pan,0.26,'sine',pc); // mais perto = mais agudo (dispositivo do jogador)
   const lado=best.x<pl.x-4?'à esquerda':best.x>pl.x+4?'à direita':'à frente', dist=bd<4*TILE?'bem perto':bd<9*TILE?'perto':'longe';
@@ -746,7 +752,7 @@ function drawWeather(){ if(!weatherLayer)return; const g=weatherLayer; if(weathe
   if(_flash>0){ g.beginFill(0xe4ecff, _flash*0.55); g.drawRect(0,0,W,H); g.endFill(); } }                            // clarão do relâmpago
 function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
   for(const pl of players){ if(!needsAudioCues(pl))continue; pl.guideT=(pl.guideT||0)+1; if(pl.guideT<48)continue; pl.guideT=0; // pinga ~0,8s
-    let best=null,bd=1e9; for(const cn of coins){ if(coinTaken(cn,pl.i))continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
+    let best=null,bd=1e9; for(const cn of coins){ if(cn.taken||cn.owner!==pl.i)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
     if(best){ const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(14*TILE)); tonePan(300+380*near,0.12,'guide',pan,0.11,'triangle',playerCtx(pl)); _guideCount++; } } }
 // ===== F5 (plumbing): camada de narração TTS. Motor NEURAL (Piper pt-BR) é carregado LAZY (ver docs/plano-tts-fase-f5.md).
 // Decisões: pt-BR=Piper (só ele tem pt-BR); lazy-fetch de CDN + cache; voz Faber agora, seleção de voz depois.
@@ -944,6 +950,7 @@ function rebuildCoins(){
     if(MODE==='somasub'&&cn.shape){ s=new PIXI.Sprite(SHAPE_TEX[cn.shape]); s.width=15;s.height=15; s.x=cn.x-3;s.y=cn.y-3; }
     else if(MODE==='silabas'&&cn.letter){ s=new PIXI.Sprite(letterTexture(cn.letter)); s.width=14;s.height=14; s.x=cn.x-2;s.y=cn.y-2; }
     else { s=new PIXI.Sprite(coinTexFor(vizMode)); s.x=cn.x;s.y=cn.y; }
+    s.tint=PCOLOR[cn.owner]||0xffffff; // Lote C: cor do dono (solo=branco → sem alteração)
     s.visible=!cn.taken; coinContainer.addChild(s); return s;
   });
   _lastSharedViz=null; // moedas recriadas → força re-aplicar texturas por viewport no próximo draw
@@ -1492,12 +1499,12 @@ function stepPlayer(pl,dt){
   // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico). Fácil: hitbox de coleta +4px por lado.
   const pad=pl.easy?EASY.pad:0;
   const box={x:pl.x-BOX.w/2-pad,y:pl.y-BOX.h-pad,w:BOX.w+2*pad,h:BOX.h+2*pad};
-  coins.forEach((cn,i)=>{ if(coinTaken(cn,pl.i))return;
+  coins.forEach((cn,i)=>{ if(cn.taken||cn.owner!==pl.i)return; // Lote C: só coleta os itens da SUA cor
     const big=(MODE!=='ludico'); const sz=big?15:9, ox=big?3:0;
     if(box.x<cn.x+sz-ox&&box.x+box.w>cn.x-ox&&box.y<cn.y+sz-ox&&box.y+box.h>cn.y-ox){
       if(MODE==='somasub'&&cn.shape){ if(pl===player&&!player.quiz) openQuiz(i,cn.shape); }
       else if(MODE==='silabas'&&cn.letter){ if(pl===player&&!player.quiz) openSilabas(i,cn.letter); }
-      else { takeCoin(cn,pl.i); if(numPlayers<=1)coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin'); // MP: visibilidade é por viewport (no draw)
+      else { takeCoin(cn); coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin'); // some p/ todas as telas (item tem 1 dono)
         updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); narrate(msg); }
         if(pl.collected>=COIN_TARGET)win(pl); }
     }});
@@ -1613,7 +1620,7 @@ function draw(){
     if(allSame) applySharedTextures(v0);
     for(let i=0;i<numPlayers;i++){ const viz=players[i].viz;
       if(!allSame) applySharedTextures(viz);                      // só troca por viewport quando os modos diferem
-      for(let j=0;j<coinSprites.length;j++){ const s=coinSprites[j]; if(s)s.visible=!coinTaken(coins[j],i); } // itens individuais: cada tela mostra só o que AQUELE jogador ainda não pegou
+      for(let j=0;j<coinSprites.length;j++){ const s=coinSprites[j]; if(!s)continue; const cn=coins[j]; s.visible=!cn.taken; s.alpha=(cn.owner===i)?1:0.4; } // Lote C: item alheio esmaecido (cor do dono) p/ ajudar a achar; o seu, cheio
       for(const pu of powerups){ if(pu.sprite)pu.sprite.visible=!puTaken(pu,i); }                            // chave some p/ todos; demais são por jogador
       placeCam(players[i]); app.renderer.render(camera,{renderTexture:vpTex[i]});
       if(anyOverlay) renderVpOverlay(i,viz);                      // passada extra só se algum jogador está em baixa visão
@@ -1692,14 +1699,14 @@ function quizMove(d){ const q=player.quiz; if(!q)return;
 function quizConfirm(){
   const q=player.quiz; if(!q)return;
   if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(); return; }
-  if(q.kind==='braille'){ takeCoin(coins[q.coinIndex],player.i); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
+  if(q.kind==='braille'){ takeCoin(coins[q.coinIndex]); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
     sfx('coin'); srSay('Coletado!'); closeQuiz(); if(collected>=COIN_TARGET)win(); return; }
   if(q.kind==='silabas'){
     const N=q.options.length;
     if(q.sel<N){ placeSilaba(q.options[q.sel]); return; }
     if(q.sel===N){ eraseLastSilaba(); return; }
     if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){
-      takeCoin(coins[q.coinIndex],player.i); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
+      takeCoin(coins[q.coinIndex]); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
       sfx('correct'); srSay('Acertou!'); closeQuiz(); if(collected>=COIN_TARGET)win();
     } else { q.tries++;
       if(q.tries>=2){ q.revealed=true; q.boxes=q.correct.slice(); srAlert(`A palavra é ${disp(q.word)}. Pule para seguir.`); }
@@ -1709,7 +1716,7 @@ function quizConfirm(){
     return;
   }
   if(q.choices[q.sel]===q.answer){
-    takeCoin(coins[q.coinIndex],player.i); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
+    takeCoin(coins[q.coinIndex]); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
     sfx('correct'); srSay('Acertou!'); closeQuiz();
     if(collected>=COIN_TARGET)win();
   } else { q.tries++;
@@ -1721,7 +1728,7 @@ function closeQuiz(){ player.quiz=null; const ov=$('#quiz'); if(ov)ov.hidden=tru
 function respawnFigure(i){
   const occ=new Set(); coins.forEach((c,j)=>{ if(j!==i)occ.add(c.x+','+c.y); });
   for(const cand of shuffle(findCoinCandidates())){ const x=cand.tx*TILE+3,y=cand.ty*TILE+3;
-    if(!occ.has(x+','+y)){ coins[i].x=x;coins[i].y=y;coins[i].taken=false;coins[i].by=[];
+    if(!occ.has(x+','+y)){ coins[i].x=x;coins[i].y=y;coins[i].taken=false; // dono (owner) preservado
       const s=coinSprites[i]; s.x=(MODE==='somasub')?x-3:x; s.y=(MODE==='somasub')?y-3:y; s.visible=true; return; } }
 }
 
