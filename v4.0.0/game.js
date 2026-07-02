@@ -1798,8 +1798,8 @@ function joinPlayer(padIdx){
 // Mapa padrão (Gamepad API "standard"): 0=pulo/sim · 1=especial/não · 2=correr/interagir (X/esquerda) · 3=troca ·
 // D-pad 12-15 + analógico esq. · RB/RT também correm · 9=START (pausa). Controles fora do padrão → wizard de mapeamento.
 function padActions(gp){
-  const custom=padMapFor(gp.id); // wizard salvo p/ este modelo → usa o mapa do usuário
-  if(custom){ const A=k=>bindActive(gp,custom[k]);
+  const custom=padMapFor(gp.id); // wizard salvo p/ este modelo → usa o mapa do usuário (_skip = cancelou: padrão)
+  if(custom && !custom._skip){ const A=k=>bindActive(gp,custom[k]);
     return { left:A('left'), right:A('right'), up:A('up'), down:A('down'), jump:A('jump'), run:A('run'),
       swap:A('swap'), especial:A('especial'), _start:A('jump')||A('start'), _pause:A('start') }; }
   const b=i=>!!(gp.buttons[i]&&gp.buttons[i].pressed), ax=i=>gp.axes[i]||0;
@@ -1807,7 +1807,14 @@ function padActions(gp){
     jump:b(0), run:b(2)||b(5)||b(7), swap:b(3), especial:b(1), _start:b(0)||b(9), _pause:b(9) }; }
 function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só com ele
   const pads=navigator.getGamepads?navigator.getGamepads():[]; if(!pads)return;
-  for(const gp of pads){ if(!gp)continue; const gi=gp.index; const cur=padActions(gp); const prev=padPrevAct[gi]||{};
+  for(const gp of pads){ if(!gp)continue; const gi=gp.index;
+    // L1: controle fora do padrão (DirectInput) SEM mapa salvo apertou algo → pausa geral + wizard direto
+    if(gp.mapping!=='standard' && !padMapFor(gp.id) && gp.buttons.some(b=>b&&b.pressed)){
+      padWizAutoResume=(phase==='playing'); if(phase==='playing')setPhase('paused');
+      openPadWizFor(gp); return; }
+    const cur=padActions(gp); const prev=padPrevAct[gi]||{};
+    // botão físico usado → some o gamepad virtual (mesma regra do teclado)
+    if(document.body.classList.contains('touch-mode') && (cur.left||cur.right||cur.up||cur.down||cur.jump||cur.run||cur.swap||cur.especial||cur._start)) hideTouchControls();
     const startEdge = cur._start && !padPrevStart[gi]; padPrevStart[gi]=cur._start;
     const pauseEdge = cur._pause && !prev._pause;
     const edge=k=>cur[k]&&!prev[k];
@@ -1853,6 +1860,7 @@ function bindActive(gp,bd){ if(!bd)return false;
   if(bd.av!=null) return Math.abs((gp.axes[bd.av]||0)-bd.v)<=0.13;       // hat: valor exato do passo
   return false; }
 let padWiz=null; // {gi,id,step,base,map,timer,release,baseWait}
+let padWizAutoResume=false; // wizard aberto automaticamente no meio do jogo → retoma ao fechar
 const PADWIZ_STEPS=[['up','CIMA'],['down','BAIXO'],['left','ESQUERDA'],['right','DIREITA'],['jump','PULAR'],['run','CORRER / INTERAGIR'],['swap','TROCAR PODER'],['especial','ESPECIAL'],['start','START (pausa)']];
 function padWizSay(t){ const el=$('#padwiz-prompt'); if(el)el.textContent=t; srSay(t); }
 function openPadWiz(){ const ov=$('#padwiz'); if(!ov)return; ov.hidden=false; frontOverlay(ov);
@@ -1860,10 +1868,18 @@ function openPadWiz(){ const ov=$('#padwiz'); if(!ov)return; ov.hidden=false; fr
   padWizSay('Aperte QUALQUER botão no controle que deseja mapear.');
   const pr=$('#padwiz-progress'); if(pr)pr.textContent='';
   padWiz.timer=setInterval(padWizTick,30); }
+// Wizard aberto AUTOMATICAMENTE (controle DirectInput sem mapa apertou algo): já sabemos qual controle é.
+function openPadWizFor(gp){ const ov=$('#padwiz'); if(!ov)return; ov.hidden=false; frontOverlay(ov);
+  padWiz={gi:gp.index,id:gp.id,step:-1,base:null,map:{},release:false,baseWait:true};
+  padWizSay('Controle novo detectado: '+gp.id+'. O jogo pausou para você configurá-lo. SOLTE tudo para começar.');
+  const pr=$('#padwiz-progress'); if(pr)pr.textContent='';
+  padWiz.timer=setInterval(padWizTick,30); }
 function closePadWiz(save){ if(!padWiz)return; clearInterval(padWiz.timer);
   if(save&&padWiz.id){ try{ localStorage.setItem('incl_padmap_'+padWiz.id, JSON.stringify(padWiz.map)); }catch(e){}
     _padMaps[padWiz.id]=padWiz.map; srAlert('Mapeamento salvo para: '+padWiz.id+'.'); }
-  padWiz=null; const ov=$('#padwiz'); if(ov)ov.hidden=true; }
+  else if(padWiz.id && !_padMaps[padWiz.id]) _padMaps[padWiz.id]={_skip:true}; // cancelou: usa o mapa PADRÃO nesta sessão (não salva; evita reabrir o wizard em loop)
+  padWiz=null; const ov=$('#padwiz'); if(ov)ov.hidden=true;
+  if(padWizAutoResume){ padWizAutoResume=false; if(phase==='paused')setPhase('playing'); } }
 function padWizPrompt(){ const s=PADWIZ_STEPS[padWiz.step]; padWizSay((padWiz.step+1)+' de '+PADWIZ_STEPS.length+' — aperte: '+s[1]);
   const pr=$('#padwiz-progress'); if(pr)pr.textContent='Mapeados: '+(Object.keys(padWiz.map).join(' · ')||'—'); }
 function padWizBind(bd){ padWiz.map[PADWIZ_STEPS[padWiz.step][0]]=bd; padWiz.step++; padWiz.release=true;
@@ -2458,7 +2474,9 @@ function navPause(menu,pi,k){ const icons=[...menu.querySelectorAll('.pi-btn')],
   else if(k.down)idx=Math.min(items.length-1,idx+cols);
   else if(k.left)idx=Math.max(0,idx-1); else if(k.right)idx=Math.min(items.length-1,idx+1);
   pauseSetSel(menu, items[idx]); }
-function menuNavKey(e){ if(phase!=='paused'||captureAction)return; const C=e.code;
+function menuNavKey(e){ if(phase!=='paused'||captureAction)return;
+  const pw=$('#padwiz'); if(pw&&!pw.hidden){ if(e.code==='Escape'){ closePadWiz(false); e.preventDefault(); e.stopPropagation(); } return; } // wizard por cima: só Esc (cancela)
+  const C=e.code;
   const owner=whichPlayer(C); const pi=owner<0?0:owner; const act=owner>=0?actionOf(C,pi):null;
   const yes=C==='Space'||C==='KeyJ'||C==='Enter'||C==='NumpadEnter'||act==='jump';
   const no=C==='Escape'||act==='especial';
