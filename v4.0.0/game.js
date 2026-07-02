@@ -326,8 +326,13 @@ function _roleOf(t){ if(t===9)return 'hazard'; if(t===4||t===5||t===10)return 'c
 function worldToTextureDirect(srcCanvas, mode){ const cfg=_dcfg(mode);
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
   _dimDesat(c,cv.width,cv.height,cfg.mul,1.22,cfg.off); // base: estrutura vira cinza-azulado (mais clara = mais contraste)
-  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const role=_roleOf(WORLD[y][x]); if(!role)continue; // repinta tiles não-estruturais pela cor do papel
-    const rc=HC_ROLE[role], X=x*TILE,Y=y*TILE, img=c.getImageData(X,Y,TILE,TILE), d=img.data, lo=role==='hazard'?0.58:0.44;
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x], role=_roleOf(t); if(!role)continue; const X=x*TILE,Y=y*TILE; // repinta tiles não-estruturais pela cor do papel
+    if(t===4){ // ESCADA: preto + trilhos e degraus ciano → lê como escada (não faixa verde sólida)
+      c.fillStyle='#0a0e14'; c.fillRect(X,Y,TILE,TILE);
+      c.fillStyle='rgb(55,225,205)'; c.fillRect(X+1,Y,2,TILE); c.fillRect(X+TILE-3,Y,2,TILE);   // trilhos laterais
+      for(let ry=2;ry<TILE-1;ry+=5) c.fillRect(X+1,Y+ry,TILE-2,2);                               // degraus
+      continue; }
+    const rc=HC_ROLE[role], img=c.getImageData(X,Y,TILE,TILE), d=img.data, lo=role==='hazard'?0.58:0.44;
     for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const g=(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])/255, f=lo+(1-lo)*g;
       d[i]=Math.min(255,rc[0]*f)|0; d[i+1]=Math.min(255,rc[1]*f)|0; d[i+2]=Math.min(255,rc[2]*f)|0; }
     c.putImageData(img,X,Y); }
