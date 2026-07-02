@@ -348,9 +348,11 @@
       <p class="opt-hint">Escolha a configuração de cores por jogador. O efeito é imediato.</p>
       <div id="visual-players" class="ctrl-players" role="group" aria-label="Escolha o jogador" hidden></div>
       <div id="visual-list" class="ctrl-list" role="radiogroup" aria-labelledby="visual-title"></div>
-      <div class="ctrl-list" role="group" aria-label="Contorno do alto contraste">
-        <div class="ctrl-row"><span><strong>▢ Contorno (alto contraste)</strong> — espessura do contorno de personagem e itens nos modos de alto contraste.</span>
-          <button id="opt-hc-outline" class="mode-btn" type="button">Automático</button></div>
+      <div class="ctrl-list" role="group" aria-label="Contornos do alto contraste">
+        <div class="ctrl-row"><span><strong>Contorno de 1º plano</strong> — em volta do personagem e dos itens (foco visível, WCAG 2.4.7).</span>
+          <select id="opt-outline-fg" aria-label="Contorno de primeiro plano"><option value="0">Nenhum</option><option value="1">Fino</option><option value="2">Grosso</option></select></div>
+        <div class="ctrl-row"><span><strong>Contorno de 2º plano</strong> — só no perímetro externo de plataforma, água e lava (limite do navegável, WCAG 1.4.11).</span>
+          <select id="opt-outline-bg" aria-label="Contorno de segundo plano"><option value="0">Nenhum</option><option value="1">Fino</option><option value="2">Grosso</option></select></div>
       </div>
       <div class="ctrl-list" role="group" aria-label="Legendas">
         <div class="ctrl-row"><span><strong>💬 Legendas</strong> — texto na tela para falas e efeitos sonoros.</span>

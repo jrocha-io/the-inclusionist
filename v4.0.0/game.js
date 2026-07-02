@@ -315,10 +315,14 @@ function _dimDesat(c,w,h,mul,blue,off){ off=off||0; const img=c.getImageData(0,0
     d[i]=Math.min(255,g)|0; d[i+1]=Math.min(255,g*1.02)|0; d[i+2]=Math.min(255,g*blue)|0; } c.putImageData(img,0,0); }
 // 3 níveis de contraste. off/mul = mapa da plataforma (mais off = mais clara → mais contraste); bgMul = fundo
 // (menor = mais escuro/recuado); outline = espessura do contorno do 1º plano. Contraste plataforma×fundo ≈ 3 / 4,5 / 7.
-const DIRECT_CFG={ 'hc-direto':{off:55,mul:0.5,bgMul:0.30,outline:1}, 'hc-direto-45':{off:66,mul:0.5,bgMul:0.28,outline:1}, 'hc-direto-7':{off:100,mul:0.48,bgMul:0.13,outline:2} };
+const DIRECT_CFG={ 'hc-direto':{off:55,mul:0.5,bgMul:0.30}, 'hc-direto-45':{off:66,mul:0.5,bgMul:0.28}, 'hc-direto-7':{off:100,mul:0.48,bgMul:0.13} };
 function _dcfg(mode){ return DIRECT_CFG[mode]||DIRECT_CFG['hc-direto']; }
-let hcOutline=0; try{ hcOutline=+localStorage.getItem('incl_hcoutline')||0; }catch(e){} // 0=auto(por nível) · 1=fino · 2=grosso
-function _outlineThick(mode){ return hcOutline>0?hcOutline:_dcfg(mode).outline; }
+// Dois contornos configuráveis (0=nenhum · 1=fino/1px · 2=grosso/2px):
+//  fg = 1º plano (personagem/itens) — WCAG 2.4.7 foco visível; bg = 2º plano (perímetro externo de
+//  plataforma/água/lava — delimita navegável × não-navegável) — WCAG 1.4.11 contraste ≥3:1.
+let hcOutlineFg=1, hcOutlineBg=1;
+try{ const v=localStorage.getItem('incl_outfg'); if(v!=null)hcOutlineFg=Math.max(0,Math.min(2,+v||0)); }catch(e){}
+try{ const v=localStorage.getItem('incl_outbg'); if(v!=null)hcOutlineBg=Math.max(0,Math.min(2,+v||0)); }catch(e){}
 // Color-blocking por PAPEL: perigo=laranja-quente, escalável/interativo(escada/trampolim/portão)=ciano, água=azul;
 // estrutura(pedra/parede) fica no cinza-azulado do nível. Cores distintas de matiz p/ separar a função do tile.
 const HC_ROLE={ hazard:[255,110,45], climb:[55,225,205], water:[70,140,255] };
@@ -336,11 +340,11 @@ function worldToTextureDirect(srcCanvas, mode){ const cfg=_dcfg(mode);
     for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const g=(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])/255, f=lo+(1-lo)*g;
       d[i]=Math.min(255,rc[0]*f)|0; d[i+1]=Math.min(255,rc[1]*f)|0; d[i+2]=Math.min(255,rc[2]*f)|0; }
     c.putImageData(img,X,Y); }
-  const air=(x,y)=>{ const t=tileAt(x,y); return t===0||t===1; };
-  c.fillStyle='rgba(200,222,255,0.95)'; // contorno CLARO na borda voltada ao ar → estrutura salta
-  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue; const X=x*TILE,Y=y*TILE;
-    if(air(x,y-1))c.fillRect(X,Y,TILE,1); if(air(x,y+1))c.fillRect(X,Y+TILE-1,TILE,1);
-    if(air(x-1,y))c.fillRect(X,Y,1,TILE); if(air(x+1,y))c.fillRect(X+TILE-1,Y,1,TILE); }
+  const th=hcOutlineBg; // contorno de 2º plano: SÓ o perímetro externo (bordas voltadas ao ar) — não em cada bloco
+  if(th>0){ const air=(x,y)=>{ const t=tileAt(x,y); return t===0||t===1; }; c.fillStyle='rgba(200,222,255,0.97)';
+    for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x]; if(t===0||t===1)continue; const X=x*TILE,Y=y*TILE;
+      if(air(x,y-1))c.fillRect(X,Y,TILE,th); if(air(x,y+1))c.fillRect(X,Y+TILE-th,TILE,th);
+      if(air(x-1,y))c.fillRect(X,Y,th,TILE); if(air(x+1,y))c.fillRect(X+TILE-th,Y,th,TILE); } }
   return tex(cv);
 }
 function directBgTexture(srcTex,mode){ const cfg=_dcfg(mode); const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
@@ -348,8 +352,8 @@ function directBgTexture(srcTex,mode){ const cfg=_dcfg(mode); const cv=makeCanva
     cv.width=s.width;cv.height=s.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(s,0,0); _dimDesat(c,cv.width,cv.height,cfg.bgMul,1.2); dst.update(); };
   if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
 // sprite de primeiro plano (player/moeda/power-up): mantém a cor da arte + contorno escuro (salta)
-function directSpriteCanvas(srcCanvas,mode){ return outlineCanvas(srcCanvas,_outlineThick(mode)); }
-function directSpriteTexture(srcTex,mode){ const th=_outlineThick(mode); const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
+function directSpriteCanvas(srcCanvas,mode){ return hcOutlineFg>0 ? outlineCanvas(srcCanvas,hcOutlineFg) : srcCanvas; } // fg=0 → sem contorno
+function directSpriteTexture(srcTex,mode){ if(hcOutlineFg<=0) return srcTex; const th=hcOutlineFg; const cv=makeCanvas(Math.max(1,srcTex.orig.width),Math.max(1,srcTex.orig.height)); const dst=tex(cv);
   const paint=()=>{ const s=srcTex.baseTexture.resource&&srcTex.baseTexture.resource.source; if(!s||!s.width)return;
     const o=outlineCanvas(s,th); cv.width=o.width;cv.height=o.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(o,0,0); dst.update(); };
   if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
@@ -2012,13 +2016,14 @@ function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)retu
   el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ setPlayerViz(selVizPlayer,btn.dataset.viz); srSay((numPlayers>1?'Jogador '+(selVizPlayer+1)+': ':'')+VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+'.'); }));
 }
 function renderVisual(){ renderVizGroup('#visual-list','#visual-players',VIZ_HELP); }
-// Contorno configurável dos modos de alto contraste (0=automático por nível · 1=fino · 2=grosso)
-function reflectHcOutline(){ const b=$('#opt-hc-outline'); if(b){ b.textContent=['▢ Automático','▢ Fino','▣ Grosso'][hcOutline]; b.classList.toggle('is-on',hcOutline>0); b.setAttribute('aria-pressed',String(hcOutline>0)); } }
-function setHcOutline(v){ hcOutline=((v%3)+3)%3; try{localStorage.setItem('incl_hcoutline',hcOutline);}catch(e){}
-  for(const k in _coinTexHC)delete _coinTexHC[k]; for(const k in _pupTexHC)delete _pupTexHC[k]; _playerDirect={}; _lastSharedViz=null; // invalida os sprites diretos → recontorna (limpa in-place; _pupTexHC é const)
-  if(numPlayers<=1)applyVizGlobal(players[0].viz); else applyVpFilters();                       // reaplica (MP recontorna no próximo draw via applySharedTextures)
-  reflectHcOutline(); srSay('Contorno do alto contraste: '+['automático','fino','grosso'][hcOutline]+'.'); }
-{ const b=$('#opt-hc-outline'); if(b)b.addEventListener('click',()=>setHcOutline(hcOutline+1)); reflectHcOutline(); }
+// Dois contornos configuráveis (1º plano personagem/itens · 2º plano perímetro de plataforma/água/lava).
+function _rebakeDirect(){ // invalida os caches de textura direta (mundo depende de bg; sprites de fg) e re-renderiza
+  for(const k in _worldTexHC)delete _worldTexHC[k]; for(const k in _coinTexHC)delete _coinTexHC[k]; for(const k in _pupTexHC)delete _pupTexHC[k]; _playerDirect={}; _lastSharedViz=null;
+  if(numPlayers<=1)applyVizGlobal(players[0].viz); else applyVpFilters(); }
+function reflectOutlines(){ const f=$('#opt-outline-fg'), b=$('#opt-outline-bg'); if(f)f.value=String(hcOutlineFg); if(b)b.value=String(hcOutlineBg); }
+function setOutlineFg(v){ hcOutlineFg=Math.max(0,Math.min(2,v|0)); try{localStorage.setItem('incl_outfg',hcOutlineFg);}catch(e){} _rebakeDirect(); reflectOutlines(); srSay('Contorno do primeiro plano: '+['nenhum','fino','grosso'][hcOutlineFg]+'.'); }
+function setOutlineBg(v){ hcOutlineBg=Math.max(0,Math.min(2,v|0)); try{localStorage.setItem('incl_outbg',hcOutlineBg);}catch(e){} _rebakeDirect(); reflectOutlines(); srSay('Contorno do segundo plano: '+['nenhum','fino','grosso'][hcOutlineBg]+'.'); }
+{ const f=$('#opt-outline-fg'); if(f)f.addEventListener('change',()=>setOutlineFg(+f.value)); const b=$('#opt-outline-bg'); if(b)b.addEventListener('change',()=>setOutlineBg(+b.value)); reflectOutlines(); }
 function renderEmpathy(){ renderVizGroup('#empathy-list','#empathy-players',VIZ_SIM); const h=$('#opt-hearing'); if(h){ toggleBtn(h,hearingLoss); h.textContent=hearingLoss?'❚❚ Ligado':'▶ Desligado'; } if(typeof reflectMotorEmpathy==='function')reflectMotorEmpathy(); }
 function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&(m.kind==='bordas'||m.kind==='hc'||m.kind==='hcnew');});
   const sim=players.some(p=>isSimKind((VIZ_BY_KEY[p.viz]||{}).kind));
