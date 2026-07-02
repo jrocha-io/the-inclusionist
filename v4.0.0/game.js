@@ -1865,13 +1865,13 @@ const PADWIZ_STEPS=[['up','CIMA'],['down','BAIXO'],['left','ESQUERDA'],['right',
 function padWizSay(t){ const el=$('#padwiz-prompt'); if(el)el.textContent=t; srSay(t); }
 function openPadWiz(){ const ov=$('#padwiz'); if(!ov)return; ov.hidden=false; frontOverlay(ov);
   padWiz={gi:-1,id:'',step:-1,base:null,map:{},release:false,baseWait:false};
-  padWizSay('Aperte QUALQUER botão no controle que deseja mapear.');
+  padWizSay('Aperte QUALQUER botão no controle que deseja mapear.'); padWizDemo(null);
   const pr=$('#padwiz-progress'); if(pr)pr.textContent='';
   padWiz.timer=setInterval(padWizTick,30); }
 // Wizard aberto AUTOMATICAMENTE (controle DirectInput sem mapa apertou algo): já sabemos qual controle é.
 function openPadWizFor(gp){ const ov=$('#padwiz'); if(!ov)return; ov.hidden=false; frontOverlay(ov);
   padWiz={gi:gp.index,id:gp.id,step:-1,base:null,map:{},release:false,baseWait:true};
-  padWizSay('Controle novo detectado: '+gp.id+'. O jogo pausou para você configurá-lo. SOLTE tudo para começar.');
+  padWizSay('Controle novo detectado: '+gp.id+'. O jogo pausou para você configurá-lo. SOLTE tudo para começar.'); padWizDemo(null);
   const pr=$('#padwiz-progress'); if(pr)pr.textContent='';
   padWiz.timer=setInterval(padWizTick,30); }
 function closePadWiz(save){ if(!padWiz)return; clearInterval(padWiz.timer);
@@ -1880,7 +1880,10 @@ function closePadWiz(save){ if(!padWiz)return; clearInterval(padWiz.timer);
   else if(padWiz.id && !_padMaps[padWiz.id]) _padMaps[padWiz.id]={_skip:true}; // cancelou: usa o mapa PADRÃO nesta sessão (não salva; evita reabrir o wizard em loop)
   padWiz=null; const ov=$('#padwiz'); if(ov)ov.hidden=true;
   if(padWizAutoResume){ padWizAutoResume=false; if(phase==='paused')setPhase('playing'); } }
+const PADWIZ_FX={up:'⬆',down:'⬇',left:'⬅',right:'➡',jump:'⤒',run:'💨',swap:'🔄',especial:'✨',start:'⏸'};
+function padWizDemo(k){ const d=$('#padwiz-demo'); if(!d)return; d.className=k?('pw-'+k):''; const fx=$('#padwiz-demo-fx'); if(fx)fx.textContent=k?(PADWIZ_FX[k]||''):''; }
 function padWizPrompt(){ const s=PADWIZ_STEPS[padWiz.step]; padWizSay((padWiz.step+1)+' de '+PADWIZ_STEPS.length+' — aperte: '+s[1]);
+  padWizDemo(s[0]); // demonstração animada do que a ação FAZ
   const pr=$('#padwiz-progress'); if(pr)pr.textContent='Mapeados: '+(Object.keys(padWiz.map).join(' · ')||'—'); }
 function padWizBind(bd){ padWiz.map[PADWIZ_STEPS[padWiz.step][0]]=bd; padWiz.step++; padWiz.release=true;
   if(padWiz.step>=PADWIZ_STEPS.length) closePadWiz(true); }
@@ -1890,9 +1893,15 @@ function padWizTick(){ if(!padWiz)return; const pads=navigator.getGamepads?navig
   if(padWiz.baseWait){ if(!gp.buttons.some(b=>b&&b.pressed)){ padWiz.baseWait=false; padWiz.base={b:gp.buttons.map(x=>!!(x&&x.pressed)), a:gp.axes.slice()}; padWiz.step=0; padWizPrompt(); } return; }
   if(padWiz.release){ const idle = !gp.buttons.some((b,i)=>b&&b.pressed&&!padWiz.base.b[i]) && gp.axes.every((v,i)=>Math.abs((v||0)-padWiz.base.a[i])<0.35);
     if(idle){ padWiz.release=false; padWizPrompt(); } return; }
+  // eixo em rastreio: guarda o PICO da deflexão por ~240ms antes de classificar (senão um stick amostrado
+  // no MEIO do curso vira "valor exato" e só ativa de passagem — o bug dos flicks repetidos)
+  if(padWiz.axTrack){ const t=padWiz.axTrack, v=gp.axes[t.i]||0;
+    if(Math.abs(v-padWiz.base.a[t.i])>Math.abs(t.v-padWiz.base.a[t.i])) t.v=v;
+    if(++t.ticks>=8){ const pv=t.v; padWiz.axTrack=null;
+      padWizBind(Math.abs(pv)>=0.8 ? {ax:t.i,s:pv>0?1:-1} : {av:t.i,v:Math.round(pv*10000)/10000}); }
+    return; }
   for(let i=0;i<gp.buttons.length;i++){ if(gp.buttons[i]&&gp.buttons[i].pressed&&!padWiz.base.b[i]){ padWizBind({b:i}); return; } }
-  for(let i=0;i<gp.axes.length;i++){ const v=gp.axes[i]||0; if(Math.abs(v-padWiz.base.a[i])>0.45){
-      padWizBind(Math.abs(v)>=0.9 ? {ax:i,s:v>0?1:-1} : {av:i,v:Math.round(v*10000)/10000}); return; } }
+  for(let i=0;i<gp.axes.length;i++){ const v=gp.axes[i]||0; if(Math.abs(v-padWiz.base.a[i])>0.45){ padWiz.axTrack={i,v,ticks:0}; return; } }
 }
 { const c=$('#padwiz-cancel'); if(c)c.addEventListener('click',()=>closePadWiz(false)); }
 
@@ -2063,7 +2072,7 @@ function fillExplain(card){ if(!card)return;
 }
 function frontOverlay(el){ if(!el)return; el.style.zIndex=String(++_ovZ); const card=el.querySelector('.overlay__card'); if(card)fillExplain(card); }
 (function inCanvasMenus(){ const gr=document.getElementById('game-region'); if(!gr)return;
-  ['audio','movement','options','animation','visual','empathy','touchcfg','help'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); });
+  ['audio','movement','options','animation','visual','empathy','touchcfg','help','padwiz'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); }); // NENHUMA tela fora do canvas
   // Botões puramente on/off viram TOGGLE (switch) — o texto "Ligado/Desligado" fica oculto (font-size:0).
   ['opt-facil','opt-altmove','opt-hearing','opt-onebtn','opt-wheelchair','opt-modocego','opt-tts','opt-eyes','audio-master','opt-captions','motion-master'].forEach(id=>{ const b=document.getElementById(id); if(b)b.classList.add('switch'); });
 })();
