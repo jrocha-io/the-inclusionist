@@ -56,9 +56,10 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .pause-incanvas{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(4,7,15,.72);font-family:var(--font)}
 .pause-incanvas[hidden]{display:none}
 /* Etapa 2: menu de pausa POR TELA (dentro de cada .player-screen). Cada jogador vê e navega o seu. */
-.screen-pause{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(4,7,15,.72);font-family:var(--font);pointer-events:auto}
+.screen-pause{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(4,7,15,.72);font-family:var(--font);font-size:15px;pointer-events:auto}
 .screen-pause[hidden]{display:none}
-.screen-pause .pause-card{max-width:94%;max-height:78%}
+.screen-pause .pause-card{max-width:94%;max-height:96%} /* fonte fixa 15px (não herda o --hud-fs grande do HUD) → cabe sem rolagem; ≤16 já basta p/ AAA */
+.screen-pause .pause-card h2{font-size:1.25rem}
 /* Atalhos de a11y = botões do menu em forma de ícone, DENTRO do card (sem barra/sombra própria).
    Navegáveis por teclado (cima a partir de Continuar) e por toque/clique. */
 .pause-icons{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;align-items:center;margin:.1rem 0 .35rem}
