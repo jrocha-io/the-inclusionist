@@ -862,6 +862,9 @@ const VIZ_MODES=[
   {key:'sim-deuter', kind:'filter', filter:'url(#cvd-deuter)', nome:'Simular Deuteranopia', desc:'Como vê quem não enxerga o verde (mais comum).'},
   {key:'sim-protan', kind:'filter', filter:'url(#cvd-protan)', nome:'Simular Protanopia',   desc:'Como vê quem não enxerga o vermelho.'},
   {key:'sim-tritan', kind:'filter', filter:'url(#cvd-tritan)', nome:'Simular Tritanopia',   desc:'Como vê quem não enxerga o azul.'},
+  {key:'fix-protan', kind:'filter', filter:'url(#cvd-fix-protan)', nome:'Correção protanopia', desc:'Daltonização: realça a distinção vermelho/verde para quem tem protanopia.'},
+  {key:'fix-deuter', kind:'filter', filter:'url(#cvd-fix-deuter)', nome:'Correção deuteranopia', desc:'Daltonização: realça a distinção vermelho/verde para quem tem deuteranopia.'},
+  {key:'fix-tritan', kind:'filter', filter:'url(#cvd-fix-tritan)', nome:'Correção tritanopia', desc:'Daltonização: realça a distinção azul/amarelo para quem tem tritanopia.'},
   {key:'lv-blur',     kind:'lowvision', lv:'blur',     nome:'Baixa visão: desfoque',         desc:'Miopia severa / astigmatismo. (bolinha verde; toque 2× p/ sair)'},
   {key:'lv-haze',     kind:'lowvision', lv:'haze',     nome:'Baixa visão: névoa',            desc:'Catarata — película esbranquiçada, baixo contraste.'},
   {key:'lv-tunnel',   kind:'lowvision', lv:'tunnel',   nome:'Baixa visão: visão de túnel',   desc:'Glaucoma — só o centro é visível.'},
@@ -871,6 +874,7 @@ const VIZ_MODES=[
 ];
 const VIZ_BY_KEY=Object.fromEntries(VIZ_MODES.map(m=>[m.key,m]));
 const VIZ_FILTER={'sim-deuter':'url(#cvd-deuter)','sim-protan':'url(#cvd-protan)','sim-tritan':'url(#cvd-tritan)',
+  'fix-protan':'url(#cvd-fix-protan)','fix-deuter':'url(#cvd-fix-deuter)','fix-tritan':'url(#cvd-fix-tritan)',
   'lv-blur':'blur(2.4px)', 'lv-haze':'contrast(.58) brightness(1.14) blur(.6px)', 'lv-tunnel':'blur(.5px)', 'lv-macular':'', 'lv-diabetic':'blur(.8px)', 'blind':'brightness(0)'};
 const VIZ_CYCLE=VIZ_MODES.map(m=>m.key);
 function hcPal(m){ return { player:PALETTES[m.player], item:PALETTES[m.item], plat:PALETTES[m.bg], bg:PALETTES[m.bg], water:PALETTES[m.bg] }; }
@@ -1199,7 +1203,7 @@ let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[], vpPause=[], pauseAc
 // Menu de pausa POR TELA (Etapa 2): um por jogador, dentro da .player-screen dele.
 const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
 // Barra de atalhos de a11y no topo da pausa (por tela). Sons (cego/TTS) só com saída própria; webcam/voz em construção.
-const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo',soon:true},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
+const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo (protan/deutan/tritan)'},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
 let calmMode=0; // 0=normal · 1=calmo (reduz) · 2=silencioso (desliga) — nunca mexe em TTS/modo cego
 function buildScreenPause(i){ const sp=document.createElement('div'); sp.className='screen-pause'; sp.hidden=true; sp.dataset.player=String(i);
   const icons=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+'">'+ic.e+'</button>').join('');
@@ -1226,6 +1230,7 @@ function iconAct(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k);
   else if(k==='tea'){ calmMode=(calmMode+1)%3; applyCalm(); srSay('Modo TEA: '+['normal','calmo','silencioso'][calmMode]+'.'); }
   else if(k==='altmove'){ if(typeof setToggleMove==='function')setToggleMove(i,!players[i].toggleMove); }
   else if(k==='contrast'){ const cur=(players[i]||{}).viz; setPlayerViz(i,(cur&&cur!=='normal')?'normal':'hc3'); }
+  else if(k==='cvd'){ const seq=['normal','fix-protan','fix-deuter','fix-tritan']; let idx=seq.indexOf((players[i]||{}).viz); idx=idx<0?1:(idx+1)%seq.length; setPlayerViz(i,seq[idx]); srSay('Correção de daltonismo: '+['desligada','protanopia','deuteranopia','tritanopia'][idx]+'.'); }
 }
 function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi-btn').forEach(b=>{ const k=b.dataset.pi; let on=false,dis=false;
   if(k==='blind'){ on=modoCego; dis=!hasPrivateOutput(i); }
@@ -1233,6 +1238,7 @@ function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi
   else if(k==='tea'){ on=calmMode>0; }
   else if(k==='altmove'){ on=!!(players[i]&&players[i].toggleMove); }
   else if(k==='contrast'){ const m=VIZ_BY_KEY[(players[i]||{}).viz]; on=!!(m&&(m.kind==='hc'||m.kind==='bordas')); }
+  else if(k==='cvd'){ on=/^fix-/.test((players[i]||{}).viz||''); }
   b.classList.toggle('pi-on',on); b.setAttribute('aria-pressed',String(on)); b.classList.toggle('pi-dis',dis); }); }); }
 // Contêiner "tela do jogador" por viewport (Etapa 1): hospeda o HUD; nas próximas etapas, a pausa e os menus.
 function screenRect(i){ const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
@@ -1791,7 +1797,11 @@ function pixiFilterFor(mode){ if(mode in _vpFilterCache)return _vpFilterCache[mo
   const CM=PIXI.ColorMatrixFilter, BL=PIXI.BlurFilter;
   const cvd={'sim-deuter':[0.625,0.375,0,0,0, 0.7,0.3,0,0,0, 0,0.3,0.7,0,0, 0,0,0,1,0],
              'sim-protan':[0.567,0.433,0,0,0, 0.558,0.442,0,0,0, 0,0.242,0.758,0,0, 0,0,0,1,0],
-             'sim-tritan':[0.95,0.05,0,0,0, 0,0.433,0.567,0,0, 0,0.475,0.525,0,0, 0,0,0,1,0]};
+             'sim-tritan':[0.95,0.05,0,0,0, 0,0.433,0.567,0,0, 0,0.475,0.525,0,0, 0,0,0,1,0],
+             // CORREÇÃO (daltonize = I + desvio·(I−simulação)): realça matizes confundíveis. Valores = dados ajustáveis.
+             'fix-protan':[1,0,0,0,0, -0.2549,1.2549,0,0,0, 0.3031,-0.5451,1.242,0,0, 0,0,0,1,0],
+             'fix-deuter':[1,0,0,0,0, -0.4375,1.4375,0,0,0, 0.2625,-0.5625,1.3,0,0, 0,0,0,1,0],
+             'fix-tritan':[1.05,-0.3825,0.3325,0,0, 0,1.2345,-0.2345,0,0, 0,0,1,0,0, 0,0,0,1,0]};
   if(cvd[mode]&&CM){ const c=new CM(); c.matrix=cvd[mode]; f=[c]; }
   else if(mode==='blind'&&CM){ const c=new CM(); c.brightness(0,false); f=[c]; }
   else if(mode==='lv-blur'&&BL){ f=[new BL(5)]; }
