@@ -870,6 +870,8 @@ const VIZ_MODES=[
   {key:'hc2', kind:'hc', bg:11, player:2, item:4, nome:'Alto contraste: médio',   desc:'Fundo mais escuro; personagem e itens recoloridos por matiz.'},
   {key:'hc3', kind:'hc', bg:12, player:3, item:5, nome:'Alto contraste: escuro',  desc:'Fundo bem escuro; máximo destaque do personagem.'},
   {key:'hc4', kind:'hc', bg:13, player:4, item:6, nome:'Alto contraste: noturno', desc:'Fundo quase preto colorido.'},
+  // Comparação de alto contraste (pesquisa docs/PESQUISA-ALTO-CONTRASTE.md): 3 abordagens lado a lado.
+  {key:'hc-clahe', kind:'hcnew', nome:'Alto contraste: CLAHE (teste)', desc:'Realce de contraste LOCAL adaptativo (shader). Técnica fotográfica — teste de comparação.'},
   {key:'sim-deuter', kind:'filter', filter:'url(#cvd-deuter)', nome:'Simular Deuteranopia', desc:'Como vê quem não enxerga o verde (mais comum).'},
   {key:'sim-protan', kind:'filter', filter:'url(#cvd-protan)', nome:'Simular Protanopia',   desc:'Como vê quem não enxerga o vermelho.'},
   {key:'sim-tritan', kind:'filter', filter:'url(#cvd-tritan)', nome:'Simular Tritanopia',   desc:'Como vê quem não enxerga o azul.'},
@@ -1865,8 +1867,37 @@ function parallaxTexFor(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='hc')
 /* ===== Cor POR JOGADOR (E11): cada viewport do multiplayer renderiza no modo do seu jogador.
    - solo: filtro CSS na canvas + texturas globais + overlay DOM + bolinha (applyVizGlobal).
    - MP: filtro PIXI por viewport + troca das texturas compartilhadas antes de cada render (no draw). */
+// ===== Alto contraste experimental (comparação) — filtros de pós-processamento (PIXI.Filter) =====
+// CLAHE (aproximação em tempo real): realce de contraste LOCAL — empurra cada pixel para longe da média
+// da vizinhança, com clip limit (evita estourar). Fiel ao ESPÍRITO do CLAHE (contraste local + clip);
+// a versão canônica é por-tile com histograma+interpolação (caro, multi-pass) — ver pesquisa.
+const CLAHE_FRAG = `
+varying vec2 vTextureCoord;
+uniform sampler2D uSampler;
+uniform vec4 filterArea;
+uniform float uStrength;
+uniform float uSpread;
+float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
+void main(){
+  vec2 t = uSpread / filterArea.xy;
+  vec4 src = texture2D(uSampler, vTextureCoord);
+  float l = luma(src.rgb);
+  float m = luma(texture2D(uSampler, vTextureCoord + t*vec2(-1.0,-1.0)).rgb)
+          + luma(texture2D(uSampler, vTextureCoord + t*vec2( 1.0,-1.0)).rgb)
+          + luma(texture2D(uSampler, vTextureCoord + t*vec2(-1.0, 1.0)).rgb)
+          + luma(texture2D(uSampler, vTextureCoord + t*vec2( 1.0, 1.0)).rgb)
+          + luma(texture2D(uSampler, vTextureCoord).rgb);
+  m /= 5.0;
+  float d = clamp((l - m) * uStrength, -0.45, 0.45);           // clip limit
+  float nl = clamp(l + d + (l - 0.5) * (uStrength * 0.12), 0.0, 1.0); // + leve esticão global
+  float scale = l > 0.001 ? nl / l : 1.0;
+  gl_FragColor = vec4(clamp(src.rgb * scale, 0.0, 1.0) * src.a, src.a);
+}`;
+function makeClaheFilter(){ const f=new PIXI.Filter(undefined, CLAHE_FRAG, { uStrength:2.2, uSpread:3.0 }); return f; }
+
 const _vpFilterCache={};
 function pixiFilterFor(mode){ if(mode in _vpFilterCache)return _vpFilterCache[mode]; let f=null;
+  if(mode==='hc-clahe'){ f=[makeClaheFilter()]; return _vpFilterCache[mode]=f; }
   const CM=PIXI.ColorMatrixFilter, BL=PIXI.BlurFilter;
   const cvd={'sim-deuter':[0.625,0.375,0,0,0, 0.7,0.3,0,0,0, 0,0.3,0.7,0,0, 0,0,0,1,0],
              'sim-protan':[0.567,0.433,0,0,0, 0.558,0.442,0,0,0, 0,0.242,0.758,0,0, 0,0,0,1,0],
@@ -1919,6 +1950,7 @@ function applyVizGlobal(mode){
   const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; mode=m.key;
   vizMode=mode; hcMode=(m.kind==='bordas'||m.kind==='hc'); try{localStorage.setItem('incl_viz',mode);}catch(e){}
   if(app&&app.view) app.view.style.filter=VIZ_FILTER[mode]||''; // sim. daltonismo/baixa-visão/cegueira = filtro na canvas
+  camera.filters = (m.kind==='hcnew') ? pixiFilterFor(mode) : null; // solo: alto contraste experimental = filtro GPU na câmera
   worldSprite.texture=worldTexFor(mode);            // bordas=contorno · hc=recolor por paleta · resto=normal
   parallaxLayers.forEach((ts,i)=>{ ts.texture=parallaxTexFor(i,mode); });
   decoSprites.forEach(s=>{ s.texture=treeTexFor(mode); });
@@ -1937,7 +1969,7 @@ function updateVizIndicator(kind){ const el=$('#viz-indicator'); if(!el)return;
   const on=(kind==='blind'||kind==='lowvision'); el.hidden=!on;
   el.classList.toggle('blind',kind==='blind'); el.classList.toggle('low',kind==='lowvision');
   el.setAttribute('aria-label',(kind==='blind'?'Modo cegueira total':'Modo baixa visão')+'. Toque duas vezes para voltar às cores normais.'); }
-function reapplyVizAll(){ _lastSharedViz=null; if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=''); document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
+function reapplyVizAll(){ _lastSharedViz=null; if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=''); camera.filters=null; document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
 // Modos que AJUDAM (A12e visual) vs SIMULAÇÕES de empatia (Modo empatia)
 const isSimKind=k=>k==='filter'||k==='lowvision'||k==='blind';
 const VIZ_HELP=VIZ_MODES.filter(m=>!isSimKind(m.kind)), VIZ_SIM=VIZ_MODES.filter(m=>isSimKind(m.kind));
@@ -1953,7 +1985,7 @@ function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)retu
 }
 function renderVisual(){ renderVizGroup('#visual-list','#visual-players',VIZ_HELP); }
 function renderEmpathy(){ renderVizGroup('#empathy-list','#empathy-players',VIZ_SIM); const h=$('#opt-hearing'); if(h){ toggleBtn(h,hearingLoss); h.textContent=hearingLoss?'❚❚ Ligado':'▶ Desligado'; } if(typeof reflectMotorEmpathy==='function')reflectMotorEmpathy(); }
-function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&(m.kind==='bordas'||m.kind==='hc');});
+function reflectVizButtons(){ const help=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&(m.kind==='bordas'||m.kind==='hc'||m.kind==='hcnew');});
   const sim=players.some(p=>isSimKind((VIZ_BY_KEY[p.viz]||{}).kind));
   const bv=$('#opt-visual'); if(bv)bv.classList.toggle('is-on',help); const be=$('#opt-empathy'); if(be)be.classList.toggle('is-on',sim||hearingLoss||oneButton||wheelchair); }
 // "tela = canvas": reparenta os diálogos de a11y para dentro do #game-region (ficam presos ao canvas)
