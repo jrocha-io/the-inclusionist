@@ -74,8 +74,9 @@ body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .pause-icons{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;align-items:center;margin:.1rem 0 .35rem}
 .pi-btn{width:var(--tap);height:var(--tap);min-width:var(--tap);min-height:var(--tap);border-radius:10px;border:2px solid var(--ink-soft);background:#1a2740;font-size:1.25em;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pi-btn.pi-on{background:var(--accent);border-color:var(--accent)}
-/* Modo TEA (🧩): pi-on preenchido de amarelo = silencioso · só contorno amarelo = calmo · base (azul) = off */
-.pi-btn.pi-outline{background:#1a2740;border-color:var(--accent)}
+/* Modo TEA (🧩): pi-on preenchido de amarelo = silencioso · fundo branco = calmo · base (azul) = off.
+   (fundo, não borda — a borda é reservada ao realce de seleção :focus/.pi-sel e sobreporia o sinal.) */
+.pi-btn.pi-calm{background:#fff;border-color:var(--ink-soft)}
 /* Correção de daltonismo (🚥): fundo bicolor tipo Ishihara por deficiência (só quem vê normal ou tem a
    deficiência-alvo distingue as duas metades); off = base (azul, borda cinza). Bordas claras p/ sinalizar ativo. */
 .pi-btn.pi-cvd-protan{background:linear-gradient(90deg,#552200 0 50%,#224400 50% 100%);border-color:var(--ink)}

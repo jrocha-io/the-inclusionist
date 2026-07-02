@@ -1244,15 +1244,15 @@ function iconLabel(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k); if(!ic)return ''
   if(k==='cvd'){ const map={'fix-protan':'protanopia','fix-deuter':'deuteranopia','fix-tritan':'tritanopia'}; return 'Correção de daltonismo: '+(map[p.viz]||'off'); }
   return ic.n; }
 function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi-btn').forEach(b=>{ const k=b.dataset.pi; let on=false,dis=false;
-  b.classList.remove('pi-outline','pi-cvd-protan','pi-cvd-deuter','pi-cvd-tritan');
+  b.classList.remove('pi-calm','pi-cvd-protan','pi-cvd-deuter','pi-cvd-tritan');
   if(k==='blind'){ on=modoCego; dis=!hasPrivateOutput(i); }
   else if(k==='tts'){ on=!!(audioCat.tts&&audioCat.tts.on); dis=!hasPrivateOutput(i); }
-  else if(k==='tea'){ on=(calmMode===2); if(calmMode===1)b.classList.add('pi-outline'); } // 2=silencioso (preenchido) · 1=calmo (só contorno) · 0=off (base)
+  else if(k==='tea'){ on=(calmMode===2); if(calmMode===1)b.classList.add('pi-calm'); } // 2=silencioso (amarelo) · 1=calmo (branco) · 0=off (base)
   else if(k==='altmove'){ on=!!(players[i]&&players[i].toggleMove); }
   else if(k==='contrast'){ const m=VIZ_BY_KEY[(players[i]||{}).viz]; on=!!(m&&(m.kind==='hc'||m.kind==='bordas')); }
   else if(k==='cvd'){ const v=(players[i]||{}).viz||''; if(v==='fix-protan')b.classList.add('pi-cvd-protan'); else if(v==='fix-deuter')b.classList.add('pi-cvd-deuter'); else if(v==='fix-tritan')b.classList.add('pi-cvd-tritan'); } // fundo bicolor = o próprio sinal de ativo; off=base
   b.classList.toggle('pi-on',on); b.classList.toggle('pi-dis',dis);
-  const active=on||b.classList.contains('pi-outline')||/pi-cvd-/.test(b.className); b.setAttribute('aria-pressed',String(active));
+  const active=on||b.classList.contains('pi-calm')||/pi-cvd-/.test(b.className); b.setAttribute('aria-pressed',String(active));
   if(!(PAUSE_ICONS.find(x=>x.k===k)||{}).soon) b.setAttribute('aria-label',iconLabel(k,i)); }); }); }
 // Contêiner "tela do jogador" por viewport (Etapa 1): hospeda o HUD; nas próximas etapas, a pausa e os menus.
 function screenRect(i){ const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
