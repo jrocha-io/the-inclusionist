@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.148.0';
+const INCL_VERSION='4.149.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -934,7 +934,7 @@ function startAttract(){ const ks=Object.keys(CENARIOS), cen=ks[randInt(0,ks.len
   attract={t:0, rec:attractRecFor(cen), bot:{dir:1,jt:60,wall:0}, cen};
   const ov=$('#title-overlay'); if(ov)ov.hidden=true; setPhase('playing');
   const gr=$('#game-region');
-  if(!$('#attract-banner')){ if(gr)gr.insertAdjacentHTML('beforeend','<div id="attract-banner" class="game-subtitle" style="position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:70;background:rgba(13,13,26,.8);padding:.2em .9em;border-radius:6px">DEMO — aperte qualquer botão</div>'); }
+  if(!$('#attract-banner')){ if(gr)gr.insertAdjacentHTML('beforeend','<div id="attract-banner" class="game-subtitle" style="position:absolute;left:50%;bottom:44px;transform:translateX(-50%);z-index:70;background:rgba(13,13,26,.8);padding:.2em .9em;border-radius:6px">Modo Demonstração — Aperte qualquer botão para jogar</div>'); }
   else $('#attract-banner').hidden=false;
   srSay('Demonstração.'); }
 function stopAttract(){ if(!attract)return; const K=kbFor(0); [(K.right||[])[0],(K.left||[])[0]].forEach(c=>{ if(c)keys.delete(c); });
@@ -1815,17 +1815,19 @@ function iconLabel(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k); if(!ic)return ''
   if(k==='contrast'){ return 'Alto contraste: '+(HC_LABEL[p.viz]||'off'); }
   if(k==='cvd'){ const map={'fix-protan':'protanopia','fix-deuter':'deuteranopia','fix-tritan':'tritanopia'}; return 'Correção de daltonismo: '+(map[p.viz]||'off'); }
   return ic.n; }
-function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi-btn').forEach(b=>{ const k=b.dataset.pi; let on=false,dis=false;
+function reflectIconBtn(b,i){ const k=b.dataset.pi; let on=false,dis=false; // aplica o estado visual a UM ícone (pausa OU splash)
   b.classList.remove('pi-calm','pi-cvd-protan','pi-cvd-deuter','pi-cvd-tritan');
   if(k==='blind'){ on=modoCego; dis=!hasPrivateOutput(i); }
   else if(k==='tts'){ on=!!(audioCat.tts&&audioCat.tts.on); dis=!hasPrivateOutput(i); }
-  else if(k==='tea'){ on=(calmMode===2); if(calmMode===1)b.classList.add('pi-calm'); } // 2=silencioso (amarelo) · 1=calmo (branco) · 0=off (base)
+  else if(k==='tea'){ on=(calmMode===2); if(calmMode===1)b.classList.add('pi-calm'); } // TEA: 1=redução (branco, .pi-calm) · 2=desligamento completo (amarelo, .pi-on) · 0=off (base)
   else if(k==='altmove'){ on=!!(players[i]&&players[i].toggleMove); }
   else if(k==='contrast'){ on=/^hc-direto/.test((players[i]||{}).viz||''); }
   else if(k==='cvd'){ const v=(players[i]||{}).viz||''; if(v==='fix-protan')b.classList.add('pi-cvd-protan'); else if(v==='fix-deuter')b.classList.add('pi-cvd-deuter'); else if(v==='fix-tritan')b.classList.add('pi-cvd-tritan'); } // fundo bicolor = o próprio sinal de ativo; off=base
   b.classList.toggle('pi-on',on); b.classList.toggle('pi-dis',dis);
   const active=on||b.classList.contains('pi-calm')||/pi-cvd-/.test(b.className); b.setAttribute('aria-pressed',String(active));
-  if(!(PAUSE_ICONS.find(x=>x.k===k)||{}).soon) b.setAttribute('aria-label',iconLabel(k,i)); }); }); }
+  if(!(PAUSE_ICONS.find(x=>x.k===k)||{}).soon) b.setAttribute('aria-label',iconLabel(k,i)); }
+function reflectPauseIcons(){ vpPause.forEach((sp,i)=>{ sp.querySelectorAll('.pi-btn').forEach(b=>reflectIconBtn(b,i)); }); }
+function reflectTitleIcons(){ const ti=$('#title-icons'); if(ti)ti.querySelectorAll('.pi-btn').forEach(b=>reflectIconBtn(b,0)); } // ícones do SPLASH (escopo do J1) — antes NÃO refletiam (bug do toggle TEA)
 // Contêiner "tela do jogador" por viewport (Etapa 1): hospeda o HUD; nas próximas etapas, a pausa e os menus.
 function screenRect(i){ const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
   const col=i%cols, row=Math.floor(i/cols); let colFrac=col/cols;
@@ -2470,11 +2472,12 @@ const ACTIVITIES={ // d = descrição do minigame (rodapé dos menus secundário
   mat4:{cat:'mat',nome:'Soma e Subtração 2',   d:'Guarde um número na cabeça e opere o outro nos dedos (até 20).'},
   mat5:{cat:'mat',nome:'Tabuada',pick:true,    d:'Escolha os números e treine a multiplicação.'},
   mat6:{cat:'mat',nome:'Divisão',pick:true,    d:'Escolha os números e treine a divisão.'},
-  fr2:{cat:'mat',nome:'Frações: meios',dens:[2],           d:'Some e subtraia meios.'},
-  fr3:{cat:'mat',nome:'Frações: terços',dens:[3],          d:'Some e subtraia terços.'},
-  fr42:{cat:'mat',nome:'Frações: quartos e meios',dens:[4,2], d:'Some e subtraia quartos e meios.'},
-  fr5:{cat:'mat',nome:'Frações: quintos',dens:[5],         d:'Some e subtraia quintos.'},
-  fr632:{cat:'mat',nome:'Frações: sextos, terços e meios',dens:[6,3,2], d:'Some e subtraia sextos, terços e meios.'},
+  fr2:{cat:'mat',nome:'Soma e subtração com meios',dens:[2],           d:'Some e subtraia meios.'},
+  fr3:{cat:'mat',nome:'Soma e subtração com terços',dens:[3],          d:'Some e subtraia terços.'},
+  fr42:{cat:'mat',nome:'Soma e subtração com quartos e meios',dens:[4,2], d:'Some e subtraia quartos e meios.'},
+  fr5:{cat:'mat',nome:'Soma e subtração com quintos',dens:[5],         d:'Some e subtraia quintos.'},
+  fr632:{cat:'mat',nome:'Soma e subtração com sextos, terços e meios',dens:[6,3,2], d:'Some e subtraia sextos, terços e meios.'},
+  fr2a6:{cat:'mat',nome:'Soma e subtração com frações de meio a sextos',dens:[2,3,4,5,6], d:'Some e subtraia frações de meios a sextos.'},
 };
 const ALF_LEVEL={alf1:1,alf2:2,alf3:3,alf4:4,alf5:5};
 let ACTIVITY=(()=>{ try{ const a=localStorage.getItem('incl_activity'); return ACTIVITIES[a]?a:'ludico'; }catch(e){ return 'ludico'; } })();
@@ -2503,11 +2506,20 @@ let fracNot=(()=>{ const d={v:1,d:0,dec:0,pct:0,mix:0,pizza:0,barv:0,barh:0};
   try{ const s=JSON.parse(localStorage.getItem('incl_fracnot')); if(s&&typeof s==='object')for(const k in d)if(k in s)d[k]=s[k]?1:0; }catch(e){}
   if(!Object.values(d).some(x=>x))d.v=1; return d; })();
 const FNOT_LBL={v:'Fracionária vertical',d:'Fracionária diagonal',dec:'Decimal',pct:'Percentual',mix:'Mista',pizza:'Pizza (fatias)',barv:'Quadrado vertical',barh:'Quadrado horizontal'};
-function fmtFrac(n,D,not){ if(n===0)return '0'; const g=gcd(n,D)||1, a=n/g, d=D/g;
-  if(not==='pizza'||not==='barv'||not==='barh')return fracFigure(a,d,not); // SVG inline (proper/improper → N unidades)
-  if(d===1)return String(a);
-  if(not==='dec'){ let s=(Math.round((n/D)*100)/100).toFixed(2).replace(/0$/,'').replace(/\.$/,''); return s.replace('.',','); }
+const FNOT_DESC={ // rodapé (mesmo estilo do menu de pausa): explica cada notação
+  v:'Liga a exibição de frações verticais.',
+  d:'Liga a exibição de frações na horizontal.',
+  dec:'Liga números que sempre aparecem com uma casa decimal.',
+  pct:'Liga números percentuais.',
+  mix:'Liga números inteiros e frações reduzidas.',
+  pizza:'Liga a exibição de frações como pizza (fatias iguais).',
+  barv:'Liga a exibição de frações como quadrado dividido em colunas.',
+  barh:'Liga a exibição de frações como quadrado dividido em linhas.' };
+function fmtFrac(n,D,not){ if(n===0)return not==='dec'?'0,0':'0'; const g=gcd(n,D)||1, a=n/g, d=D/g;
+  if(not==='pizza'||not==='barv'||not==='barh')return d>6? a+'/'+d : fracFigure(a,d,not); // figura só de 2-6 partes; d>6 cai na diagonal
+  if(not==='dec')return (Math.round((n/D)*10)/10).toFixed(1).replace('.',','); // SEMPRE 1 casa decimal (José 2026-07-04)
   if(not==='pct'){ const r=Math.round((n/D)*1000)/10; return (Number.isInteger(r)?r:String(r).replace('.',','))+'%'; }
+  if(d===1)return String(a);
   if(not==='mix'&&a>d){ const i=Math.floor(a/d), r=a%d; return r? (i+' '+r+'/'+d) : String(i); }
   if(not==='v')return `<span class="fv"><b>${a}</b><b>${d}</b></span>`;
   return a+'/'+d; } // diagonal (inline)
@@ -3312,7 +3324,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw();
   titleG.visible=(phase==='title'); if(titleG.visible)drawTitleScene(); // cena do título da v3 cobre o mundo
-  if(titleG.visible){ if(++_idleT>1800 && !attract)startAttract(); } else if(!attract)_idleT=0; // attract após 30s parado no menu
+  if(titleG.visible){ if(++_idleT>3600 && !attract)startAttract(); } else if(!attract)_idleT=0; // attract após 60s parado no menu (José)
   minimap.visible=!titleG.visible&&numPlayers<=1; document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu
   fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
@@ -3482,6 +3494,7 @@ function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==
 /* ===== Menu inicial (v3): principal → submenus de atividade → (tabuada/divisão) seletor de números ===== */
 let _tabFor='mat5';
 function showTitleMenu(which){ ['tm-main','tm-alf','tm-mat','tm-tab','tm-fr','tm-cen'].forEach(m=>{ const el=$('#'+m); if(el)el.hidden=(m!==which); });
+  const lg=$('#title-legend'); if(lg)lg.hidden=(which!=='tm-main'); // RODAPÉ: legenda de controles no menu principal, DESCRIÇÃO nos submenus
   const el=$('#'+which), b=el&&el.querySelector('button'); if(b)b.focus(); }
 function titleButtons(){ const m=['tm-main','tm-alf','tm-mat','tm-tab','tm-fr','tm-cen'].map(id=>$('#'+id)).find(el=>el&&!el.hidden);
   return m?[...m.querySelectorAll('button')]:[]; }
@@ -3498,9 +3511,9 @@ function buildTitleMenus(){
   const alf=$('#tm-alf'); if(alf)alf.innerHTML=h('Alfabetização')+['alf1','alf2','alf3','alf4','alf5'].map(mk).join('')+back('tm-main')+desc;
   const mat=$('#tm-mat'); if(mat)mat.innerHTML=h('Matemática')+['mat1','mat2','mat3','mat4','mat5','mat6'].map(mk).join('')+
     `<button class="title-btn" data-tm-fr="1" type="button">Fração</button>`+back('tm-main')+desc;
-  const fr=$('#tm-fr'); if(fr)fr.innerHTML=h('Fração')+
-    Object.keys(FNOT_LBL).map(k=>`<button class="title-btn tab-num${fracNot[k]?' tab-on':''}" data-fnot="${k}" type="button" aria-pressed="${!!fracNot[k]}">${fracNot[k]?'✔ ':''}${FNOT_LBL[k]}</button>`).join('')+
-    ['fr2','fr3','fr42','fr5','fr632'].map(mk).join('')+back('tm-mat')+desc;
+  const fr=$('#tm-fr'); if(fr)fr.innerHTML=h('Soma e subtração de frações')+
+    Object.keys(FNOT_LBL).map(k=>`<button class="title-btn tab-num${fracNot[k]?' tab-on':''}" data-fnot="${k}" type="button" aria-pressed="${!!fracNot[k]}">${FNOT_LBL[k]}</button>`).join('')+
+    ['fr2','fr3','fr42','fr5','fr632','fr2a6'].map(mk).join('')+back('tm-mat')+desc;
   const rows=r=>r.map(n=>`<button class="title-btn tab-num${tabSel.includes(n)?' tab-on':''}" data-tab-n="${n}" type="button" aria-pressed="${tabSel.includes(n)}">${n}</button>`).join('');
   const tab=$('#tm-tab'); if(tab)tab.innerHTML=h('Tabuada')+`<div class="game-subtitle">Escolha os números para treinar</div>`+
     `<div class="tab-row">${rows([0,1,2,3,4,5])}</div><div class="tab-row">${rows([6,7,8,9,10])}</div>`+
@@ -3544,15 +3557,16 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
   // Ícones de a11y da pausa TAMBÉM no topo do splash (mesmas ações, escopo do Jogador 1)
   const ti=$('#title-icons'); if(ti){ ti.innerHTML=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+(ic.soon?' (em construção)':'')+'">'+ic.e+'</button>').join('');
     ti.addEventListener('click',(e)=>{ const ib=e.target.closest('.pi-btn'); if(!ib)return; pauseActor=0; iconAct(ib.dataset.pi,0);
-      if(typeof reflectPauseIcons==='function')reflectPauseIcons(); srSay(ib.getAttribute('aria-label')||''); }); }
+      reflectTitleIcons(); if(typeof reflectPauseIcons==='function')reflectPauseIcons(); srSay(ib.getAttribute('aria-label')||''); }); // reflete no SPLASH também
+    reflectTitleIcons(); } // estado inicial dos ícones do splash
   // Seletor de jogadores por TECLADO: ←/→ no botão único = −1/+1 (o clique usa o lado; teclado é explícito)
   ov.addEventListener('keydown',(e)=>{ const b=e.target.closest('#np-btn'); if(!b)return;
     if(e.key==='ArrowLeft'||e.key==='ArrowRight'){ e.preventDefault(); b.dataset.np=e.key==='ArrowLeft'?'-1':'1'; b.click(); } });
-  // Rodapé de descrição do minigame: atualiza no foco/hover das opções dos submenus
-  ov.addEventListener('focusin',(e)=>{ const b=e.target.closest('button[data-act-id]'); if(!b)return;
-    const d=(ACTIVITIES[b.dataset.actId]||{}).d||''; const box=b.closest('.title-menu'); const el=box&&box.querySelector('.tm-desc'); if(el)el.textContent=d; });
-  ov.addEventListener('mouseover',(e)=>{ const b=e.target.closest('button[data-act-id]'); if(!b)return;
-    const d=(ACTIVITIES[b.dataset.actId]||{}).d||''; const box=b.closest('.title-menu'); const el=box&&box.querySelector('.tm-desc'); if(el)el.textContent=d; });
+  // Rodapé (mesmo estilo do menu de pausa): descrição do minigame (data-act-id) OU da notação (data-fnot), no foco/hover
+  const showDesc=(e)=>{ const b=e.target.closest('button[data-act-id],button[data-fnot]'); if(!b)return;
+    const d = b.dataset.fnot ? (FNOT_DESC[b.dataset.fnot]||'') : ((ACTIVITIES[b.dataset.actId]||{}).d||'');
+    const box=b.closest('.title-menu'); const el=box&&box.querySelector('.tm-desc'); if(el)el.textContent=d; };
+  ov.addEventListener('focusin',showDesc); ov.addEventListener('mouseover',showDesc);
   ov.addEventListener('click',(e)=>{ const b=e.target.closest('button'); if(!b)return;
     if(b.classList.contains('title-btn')){ b.classList.remove('act-fx'); void b.offsetWidth; b.classList.add('act-fx'); } // efeito de ATIVAÇÃO
     const go=fn=>{ if(ov._busy)return; ov._busy=true; setTimeout(()=>{ ov._busy=false; fn(); },230); }; // a animação toca ANTES de trocar de tela
@@ -3564,12 +3578,12 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
       pendingPlayers=n; const nn=$('#np-n'); if(nn)nn.textContent=n;
       b.setAttribute('aria-label','Número de jogadores: '+n+'. Clique à esquerda para menos, à direita para mais.');
       srSay(n+(n>1?' jogadores.':' jogador.')); return; }
-    if(b.dataset.tmFr){ go(()=>{ showTitleMenu('tm-fr'); srSay('Fração: escolha a notação e o tipo.'); }); return; }
-    if(b.dataset.fnot){ const k=b.dataset.fnot; // toggle de NOTAÇÃO (imediato; pelo menos 1 ligada)
+    if(b.dataset.tmFr){ go(()=>{ showTitleMenu('tm-fr'); srSay('Soma e subtração de frações: escolha a notação e o tipo.'); }); return; }
+    if(b.dataset.fnot){ const k=b.dataset.fnot; // toggle de NOTAÇÃO (imediato; pelo menos 1 SEMPRE ligada)
       if(fracNot[k]&&Object.values(fracNot).filter(x=>x).length<=1){ srAlert('Deixe ao menos uma notação ligada.'); return; }
       fracNot[k]=fracNot[k]?0:1; try{localStorage.setItem('incl_fracnot',JSON.stringify(fracNot));}catch(e){}
-      b.classList.toggle('tab-on',!!fracNot[k]); b.setAttribute('aria-pressed',String(!!fracNot[k]));
-      b.textContent=(fracNot[k]?'✔ ':'')+FNOT_LBL[k]; srSay(FNOT_LBL[k]+(fracNot[k]?' ligada.':' desligada.')); return; }
+      b.classList.toggle('tab-on',!!fracNot[k]); b.setAttribute('aria-pressed',String(!!fracNot[k])); // estado pelo realce, SEM ✔
+      srSay(FNOT_LBL[k]+(fracNot[k]?' ligada.':' desligada.')); return; }
     if(b.dataset.cen){ const c=b.dataset.cen; go(()=>{ setCenario(c); reallyStart(); }); return; }
     if(b.dataset.cenBack){ go(()=>showTitleMenu(_cenBack)); return; }
     if(b.dataset.tm==='ludico'){ go(()=>startActivity('ludico')); return; }

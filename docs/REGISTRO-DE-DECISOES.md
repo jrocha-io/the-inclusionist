@@ -150,6 +150,15 @@
 | **Frações como FIGURA (SVG inline, zero-dependência):** PIZZA (2-6 fatias iguais) e QUADRADO vertical/horizontal (2-6 partes) viram 3 novas NOTAÇÕES toggleáveis no menu Fração (pizza/barv/barh), somando-se a vertical/diagonal/decimal/percentual/mista. Fração imprópria (n>d) = ⌊n/d⌋ figuras cheias + resto. `data-frac` embarcado → fala e comparação de resposta funcionam. Cor de preenchimento com contorno preto (não depende só da cor, WCAG 1.4.1). Menu Fração passou a 2 colunas (não estoura o canvas). Denominadores das atividades ≤6 → 2-6 partes sempre cabem | Aprovação do José ("use KaTeX e SVG então") | v4.148.0 | ✅ SVG feito |
 | **KaTeX** (self-host offline) p/ tipografia da notação diagonal/mista: a vertical `.fv` (HTML) + as figuras SVG já cobrem o essencial. Pergunta em aberto: KaTeX vale ~1MB de fontes p/ frações n/d com d≤6? | Recomendação minha + "use KaTeX" do José | pendente | ⏸ aguarda decisão de escopo |
 
+### 5.8 Ajustes attract + menu Fração + toggle TEA + escala (2026-07-04, rodada 4)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| Attract: banner "Modo Demonstração — Aperte qualquer botão para jogar" subido p/ `bottom:44px` (antes `8px`, colidia com a legenda de surdos `.caption`); início do attract 30s→**60s** (`_idleT>3600`) | Pedido explícito | v4.149.0 | ✅ |
+| Menu Fração: título "Soma e subtração de frações"; toggles SEM ✔ (estado só pelo realce `tab-on`); decimal SEMPRE 1 casa (`0,5`/`0,3`/`1,0`); 6ª atividade `fr2a6` (dens [2,3,4,5,6] "de meio a sextos", D=lcm=60 → pizza cai na diagonal quando d>6); atividades renomeadas p/ "Soma e subtração com …"; descrição no RODAPÉ do canvas (não colada aos botões, `position:absolute;bottom:10px`) e legenda de controles esconde nos submenus | Pedidos explícitos | v4.149.0 | ✅ · pizza/quadrado mantidos (não estavam na lista dele desta vez — confirmar se quer fora) |
+| Toggle TEA (autismo) reflete no SPLASH: 1=redução→branco (`.pi-calm`), 2=desligamento completo→amarelo (`.pi-on`), 0=off. Bug era `reflectPauseIcons` só atualizar os ícones da PAUSA (`vpPause`), nunca os do `#title-icons` → novo `reflectTitleIcons` (lógica extraída p/ `reflectIconBtn`) | Pedido explícito ("não funciona da forma correta") | v4.149.0 | ✅ |
+| **Escala AUDITADA de novo:** medido no preview k=2/3/4 em 640/960/1280 (passos INTEIROS exatos, aspect 1,7778); a fórmula não tem `dpr`. A "esticada" reportada = build antigo em cache (o `kDev/dpr` saltava em 0,8× CSS, parecia contínuo). Ação: pedir hard-reload + conferir versão no splash | Item reaberto pelo José | v4.147.2 (já correto) | ✅ código · ⚠️ cache do cliente |
+
 ## 6. Arquitetura e plataforma
 
 ## 6. Arquitetura e plataforma

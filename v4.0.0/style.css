@@ -53,7 +53,8 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .title-btn.tab-on{box-shadow:inset 0 0 0 3px #14141f}
 .tab-row{display:flex;gap:.35em;justify-content:center}
 .tab-row .title-btn{min-width:2.2em;padding:.4em 0;flex:1}
-.tm-desc{color:#f6f5f0;font-size:.75em;text-align:center;min-height:2.4em;margin-top:.2em;text-shadow:1px 1px 0 #0d0d1a} /* rodapé descrevendo o minigame */
+/* RODAPÉ (mesmo estilo do menu de pausa): descrição no fundo do canvas, NÃO colada ao grupo de botões (José) */
+.tm-desc{position:absolute;left:0;right:0;bottom:10px;margin:0 auto;max-width:92%;color:#f6f5f0;font-size:.8em;text-align:center;min-height:1.3em;text-shadow:1px 1px 0 #0d0d1a}
 /* Legenda de controles: mesmo visual/posição da legenda do menu de pausa (chips), em 2 LINHAS */
 .title-legend{display:flex;flex-direction:column;gap:.25em;align-items:center;margin:.5em 0 .1em;font-size:.82em;color:#c3cfe0}
 .title-legend .lg-row{display:flex;gap:1.1em;justify-content:center;flex-wrap:wrap}
