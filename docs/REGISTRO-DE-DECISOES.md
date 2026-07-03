@@ -121,6 +121,15 @@
 | Regra **3 vitórias = 1 moeda** para TODOS os minigames, sem exceção | Ordem explícita | commit `70b71b5` | ✅ |
 | Splash: rodapé de controles por DISPOSITIVO (teclado letras / DirectInput números / XInput letras coloridas); seletor vermelho piscando a 1Hz (WCAG 2.3.1 ok; reduced-motion=fixo) + efeito de ativação; ícones a11y da pausa no topo; MP = só o J1 escolhe ("Aguarde o Jogador 1"); dicas L/P removidas; corais/peixes na camada das árvores; fauna por altura (gatos/pombos alto, cães junto às árvores); trampolim sólido; árvores fora de trampolim | Feedback consolidado do José | commits `a7f8057`→`1d50b09` | ✅ |
 
+### 5.5 R-splash 2 (2026-07-04, rodada 2)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| Legenda de controles em 2 linhas refletindo o CONFIGURADO por jogador (teclado remapeável / DirectInput números+mapa do wizard / XInput A-B-X-Y coloridos / joystick virtual 0-3); seletor vermelho FIXO (piscar removido); animação de aperto toca ANTES da navegação (230ms); ícones a11y a 10px do topo; largura fixa nos menus; touch some em QUALQUER menu (título/pausa/quiz) | Pedidos explícitos | commit `2b0592a` | ✅ |
+| Fluxo: ◀N jogadores▶ no splash (fitsN barra) → desafio → CENÁRIO escolhido pelo J1 (saiu da pausa) → jogo; pausa ganha "Adicionar jogador" (só aumenta) com tela em ESPERA; controles atribuídos POR ORDEM DE AÇÃO (1º pad a agir → 1º jogador sem pad) | Pedidos explícitos | commit `a10e184` | ✅ |
+| Fração com menu próprio + 5 NOTAÇÕES toggleáveis (vertical HTML/CSS puro, diagonal, decimal vírgula-BR, percentual, mista); questão sorteia entre as ligadas; fala cobre todas. **MathJax rejeitado** (pesado p/ Positivo/offline) — recomendação: KaTeX self-host p/ notação avançada + SVG inline p/ pizzas/barras (p5.js = engine inteira p/ um arco); a vertical atual é zero-dependência | Pergunta do José sobre MathJax/p5 | commit `8cd1d97` | ✅ · KaTeX/SVG aguardam aval |
+| Attract mode: 30s ocioso no menu → demo de 30s (gravação `?record=1` por cenário em localStorage; fallback robô); qualquer entrada encerra | Pedido explícito | commit `d53f7e2` | ✅ · gravar as 4 demos = pendente |
+
 ## 6. Arquitetura e plataforma
 
 | Decisão | Fundamento / estudo | Fonte | Status |
