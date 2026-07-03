@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.153.1';
+const INCL_VERSION='4.153.2';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -140,7 +140,7 @@ const tileAt=(tx,ty)=>(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H)?2:WORLD[ty][tx];
 let gateTiles=new Set(), gateOpen=true, gate=null;
 // Cadeirante: sólidos SÓ-CADEIRANTE (pontes/plataformas que não existem no modo normal) — não altera CLARITY_MAP.
 let wcSolid=new Set();
-const solidTile=(x,y)=>{ const t=tileAt(x,y); return (wheelchair&&wcSolid.has(x+','+y)) || !!(TILE_TYPES[t]&&TILE_TYPES[t].solid); };
+const solidTile=(x,y)=>{ const t=tileAt(x,y); return (wheelchair&&wcSolid.has(x+','+y)) || isSolidType(t); }; // isSolidType inclui lava(9)/trampolim(5) no modo cadeira → surfTop/rampas os enxergam como piso (José: rampa p/ sair da lava)
 const solidAt=(tx,ty)=>(!gateOpen && gateTiles.has(tx+','+ty)) || (wheelchair && wcSolid.has(tx+','+ty)) || isSolidType(tileAt(tx,ty));
 // Cadeirante: geometria da rampa de 1 tile. surfTop=topo caminhável; riser=o degrau que a rampa cobre
 // (não é parede p/ o cadeirante: a rampa guia o Y). rampSurfaceY=altura da diagonal 45° num x do mundo.
@@ -1307,7 +1307,7 @@ const easyHitbox=new PIXI.Graphics(); camera.addChild(easyHitbox);
 // Cadeirante: RAMPAS desenhadas sobre os degraus de 1 tile (sobre o mundo, abaixo do player)
 const rampLayer=new PIXI.Graphics(); camera.addChildAt(rampLayer, camera.getChildIndex(worldSprite)+1);
 function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!wheelchair)return;
-  const sol=(x,y)=>{ const t=tileAt(x,y); return !!(TILE_TYPES[t]&&TILE_TYPES[t].solid); }, surf=(x,y)=> sol(x,y)&&!sol(x,y-1); // topo caminhável
+  const sol=(x,y)=>solidTile(x,y), surf=(x,y)=> sol(x,y)&&!sol(x,y-1); // topo caminhável (solidTile já inclui lava/trampolim no cadeira → gera rampa em volta deles)
   const FILL=0x7b7f8b, EDGE=0x4a4e59, STRIPE=0xf2c200; // STRIPE = faixa amarela de acessibilidade (na superfície da rampa)
   for(let y=1;y<WORLD_H;y++)for(let x=0;x<WORLD_W-1;x++){ if(!surf(x,y))continue;
     if(surf(x+1,y-1)){ const X=(x+1)*TILE, yL=y*TILE, yU=(y-1)*TILE;                 // degrau SOBE p/ direita
