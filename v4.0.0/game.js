@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.142.1';
+const INCL_VERSION='4.142.2';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2334,10 +2334,10 @@ function quizTake(pl,q){ // coleta a figura do quiz (por jogador) e checa vitór
   takeCoin(coins[q.coinIndex]); if(coinSprites[q.coinIndex])coinSprites[q.coinIndex].visible=false;
   pl.collected++; if(pl===player)collected=pl.collected; updateHud();
   closeQuiz(pl); if(pl.collected>=COIN_TARGET)win(pl); }
-function quizWin(pl,q){ // ALFABETIZAÇÃO: 3 vitórias = 1 moeda (regra do José); demais categorias coletam direto
-  if(actCat()==='alf'){ pl.alfWins=(pl.alfWins||0)+1;
-    if(pl.alfWins<3){ srSay(quizWho(pl)+'Acertou! '+pl.alfWins+' de 3 para ganhar a moeda.'); closeQuiz(pl); return; } // moeda FICA; encostado nela, a próxima pergunta abre sozinha
-    pl.alfWins=0; }
+function quizWin(pl,q){ // 3 VITÓRIAS = 1 MOEDA em TODOS os minigames, sem exceção (regra do José 2026-07-04)
+  pl.alfWins=(pl.alfWins||0)+1;
+  if(pl.alfWins<3){ srSay(quizWho(pl)+'Acertou! '+pl.alfWins+' de 3 para ganhar a moeda.'); closeQuiz(pl); return; } // moeda FICA; encostado nela, a próxima pergunta abre sozinha
+  pl.alfWins=0;
   quizTake(pl,q); }
 function quizConfirm(pl){
   const q=pl.quiz; if(!q)return;
@@ -2376,7 +2376,7 @@ function quizConfirm(pl){
     }
     return;
   }
-  if(String(q.choices[q.sel])===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizTake(pl,q); } // matemática: 1 acerto = coleta
+  if(String(q.choices[q.sel])===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); } // matemática também: 3 vitórias = 1 moeda
   else { q.tries++;
     if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${fracSpeak(q.answer)}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
     renderQuiz(pl);
