@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.153.0';
+const INCL_VERSION='4.153.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -32,7 +32,7 @@ let wheelchair=(()=>{try{return localStorage.getItem('incl_wheelchair')==='1';}c
 let modoCego=(()=>{try{return localStorage.getItem('incl_modocego')==='1';}catch(e){return false;}})();
 let caneBlockDiv=(()=>{try{return +localStorage.getItem('incl_cane_div')||1;}catch(e){return 1;}})(); // 1 = 1 batida/bloco; 2 = 1 batida/meio bloco (por DISTÂNCIA pisada)
 const caneBlockPx=()=>TILE/caneBlockDiv;
-const isSolidType = (t) => (wheelchair && (t===9||t===5)) ? true : !!(TILE_TYPES[t] && TILE_TYPES[t].solid); // cadeirante: lava (9) e trampolim (5) viram CHÃO sólido (o elevador para em cima, não atravessa)
+const isSolidType = (t) => ((wheelchair && (t===9||t===5)) || (modoCego && t===9)) ? true : !!(TILE_TYPES[t] && TILE_TYPES[t].solid); // cadeirante: lava(9)+trampolim(5) viram chão; modo CEGO: lava(9) vira chão (remove o perigo — José)
 const TILE_COLOR = {
   0:'#0a0a14',1:'#241f38',2:'#6b6480',3:'#2f6fae',4:'#8a5a2b',5:'#34e29b',6:'#3a3a46',
   7:'#7fdcff',8:'#ffd23f',9:'#ff5b3a',10:'#9a8a6f',11:'#ffe06a',12:'#3a86ff',13:'#8a5cff',14:'#ff6fae',
@@ -1986,7 +1986,7 @@ function stepPlayer(pl,dt){
   if(dir!==0)pl.facing=dir; pl.leftEdge=false; pl.rightEdge=false;
   const feat=sampleFeatures(pl); pl.inWater=feat.water; pl.onLadder=feat.ladder;
   if(pl.hurtTimer>0)pl.hurtTimer-=dt;
-  if(feat.lava && !pl.easy && !wheelchair) triggerLava(pl); // Fácil e cadeirante: imunidade (cadeirante: lava vira chão)
+  if(feat.lava && !pl.easy && !wheelchair && !modoCego) triggerLava(pl); // Fácil, cadeirante e CEGO: imunidade (lava vira chão)
   if(pl.jumpEdge)pl.jumpBuffer=7; else if(pl.jumpBuffer>0)pl.jumpBuffer--;
   // E18: ventosa (homem-aranha) — gruda na parede ao apertar Correr no ar; solta com Pular
   if(pl.clinging && (pl.onLadder||pl.inWater||pl.activePower!=='wallcling' || pl.onGround || clingSides(pl).D)) pl.clinging=false; // E18d: pés numa superfície estável (sólido logo abaixo) ENCERRAM; pendurado no teto (pés p/ cima) ou na parede alta continua
@@ -2019,7 +2019,7 @@ function stepPlayer(pl,dt){
     if(wheelchair){ // ELEVADOR: toque ↑/↓ = viaja sozinho até a parada segura (topo/base); andar p/ L/R numa parada sai
       const s=elevAt(pl);
       if(s){ if(held(pl,'up')&&s.yTop<pl.y-0.5) pl.elevTarget=s.yTop; else if(held(pl,'down')&&s.yBottom>pl.y+0.5) pl.elevTarget=s.yBottom;
-        if((held(pl,'left')||held(pl,'right'))){ const col=held(pl,'right')?s.xMax+1:s.xMin-1; if(surfTop(col,Math.floor(pl.y/TILE))) pl.elevTarget=null; } }
+        if((held(pl,'left')||held(pl,'right'))){ const col=held(pl,'right')?s.xMax+1:s.xMin-1, row=Math.floor(pl.y/TILE); if(surfTop(col,row)||surfTop(col,row+1)) pl.elevTarget=null; } } // sai p/ o piso ao lado, mesmo 1 tile ABAIXO (trampolim-bloco sobre o chão)
       if(pl.elevTarget!=null){ const dy=pl.elevTarget-pl.y;
         if(Math.abs(dy)<=ELEV_SPEED){ pl.y=pl.elevTarget; pl.vy=0; pl.elevTarget=null; } else pl.vy=Math.sign(dy)*ELEV_SPEED; }
     } else {
@@ -3390,6 +3390,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
   spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,STREET_Y,
+  get elevShafts(){return elevShafts;},elevAt,get BOX(){return BOX;},get wheelchair(){return wheelchair;},setWheelchair,buildElevators,buildRamps,solidAt,surfTop, // debug cadeirante
   get clouds(){return clouds;},get birds(){return birds;},stepSky,CENARIOS,stepV3Decor,
   get decorCounts(){ const n=g=>g.geometry&&g.geometry.graphicsData?g.geometry.graphicsData.length:0; return {stars:n(starsG),skyDeco:n(skyDecoG),fog:n(fogG),grass:n(grassG),front:n(themeFxG)}; }};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
