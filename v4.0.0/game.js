@@ -275,9 +275,17 @@ function _dcfg(mode){ return DIRECT_CFG[mode]||DIRECT_CFG['hc-direto']; }
 let hcOutlineFg=1, hcOutlineBg=1;
 try{ const v=localStorage.getItem('incl_outfg'); if(v!=null)hcOutlineFg=Math.max(0,Math.min(2,+v||0)); }catch(e){}
 try{ const v=localStorage.getItem('incl_outbg'); if(v!=null)hcOutlineBg=Math.max(0,Math.min(2,+v||0)); }catch(e){}
-// Color-blocking por PAPEL: perigo=laranja-quente, escalável/interativo(escada/trampolim/portão)=ciano, água=azul;
-// estrutura(pedra/parede) fica no cinza-azulado do nível. Cores distintas de matiz p/ separar a função do tile.
-const HC_ROLE={ hazard:[255,110,45], climb:[55,225,205], water:[70,140,255] };
+// Color-blocking por PAPEL: perigo=laranja-quente, escalável/interativo(escada/trampolim)=ciano, água=azul,
+// portão=magenta (papel próprio); estrutura(pedra/parede) fica no cinza-azulado do nível.
+// L2: CUSTOMIZÁVEL — o usuário pode trocar a cor de cada papel (persistido); padrão = HC_ROLE_DEF.
+const HC_ROLE_DEF={ hazard:[255,110,45], climb:[55,225,205], water:[70,140,255], gate:[194,58,212] };
+const HC_ROLE=(()=>{ const d=JSON.parse(JSON.stringify(HC_ROLE_DEF));
+  try{ const s=JSON.parse(localStorage.getItem('incl_hcrole')); if(s&&typeof s==='object')
+    for(const k in d) if(Array.isArray(s[k])&&s[k].length===3) d[k]=s[k].map(n=>Math.max(0,Math.min(255,n|0))); }catch(e){}
+  return d; })();
+function saveHcRole(){ try{ localStorage.setItem('incl_hcrole',JSON.stringify(HC_ROLE)); }catch(e){} }
+const rgbHex=a=>'#'+a.map(n=>n.toString(16).padStart(2,'0')).join('');
+const hexRgb=h=>{ const m=/^#?([0-9a-f]{6})$/i.exec(h); if(!m)return null; const n=parseInt(m[1],16); return [n>>16&255,n>>8&255,n&255]; };
 function _roleOf(t){ if(t===9)return 'hazard'; if(t===4||t===5||t===10)return 'climb'; if(t===3)return 'water'; return null; }
 function worldToTextureDirect(srcCanvas, mode){ const cfg=_dcfg(mode);
   const cv=makeCanvas(srcCanvas.width,srcCanvas.height),c=cv.getContext('2d'); c.drawImage(srcCanvas,0,0);
@@ -285,7 +293,7 @@ function worldToTextureDirect(srcCanvas, mode){ const cfg=_dcfg(mode);
   for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=WORLD[y][x], role=_roleOf(t); if(!role)continue; const X=x*TILE,Y=y*TILE; // repinta tiles não-estruturais pela cor do papel
     if(t===4){ // ESCADA: preto + trilhos e degraus ciano → lê como escada (não faixa verde sólida)
       c.fillStyle='#0a0e14'; c.fillRect(X,Y,TILE,TILE);
-      c.fillStyle='rgb(55,225,205)'; c.fillRect(X+1,Y,2,TILE); c.fillRect(X+TILE-3,Y,2,TILE);   // trilhos laterais
+      c.fillStyle='rgb('+HC_ROLE.climb.join(',')+')'; c.fillRect(X+1,Y,2,TILE); c.fillRect(X+TILE-3,Y,2,TILE);   // trilhos laterais (cor do papel, customizável)
       for(let ry=2;ry<TILE-1;ry+=5) c.fillRect(X+1,Y+ry,TILE-2,2);                               // degraus
       continue; }
     const rc=HC_ROLE[role], img=c.getImageData(X,Y,TILE,TILE), d=img.data, lo=role==='hazard'?0.58:0.44;
@@ -510,7 +518,12 @@ let KJUMP=controls.jump, KLEFT=controls.left, KRIGHT=controls.right, KUP=control
 let GAME_KEYS=[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN];
 function applyControls(){ controls=KB.solo; KJUMP=controls.jump;KLEFT=controls.left;KRIGHT=controls.right;KUP=controls.up;KDOWN=controls.down;KRUN=controls.run;
   const all=[]; players.forEach((p,i)=>{ const m=kbFor(i); for(const a in m) all.push(...m[a]); }); GAME_KEYS=all.length?all:[...KJUMP,...KLEFT,...KRIGHT,...KUP,...KDOWN]; }
-const PCOLOR=[0xffffff,0xff9a9a,0x8affc0,0xffe08a]; // tint distintivo por jogador (P1 = normal)
+// Tint distintivo por jogador (P1 = normal). L2: paleta CB-SAFE opcional (Okabe & Ito 2008 — laranja/azul-céu/
+// amarelo distinguíveis em protan/deutan/tritan) SÓ para jogadores/itens/efeitos — o CENÁRIO fica com cores naturais.
+const PCOLOR_DEF=[0xffffff,0xff9a9a,0x8affc0,0xffe08a], PCOLOR_CB=[0xffffff,0xe69f00,0x56b4e9,0xf0e442];
+let cbSafe=(()=>{ try{ return localStorage.getItem('incl_cbsafe')==='1'; }catch(e){ return false; } })();
+const PCOLOR=(cbSafe?PCOLOR_CB:PCOLOR_DEF).slice(); // mutável in-place (todos referenciam PCOLOR)
+let ownerColors=(()=>{ try{ return localStorage.getItem('incl_ownercolors')!=='0'; }catch(e){ return true; } })(); // itens na cor do dono (padrão ligado)
 function assignControls(){ players.forEach((p,i)=>p.ctrl=kbFor(i)); }
 assignControls();
 // Conflito: uma tecla não pode ser de dois jogadores no MESMO modo. Retorna o índice do outro dono, ou -1.
@@ -946,7 +959,7 @@ function rebuildCoins(){
     if(MODE==='somasub'&&cn.shape){ s=new PIXI.Sprite(SHAPE_TEX[cn.shape]); s.width=15;s.height=15; s.x=cn.x-3;s.y=cn.y-3; }
     else if(MODE==='silabas'&&cn.letter){ s=new PIXI.Sprite(letterTexture(cn.letter)); s.width=14;s.height=14; s.x=cn.x-2;s.y=cn.y-2; }
     else { s=new PIXI.Sprite(coinTexFor(vizMode)); s.x=cn.x;s.y=cn.y; }
-    s.tint=PCOLOR[cn.owner]||0xffffff; // Lote C: cor do dono (solo=branco → sem alteração)
+    s.tint=ownerColors?(PCOLOR[cn.owner]||0xffffff):0xffffff; // Lote C: cor do dono (opção; solo=branco → sem alteração)
     s.visible=!cn.taken; coinContainer.addChild(s); return s;
   });
   _lastSharedViz=null; // moedas recriadas → força re-aplicar texturas por viewport no próximo draw
@@ -1055,8 +1068,8 @@ function rebuildExtras(){
   extraLayer.removeChildren().forEach(s=>s.destroy());
   powerups.forEach(pu=>{ const s=new PIXI.Sprite(pupTexFor(pu.kind,vizMode)); s.x=pu.x; s.y=pu.y; s.visible=!pu.taken; extraLayer.addChild(s); pu.sprite=s; });
   if(gate && !gateOpen){ const g=new PIXI.Graphics();
-    const hc=!!DIRECT_CFG[vizMode]; // alto contraste: portão trancado = MAGENTA (papel próprio, distinto de perigo/escalável/água); normal = madeira
-    const base=hc?0xc23ad4:0x8a5a2b, plank=hc?0x4a0f56:0x5a3a1b;
+    const hc=!!DIRECT_CFG[vizMode]; // alto contraste: portão trancado = cor do papel "gate" (padrão magenta, customizável); normal = madeira
+    const gc=HC_ROLE.gate, base=hc?((gc[0]<<16)|(gc[1]<<8)|gc[2]):0x8a5a2b, plank=hc?((((gc[0]*0.38)|0)<<16)|(((gc[1]*0.38)|0)<<8)|((gc[2]*0.38)|0)):0x5a3a1b;
     for(const k of gateTiles){ const [tx,ty]=k.split(',').map(Number); const X=tx*TILE,Y=ty*TILE;
       g.beginFill(base).drawRect(X,Y,TILE,TILE).endFill();
       g.beginFill(plank); for(let i=2;i<TILE;i+=5)g.drawRect(X+i,Y+1,2,TILE-2); g.endFill();
@@ -1540,7 +1553,7 @@ function stepPlayer(pl,dt){
       if(MODE==='somasub'&&cn.shape){ if(pl===player&&!player.quiz) openQuiz(i,cn.shape); }
       else if(MODE==='silabas'&&cn.letter){ if(pl===player&&!player.quiz) openSilabas(i,cn.letter); }
       else { takeCoin(cn); coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin'); // some p/ todas as telas (item tem 1 dono)
-        burstSparkle(cn.x+5,cn.y+5,PCOLOR[cn.owner]||0xffd23f,8); // JUICE: brilho na cor do dono
+        burstSparkle(cn.x+5,cn.y+5,ownerColors?(PCOLOR[cn.owner]||0xffd23f):0xffd23f,8); // JUICE: brilho na cor do dono (segue a opção)
         updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); narrate(msg); }
         if(pl.collected>=COIN_TARGET)win(pl); }
     }});
@@ -2141,17 +2154,40 @@ function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)retu
     `<button class="mode-btn${sel?' is-on':''}" role="radio" aria-checked="${sel}" data-viz="${m.key}" type="button">${sel?'✓ Selecionado':'Selecionar'}</button></div>`; }).join('');
   el.querySelectorAll('button[data-viz]').forEach(btn=>btn.addEventListener('click',()=>{ setPlayerViz(selVizPlayer,btn.dataset.viz); srSay((numPlayers>1?'Jogador '+(selVizPlayer+1)+': ':'')+VIZ_MODES.find(m=>m.key===btn.dataset.viz).nome+'.'); }));
 }
+/* L2: opções de cor — itens por dono (toggle), paleta CB-safe (toggle) e color-blocking customizável (pickers) */
+function setOwnerColors(on){ ownerColors=!!on; try{localStorage.setItem('incl_ownercolors',on?'1':'0');}catch(e){}
+  rebuildCoins(); srSay('Itens na cor do dono '+(on?'ligados.':'desligados: todos na cor original.')); }
+function setCbSafe(on){ cbSafe=!!on; try{localStorage.setItem('incl_cbsafe',on?'1':'0');}catch(e){}
+  const src=cbSafe?PCOLOR_CB:PCOLOR_DEF; PCOLOR.length=0; src.forEach(c=>PCOLOR.push(c)); // troca IN-PLACE (todos referenciam PCOLOR)
+  rebuildCoins(); ensureSprites(); srSay('Paleta segura para daltonismo '+(on?'ligada (Okabe-Ito).':'desligada.')); }
+const ROLE_LBL={hazard:'perigo (lava)',climb:'escalável (escada/trampolim)',water:'água',gate:'portão'};
+function setRoleColor(k,hex){ const rgb=hexRgb(hex); if(!rgb||!HC_ROLE[k])return; HC_ROLE[k]=rgb; saveHcRole();
+  _rebakeDirect(); rebuildExtras(); srSay('Cor de '+ROLE_LBL[k]+' alterada.'); }
+function resetRoleColors(){ for(const k in HC_ROLE_DEF)HC_ROLE[k]=HC_ROLE_DEF[k].slice(); saveHcRole();
+  _rebakeDirect(); rebuildExtras(); renderVisual(); srSay('Cores do color-blocking restauradas ao padrão.'); }
 function renderVisual(){ const el=$('#visual-list'); if(!el)return; if(selVizPlayer>=numPlayers)selVizPlayer=0; // Contraste = 1 select (Desligado/3:1/4,5:1/7:1); o contorno tem os 2 selects próprios (no HTML abaixo)
   const cur=players[selVizPlayer]?players[selVizPlayer].viz:'normal', val=HC_SEQ.includes(cur)?cur:'normal';
   el.innerHTML='<div class="ctrl-row"><span><strong>Alto contraste</strong> — recolore o cenário para destacar o que importa; escolha o nível de contraste.</span>'+
     '<select id="opt-contrast" aria-label="Nível de alto contraste"><option value="normal">Desligado</option><option value="hc-direto">3:1 (agradável)</option><option value="hc-direto-45">4,5:1</option><option value="hc-direto-7">7:1 (máximo)</option></select></div>'+
     '<div class="ctrl-row"><span><strong>Realce de contraste (Linear → Quadrático)</strong> — curva de tom na tela inteira: o começo da faixa estica o contraste (linear), o fim realça sombras e altas-luzes (curva S quadrática). Zero desliga. Vale para todos os jogadores.</span>'+
-    '<span style="display:flex;align-items:center;gap:.4rem"><input type="range" id="opt-lq" min="0" max="100" step="5" style="width:9em" aria-label="Realce de contraste: zero desligado, começo linear, fim quadrático"><strong id="opt-lq-val" aria-hidden="true"></strong></span></div>';
+    '<span style="display:flex;align-items:center;gap:.4rem"><input type="range" id="opt-lq" min="0" max="100" step="5" style="width:9em" aria-label="Realce de contraste: zero desligado, começo linear, fim quadrático"><strong id="opt-lq-val" aria-hidden="true"></strong></span></div>'+
+    '<div class="ctrl-row"><span><strong>Itens na cor do dono</strong> — no multiplayer, cada jogador vê os próprios itens na cor dele. Desligado: itens na cor original para todos.</span>'+
+    `<button id="opt-ownercolors" class="mode-btn${ownerColors?' is-on':''}" type="button" aria-pressed="${ownerColors}">${ownerColors?'❚❚ Ligado':'▶ Desligado'}</button></div>`+
+    '<div class="ctrl-row"><span><strong>Paleta segura para daltonismo</strong> — troca as cores de jogadores, itens e efeitos pela paleta Okabe-Ito (distinguível em protan/deutan/tritan). O cenário mantém as cores naturais.</span>'+
+    `<button id="opt-cbsafe" class="mode-btn${cbSafe?' is-on':''}" type="button" aria-pressed="${cbSafe}">${cbSafe?'❚❚ Ligado':'▶ Desligado'}</button></div>`+
+    '<div class="ctrl-row"><span><strong>Cores do color-blocking</strong> — nos modos de alto contraste, escolha a cor de cada papel: perigo, escalável, água e portão. ↺ restaura o padrão.</span>'+
+    '<span style="display:flex;gap:.35rem;align-items:center">'+
+    ['hazard','climb','water','gate'].map(k=>`<input type="color" id="opt-role-${k}" value="${rgbHex(HC_ROLE[k])}" aria-label="Cor de ${ROLE_LBL[k]}" style="inline-size:2.2em;block-size:1.8em;padding:0;border:1px solid #666;border-radius:4px;background:none">`).join('')+
+    '<button id="opt-role-reset" class="mode-btn" type="button" aria-label="Restaurar cores padrão">↺</button></span></div>';
   const s=$('#opt-contrast'); if(s){ s.value=val; s.addEventListener('change',()=>{ setPlayerViz(selVizPlayer,s.value); srSay('Alto contraste: '+HC_LABEL[s.value]+'.'); }); }
   const lq=$('#opt-lq'), lqv=$('#opt-lq-val');
   if(lq){ const refl=()=>{ if(lqv)lqv.textContent=lqName(lqT); }; lq.value=String(Math.round(lqT*100)); refl();
     lq.addEventListener('input',()=>{ setLq(+lq.value/100); refl(); });
     lq.addEventListener('change',()=>srSay('Realce de contraste: '+lqName(lqT)+'.')); }
+  const oc=$('#opt-ownercolors'); if(oc)oc.addEventListener('click',()=>{ setOwnerColors(!ownerColors); renderVisual(); });
+  const cb=$('#opt-cbsafe'); if(cb)cb.addEventListener('click',()=>{ setCbSafe(!cbSafe); renderVisual(); });
+  ['hazard','climb','water','gate'].forEach(k=>{ const inp=$('#opt-role-'+k); if(inp)inp.addEventListener('change',()=>setRoleColor(k,inp.value)); });
+  const rr=$('#opt-role-reset'); if(rr)rr.addEventListener('click',resetRoleColors);
   if(typeof reflectOutlines==='function')reflectOutlines(); }
 // Dois contornos configuráveis (1º plano personagem/itens · 2º plano perímetro de plataforma/água/lava).
 function _rebakeDirect(){ // invalida os caches de textura direta (mundo depende de bg; sprites de fg) e re-renderiza
@@ -2493,7 +2529,8 @@ app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); upda
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
 window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
-  JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;}};
+  JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
+  setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;}};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
