@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.140.0';
+const INCL_VERSION='4.141.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -251,11 +251,21 @@ function worldCanvas(tiles){           // canvas NORMAL (tileset do tema ou TILE
     if(tiles && isGroundType(t)){      // tileset: superfície (topo claro) se há ar acima, senão preenchimento
       c.drawImage(solidAt(x,y-1)?tiles.fill:tiles.surface, x*TILE, y*TILE); continue;
     }
-    c.fillStyle=TILE_COLOR[t]||'#202'; c.fillRect(x*TILE,y*TILE,TILE,TILE);
-    if(isSolidType(t)){ c.fillStyle='rgba(255,255,255,.12)';c.fillRect(x*TILE,y*TILE,TILE,2);
-      c.fillStyle='rgba(0,0,0,.22)';c.fillRect(x*TILE,y*TILE+TILE-2,TILE,2); }
-    if(t===4){ c.fillStyle='rgba(0,0,0,.4)';for(let r=2;r<TILE;r+=5)c.fillRect(x*TILE+2,y*TILE+r,TILE-4,2); } // degraus escada
-    if(t===3){ c.fillStyle='rgba(255,255,255,.10)';c.fillRect(x*TILE,y*TILE+2,TILE,2); } // brilho água
+    // DESENHOS DA V3 (drawTile, fiel — fim do "cinza com chanfro"); partes animadas (água/lava) ficam no stepTileFx
+    const X=x*TILE, Y=y*TILE;
+    if(t===2){ c.fillStyle='#555'; c.fillRect(X,Y,TILE,TILE);                                  // pedra + pontos escuros
+      c.fillStyle='#3a3a3a'; c.fillRect(X+2,Y+3,1,1); c.fillRect(X+9,Y+5,1,1); c.fillRect(X+5,Y+11,1,1); c.fillRect(X+12,Y+9,1,1); }
+    else if(t===6){ c.fillStyle='#666'; c.fillRect(X,Y,TILE,TILE);                             // parede dura + linhas
+      c.fillStyle='#444'; c.fillRect(X,Y,TILE,1); c.fillRect(X,Y+TILE-1,TILE,1); }
+    else if(t===4){ c.fillStyle='#777';                                                        // escada VAZADA: trilhos + degraus
+      c.fillRect(X+3,Y,2,TILE); c.fillRect(X+11,Y,2,TILE);
+      c.fillRect(X+3,Y+2,10,2); c.fillRect(X+3,Y+8,10,2); c.fillRect(X+3,Y+14,10,2); }
+    else if(t===5){ c.fillStyle='#555'; c.fillRect(X,Y+10,TILE,6);                             // trampolim magenta
+      c.fillStyle='#E373FA'; c.fillRect(X+1,Y+2,TILE-2,9);
+      c.fillStyle='#fff'; c.fillRect(X+2,Y+4,TILE-4,1); }
+    else if(t===3){ c.fillStyle='rgba(121,220,242,0.4)'; c.fillRect(X,Y,TILE,TILE); }          // água translúcida (sem listras!)
+    else if(t===9){ c.fillStyle='#C93232'; c.fillRect(X,Y,TILE,TILE); }                        // lava (tracinhos animados no stepTileFx)
+    else { c.fillStyle=TILE_COLOR[t]||'#202'; c.fillRect(X,Y,TILE,TILE); }
   }
   return cv;
 }
@@ -1613,9 +1623,39 @@ function applyCenarioVida(){ const city=CENARIO==='cidade';
   carLayer.visible=city; cityDecoG.visible=city; skyLayer.visible=city; // trânsito/deco/céu-da-cidade SÓ na Cidade
   if(!city&&cars.length){ cars.forEach(c=>{ carLayer.removeChild(c.s); c.s.destroy(); }); cars=[]; } }
 _vidaReady=true; applyCenarioVida(); // estado inicial (CENARIO já veio do setCenario do boot)
+/* ===================== Tiles vivos da v3 (água FORE + lava) — drawTile animado, fiel ===================== */
+const lavaFxG=new PIXI.Graphics(); lifeLayer.addChildAt(lavaFxG,0);   // tracinhos da lava (ATRÁS do player, como o map-back)
+const waterFxG=new PIXI.Graphics(); camera.addChild(waterFxG);        // água era FORE na v3: ondas/corais/algas/peixes POR CIMA do player
+function stepTileFx(){ lavaFxG.clear(); waterFxG.clear();
+  if(DIRECT_CFG[vizMode]||rm.decor) return; // HC repinta o mundo (color-blocking); viewDecor off na v3 = só a base estática
+  const t=fxClock, seen=new Set();
+  for(const pl of players){ if(pl.quit)continue;
+    const camX=Math.max(0,Math.min(pl.x-LOGICAL_W/2,WORLD_PX_W-LOGICAL_W)), camY=Math.max(0,Math.min((pl.y-BOX.h/2)-LOGICAL_H/2,WORLD_PX_H-LOGICAL_H));
+    const tx0=Math.max(0,Math.floor(camX/TILE)-1), tx1=Math.min(WORLD_W-1,Math.floor((camX+LOGICAL_W)/TILE)+1);
+    const ty0=Math.max(0,Math.floor(camY/TILE)-1), ty1=Math.min(WORLD_H-1,Math.floor((camY+LOGICAL_H)/TILE)+1);
+    for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){ const tt=tileAt(tx,ty); if(tt!==3&&tt!==9)continue;
+      const k=tx+','+ty; if(seen.has(k))continue; seen.add(k); const X=tx*TILE,Y=ty*TILE;
+      if(tt===9){ const off=(Math.floor(t/8)+X)%4; // lava v3: tracinhos claros que derivam
+        lavaFxG.beginFill(0xff7755).drawRect(X+off,Y+3,3,1).drawRect(X+((off+6)%TILE),Y+8,3,1).endFill(); continue; }
+      // ÁGUA v3: ondulação verde sutil que deriva
+      waterFxG.beginFill(0x46a078,0.12).drawRect(X,Y+7+Math.round(2*Math.sin(tx*1.3+t*0.04)),TILE,2).endFill();
+      if(tileAt(tx,ty-1)!==3){ const off=Math.sin(t*0.05+X*0.1)>0?1:0; // linha de superfície SÓ na borda de cima
+        waterFxG.beginFill(0xffffff,0.35).drawRect(X+off,Y+1,TILE-off,1).endFill(); }
+      if(solidAt(tx,ty+1)){ const h=(tx*2654435761)>>>0, kind=h%3; // leito: coral / algas (determinísticos por coluna)
+        if(kind===0){ waterFxG.beginFill([0xe8743b,0xf2c14e,0x8c2f39][(h>>>3)%3])
+          .drawRect(X+6,Y+9,2,7).drawRect(X+4,Y+10,2,4).drawRect(X+9,Y+8,2,5).drawRect(X+3,Y+12,1,2).drawRect(X+11,Y+11,1,2).endFill(); }
+        else if(kind===1){ waterFxG.beginFill(0x3fae6a); const sway=2*Math.sin(t*0.06+tx); // algas balançando
+          for(let a2=0;a2<9;a2++){ waterFxG.drawRect(X+7+Math.round(sway*(a2/9)),Y+15-a2,1,1);
+            if(a2%2===0)waterFxG.drawRect(X+9+Math.round(sway*(a2/9)),Y+15-a2,1,1); } waterFxG.endFill(); } }
+      else { const fh=(tx*40503+ty*12289)>>>0; // água aberta: peixinho esparso nadando (com olho!)
+        if(fh%7===0){ const fx2=X+6+Math.round(5*Math.sin(t*0.04+tx+ty)), fy2=Y+7+Math.round(2*Math.sin(t*0.07+ty));
+          const dir=Math.cos(t*0.04+tx+ty)>=0?1:-1;
+          waterFxG.beginFill([0xe5484d,0x3a6ea5,0x48b06a][fh%3]).drawRect(fx2,fy2,3,2).drawRect(fx2-dir,fy2,1,2).endFill();
+          waterFxG.beginFill(0xffffff,1).drawRect(fx2+(dir>0?2:0),fy2,1,1).endFill(); } } } }
+}
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
-camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); // FRENTE do player TAMBÉM no boot solo (bug: só o ensureSprites re-erguia); névoa por cima do decor-front (ordem da v3); o fxG nasce logo abaixo, já por cima
+camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); camera.addChild(waterFxG); // FRENTE do player TAMBÉM no boot solo; ordem v3: decor-front < névoa < ÁGUA (map-fore); o fxG nasce logo abaixo, já por cima
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
    Cada efeito respeita o Movimento Reduzido do jogador: partículas→rm.particles, cintilar→rm.items,
    tremor de tela→rm.parallax (movimento de câmera), squash→rmWalk (personagem). Hit-stop é PAUSA, não movimento. */
@@ -1667,7 +1707,7 @@ applyCrt();
 let allPSprites=[playerSprite];
 function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
-  camera.addChild(fxG); camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); // re-adicionar = mover ao topo (partículas, CARROS, decor-front e névoa à frente dos players)
+  camera.addChild(fxG); camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); camera.addChild(waterFxG); // re-adicionar = mover ao topo (partículas, CARROS, decor-front, névoa e ÁGUA-fore à frente dos players)
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
@@ -2042,6 +2082,7 @@ function update(dt){
   stepTraffic(dt); // L5: carros (frente, na rua da base) + semáforo
   stepSky(dt); // L5: nuvens + pássaros no céu
   stepV3Decor(); // L6: decoração viva da v3 (estrelas/nuvens/pássaros/névoa/grama/minhocas/vagalumes/borboletas)
+  stepTileFx(); // tiles vivos da v3: água (ondas/corais/algas/peixes, FORE) + lava (tracinhos)
   if(ended)return;
   players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
   for(const pl of players) stepPlayer(pl,dt);
