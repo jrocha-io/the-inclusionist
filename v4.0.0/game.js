@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.142.2';
+const INCL_VERSION='4.143.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -589,7 +589,10 @@ addEventListener('keydown',(e)=>{
     const isPause=e.code==='Escape'||e.code==='Enter';
     const winOv=$('#win-overlay');
     if(winOv&&!winOv.hidden){ if(isJump||isPause){ e.preventDefault(); const b=$('#btn-again'); if(b)b.click(); } return; }
-    if(phase==='title'){ // menu inicial: setas navegam, PULO/Enter confirma, ESPECIAL/Esc volta
+    if(phase==='title'){ // menu inicial: setas navegam, PULO/Enter confirma, ESPECIAL/Esc volta — SÓ O JOGADOR 1
+      hideTouchControls(); // teclado no splash oculta os controles virtuais (report do José)
+      const kp=whichPlayer(e.code);
+      if(numPlayers>1&&kp>0){ srSay('Aguarde o Jogador 1 escolher o jogo.'); e.preventDefault(); return; }
       const k={ yes:isJump||e.code==='Enter', no:e.code==='Escape'||players.some((p,i)=>actionOf(e.code,i)==='especial'),
         up:KUP.includes(e.code)||e.code==='ArrowUp', down:KDOWN.includes(e.code)||e.code==='ArrowDown',
         left:KLEFT.includes(e.code), right:KRIGHT.includes(e.code) };
@@ -2412,24 +2415,31 @@ function restartGame(){
   updateHud();
   $('#hud-objective').textContent = numPlayers>1 ? `${numPlayers} jogadores — corrida pelas ${COIN_TARGET} moedas` : MODE==='somasub' ? 'Resolva 10 contas' : MODE==='silabas' ? 'Monte 10 palavras' : 'Colete 10 moedas';
   $('#win-overlay').hidden=true;
-  const tp=$('#start-tips'); if(tp){ if(numPlayers>1){ tp.classList.add('hide'); } else { tp.classList.remove('hide'); clearTimeout(tipsTimer); tipsTimer=setTimeout(hideTips,8000); } }
+  // (dicas de início removidas — o rodapé do splash mostra os controles)
   srSay(numPlayers>1 ? `${numPlayers} jogadores, cada um na sua tela. Corram pelas moedas.` : MODE==='somasub' ? 'Modo Soma-Sub. Toque nas figuras e resolva as contas.' : MODE==='silabas' ? 'Modo Sílabas. Toque nas letras e monte as palavras.' : 'Nova rodada. Colete 10 moedas.');
 }
 $('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').focus(); });
 /* ===================== ATIVIDADES (menu inicial novo) =====================
    Lúdico · Alfabetização (5 — 3 vitórias = 1 moeda, SEM penalidade no erro) · Matemática (11).
    Trocar de atividade = todo mundo sai do jogo → volta ao menu inicial. */
-const ACTIVITIES={
+const ACTIVITIES={ // d = descrição do minigame (rodapé dos menus secundários)
   ludico:{cat:'ludico',nome:'Coletar 10 moedas'},
-  alf1:{cat:'alf',nome:'Descobrindo palavras'}, alf2:{cat:'alf',nome:'Descobrindo sílabas'},
-  alf3:{cat:'alf',nome:'Montando palavras'},   alf4:{cat:'alf',nome:'Escrevendo palavras'},
-  alf5:{cat:'alf',nome:'Escrevendo em Braille'},
-  mat1:{cat:'mat',nome:'Quantidade'}, mat2:{cat:'mat',nome:'Soma fácil'},
-  mat3:{cat:'mat',nome:'Soma e Subtração 1'}, mat4:{cat:'mat',nome:'Soma e Subtração 2'},
-  mat5:{cat:'mat',nome:'Tabuada',pick:true},  mat6:{cat:'mat',nome:'Divisão',pick:true},
-  fr2:{cat:'mat',nome:'Frações: meios',dens:[2]}, fr3:{cat:'mat',nome:'Frações: terços',dens:[3]},
-  fr42:{cat:'mat',nome:'Frações: quartos e meios',dens:[4,2]}, fr5:{cat:'mat',nome:'Frações: quintos',dens:[5]},
-  fr632:{cat:'mat',nome:'Frações: sextos, terços e meios',dens:[6,3,2]},
+  alf1:{cat:'alf',nome:'Descobrindo palavras', d:'Escolha o nome certo do objeto entre três opções escritas.'},
+  alf2:{cat:'alf',nome:'Descobrindo sílabas',  d:'O jogo FALA a sílaba e você monta a palavra (9 sílabas).'},
+  alf3:{cat:'alf',nome:'Montando palavras',    d:'O jogo SOLETRA a sílaba e você monta a palavra (9 sílabas).'},
+  alf4:{cat:'alf',nome:'Escrevendo palavras',  d:'Escreva letra por letra; o jogo fala o nome da letra (12 letras).'},
+  alf5:{cat:'alf',nome:'Escrevendo em Braille',d:'Escreva letra por letra; o jogo dita os pontos da cela Braille (12 letras).'},
+  mat1:{cat:'mat',nome:'Quantidade',           d:'Conte as bolinhas e escolha o número certo (1 a 9).'},
+  mat2:{cat:'mat',nome:'Soma fácil',           d:'Somas com parcelas de 0 a 5.'},
+  mat3:{cat:'mat',nome:'Soma e Subtração 1',   d:'Contas que dá para fazer nos dedos (até 10).'},
+  mat4:{cat:'mat',nome:'Soma e Subtração 2',   d:'Guarde um número na cabeça e opere o outro nos dedos (até 20).'},
+  mat5:{cat:'mat',nome:'Tabuada',pick:true,    d:'Escolha os números e treine a multiplicação.'},
+  mat6:{cat:'mat',nome:'Divisão',pick:true,    d:'Escolha os números e treine a divisão.'},
+  fr2:{cat:'mat',nome:'Frações: meios',dens:[2],           d:'Some e subtraia meios.'},
+  fr3:{cat:'mat',nome:'Frações: terços',dens:[3],          d:'Some e subtraia terços.'},
+  fr42:{cat:'mat',nome:'Frações: quartos e meios',dens:[4,2], d:'Some e subtraia quartos e meios.'},
+  fr5:{cat:'mat',nome:'Frações: quintos',dens:[5],         d:'Some e subtraia quintos.'},
+  fr632:{cat:'mat',nome:'Frações: sextos, terços e meios',dens:[6,3,2], d:'Some e subtraia sextos, terços e meios.'},
 };
 const ALF_LEVEL={alf1:1,alf2:2,alf3:3,alf4:4,alf5:5};
 let ACTIVITY=(()=>{ try{ const a=localStorage.getItem('incl_activity'); return ACTIVITIES[a]?a:'ludico'; }catch(e){ return 'ludico'; } })();
@@ -2548,7 +2558,10 @@ function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só co
     // Vitória: START/pulo fecham o modal (Jogar de novo)
     const winOv=$('#win-overlay'); if(winOv&&!winOv.hidden){ if(startEdge){ const b=$('#btn-again'); if(b)b.click(); } continue; }
     if(phase==='title'){ const k={yes:edge('jump')||startEdge, no:edge('especial'), up:edge('up'), down:edge('down'), left:edge('left'), right:edge('right')};
-      if(k.yes||k.no||k.up||k.down||k.left||k.right)navTitle(k); continue; } // menu inicial navegável pelo pad
+      const any=k.yes||k.no||k.up||k.down||k.left||k.right;
+      const owner=players.findIndex(p=>p.pad===gi);
+      if(numPlayers>1&&owner>0){ if(any)srSay('Aguarde o Jogador 1 escolher o jogo.'); continue; } // só o J1 escolhe
+      if(any)navTitle(k); continue; } // menu inicial navegável pelo pad
     if(phase==='paused'){ const owner=players.findIndex(p=>p.pad===gi); const pi=owner<0?0:owner;
       if(pauseEdge){ setPhase('playing'); continue; } // START retoma
       const k={yes:edge('jump'), no:edge('especial'), up:edge('up'), down:edge('down'), left:edge('left'), right:edge('right')};
@@ -2863,7 +2876,7 @@ function fillExplain(card){ if(!card)return;
 }
 function frontOverlay(el){ if(!el)return; el.style.zIndex=String(++_ovZ); const card=el.querySelector('.overlay__card'); if(card)fillExplain(card); }
 (function inCanvasMenus(){ const gr=document.getElementById('game-region'); if(!gr)return;
-  ['audio','movement','options','animation','visual','empathy','touchcfg','help','padwiz','typo'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); }); // NENHUMA tela fora do canvas
+  ['audio','movement','options','animation','visual','empathy','touchcfg','help','padwiz','typo','title-overlay'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); }); // NENHUMA tela fora do canvas (decisão definitiva do José — splash incluso)
   // Botões puramente on/off viram TOGGLE (switch) — o texto "Ligado/Desligado" fica oculto (font-size:0).
   ['opt-facil','opt-altmove','opt-hearing','opt-onebtn','opt-wheelchair','opt-modocego','opt-tts','opt-eyes','audio-master','opt-captions','motion-master'].forEach(id=>{ const b=document.getElementById(id); if(b)b.classList.add('switch'); });
 })();
@@ -3240,8 +3253,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
-let tipsTimer=setTimeout(hideTips,8000);
-function hideTips(){ const el=$('#start-tips'); if(el)el.classList.add('hide'); clearTimeout(tipsTimer); }
+function hideTips(){} // dicas de início REMOVIDAS (José 2026-07-04); stub mantém os call-sites
 
 /* ===== Layout: jogo em múltiplos inteiros de 320x180, centralizado; VLibras = 5:9 ao lado =====
    Usa o BOTÃO NATIVO do VLibras (reposicionado à direita do jogo). Detecta abertura/fechamento
@@ -3298,7 +3310,7 @@ function setPhase(p){
   const pb=$('#btn-pause'); if(pb)pb.setAttribute('aria-pressed',String(p==='paused'));
   if(p==='playing'){ const gr=$('#game-region'); if(gr)gr.focus(); }
   else if(p==='paused'){ if(typeof pauseSelect==='function')pauseSelect(); if(typeof reflectPauseIcons==='function')reflectPauseIcons(); }
-  else if(p==='title'){ const b=$('#tm-main button'); if(b)b.focus(); }
+  else if(p==='title'){ updateTitleLegend(); const b=$('#tm-main button'); if(b)b.focus(); }
 }
 // NAVEGAÇÃO UNIVERSAL de menus: qualquer menu aberto (pausa OU submenu) é navegável por up/down/left/right/
 // sim/não — as MESMAS ações valem para teclado, controle, olhos e fala. sim = confirma/alterna/entra;
@@ -3392,15 +3404,39 @@ function navTitle(k){ const bs=titleButtons(); if(!bs.length)return;
 function buildTitleMenus(){
   const mk=id=>`<button class="title-btn" data-act-id="${id}" type="button">${ACTIVITIES[id].nome}</button>`;
   const back=(to)=>`<button class="title-btn ghost" data-tm-back="${to}" type="button">Voltar</button>`;
-  const alf=$('#tm-alf'); if(alf)alf.innerHTML=['alf1','alf2','alf3','alf4','alf5'].map(mk).join('')+back('tm-main');
-  const mat=$('#tm-mat'); if(mat)mat.innerHTML=['mat1','mat2','mat3','mat4','mat5','mat6','fr2','fr3','fr42','fr5','fr632'].map(mk).join('')+back('tm-main');
+  const desc=`<div class="tm-desc" aria-live="polite"></div>`; // rodapé com a descrição do minigame focado
+  const alf=$('#tm-alf'); if(alf)alf.innerHTML=['alf1','alf2','alf3','alf4','alf5'].map(mk).join('')+back('tm-main')+desc;
+  const mat=$('#tm-mat'); if(mat)mat.innerHTML=['mat1','mat2','mat3','mat4','mat5','mat6','fr2','fr3','fr42','fr5','fr632'].map(mk).join('')+back('tm-main')+desc;
   const rows=r=>r.map(n=>`<button class="title-btn tab-num${tabSel.includes(n)?' tab-on':''}" data-tab-n="${n}" type="button" aria-pressed="${tabSel.includes(n)}">${n}</button>`).join('');
   const tab=$('#tm-tab'); if(tab)tab.innerHTML=`<div class="game-subtitle">Escolha os números para treinar</div>`+
     `<div class="tab-row">${rows([0,1,2,3,4,5])}</div><div class="tab-row">${rows([6,7,8,9,10])}</div>`+
     `<button class="title-btn" id="tab-play" type="button">Jogar</button>`+back('tm-mat');
 }
+/* Rodapé do splash: controles conforme o DISPOSITIVO plugado — teclado=letras (J/K/U/I),
+   DirectInput=números (0/1/2/3), XInput=letras COLORIDAS (A/B/X/Y). Pausa: Enter/START. */
+function padKind(){ let kind='kb'; const pads=navigator.getGamepads?navigator.getGamepads():[];
+  for(const gp of pads){ if(!gp)continue; kind=(gp.mapping==='standard')?'x':'d'; if(kind==='x')break; }
+  return kind; }
+function updateTitleLegend(){ const el=$('#title-legend'); if(!el)return; const k=padKind();
+  const XC={A:'#3fae5a',B:'#e5484d',X:'#5aa2e8',Y:'#e8b93b'};
+  const it=(kb,dn,xl,act)=>{ const key=k==='kb'?`<kbd>${kb}</kbd>`:k==='d'?`<kbd>${dn}</kbd>`:`<kbd style="color:${XC[xl]}">${xl}</kbd>`; return key+' '+act; };
+  el.innerHTML=[it('J','0','A','pular'),it('K','1','B','especial'),it('U','2','X','correr'),it('I','3','Y','trocar'),
+    (k==='kb'?'<kbd>Enter</kbd>':'<kbd>START</kbd>')+' pausa'].join(' · ');
+  const w=$('#title-wait'); if(w)w.hidden=numPlayers<=1; } // MP: aviso "Aguarde o Jogador 1"
+addEventListener('gamepadconnected',()=>{ if(phase==='title')updateTitleLegend(); });
+addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegend(); });
 (function titleSetup(){ const ov=$('#title-overlay'); if(!ov)return; buildTitleMenus();
+  // Ícones de a11y da pausa TAMBÉM no topo do splash (mesmas ações, escopo do Jogador 1)
+  const ti=$('#title-icons'); if(ti){ ti.innerHTML=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+(ic.soon?' (em construção)':'')+'">'+ic.e+'</button>').join('');
+    ti.addEventListener('click',(e)=>{ const ib=e.target.closest('.pi-btn'); if(!ib)return; pauseActor=0; iconAct(ib.dataset.pi,0);
+      if(typeof reflectPauseIcons==='function')reflectPauseIcons(); srSay(ib.getAttribute('aria-label')||''); }); }
+  // Rodapé de descrição do minigame: atualiza no foco/hover das opções dos submenus
+  ov.addEventListener('focusin',(e)=>{ const b=e.target.closest('button[data-act-id]'); if(!b)return;
+    const d=(ACTIVITIES[b.dataset.actId]||{}).d||''; const box=b.closest('.title-menu'); const el=box&&box.querySelector('.tm-desc'); if(el)el.textContent=d; });
+  ov.addEventListener('mouseover',(e)=>{ const b=e.target.closest('button[data-act-id]'); if(!b)return;
+    const d=(ACTIVITIES[b.dataset.actId]||{}).d||''; const box=b.closest('.title-menu'); const el=box&&box.querySelector('.tm-desc'); if(el)el.textContent=d; });
   ov.addEventListener('click',(e)=>{ const b=e.target.closest('button'); if(!b)return;
+    if(b.classList.contains('title-btn')){ b.classList.remove('act-fx'); void b.offsetWidth; b.classList.add('act-fx'); } // efeito de ATIVAÇÃO
     if(b.dataset.tm==='ludico'){ startActivity('ludico'); return; }
     if(b.dataset.tm==='alf'){ showTitleMenu('tm-alf'); return; }
     if(b.dataset.tm==='mat'){ showTitleMenu('tm-mat'); return; }

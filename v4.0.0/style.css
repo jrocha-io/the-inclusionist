@@ -35,14 +35,28 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .game-byline{color:#f6f5f0;font-size:.8em;text-align:right;margin-top:2px;text-shadow:1px 1px 0 #0d0d1a}
 .game-version{color:#9999b3;font-size:.6em;text-align:right;letter-spacing:1px;margin-top:2px;text-shadow:1px 1px 0 #0d0d1a}
 .game-subtitle{color:#f6f5f0;font-size:.8em;margin:0 0 4px;text-shadow:1px 1px 0 #0d0d1a;text-align:center}
-.title-menu{display:flex;flex-direction:column;gap:8px;align-items:stretch;overflow-y:auto;padding:4px;max-height:62vh}
+/* Splash DENTRO do canvas, SEM rolagem (decisão do José): tudo escala com --ui-fs e cabe na tela */
+.title-menu{display:flex;flex-direction:column;gap:.35em;align-items:stretch;padding:2px}
 .title-menu[hidden]{display:none}
-.title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:1em;padding:10px 22px;border-radius:6px;cursor:pointer;min-width:230px;min-height:44px}
+#tm-mat{display:grid;grid-template-columns:1fr 1fr;gap:.35em}          /* 12 itens → 2 colunas */
+#tm-mat .ghost,#tm-mat .tm-desc{grid-column:1/-1}
+.title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em 1em;border-radius:6px;cursor:pointer;min-width:0;min-height:2.3em}
 .title-btn.ghost{background:transparent;color:#fff;border:2px solid #fff}
-.title-btn:focus-visible{outline:4px solid var(--focus);outline-offset:2px}
+/* Seletor VERMELHO que pisca a 1Hz (WCAG 2.3.1: <3 flashes/s; reduced-motion = fixo).
+   Especificidade com #title-overlay: vence os estilos globais de foco dos overlays. */
+#title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{outline:4px solid #ff3b30;outline-offset:2px;animation:titleSel 1s steps(2,jump-none) infinite}
+@keyframes titleSel{50%{outline-color:rgba(255,59,48,.25)}}
+@media (prefers-reduced-motion: reduce){ #title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{animation:none} }
+#title-overlay .title-btn.act-fx{animation:titleAct .25s ease}         /* efeito de ATIVAÇÃO (aperto) */
+@keyframes titleAct{0%{transform:scale(.94);filter:brightness(1.6)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){ #title-overlay .title-btn.act-fx{animation:none;filter:brightness(1.4)} }
 .title-btn.tab-on{box-shadow:inset 0 0 0 3px #14141f}
-.tab-row{display:flex;gap:6px;justify-content:center}
-.tab-row .title-btn{min-width:44px;padding:10px 0;flex:1}
+.tab-row{display:flex;gap:.35em;justify-content:center}
+.tab-row .title-btn{min-width:2.2em;padding:.4em 0;flex:1}
+.tm-desc{color:#f6f5f0;font-size:.75em;text-align:center;min-height:2.4em;margin-top:.2em;text-shadow:1px 1px 0 #0d0d1a} /* rodapé descrevendo o minigame */
+.title-legend{color:#f6f5f0;font-size:.75em;text-align:center;text-shadow:1px 1px 0 #0d0d1a}
+.title-legend kbd{background:rgba(13,13,26,.8);color:#fff;border-radius:4px;padding:.05em .45em;font-weight:800}
+#title-icons{display:flex;gap:.3em;justify-content:center;flex-wrap:wrap}
 .quiz-dots{font-size:1.3em;letter-spacing:.15em;line-height:1.3;margin:.3rem 0;max-width:12em}
 @media (prefers-contrast: more){
   :root{ --bg:#000; --panel:#000; --ink:#fff; --ink-soft:#fff; --accent:#ffe600; }
