@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.149.6';
+const INCL_VERSION='4.149.7';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -3384,11 +3384,12 @@ function layout(){
   const dpr=window.devicePixelRatio||1;
   const kDev=Math.max(Math.round(MIN_K*dpr), Math.floor(Math.min(availW*dpr/(baseW-10), availH*dpr/(baseH-10))));
   const k=kDev/dpr; // fator LÓGICO/CSS (kDev = fator em pixels REAIS, inteiro)
-  const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
-  // TODA a UI (menus, ícones, alvos de toque) escala pelo MESMO k inteiro do canvas → proporção pixel-art constante.
-  // Base LÓGICA: fonte 8px e toque 22px (a 320×180); × k. Em k=2: fonte 16px, toque 44px (piso WCAG). NUNCA fixo.
-  document.documentElement.style.setProperty('--ui-fs', (8*k)+'px');
-  document.documentElement.style.setProperty('--tap', (22*k)+'px');
+  // ESCALA das variáveis de UI é ESCOPADA ao #game-region: só a UI DENTRO do canvas (menus, HUD, pausa, quiz)
+  // escala com o k. Fora do canvas (barra de topo, painel de debug) herda o :root → texto SEMPRE 16px, toque 44px (José).
+  const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px';
+    gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px');
+    gr.style.setProperty('--ui-fs', (8*k)+'px');   // base LÓGICA 8px × k (16px em k=2)
+    gr.style.setProperty('--tap', (22*k)+'px'); }  // toque 22px × k (44px em k=2, piso WCAG)
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
   if(/[?&]debug=true/.test(location.search))console.info(`[escala] kDev=${kDev}× px REAIS (canvas físico ${baseW*kDev}×${baseH*kDev} = múltiplo INTEIRO de ${baseW}×${baseH}); CSS ${Math.round(baseW*k)}×${Math.round(baseH*k)} (k=${k.toFixed(3)}, dpr=${dpr})`); // José confirma: os PIXELS REAIS são múltiplo inteiro
 }
