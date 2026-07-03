@@ -33,7 +33,7 @@ Pedido do José em 2026-07-04. Grande; executar em ETAPAS. Base psicogenética (
 1. **Fundação (feita, v4.152.0):** `gameSay` sempre-ativa; rodapés 1/2/3/6 com os textos do José; fala da palavra ao abrir (jogos 1–3).
 2. **Distratores Ferreiro** (jogo 1 Descobrindo palavras): a correta escrita normal; as erradas com (a) símbolo/emoji (refuta ícone), (b) 4-8 letras repetidas (falta de variedade), (c) emoji no meio, (d) 1 letra/sílaba ou menos, OU 4+ letras/sílaba (refuta tamanho=objeto). Substituir `malform()`.
 3. **[FEITA v4.154.0]** Sons de hover/select (jogo 2 Descobrindo sílabas): hover→`gameSay(sílaba)`; select→sfx + `gameSay(sílaba)`. Jogo 3 (Montando) NÃO tem (flag `hearSyl=quizLevel===2`).
-4. **Especial=apagar** (jogos 2/3/6, não no 1) + **acerto: som suave + refala + pausa + próxima**.
+4. **[FEITA v4.155.0]** Especial=apagar (`quizErase`, jogos 2/3/6, não no 1) + acerto: som + refala a palavra (`gameSay`) + pausa 1,2s (`q.won` guarda) → próxima.
 5. **Selecionar a palavra do topo p/ repetir** (jogos 1–3).
 6. **Grafema e fonema** (novo, jogo 4): eSpeak fonema; grade de letras; hover diz nome da letra.
 7. **Malha de Braille** (novo, jogo 5): diz a letra; 8 letras; hover soletra os pontos da cela (`BRAILLE` map → "um", "um dois"…).
