@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.130.0';
+const INCL_VERSION='4.130.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1276,16 +1276,24 @@ function drawFx(){ fxG.clear(); for(const p of particles){ const f=p.life/p.max;
 /* L2: Estética CRT (menu Sensibilidade visual) — scanlines/vinheta/cantos em 3 NÍVEIS (0=desligado,
    1=pequeno, 2=grande), só CSS. Cantos: 0=tela quadrada, 1=padrão de sempre (8px), 2=arredondadão (24px).
    Migra o formato booleano antigo (true→ligado; round true→2, false→1). */
-const CRT=(()=>{ const d={scan:0,vig:0,round:1};
-  try{ const s=JSON.parse(localStorage.getItem('incl_crt')); if(s&&typeof s==='object') for(const k in d) if(k in s){ const v=s[k];
-    d[k]= v===true?(k==='round'?2:1) : v===false?(k==='round'?1:0) : Math.max(0,Math.min(2,v|0)); } }catch(e){}
-  d.scan=d.scan?1:0; d.vig=d.vig?1:0; // scanlines/vinheta são ON/OFF (só cantos tem 3 níveis — pedido do José)
+const CRT=(()=>{ const d={scan:1,vig:0,round:1}; // scanline LIGADA por padrão (decisão do José 2026-07-03)
+  try{ const s=JSON.parse(localStorage.getItem('incl_crt2')||localStorage.getItem('incl_crt'));
+    const fresh=!localStorage.getItem('incl_crt2'); // migração p/ crt2: herda vig/round; scan volta ao padrão ON uma vez
+    if(s&&typeof s==='object') for(const k in d) if(k in s){ const v=s[k];
+      if(fresh&&k==='scan')continue;
+      d[k]= v===true?(k==='round'?2:1) : v===false?(k==='round'?1:0) : Math.max(0,Math.min(2,v|0)); } }catch(e){}
+  d.scan=d.scan?1:0; d.vig=d.vig?1:0; // scanlines/vinheta são ON/OFF (só cantos tem 3 níveis)
   return d; })();
+function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return; // alinha a scanline ao pixel FÍSICO e ao pixel LÓGICO do jogo
+  const rows=numPlayers<=2?1:2, k=Math.max(2,Math.round((g.clientHeight||360)/(180*rows))); // k = escala inteira atual
+  const dpr=window.devicePixelRatio||1, perDev=Math.max(2,Math.round(k*dpr));               // período em px físicos ≈ 1 px lógico
+  g.style.setProperty('--scan-per',(perDev/dpr)+'px'); g.style.setProperty('--scan-line',(Math.max(1,Math.round(dpr))/dpr)+'px'); }
 function applyCrt(){ const g=$('#game-region'); if(!g)return;
   ['crt-scan-1','crt-vig-1','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
-  if(CRT.scan)g.classList.add('crt-scan-'+CRT.scan); if(CRT.vig)g.classList.add('crt-vig-'+CRT.vig);
+  if(CRT.scan){ g.classList.add('crt-scan-'+CRT.scan); crtScanVars(); }
+  if(CRT.vig)g.classList.add('crt-vig-'+CRT.vig);
   if(CRT.round!==1)g.classList.add('crt-round-'+CRT.round); // 1 = visual padrão (8px), sem classe
-  try{ localStorage.setItem('incl_crt',JSON.stringify(CRT)); }catch(e){} }
+  try{ localStorage.setItem('incl_crt2',JSON.stringify(CRT)); }catch(e){} }
 applyCrt();
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
 let allPSprites=[playerSprite];
@@ -2740,6 +2748,7 @@ function layout(){
   const k=Math.max(MIN_K,Math.floor(Math.min(availW/(baseW-10), availH/(baseH-10))));
   const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
   document.documentElement.style.setProperty('--ui-fs', (8*k)+'px'); // fonte-base dos menus: 16px a 640×360 (k=2) e escala com o canvas (8·k)
+  if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
 }
 function vlTick(){ const o=vlibrasOpen(); if(o!==librasOpen){ librasOpen=o; layout(); } }
 addEventListener('resize', layout);

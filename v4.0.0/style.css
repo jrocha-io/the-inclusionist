@@ -141,7 +141,10 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
    canvas/HUD do jogo, ABAIXO da pausa in-canvas (6) e dos diálogos (60) → menus nunca perdem legibilidade. */
 .game-region.crt-scan-1::after,
 .game-region.crt-vig-1::before{content:'';position:absolute;inset:0;z-index:5;pointer-events:none}
-.game-region.crt-scan-1::after{background:repeating-linear-gradient(to bottom, rgba(0,0,0,.13) 0 1px, transparent 1px 3px)}
+/* Scanlines ALINHADAS: período = 1 pixel LÓGICO do jogo (k px), arredondado p/ pixel FÍSICO (dpr) e
+   linha = 1 pixel físico — o JS (layout/applyCrt) calcula --scan-per/--scan-line; sem isso o gradiente
+   1px/3px em px CSS caía fora da grade (linhas desiguais em telas com escala do Windows). */
+.game-region.crt-scan-1::after{background:repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0 var(--scan-line,1px), transparent var(--scan-line,1px) var(--scan-per,3px))}
 .game-region.crt-vig-1::before{background:radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,.34) 100%)}
 .game-region.crt-round-0{border-radius:0}   /* tela quadrada */
 .game-region.crt-round-2{border-radius:24px} /* nível 1 (pequeno) = o padrão de 8px, sem classe */
