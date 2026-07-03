@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.154.2';
+const INCL_VERSION='4.155.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -623,12 +623,13 @@ addEventListener('keydown',(e)=>{
       const act=qpi>=0?actionOf(e.code,qpl.i):null;
       const L=act?act==='left':KLEFT.includes(e.code), R=act?act==='right':KRIGHT.includes(e.code),
             U=act?act==='up':KUP.includes(e.code), D=act?act==='down':KDOWN.includes(e.code),
-            J=act?act==='jump':KJUMP.includes(e.code);
+            J=act?act==='jump':KJUMP.includes(e.code),
+            E=act?act==='especial':((qpl.ctrl.especial||[]).includes(e.code)); // ESPECIAL = apagar última sílaba/letra
       if(qpl.quiz.kind==='braille'){
         if(U)announceBraille(qpl); else if(J)quizConfirm(qpl);
         if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
       }
-      if(L)quizMove(qpl,-1); else if(R)quizMove(qpl,1); else if(U)quizMove(qpl,-3); else if(D)quizMove(qpl,3); else if(J)quizConfirm(qpl);
+      if(L)quizMove(qpl,-1); else if(R)quizMove(qpl,1); else if(U)quizMove(qpl,-3); else if(D)quizMove(qpl,3); else if(J)quizConfirm(qpl); else if(E)quizErase(qpl);
       if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
     }
     // tecla de um jogador SEM quiz cai no jogo normal (a partida dele continua)
@@ -2415,6 +2416,9 @@ function renderQuiz(pl){
   ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(pl.quiz){pl.quiz.sel=+b.dataset.i; quizConfirm(pl);} }));
   ov.hidden=false; hideTouchControls(); // quiz aberto = menu na tela → sem controle virtual
 }
+function quizErase(pl){ const q=pl.quiz; if(!q)return; // ESPECIAL: apaga a última sílaba/letra (jogos que MONTAM a palavra; NÃO no Descobrindo palavras/pre)
+  if(q.kind==='silabas'){ eraseLastSilaba(pl); sfx('place'); }
+  else if(q.kind==='alf'){ eraseLastLetter(pl); sfx('place'); } }
 function quizMove(pl,d){ const q=pl.quiz; if(!q)return;
   const max = (q.kind==='silabas'||q.kind==='alf') ? q.options.length+1 : q.choices.length-1;
   q.sel=Math.max(0,Math.min(max,q.sel+d)); renderQuiz(pl);
@@ -2427,16 +2431,21 @@ function quizTake(pl,q){ // coleta a figura do quiz (por jogador) e checa vitór
   closeQuiz(pl); if(pl.collected>=COIN_TARGET)win(pl); }
 function quizWin(pl,q){ // 3 VITÓRIAS = 1 MOEDA em TODOS os minigames, sem exceção (regra do José 2026-07-04)
   pl.alfWins=(pl.alfWins||0)+1;
-  if(pl.alfWins<3){ srSay(quizWho(pl)+'Acertou! '+pl.alfWins+' de 3 para ganhar a moeda.'); closeQuiz(pl); return; } // moeda FICA; encostado nela, a próxima pergunta abre sozinha
+  if(pl.alfWins<3){
+    if(actCat()==='alf' && q.word){ // LETRAMENTO: som suave (o sfx de acerto já tocou) + REFALA a palavra + PAUSA → próxima palavra
+      q.won=true; gameSay(q.word); srSay(quizWho(pl)+'Muito bem! '+disp(q.word)+'. '+pl.alfWins+' de 3.');
+      setTimeout(()=>{ if(pl.quiz===q)closeQuiz(pl); }, 1200); return; } // a próxima abre ao encostar na moeda e é falada (openSilabas/openPre → gameSay)
+    srSay(quizWho(pl)+'Acertou! '+pl.alfWins+' de 3 para ganhar a moeda.'); closeQuiz(pl); return; } // moeda FICA; encostado nela, a próxima pergunta abre sozinha
   // 3ª VITÓRIA: acende a 3ª luz + comemoração SUAVE (som tipo enigma-resolvido do Zelda), depois pega a moeda
   q.celebrating=true;
   const ov=quizEl(pl), dots=ov&&ov.querySelector('.quiz-wins');
   if(dots){ dots.querySelectorAll('.qw-dot').forEach(d=>d.classList.add('on')); dots.classList.add('celebrate'); }
   playPuzzleSolved(); if(typeof burstSparkle==='function')burstSparkle(pl.x, pl.y-16, 0xffe08a, 10); // faíscas gentis
+  if(actCat()==='alf' && q.word)gameSay(q.word); // letramento: refala a palavra na 3ª vitória também
   srSay(quizWho(pl)+'Muito bem! Você ganhou a moeda!');
   setTimeout(()=>{ pl.alfWins=0; quizTake(pl,q); }, 900); } // deixa a 3ª luz + animação aparecerem antes de fechar
 function quizConfirm(pl){
-  const q=pl.quiz; if(!q||q.celebrating)return; // durante a comemoração da 3ª luz, ignora entrada
+  const q=pl.quiz; if(!q||q.celebrating||q.won)return; // durante a comemoração/pausa pós-acerto, ignora entrada
   if(q.revealed){ // SEM PENALIDADE na alfabetização: a moeda fica no lugar (nova pergunta ao tocar); matemática re-sorteia a figura
     if(actCat()==='alf'){ closeQuiz(pl); } else { respawnFigure(q.coinIndex); closeQuiz(pl); } return; }
   if(q.kind==='braille'){ sfx('coin'); srSay(quizWho(pl)+'Coletado!'); quizWin(pl,q); return; }
@@ -2730,6 +2739,7 @@ function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só co
           if(edge('left'))quizMove(p,-1); else if(edge('right'))quizMove(p,1);
           else if(edge('up'))quizMove(p,-3); else if(edge('down'))quizMove(p,3);
           else if(edge('jump'))quizConfirm(p);
+          else if(edge('especial'))quizErase(p); // ESPECIAL = apagar última sílaba/letra
           continue; }
         if(edge('jump'))p.jumpEdge=true;
         if(edge('run')&&!p.easy)p.runEdge=true;
@@ -3390,7 +3400,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
-  setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,fmtFrac,fracGraphic,speakChoice,get fracNot(){return fracNot;},
+  setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,quizErase,get quiz(){return players[0].quiz;},INCL_VERSION,fmtFrac,fracGraphic,speakChoice,get fracNot(){return fracNot;},
   setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
   startAttract,stopAttract,get attract(){return attract;},set idleT(v){_idleT=v;},
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
