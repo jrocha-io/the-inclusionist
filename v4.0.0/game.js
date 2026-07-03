@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.134.0';
+const INCL_VERSION='4.135.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1347,6 +1347,46 @@ function stepLife(dt){
     let near=false; for(const pl of players){ if(Math.abs(pl.x-c.x)<LOGICAL_W*1.6&&Math.abs(pl.y-c.y)<LOGICAL_H*1.6){near=true;break;} }
     if(!near||c.y<-30||c.x<8||c.x>WORLD_PX_W-8){ c.s.destroy(); lifeLayer.removeChild(c.s); creatures.splice(i,1); }
   } }
+/* ===================== L5: CARROS (camada da FRENTE) + SEMÁFORO funcional — procedural ===================== */
+// Carros cruzam a rua À FRENTE do player (carLayer re-erguido em ensureSprites); param no vermelho/amarelo
+// do semáforo e seguem no verde. Ciclo LENTO (verde 8s → amarelo 2s → vermelho 6s) — sem flashes (WCAG 2.3.1).
+const carLayer=new PIXI.Container(); camera.addChild(carLayer);
+const CAR_TEX=(()=>{ const mk=(col,top)=>{ const cv=makeCanvas(26,12),c=cv.getContext('2d');
+  const px=(x,y,w,h,cl)=>{c.fillStyle=cl;c.fillRect(x,y,w,h);};
+  px(1,4,24,5,col); px(5,1,13,4,top); px(7,2,4,2,'#bcd6ee'); px(13,2,3,2,'#bcd6ee'); // corpo+cabine+vidros
+  px(0,5,1,3,'#ffd9a0'); px(25,5,1,3,'#ff6a5a');                                     // farol/lanterna
+  px(4,9,4,3,'#181b22'); px(18,9,4,3,'#181b22'); px(5,10,2,1,'#3a4152'); px(19,10,2,1,'#3a4152'); // rodas
+  return tex(cv); };
+  return [mk('#c8452e','#8f2f1e'),mk('#2e6fc8','#1e4a8f'),mk('#3aa15b','#26743f'),mk('#c8a12e','#8f731e')]; })();
+let cars=[], _carT=0, STREET_TY=-1;
+const SEM={x:0,y:0,state:'green',t:0,pole:null};
+function drawSemaforo(){ const g=SEM.pole; if(!g)return; g.clear(); const x=SEM.x,y=SEM.y;
+  g.beginFill(0x3a4152).drawRect(x-1,y-26,2,26).endFill();
+  g.beginFill(0x20242e).drawRect(x-4,y-42,8,17).endFill();
+  const on={red:0xff4b3a,yellow:0xffd23f,green:0x37e15b}, ys={red:-40,yellow:-35,green:-30};
+  for(const k of ['red','yellow','green']) g.beginFill(SEM.state===k?on[k]:0x11141c).drawRect(x-2,y+ys[k],4,4).endFill(); }
+function initTraffic(){ // RUA = a linha de superfície mais comum na parte baixa; semáforo na coluna mais central dela
+  const cnt={}; for(let tx=2;tx<WORLD_W-2;tx++){ const ty=lifeSurfaceAt(tx); if(ty>0&&ty*TILE>WORLD_PX_H*0.55)cnt[ty]=(cnt[ty]||0)+1; }
+  let best=-1,bn=0; for(const k in cnt)if(cnt[k]>bn){bn=cnt[k];best=+k;}
+  STREET_TY=best; if(best<0)return;
+  let semTx=-1,bd=1e9; for(let tx=2;tx<WORLD_W-2;tx++){ if(lifeSurfaceAt(tx)===best){ const d=Math.abs(tx-WORLD_W/2); if(d<bd){bd=d;semTx=tx;} } }
+  SEM.x=semTx*TILE+8; SEM.y=best*TILE; SEM.pole=new PIXI.Graphics(); lifeLayer.addChild(SEM.pole); drawSemaforo(); }
+function spawnCar(){ if(STREET_TY<0||cars.length>=3)return false; const dir=rnd()<0.5?1:-1;
+  const s=new PIXI.Sprite(CAR_TEX[randInt(0,CAR_TEX.length-1)]); s.anchor.set(0.5,1); s.scale.x=dir;
+  s.y=STREET_TY*TILE+5; const x=dir>0?-30:WORLD_PX_W+30; s.x=x; carLayer.addChild(s);
+  cars.push({s,x,dir,vx:dir*1.4}); return true; }
+function stepTraffic(dt){ if(STREET_TY<0)return;
+  SEM.t+=dt; const cyc=(SEM.t/60)%16, st=cyc<8?'green':cyc<10?'yellow':'red';
+  if(st!==SEM.state){ SEM.state=st; drawSemaforo(); }
+  if(rm.decor){ if(cars.length){ cars.forEach(c=>c.s.destroy()); carLayer.removeChildren(); cars=[]; } return; } // semáforo (sinalização) fica; carros (movimento) saem
+  if(++_carT>=420+randInt(0,300)){ _carT=0; spawnCar(); }
+  for(let i=cars.length-1;i>=0;i--){ const c=cars[i];
+    const before=(SEM.x-c.x)*c.dir>18; let want=c.dir*1.4;                       // linha de parada a 18px do poste
+    if(SEM.state!=='green'&&before&&(SEM.x-c.x)*c.dir<58) want=0;                // vermelho/amarelo: freia na aproximação
+    c.vx+=Math.max(-0.08,Math.min(0.08,want-c.vx))*dt; if(want===0&&Math.abs(c.vx)<0.03)c.vx=0;
+    c.x+=c.vx*dt; c.s.x=Math.round(c.x);
+    if(c.x<-40||c.x>WORLD_PX_W+40){ c.s.destroy(); carLayer.removeChild(c.s); cars.splice(i,1); } } }
+initTraffic();
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
@@ -1400,7 +1440,7 @@ applyCrt();
 let allPSprites=[playerSprite];
 function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
-  camera.addChild(fxG); // re-adicionar = mover ao topo (partículas sobre TODOS os players)
+  camera.addChild(fxG); camera.addChild(carLayer); // re-adicionar = mover ao topo (partículas e CARROS à frente dos players)
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
@@ -1772,6 +1812,7 @@ function update(dt){
   if(hitstopT>0){ hitstopT=Math.max(0,hitstopT-dt); return; } // JUICE: hit-stop congela o mundo por alguns ticks
   stepFx(dt); // partículas + decaimento de tremor/squash (roda até no fim de jogo → confete da vitória anima)
   stepLife(dt); // L5: vida ambiente (pombos/gatos/cães/adultos) — cosmética, atrás do player
+  stepTraffic(dt); // L5: carros (frente) + semáforo
   if(ended)return;
   players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
   for(const pl of players) stepPlayer(pl,dt);
@@ -2818,7 +2859,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
-  spawnCreature,stepLife,get creatures(){return creatures;}};
+  spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,get STREET_TY(){return STREET_TY;}};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
   const e2=document.querySelector('.title-by span'); if(e2)e2.textContent=v; }
