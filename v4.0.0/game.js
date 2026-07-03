@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.145.0';
+const INCL_VERSION='4.146.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2208,15 +2208,17 @@ function openQuiz(pl,coinIndex,shapeId){ // MATEMÁTICA: gerador POR ATIVIDADE (
       fala=`Quanto é ${a} vezes ${b}?`; }
     else { q={...base,prob:`${a*b} ÷ ${a} = ?`,answer:String(b),choices:_mkChoices(b,0,10)};                            // DIVISÃO (inversa da tabuada)
       fala=`Quanto é ${a*b} dividido por ${a}?`; } }
-  else if(ACTIVITIES[A]&&ACTIVITIES[A].dens){ const dens=ACTIVITIES[A].dens; // FRAÇÕES (soma/sub por denominadores)
+  else if(ACTIVITIES[A]&&ACTIVITIES[A].dens){ const dens=ACTIVITIES[A].dens; // FRAÇÕES (soma/sub; NOTAÇÃO sorteada entre as ligadas)
     const D=dens.reduce((l,d)=>l*d/gcd(l,d),1);
     let d1=dens[randInt(0,dens.length-1)], d2=dens[randInt(0,dens.length-1)], op=rnd()<0.5?'+':'−';
     let n1=randInt(1,d1), n2=randInt(1,d2);
     if(op==='−' && n1*(D/d1)<n2*(D/d2)){ const t1=n1,td=d1; n1=n2; d1=d2; n2=t1; d2=td; } // sem resultado negativo
     const N=op==='+'? n1*(D/d1)+n2*(D/d2) : n1*(D/d1)-n2*(D/d2);
-    const ans=fracStr(N,D), set=[ans]; let gd=0;
-    while(set.length<9&&gd++<400){ const s=fracStr(randInt(0,2*D),D); if(!set.includes(s))set.push(s); }
-    q={...base,prob:`${n1}/${d1} ${op} ${n2}/${d2} = ?`,answer:ans,choices:shuffle(set)};
+    const ligadas=Object.keys(fracNot).filter(k=>fracNot[k]); const not=ligadas[randInt(0,ligadas.length-1)]||'v';
+    const F=(nn,dd)=>fmtFrac(nn,dd,not);
+    const ans=F(N,D), set=[ans]; let gd=0;
+    while(set.length<9&&gd++<400){ const s=F(randInt(0,2*D),D); if(!set.includes(s))set.push(s); }
+    q={...base,not,prob:`${F(n1,d1)} ${op} ${F(n2,d2)} = ?`,answer:ans,choices:shuffle(set)};
     fala=`Quanto é ${fracSpeak(n1+'/'+d1)} ${op==='+'?'mais':'menos'} ${fracSpeak(n2+'/'+d2)}?`; }
   else { // SOMA E SUBTRAÇÃO 1 (padrão — dá para fazer nos dedos): soma ≤10, minuendo ≤10
     const op=rnd()<0.5?'+':'−'; let a,b,ans;
@@ -2333,7 +2335,7 @@ function quizMove(pl,d){ const q=pl.quiz; if(!q)return;
   const max = (q.kind==='silabas'||q.kind==='alf') ? q.options.length+1 : q.choices.length-1;
   q.sel=Math.max(0,Math.min(max,q.sel+d)); renderQuiz(pl);
   if(q.kind==='silabas'||q.kind==='alf'||q.kind==='pre') quizSpeakSel(pl); // L3: leitura conforme o nível
-  else srSay(fracSpeak(q.choices[q.sel])); // matemática: números e FRAÇÕES faladas por extenso
+  else srSay(speakChoice(q.choices[q.sel])); // matemática: números e FRAÇÕES (qualquer notação) falados por extenso
 }
 function quizTake(pl,q){ // coleta a figura do quiz (por jogador) e checa vitória
   takeCoin(coins[q.coinIndex]); if(coinSprites[q.coinIndex])coinSprites[q.coinIndex].visible=false;
@@ -2383,7 +2385,7 @@ function quizConfirm(pl){
   }
   if(String(q.choices[q.sel])===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); } // matemática também: 3 vitórias = 1 moeda
   else { q.tries++;
-    if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${fracSpeak(q.answer)}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
+    if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${speakChoice(q.answer)}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
     renderQuiz(pl);
   }
 }
@@ -2454,7 +2456,7 @@ function setActivity(id){ if(!ACTIVITIES[id])id='ludico'; ACTIVITY=id; try{local
 let _pendingAct='ludico', pendingPlayers=1, _cenBack='tm-main';
 function startActivity(id){ // R-splash 2: depois do desafio, o JOGADOR 1 escolhe o CENÁRIO (aos demais, "aguarde")
   _pendingAct=id;
-  _cenBack = (ACTIVITIES[id].pick)?'tm-tab' : ACTIVITIES[id].cat==='alf'?'tm-alf' : ACTIVITIES[id].cat==='mat'?'tm-mat' : 'tm-main';
+  _cenBack = (ACTIVITIES[id].pick)?'tm-tab' : ACTIVITIES[id].dens?'tm-fr' : ACTIVITIES[id].cat==='alf'?'tm-alf' : ACTIVITIES[id].cat==='mat'?'tm-mat' : 'tm-main';
   showTitleMenu('tm-cen'); srSay('Escolha o cenário.'); }
 function reallyStart(){ const id=_pendingAct; setActivity(id);
   if(isMobile()){ if(pendingPlayers>1)pendingPlayers=1;
@@ -2465,8 +2467,24 @@ function reallyStart(){ const id=_pendingAct; setActivity(id);
 const gcd=(a,b)=>b?gcd(b,a%b):a;
 function fracStr(n,D){ if(n===0)return '0'; const g=gcd(n,D)||1, a=n/g,d=D/g; return d===1?String(a):a+'/'+d; }
 const DEN_NAME={2:'meio',3:'terço',4:'quarto',5:'quinto',6:'sexto',7:'sétimo',8:'oitavo',9:'nono',10:'décimo',12:'doze avos'};
+/* NOTAÇÕES de fração (menu "Fração"): vertical · diagonal · decimal · percentual · mista — toggles persistidos */
+let fracNot=(()=>{ const d={v:1,d:0,dec:0,pct:0,mix:0};
+  try{ const s=JSON.parse(localStorage.getItem('incl_fracnot')); if(s&&typeof s==='object')for(const k in d)if(k in s)d[k]=s[k]?1:0; }catch(e){}
+  if(!Object.values(d).some(x=>x))d.v=1; return d; })();
+const FNOT_LBL={v:'Fracionária vertical',d:'Fracionária diagonal',dec:'Decimal',pct:'Percentual',mix:'Mista'};
+function fmtFrac(n,D,not){ if(n===0)return '0'; const g=gcd(n,D)||1, a=n/g, d=D/g;
+  if(d===1)return String(a);
+  if(not==='dec'){ let s=(Math.round((n/D)*100)/100).toFixed(2).replace(/0$/,'').replace(/\.$/,''); return s.replace('.',','); }
+  if(not==='pct'){ const r=Math.round((n/D)*1000)/10; return (Number.isInteger(r)?r:String(r).replace('.',','))+'%'; }
+  if(not==='mix'&&a>d){ const i=Math.floor(a/d), r=a%d; return r? (i+' '+r+'/'+d) : String(i); }
+  if(not==='v')return `<span class="fv"><b>${a}</b><b>${d}</b></span>`;
+  return a+'/'+d; } // diagonal (inline)
 function fracSpeak(s){ const m=/^(\d+)\/(\d+)$/.exec(String(s)); if(!m)return String(s);
   const n=+m[1],d=+m[2],nm=DEN_NAME[d]||(d+' avos'); return n===1?('um '+nm):(n+' '+nm+'s'); }
+function speakChoice(s){ s=String(s); // fala qualquer NOTAÇÃO: vertical (HTML)→a/b · mista → "N inteiros e a/b" · decimal/percentual literais
+  if(/</.test(s)) s=s.replace(/<\/b><b>/,'/').replace(/<[^>]+>/g,'');
+  const m=/^(\d+)\s+(\d+)\/(\d+)$/.exec(s); if(m)return m[1]+(m[1]==='1'?' inteiro e ':' inteiros e ')+fracSpeak(m[2]+'/'+m[3]);
+  return fracSpeak(s); }
 const MODE_LABELS={ludico:'🪙 Lúdico',somasub:'🔷 Soma-Sub',silabas:'🔤 Sílabas'};
 const MODES=['ludico','somasub','silabas'];
 function setMode(m){
@@ -3410,9 +3428,9 @@ function quitGame(){ // Sair: single → volta ao MENU INICIAL; MP → tela do j
 function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==='paused')setPhase('playing'); }
 /* ===== Menu inicial (v3): principal → submenus de atividade → (tabuada/divisão) seletor de números ===== */
 let _tabFor='mat5';
-function showTitleMenu(which){ ['tm-main','tm-alf','tm-mat','tm-tab','tm-cen'].forEach(m=>{ const el=$('#'+m); if(el)el.hidden=(m!==which); });
+function showTitleMenu(which){ ['tm-main','tm-alf','tm-mat','tm-tab','tm-fr','tm-cen'].forEach(m=>{ const el=$('#'+m); if(el)el.hidden=(m!==which); });
   const el=$('#'+which), b=el&&el.querySelector('button'); if(b)b.focus(); }
-function titleButtons(){ const m=['tm-main','tm-alf','tm-mat','tm-tab','tm-cen'].map(id=>$('#'+id)).find(el=>el&&!el.hidden);
+function titleButtons(){ const m=['tm-main','tm-alf','tm-mat','tm-tab','tm-fr','tm-cen'].map(id=>$('#'+id)).find(el=>el&&!el.hidden);
   return m?[...m.querySelectorAll('button')]:[]; }
 function navTitle(k){ const bs=titleButtons(); if(!bs.length)return;
   let i=bs.indexOf(document.activeElement);
@@ -3425,7 +3443,11 @@ function buildTitleMenus(){
   const desc=`<div class="tm-desc" aria-live="polite"></div>`; // rodapé com a descrição do minigame focado
   const h=t=>`<h3 class="tm-title">${t}</h3>`;                  // título do submenu (pedido do José)
   const alf=$('#tm-alf'); if(alf)alf.innerHTML=h('Alfabetização')+['alf1','alf2','alf3','alf4','alf5'].map(mk).join('')+back('tm-main')+desc;
-  const mat=$('#tm-mat'); if(mat)mat.innerHTML=h('Matemática')+['mat1','mat2','mat3','mat4','mat5','mat6','fr2','fr3','fr42','fr5','fr632'].map(mk).join('')+back('tm-main')+desc;
+  const mat=$('#tm-mat'); if(mat)mat.innerHTML=h('Matemática')+['mat1','mat2','mat3','mat4','mat5','mat6'].map(mk).join('')+
+    `<button class="title-btn" data-tm-fr="1" type="button">Fração</button>`+back('tm-main')+desc;
+  const fr=$('#tm-fr'); if(fr)fr.innerHTML=h('Fração')+
+    Object.keys(FNOT_LBL).map(k=>`<button class="title-btn tab-num${fracNot[k]?' tab-on':''}" data-fnot="${k}" type="button" aria-pressed="${!!fracNot[k]}">${fracNot[k]?'✔ ':''}${FNOT_LBL[k]}</button>`).join('')+
+    ['fr2','fr3','fr42','fr5','fr632'].map(mk).join('')+back('tm-mat')+desc;
   const rows=r=>r.map(n=>`<button class="title-btn tab-num${tabSel.includes(n)?' tab-on':''}" data-tab-n="${n}" type="button" aria-pressed="${tabSel.includes(n)}">${n}</button>`).join('');
   const tab=$('#tm-tab'); if(tab)tab.innerHTML=h('Tabuada')+`<div class="game-subtitle">Escolha os números para treinar</div>`+
     `<div class="tab-row">${rows([0,1,2,3,4,5])}</div><div class="tab-row">${rows([6,7,8,9,10])}</div>`+
@@ -3483,6 +3505,12 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
       pendingPlayers=n; const lb=$('#np-label'); if(lb)lb.textContent=n+(n>1?' jogadores':' jogador');
       srSay(n+(n>1?' jogadores.':' jogador.')); return; }
     if(b.id==='np-label'){ return; } // rótulo central: sem ação
+    if(b.dataset.tmFr){ go(()=>{ showTitleMenu('tm-fr'); srSay('Fração: escolha a notação e o tipo.'); }); return; }
+    if(b.dataset.fnot){ const k=b.dataset.fnot; // toggle de NOTAÇÃO (imediato; pelo menos 1 ligada)
+      if(fracNot[k]&&Object.values(fracNot).filter(x=>x).length<=1){ srAlert('Deixe ao menos uma notação ligada.'); return; }
+      fracNot[k]=fracNot[k]?0:1; try{localStorage.setItem('incl_fracnot',JSON.stringify(fracNot));}catch(e){}
+      b.classList.toggle('tab-on',!!fracNot[k]); b.setAttribute('aria-pressed',String(!!fracNot[k]));
+      b.textContent=(fracNot[k]?'✔ ':'')+FNOT_LBL[k]; srSay(FNOT_LBL[k]+(fracNot[k]?' ligada.':' desligada.')); return; }
     if(b.dataset.cen){ const c=b.dataset.cen; go(()=>{ setCenario(c); reallyStart(); }); return; }
     if(b.dataset.cenBack){ go(()=>showTitleMenu(_cenBack)); return; }
     if(b.dataset.tm==='ludico'){ go(()=>startActivity('ludico')); return; }
