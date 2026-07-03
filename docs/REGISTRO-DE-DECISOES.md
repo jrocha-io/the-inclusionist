@@ -139,6 +139,18 @@
 | Escala do canvas AUDITADA com números: física EXATA (kDev=5 em 1366×768\@dpr1.25); o "corte em cima/embaixo" de 3px/lado está DENTRO da tolerância de 5px lógicos×k da regra original (o `-10` na fórmula); a percepção de "errado" vinha de `--ui-fs` fracionário (25,6px) borrando os menus → agora `Math.round(8·k)`. Remover o corte de vez = tirar o `-10` (1 linha, canvas 1 degrau menor) | Item 4 da bronca; medição no preview | v4.147.1 | ✅ · sem-corte aguarda decisão |
 | PROCESSO: mudar APENAS o que foi pedido — nada de "aproveitar e ajustar" itens vizinhos | Bronca do José ("peço um ponto e você muda vários") | conversa 2026-07-04 | 🔒 regra permanente |
 
+### 5.7 Escala inteira (ADR-001) + correções (2026-07-04, rodada 3)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| **Escala do canvas = múltiplo INTEIRO de 320×180 (k∈{2,3,4,5…}), SEM `dpr` na fórmula.** O uso de dpr (introduzido 2026-07-03 p/ "pixel físico perfeito") gerava k CSS fracionário (4,8×) = arte fora da escala inteira → REGRESSÃO. HUD/SVG/texto vivem no DOM (alta definição); o canvas só precisa de upscale inteiro. Tolerância de corte ≤5px lógicos/lado mantida (o `−10`). Virou **ADR-001** (2ª vez que o erro aparece) | Bronca do José ("voltou a escalar errado") | v4.147.2 + `docs/adr/ADR-001` | ✅ |
+| Título da PÁGINA (topbar `The Inclusionist · vX`) só aparece em `?debug=true` (o splash já mostra) — libera a vertical p/ o canvas | Pedido explícito | v4.147.2 | ✅ |
+| Seletor de jogadores = UM botão só "◀ Nº de jogadores: X ▶"; lado clicado decide +1/−1 (←/→ no teclado idem); some o visual de 3 segmentos | Pedido explícito ("gráfico ficou horrível") | v4.147.2 | ✅ |
+| NADA spawna dentro da lava: `lifeSurfaceAt`/`lifeSurfaceLowAt`/decoração exigem `tileAt(tx,ty-1)!==9` (espaço de pé fora da lava) + criatura dá meia-volta ao andar rumo à lava. 3 tiles de lava (col 25-27) eram os pontos afetados | Pedido explícito ("animais dentro da lava") | v4.147.2 | ✅ |
+| KaTeX self-host + SVG inline p/ frações: pizzas (2-6 fatias iguais) e barras/quadrados (2-6 partes, vertical/horizontal) | Aprovação do José ("use KaTeX e SVG então") | pendente | 🔜 próxima |
+
+## 6. Arquitetura e plataforma
+
 ## 6. Arquitetura e plataforma
 
 | Decisão | Fundamento / estudo | Fonte | Status |

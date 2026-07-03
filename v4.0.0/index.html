@@ -164,11 +164,7 @@
       </div>
       <p class="game-subtitle" id="title-wait" hidden>Aguarde o Jogador 1 escolher o jogo</p>
       <div class="title-menu" id="tm-main" role="menu" aria-label="Escolha o jogo">
-        <div class="tab-row" id="tm-players" role="group" aria-label="Número de jogadores">
-          <button class="title-btn" data-np="-1" type="button" aria-label="Menos jogadores">◀</button>
-          <button class="title-btn" id="np-label" type="button" aria-live="polite">1 jogador</button>
-          <button class="title-btn" data-np="1" type="button" aria-label="Mais jogadores">▶</button>
-        </div>
+        <button class="title-btn" id="np-btn" type="button" aria-live="polite" aria-label="Número de jogadores: 1. Clique à esquerda para menos, à direita para mais.">◀ Nº de jogadores: <span id="np-n">1</span> ▶</button>
         <button class="title-btn" data-tm="ludico" type="button">Lúdico</button>
         <button class="title-btn" data-tm="alf" type="button">Alfabetização</button>
         <button class="title-btn" data-tm="mat" type="button">Matemática</button>

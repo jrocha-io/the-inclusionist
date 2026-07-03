@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.147.1';
+const INCL_VERSION='4.147.2';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1445,8 +1445,8 @@ const LIFE_KINDS=[
 ];
 let creatures=[], _lifeSpawnT=0;
 function inDark(tx,ty){ for(const r of darkRegions){ if(r.set.has(tx+','+ty))return true; } return false; } // célula de área secreta?
-function lifeSurfaceAt(tx){ for(let ty=3;ty<WORLD_H-1;ty++){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // superfície AO AR LIVRE (fora das secretas), a MAIS ALTA
-function lifeSurfaceLowAt(tx){ for(let ty=WORLD_H-2;ty>3;ty--){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // idem, a MAIS BAIXA (calçada/fachada)
+function lifeSurfaceAt(tx){ for(let ty=3;ty<WORLD_H-1;ty++){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&tileAt(tx,ty-1)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // superfície AO AR LIVRE (fora das secretas), a MAIS ALTA; ty-1!==9 = nada spawna DENTRO da lava
+function lifeSurfaceLowAt(tx){ for(let ty=WORLD_H-2;ty>3;ty--){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&tileAt(tx,ty-1)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // idem, a MAIS BAIXA (calçada/fachada); ty-1!==9 = fora da lava
 let _streetCols=null; // colunas ABERTAS da rua/fachada (superfície mais baixa, fora das secretas) — computadas 1×
 function streetCols(){ if(_streetCols)return _streetCols; _streetCols=[];
   for(let tx=2;tx<WORLD_W-2;tx++){ const ty=lifeSurfaceLowAt(tx); if(ty>0&&ty*TILE>WORLD_PX_H*0.55)_streetCols.push([tx,ty]); }
@@ -1479,7 +1479,7 @@ function stepLife(dt){
     else if(c.state==='peck'){ if((c.stateT-=dt)<=0)c.state='walk'; c.s.texture=LIFE_TEX.pombo[1]; }
     else { c.x+=c.dir*K.spd*dt;
       const ty=Math.floor(c.y/TILE), nx=Math.floor((c.x+c.dir*6)/TILE);
-      if(nx<1||nx>=WORLD_W-1||!solidAt(nx,ty)||solidAt(nx,ty-1)) c.dir*=-1; // beirada/parede: meia-volta
+      if(nx<1||nx>=WORLD_W-1||!solidAt(nx,ty)||solidAt(nx,ty-1)||tileAt(nx,ty-1)===9) c.dir*=-1; // beirada/parede/LAVA à frente: meia-volta
       if(K.peck&&rnd()<0.004){ c.state='peck'; c.stateT=30; }
       c.s.texture=c.tex2[c.f]; }
     if(K.fly&&c.state!=='fly'){ for(const pl of players){ if(Math.abs(pl.x-c.x)<34&&Math.abs(pl.y-c.y)<26){ c.state='fly'; c.vy=-1.2; c.dir=(c.x<pl.x?-1:1); break; } } } // revoada cosmética
@@ -1649,7 +1649,7 @@ function stepV3Decor(){ const T=CENARIOS[CENARIO]||{};
     const ty0=Math.max(0,Math.floor(camY/TILE)-1), ty1=Math.min(WORLD_H-1,Math.floor((camY+vh)/TILE)+1);
     for(let tx=tx0;tx<=tx1;tx++){
       for(let ty=ty0;ty<=ty1;ty++){
-        if(!(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3))continue;
+        if(!(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty-1)!==9))continue; // grama/minhoca/borboleta NÃO na lava (ty-1!==9)
         const k=tx+','+ty; if(seen.has('g'+k))continue; seen.add('g'+k);
         if(fl)drawV3Grass(grassG,tx,ty,fl,t);
         if(d.includes('minhocas')&&(((tx%4)+4)%4)===0&&!seen.has('w'+tx)){ seen.add('w'+tx); // drawWorms v3: 1/4 colunas, 5 segmentos ondulando
@@ -3340,14 +3340,15 @@ function layout(){
   // Piso k=2: CADA viewport tem no mínimo 640×360 (320×180 lógico × 2). Assim 2×2 = 1280×720 cabe num
   // Chromebook do governo (1366×768). Se nesse mínimo não couber, a Etapa 4 vai bloquear aquele nº de telas.
   const MIN_K=2;
-  // Múltiplo inteiro em PIXELS FÍSICOS (não CSS): com a escala do Windows (dpr 1,25 etc.), k inteiro em px
-  // CSS virava 2,5/3,75… px físicos por pixel de arte — upscale desigual (report do José 2026-07-03).
-  // kDev = múltiplo físico inteiro; o tamanho CSS resultante pode ser fracionário, MAS o físico é exato.
-  const dpr=window.devicePixelRatio||1;
-  const kDev=Math.max(Math.round(MIN_K*dpr), Math.floor(Math.min(availW*dpr/(baseW-10), availH*dpr/(baseH-10))));
-  const k=kDev/dpr;
+  // ADR-001 — ESCALA = MÚLTIPLO INTEIRO de 320×180 (o k é 2,3,4,5…). dpr NÃO entra na conta: HUD, SVGs de
+  // fração e texto vivem no DOM sobreposto (alta definição, + acessível), então o CANVAS só precisa ser um
+  // upscale inteiro do pixel art. Misturar dpr (tentando pixel físico "perfeito") produzia k CSS fracionário
+  // (4,8× etc.) = arte fora da escala inteira → REGRESSÃO reportada pelo José. NUNCA voltar a pôr dpr aqui.
+  // Cresce em passos inteiros conforme cabe, tolerando ≤5px lógicos de corte por lado (pedido do José):
+  //   base·k − avail ≤ 10·k  ⇒  k ≤ avail/(base−10).
+  const k=Math.max(MIN_K, Math.floor(Math.min(availW/(baseW-10), availH/(baseH-10))));
   const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
-  document.documentElement.style.setProperty('--ui-fs', Math.round(8*k)+'px'); // fonte-base dos menus INTEIRA (k CSS fracionário sob dpr≠1 borrava o texto)
+  document.documentElement.style.setProperty('--ui-fs', (8*k)+'px'); // k INTEIRO ⇒ fonte-base dos menus sempre inteira
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
 }
 function vlTick(){ const o=vlibrasOpen(); _vlOpen=o; if(o!==librasOpen){ librasOpen=o; layout();
@@ -3526,6 +3527,9 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
   const ti=$('#title-icons'); if(ti){ ti.innerHTML=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+(ic.soon?' (em construção)':'')+'">'+ic.e+'</button>').join('');
     ti.addEventListener('click',(e)=>{ const ib=e.target.closest('.pi-btn'); if(!ib)return; pauseActor=0; iconAct(ib.dataset.pi,0);
       if(typeof reflectPauseIcons==='function')reflectPauseIcons(); srSay(ib.getAttribute('aria-label')||''); }); }
+  // Seletor de jogadores por TECLADO: ←/→ no botão único = −1/+1 (o clique usa o lado; teclado é explícito)
+  ov.addEventListener('keydown',(e)=>{ const b=e.target.closest('#np-btn'); if(!b)return;
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){ e.preventDefault(); b.dataset.np=e.key==='ArrowLeft'?'-1':'1'; b.click(); } });
   // Rodapé de descrição do minigame: atualiza no foco/hover das opções dos submenus
   ov.addEventListener('focusin',(e)=>{ const b=e.target.closest('button[data-act-id]'); if(!b)return;
     const d=(ACTIVITIES[b.dataset.actId]||{}).d||''; const box=b.closest('.title-menu'); const el=box&&box.querySelector('.tm-desc'); if(el)el.textContent=d; });
@@ -3534,11 +3538,14 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
   ov.addEventListener('click',(e)=>{ const b=e.target.closest('button'); if(!b)return;
     if(b.classList.contains('title-btn')){ b.classList.remove('act-fx'); void b.offsetWidth; b.classList.add('act-fx'); } // efeito de ATIVAÇÃO
     const go=fn=>{ if(ov._busy)return; ov._busy=true; setTimeout(()=>{ ov._busy=false; fn(); },230); }; // a animação toca ANTES de trocar de tela
-    if(b.dataset.np){ const d=+b.dataset.np; let n=Math.max(1,Math.min(4,pendingPlayers+d)); // seletor ◀ N jogadores ▶
+    if(b.id==='np-btn'){ // UM botão "◀ Nº de jogadores: X ▶": lado clicado (ou ←/→) decide +1 / −1
+      let d=+(b.dataset.np||0); b.dataset.np=''; // ←/→ setam data-np no keydown; clique usa a posição
+      if(!d){ const r=b.getBoundingClientRect(); d=(e.clientX-r.left)<r.width/2?-1:1; }
+      let n=Math.max(1,Math.min(4,pendingPlayers+d));
       if(n>1&&!fitsN(n)){ srAlert('Não cabem '+n+' telas nesta janela — aumente a janela ou use tela cheia.'); return; }
-      pendingPlayers=n; const lb=$('#np-label'); if(lb)lb.textContent=n+(n>1?' jogadores':' jogador');
+      pendingPlayers=n; const nn=$('#np-n'); if(nn)nn.textContent=n;
+      b.setAttribute('aria-label','Número de jogadores: '+n+'. Clique à esquerda para menos, à direita para mais.');
       srSay(n+(n>1?' jogadores.':' jogador.')); return; }
-    if(b.id==='np-label'){ return; } // rótulo central: sem ação
     if(b.dataset.tmFr){ go(()=>{ showTitleMenu('tm-fr'); srSay('Fração: escolha a notação e o tipo.'); }); return; }
     if(b.dataset.fnot){ const k=b.dataset.fnot; // toggle de NOTAÇÃO (imediato; pelo menos 1 ligada)
       if(fracNot[k]&&Object.values(fracNot).filter(x=>x).length<=1){ srAlert('Deixe ao menos uma notação ligada.'); return; }
@@ -3565,7 +3572,9 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
 (function shellSetup(){
   const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
   wire('btn-pause', togglePause); // (o botão saiu da barra; a fiação fica guardada p/ compat)
-  // Barra de topo: ferramentas da direita (modo · nº telas · debug · FPS) só com ?debug=true.
+  // Barra de topo (título da PÁGINA + ferramentas): só com ?debug=true. O jogo já mostra o título no splash,
+  // então a barra fica oculta por padrão (CSS body:not(.dbg) .topbar) e libera a vertical p/ o canvas.
+  if(/[?&]debug=true/.test(location.search))document.body.classList.add('dbg');
   const tools=$('#topbar-tools'); if(tools){ if(/[?&]debug=true/.test(location.search))tools.hidden=false;
     const db=$('#btn-debug'); if(db)db.addEventListener('click',()=>{ const p=$('#debug-panel'); if(p){ p.hidden=!p.hidden; db.setAttribute('aria-pressed',String(!p.hidden)); } }); } // abre/fecha o painel de afinação
   // Menu de pausa: agora é POR TELA (buildScreenPause + pauseActs no escopo do módulo). Nada aqui.
