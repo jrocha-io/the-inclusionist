@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.151.1';
+const INCL_VERSION='4.152.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -886,6 +886,10 @@ function ttsSpeak(text){ if(ttsEngineSel!=='webspeech'){
   return speakWebSpeech(text); } // fallback imediato: Web Speech (nativo pt-BR); enquanto o neural não carrega
 
 function narrate(text){ if(!soundOn||!audioCat.tts.on||!text)return; _narrateCount++; ttsSpeak(text); } // gated pelo toggle 'Narração (TTS)' do mixer, independente das legendas
+// Fala de JOGO essencial (nome da palavra/sílaba/letra/fonema nos desafios de alfabetização): SEMPRE toca, mesmo com
+// o toggle 'Narração (TTS)' DESLIGADO — via voz nativa do navegador, fora do mixer (José 2026-07-04). Respeita o volume mestre.
+function gameSay(text){ if(!text||!soundOn)return; try{ if(speakWebSpeech(text))return; }catch(e){}
+  try{ const ss=window.speechSynthesis; if(ss){ ss.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; ss.speak(u); } }catch(e){} }
 function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
   o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   o.connect(g).connect(catNode('earcons')||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
@@ -2291,6 +2295,7 @@ function openSilabas(pl,coinIndex,letter){ // L3: despacha pelo NÍVEL (1..5); m
   pl.quiz={kind:'silabas',spell:quizLevel===3,coinIndex,letter,word:item.w,emoji:item.e,correct,options:shuffle(correct.concat(distract)),boxes:[null,null],sel:0,tries:0,revealed:false};
   pl.vx=0;pl.vy=0;
   srSay(`${quizWho(pl)}Letra ${disp(letter)}. Monte a palavra: ${item.w}.`);
+  gameSay(item.w); // ao abrir, fala a palavra SEMPRE (independente do toggle TTS) — José
   renderQuiz(pl);
 }
 // Nível 1 — pré-silábico: qual das 3 escritas é a certa? O jogo SOLETRA a opção sob o cursor.
@@ -2300,6 +2305,7 @@ function openPre(pl,coinIndex,letter){
   pl.quiz={kind:'pre',coinIndex,word:item.w,emoji:item.e,choices:shuffle(opts),sel:0,tries:0,revealed:false};
   pl.vx=0;pl.vy=0;
   srSay(`${quizWho(pl)}${item.w}. Qual é a escrita certa? O jogo soletra cada opção.`);
+  gameSay(item.w); // fala o nome da imagem SEMPRE (independente do toggle TTS) — José
   renderQuiz(pl); quizSpeakSel(pl);
 }
 // Níveis 4/5 — escritor: montar a palavra LETRA a letra numa grade; 5 dita a cela Braille de cada letra.
@@ -2487,10 +2493,10 @@ $('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').
    Trocar de atividade = todo mundo sai do jogo → volta ao menu inicial. */
 const ACTIVITIES={ // d = descrição do minigame (rodapé dos menus secundários)
   ludico:{cat:'ludico',nome:'Coletar 10 moedas'},
-  alf1:{cat:'alf',nome:'Descobrindo palavras', d:'Escolha o nome certo do objeto entre três opções escritas.'},
-  alf2:{cat:'alf',nome:'Descobrindo sílabas',  d:'O jogo FALA a sílaba e você monta a palavra (9 sílabas).'},
-  alf3:{cat:'alf',nome:'Montando palavras',    d:'O jogo SOLETRA a sílaba e você monta a palavra (9 sílabas).'},
-  alf4:{cat:'alf',nome:'Escrevendo palavras',  d:'Escreva letra por letra; o jogo fala o nome da letra (12 letras).'},
+  alf1:{cat:'alf',nome:'Descobrindo palavras', d:'Elaborado para ajudar a superar as hipóteses pré-silábicas.'},
+  alf2:{cat:'alf',nome:'Descobrindo sílabas',  d:'Feito para ajudar a superar a hipótese silábica sem valor sonoro (uma letra errada por sílaba) e com valor sonoro (vogal ou consoante correta por sílaba), deixando claro que cada som é uma sílaba e cada sílaba tem sua forma correta de escrever.'},
+  alf3:{cat:'alf',nome:'Montando palavras',    d:'Feito para superar a fase da hipótese silábico-alfabética, desafiando o aluno a encontrar as sílabas corretas para montar a palavra.'},
+  alf4:{cat:'alf',nome:'Escrevendo palavras',  d:'Atividade com o objetivo de treinar ortografia.'},
   alf5:{cat:'alf',nome:'Escrevendo em Braille',d:'Escreva letra por letra; o jogo dita os pontos da cela Braille (12 letras).'},
   mat1:{cat:'mat',nome:'Quantidade',           d:'Conte as bolinhas e escolha o número certo (1 a 9).'},
   mat2:{cat:'mat',nome:'Soma fácil',           d:'Somas com parcelas de 0 a 5.'},
