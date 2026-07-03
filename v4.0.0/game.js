@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.136.0';
+const INCL_VERSION='4.137.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1110,9 +1110,9 @@ const _treeTexHC={}; function treeTexFor(mode){
   if(DIRECT_CFG[mode]){ if(!_treeTexHC[mode])_treeTexHC[mode]=directBgTexture(treeTexNormal,mode); return _treeTexHC[mode]; } // direto: decoração recua
   return treeTexNormal; }
 const decoSprites=[];
-(function placeTrees(){ let last=-99;
+(function placeTrees(){ let last=-99; // R-cidade: árvores SÓ na parte mais baixa (por onde o personagem anda)
   for(let tx=2;tx<WORLD_W-2;tx++){
-    for(let ty=3;ty<WORLD_H-1;ty++){
+    for(let ty=WORLD_H-9;ty<WORLD_H-1;ty++){
       if(tileAt(tx,ty)===1 && solidAt(tx,ty+1) && tileAt(tx,ty-1)===1){
         if(tx-last>=5){ const s=new PIXI.Sprite(treeTexNormal); s.anchor.set(0.5,1); s.x=tx*TILE+TILE/2; s.y=(ty+1)*TILE; decoLayer.addChild(s); decoSprites.push(s); last=tx; }
         break;
@@ -1321,11 +1321,11 @@ const LIFE_KINDS=[
 let creatures=[], _lifeSpawnT=0;
 function inDark(tx,ty){ for(const r of darkRegions){ if(r.set.has(tx+','+ty))return true; } return false; } // célula de área secreta?
 function lifeSurfaceAt(tx){ for(let ty=3;ty<WORLD_H-1;ty++){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // superfície AO AR LIVRE (fora das secretas)
-function spawnCreature(force){ if(creatures.length>=8)return false;
+function spawnCreature(force){ if(creatures.length>=10)return false;
   const pl=players[randInt(0,Math.max(0,numPlayers-1))]||players[0];
   const tx=Math.floor(pl.x/TILE)+(rnd()<0.5?-1:1)*(Math.floor(LOGICAL_W/TILE/2)+2+randInt(0,5));
   if(tx<1||tx>=WORLD_W-1)return false;
-  const K=LIFE_KINDS[randInt(0,LIFE_KINDS.length-1)];
+  const K=LIFE_KINDS[[0,0,0,1,2,3][randInt(0,5)]]; // pombos com peso 3× ("cadê os pombos no chão?")
   const ty=lifeSurfaceAt(tx); if(ty<0)return false;
   if(K.street && ty*TILE<WORLD_PX_H*0.55)return false; // adultos/cães só na RUA (parte baixa)
   const s=new PIXI.Sprite(LIFE_TEX[K.tex][0]); s.anchor.set(0.5,1); s.alpha=K.alpha; lifeLayer.addChild(s);
@@ -1333,7 +1333,7 @@ function spawnCreature(force){ if(creatures.length>=8)return false;
   return true; }
 function stepLife(dt){
   if(rm.decor){ if(creatures.length){ creatures.forEach(c=>c.s.destroy()); lifeLayer.removeChildren(); creatures=[]; } return; }
-  if(++_lifeSpawnT>=90){ _lifeSpawnT=0; spawnCreature(); }
+  if(++_lifeSpawnT>=60){ _lifeSpawnT=0; spawnCreature(); }
   for(let i=creatures.length-1;i>=0;i--){ const c=creatures[i], K=c.K;
     c.animT+=dt; if(c.animT>=12){ c.animT=0; c.f=1-c.f; }
     if(c.state==='fly'){ c.y+=c.vy*dt; c.x+=c.dir*0.9*dt; c.vy=Math.max(-1.6,c.vy-0.04*dt); c.s.texture=LIFE_TEX.pomboFly[c.f]; }
@@ -1359,34 +1359,37 @@ const CAR_TEX=(()=>{ const mk=(col,top)=>{ const cv=makeCanvas(26,12),c=cv.getCo
   px(4,9,4,3,'#181b22'); px(18,9,4,3,'#181b22'); px(5,10,2,1,'#3a4152'); px(19,10,2,1,'#3a4152'); // rodas
   return tex(cv); };
   return [mk('#c8452e','#8f2f1e'),mk('#2e6fc8','#1e4a8f'),mk('#3aa15b','#26743f'),mk('#c8a12e','#8f731e')]; })();
-let cars=[], _carT=0, STREET_TY=-1;
+// R-cidade (José 2026-07-03): o cenário é o INTERIOR de um prédio; a parte mais baixa é a FACHADA e a
+// rua fica NA FRENTE dela → carros (3×) e placas de PARE vivem na BASE do mundo, na camada da frente.
+let cars=[], _carT=0; const STREET_Y=WORLD_PX_H;
 const SEM={x:0,y:0,state:'green',t:0,pole:null};
-function drawSemaforo(){ const g=SEM.pole; if(!g)return; g.clear(); const x=SEM.x,y=SEM.y;
-  g.beginFill(0x3a4152).drawRect(x-1,y-26,2,26).endFill();
-  g.beginFill(0x20242e).drawRect(x-4,y-42,8,17).endFill();
-  const on={red:0xff4b3a,yellow:0xffd23f,green:0x37e15b}, ys={red:-40,yellow:-35,green:-30};
-  for(const k of ['red','yellow','green']) g.beginFill(SEM.state===k?on[k]:0x11141c).drawRect(x-2,y+ys[k],4,4).endFill(); }
-function initTraffic(){ // RUA = a linha de superfície mais comum na parte baixa; semáforo na coluna mais central dela
-  const cnt={}; for(let tx=2;tx<WORLD_W-2;tx++){ const ty=lifeSurfaceAt(tx); if(ty>0&&ty*TILE>WORLD_PX_H*0.55)cnt[ty]=(cnt[ty]||0)+1; }
-  let best=-1,bn=0; for(const k in cnt)if(cnt[k]>bn){bn=cnt[k];best=+k;}
-  STREET_TY=best; if(best<0)return;
-  let semTx=-1,bd=1e9; for(let tx=2;tx<WORLD_W-2;tx++){ if(lifeSurfaceAt(tx)===best){ const d=Math.abs(tx-WORLD_W/2); if(d<bd){bd=d;semTx=tx;} } }
-  SEM.x=semTx*TILE+8; SEM.y=best*TILE; SEM.pole=new PIXI.Graphics(); lifeLayer.addChild(SEM.pole); drawSemaforo(); }
-function spawnCar(){ if(STREET_TY<0||cars.length>=3)return false; const dir=rnd()<0.5?1:-1;
-  const s=new PIXI.Sprite(CAR_TEX[randInt(0,CAR_TEX.length-1)]); s.anchor.set(0.5,1); s.scale.x=dir;
-  s.y=STREET_TY*TILE+5; const x=dir>0?-30:WORLD_PX_W+30; s.x=x; carLayer.addChild(s);
+function drawSemaforo(){ const g=SEM.pole; if(!g)return; g.clear(); const x=SEM.x,y=SEM.y; // 2× (proporção dos carros 3×)
+  g.beginFill(0x3a4152).drawRect(x-2,y-52,4,52).endFill();
+  g.beginFill(0x20242e).drawRect(x-8,y-86,16,36).endFill();
+  const on={red:0xff4b3a,yellow:0xffd23f,green:0x37e15b}, ys={red:-82,yellow:-71,green:-60};
+  for(const k of ['red','yellow','green']) g.beginFill(SEM.state===k?on[k]:0x11141c).drawRect(x-4,y+ys[k],8,8).endFill(); }
+function initTraffic(){ SEM.x=Math.round(WORLD_PX_W/2); SEM.y=STREET_Y;
+  SEM.pole=new PIXI.Graphics(); carLayer.addChild(SEM.pole); drawSemaforo();
+  const g=new PIXI.Graphics(); carLayer.addChild(g); // placas de PARE ao longo da rua da frente (2×)
+  for(let tx=6;tx<WORLD_W-6;tx+=14){ const X=tx*TILE; if(Math.abs(X-SEM.x)<48)continue;
+    g.beginFill(0x8a919f).drawRect(X,STREET_Y-28,2,28).endFill();
+    g.beginFill(0xd23a2e).drawRect(X-5,STREET_Y-42,12,14).endFill();
+    g.beginFill(0xffffff).drawRect(X-3,STREET_Y-37,8,3).endFill(); } }
+function spawnCar(){ if(cars.length>=3)return false; const dir=rnd()<0.5?1:-1;
+  const s=new PIXI.Sprite(CAR_TEX[randInt(0,CAR_TEX.length-1)]); s.anchor.set(0.5,1); s.scale.set(dir*3,3); // 3× altura e largura (pedido)
+  s.y=STREET_Y; const x=dir>0?-90:WORLD_PX_W+90; s.x=x; carLayer.addChild(s);
   cars.push({s,x,dir,vx:dir*1.4}); return true; }
-function stepTraffic(dt){ if(STREET_TY<0)return;
+function stepTraffic(dt){
   SEM.t+=dt; const cyc=(SEM.t/60)%16, st=cyc<8?'green':cyc<10?'yellow':'red';
   if(st!==SEM.state){ SEM.state=st; drawSemaforo(); }
-  if(rm.decor){ if(cars.length){ cars.forEach(c=>c.s.destroy()); carLayer.removeChildren(); cars=[]; } return; } // semáforo (sinalização) fica; carros (movimento) saem
+  if(rm.decor){ if(cars.length){ cars.forEach(c=>{ carLayer.removeChild(c.s); c.s.destroy(); }); cars=[]; } return; } // semáforo (sinalização) fica; carros (movimento) saem
   if(++_carT>=420+randInt(0,300)){ _carT=0; spawnCar(); }
   for(let i=cars.length-1;i>=0;i--){ const c=cars[i];
-    const before=(SEM.x-c.x)*c.dir>18; let want=c.dir*1.4;                       // linha de parada a 18px do poste
-    if(SEM.state!=='green'&&before&&(SEM.x-c.x)*c.dir<58) want=0;                // vermelho/amarelo: freia na aproximação
+    const before=(SEM.x-c.x)*c.dir>44; let want=c.dir*1.4;                        // linha de parada (carro 3× = 78px)
+    if(SEM.state!=='green'&&before&&(SEM.x-c.x)*c.dir<140) want=0;                // vermelho/amarelo: freia na aproximação
     c.vx+=Math.max(-0.08,Math.min(0.08,want-c.vx))*dt; if(want===0&&Math.abs(c.vx)<0.03)c.vx=0;
     c.x+=c.vx*dt; c.s.x=Math.round(c.x);
-    if(c.x<-40||c.x>WORLD_PX_W+40){ c.s.destroy(); carLayer.removeChild(c.s); cars.splice(i,1); } } }
+    if(c.x<-100||c.x>WORLD_PX_W+100){ c.s.destroy(); carLayer.removeChild(c.s); cars.splice(i,1); } } }
 initTraffic();
 /* ===================== L5: DECORAÇÃO POR ZONA (procedural, desenhada UMA vez) =====================
    Rua: calçada+meio-fio, postes com brilho ESTÁVEL, placas (PARE/faixa), letreiros nas fachadas.
@@ -1395,21 +1398,17 @@ initTraffic();
 const cityDecoG=new PIXI.Graphics(); lifeLayer.addChildAt(cityDecoG,0); // atrás dos bichos, à frente do mundo
 const abandonG=new PIXI.Graphics(); camera.addChildAt(abandonG, camera.getChildIndex(darkLayer)); // SOB a escuridão
 function buildCityDeco(){ const g=cityDecoG; g.clear(); const a=abandonG; a.clear();
-  const surf=(tx)=>lifeSurfaceAt(tx);
-  // ---- RUA: calçada + meio-fio + postes + placas + letreiros
-  if(STREET_TY>0){ const y=STREET_TY*TILE;
-    for(let tx=1;tx<WORLD_W-1;tx++){ if(surf(tx)!==STREET_TY)continue; const X=tx*TILE;
-      g.beginFill(0x9aa0ad,0.9).drawRect(X,y,TILE,2).endFill();            // calçada clara
-      g.beginFill(0x565e70,1).drawRect(X,y+2,TILE,1).endFill();            // meio-fio
-      if(tx%11===4){ g.beginFill(0x3a4152).drawRect(X+7,y-30,2,30).endFill(); g.beginFill(0x3a4152).drawRect(X+7,y-30,8,2).endFill(); // poste + braço
-        g.beginFill(0xffe9a8,1).drawRect(X+13,y-29,3,3).endFill(); g.beginFill(0xffe9a8,0.18).drawRect(X+9,y-31,11,8).endFill(); }   // lâmpada + halo FIXO
-      if(tx%14===9){ g.beginFill(0x8a919f).drawRect(X+7,y-14,1,14).endFill();                                                        // placa: haste
-        if(tx%28===9){ g.beginFill(0xd23a2e).drawRect(X+4,y-21,7,7).endFill(); g.beginFill(0xffffff).drawRect(X+5,y-18,5,1).endFill(); } // PARE
-        else { g.beginFill(0x2e6fc8).drawRect(X+4,y-21,7,7).endFill(); for(let s=0;s<3;s++)g.beginFill(0xffffff).drawRect(X+5,y-20+s*2,5,1).endFill(); } } // faixa
-      if(tx%9===2 && solidAt(tx,STREET_TY-3)){ const c=[0x37c9a0,0xff8c5a,0x64b0ff,0xffd23f][tx%4];                                  // letreiro na fachada
-        g.beginFill(0x141824).drawRect(X+2,y-3.5*TILE,12,6).endFill(); g.beginFill(c,1).drawRect(X+3,y-3.5*TILE+1,10,4).endFill();
-        g.beginFill(c,0.15).drawRect(X,y-3.5*TILE-2,16,10).endFill(); } }                                                            // brilho estável (sem piscar)
-  }
+  // ---- FACHADA (banda MAIS BAIXA, por onde o personagem anda): calçada + postes + letreiros.
+  // Placas de PARE saíram daqui → moram na rua da FRENTE (initTraffic), junto dos carros (R-cidade).
+  const BASE_TY=WORLD_H-9;
+  for(let tx=1;tx<WORLD_W-1;tx++){ const ty=lifeSurfaceAt(tx); if(ty<BASE_TY)continue; const X=tx*TILE, y=ty*TILE;
+    g.beginFill(0x9aa0ad,0.9).drawRect(X,y,TILE,2).endFill();            // calçada clara
+    g.beginFill(0x565e70,1).drawRect(X,y+2,TILE,1).endFill();            // meio-fio
+    if(tx%11===4){ g.beginFill(0x3a4152).drawRect(X+7,y-30,2,30).endFill(); g.beginFill(0x3a4152).drawRect(X+7,y-30,8,2).endFill(); // poste + braço
+      g.beginFill(0xffe9a8,1).drawRect(X+13,y-29,3,3).endFill(); g.beginFill(0xffe9a8,0.18).drawRect(X+9,y-31,11,8).endFill(); }   // lâmpada + halo FIXO
+    if(tx%9===2 && solidAt(tx,ty-3)){ const c=[0x37c9a0,0xff8c5a,0x64b0ff,0xffd23f][tx%4];                                          // letreiro na fachada
+      g.beginFill(0x141824).drawRect(X+2,y-3.5*TILE,12,6).endFill(); g.beginFill(c,1).drawRect(X+3,y-3.5*TILE+1,10,4).endFill();
+      g.beginFill(c,0.15).drawRect(X,y-3.5*TILE-2,16,10).endFill(); } }                                                             // brilho estável (sem piscar)
   // ---- CAIXA D'ÁGUA: paredes metálicas nas bordas do corpo d'água + linha d'água no topo
   let wx0=1e9,wx1=-1,wy0=1e9,wy1=-1;
   for(let ty=0;ty<WORLD_H;ty++)for(let tx=0;tx<WORLD_W;tx++){ if(tileAt(tx,ty)===3){ wx0=Math.min(wx0,tx);wx1=Math.max(wx1,tx);wy0=Math.min(wy0,ty);wy1=Math.max(wy1,ty); } }
@@ -1417,11 +1416,7 @@ function buildCityDeco(){ const g=cityDecoG; g.clear(); const a=abandonG; a.clea
     g.beginFill(0x6a7486,0.85).drawRect(X0-3,Y0-6,3,Y1-Y0+6).drawRect(X1,Y0-6,3,Y1-Y0+6).endFill(); // paredes do tanque
     for(let ry=Y0;ry<Y1;ry+=12){ g.beginFill(0x49515f).drawRect(X0-3,ry,3,2).drawRect(X1,ry,3,2).endFill(); } // rebites
     g.beginFill(0xbfe6ff,0.5).drawRect(X0,Y0,X1-X0,1.5).endFill(); }                                  // linha d'água
-  // ---- INTERIOR DE PRÉDIO (parte alta): janelas esparsas nos fundos visíveis (tile 1)
-  for(let ty=2;ty<Math.floor(WORLD_H*0.45);ty++)for(let tx=1;tx<WORLD_W-1;tx++){
-    if(tileAt(tx,ty)!==1||((tx*7+ty*13)%11)!==0)continue; const X=tx*TILE,Y=ty*TILE;
-    g.beginFill(0x1b2233,0.85).drawRect(X+3,Y+2,10,12).endFill(); g.beginFill(0x394a6a,0.9).drawRect(X+4,Y+3,8,4).endFill();
-    g.beginFill(0x2b3a55,0.9).drawRect(X+4,Y+8,8,5).endFill(); g.beginFill(0x141824).drawRect(X+7,Y+2,1,12).endFill(); }
+  // (Janelas do "interior de prédio" removidas — não faziam sentido; R-cidade do José 2026-07-03.)
   // ---- ABANDONADO (darkRegions): entulho, viga e pichação — sob a escuridão
   for(const reg of darkRegions){ for(const key of reg.set){ const [tx,ty]=key.split(',').map(Number); const X=tx*TILE,Y=ty*TILE, h=(tx*13+ty*7)%10;
     if(solidAt(tx,ty+1)&&h<3){ a.beginFill(0x555b66).drawRect(X+2,Y+TILE-5,7,5).endFill(); a.beginFill(0x434955).drawRect(X+7,Y+TILE-3,6,3).endFill(); } // entulho
@@ -1429,6 +1424,27 @@ function buildCityDeco(){ const g=cityDecoG; g.clear(); const a=abandonG; a.clea
     else if(h===7){ const c=[0xc94fd6,0x4fd67a,0xd6c94f][tx%3]; a.beginFill(c,0.55).drawRect(X+3,Y+6,9,2).drawRect(X+5,Y+9,6,2).endFill(); } } }          // pichação
 }
 buildCityDeco();
+/* ===================== L5+: CÉU — nuvens à deriva + pássaros cruzando (procedural) =====================
+   Atrás dos tiles (sobre o parallax). Nuvens derivam devagar e dão a volta; pássaros de 2 quadros cruzam
+   o céu de vez em quando. rm.decor congela nuvens e remove pássaros. */
+const skyLayer=new PIXI.Container(); camera.addChildAt(skyLayer, camera.getChildIndex(worldSprite));
+const CLOUD_TEX=[0,1].map(v=>{ const w=v?46:30,h=v?12:9,cv=makeCanvas(w,h),c=cv.getContext('2d');
+  c.fillStyle='rgba(225,232,244,0.85)';
+  c.fillRect(4,4,w-8,h-5); c.fillRect(0,6,w,h-7); c.fillRect(8,0,w-20,6); c.fillRect(w-16,2,10,5);
+  return tex(cv); });
+const BIRD_TEX=[0,1].map(f=>{ const cv=makeCanvas(7,4),c=cv.getContext('2d'); c.fillStyle='#20242e';
+  if(f===0){ c.fillRect(0,0,3,1); c.fillRect(4,0,3,1); c.fillRect(2,1,3,1); } else { c.fillRect(0,2,3,1); c.fillRect(4,2,3,1); c.fillRect(2,1,3,1); }
+  return tex(cv); });
+let clouds=[], birds=[], _birdT=500;
+(function seedClouds(){ for(let i=0;i<7;i++){ const s=new PIXI.Sprite(CLOUD_TEX[i%2]); s.alpha=0.5+((i*37)%30)/100;
+  s.x=(i*173)%WORLD_PX_W; s.y=8+((i*61)%Math.floor(WORLD_PX_H*0.30)); s._v=0.02+((i*13)%10)/300; skyLayer.addChild(s); clouds.push(s); } })();
+function stepSky(dt){ if(rm.decor){ if(birds.length){ birds.forEach(b=>{skyLayer.removeChild(b.s); b.s.destroy();}); birds=[]; } return; }
+  for(const c of clouds){ c.x+=c._v*dt; if(c.x>WORLD_PX_W+50)c.x=-50; }
+  if(birds.length<3 && ++_birdT>=520){ _birdT=randInt(0,300); const dir=rnd()<0.5?1:-1;
+    const s=new PIXI.Sprite(BIRD_TEX[0]); s.scale.x=dir; s.x=dir>0?-10:WORLD_PX_W+10; s.y=12+rnd()*WORLD_PX_H*0.25; skyLayer.addChild(s);
+    birds.push({s,dir,f:0,t:0}); }
+  for(let i=birds.length-1;i>=0;i--){ const b=birds[i]; b.s.x+=b.dir*0.7*dt; b.t+=dt; if(b.t>=8){ b.t=0; b.f=1-b.f; b.s.texture=BIRD_TEX[b.f]; }
+    if(b.s.x<-16||b.s.x>WORLD_PX_W+16){ skyLayer.removeChild(b.s); b.s.destroy(); birds.splice(i,1); } } }
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
@@ -1854,7 +1870,8 @@ function update(dt){
   if(hitstopT>0){ hitstopT=Math.max(0,hitstopT-dt); return; } // JUICE: hit-stop congela o mundo por alguns ticks
   stepFx(dt); // partículas + decaimento de tremor/squash (roda até no fim de jogo → confete da vitória anima)
   stepLife(dt); // L5: vida ambiente (pombos/gatos/cães/adultos) — cosmética, atrás do player
-  stepTraffic(dt); // L5: carros (frente) + semáforo
+  stepTraffic(dt); // L5: carros (frente, na rua da base) + semáforo
+  stepSky(dt); // L5: nuvens + pássaros no céu
   if(ended)return;
   players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
   for(const pl of players) stepPlayer(pl,dt);
@@ -2901,7 +2918,8 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
-  spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,get STREET_TY(){return STREET_TY;}};
+  spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,STREET_Y,
+  get clouds(){return clouds;},get birds(){return birds;},stepSky};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
   const e2=document.querySelector('.title-by span'); if(e2)e2.textContent=v; }
