@@ -50,6 +50,13 @@ Brasileira · personagens (bases, silhueta feminina, teto/escada/parede, bengala
 | **L8** | **Refinos + estudos** | Cadeirante: auditar plano mellow-questing-riddle (maioria FEITA: rampSurfaceY, faixa amarela, wcFreeze, elevadores A–E) → fazer o que faltar + elevador largo×fino distinção + polish da cadeira + auditoria de percurso completável; pose de vitória (integrar se a arte existir); chiptunes (estudo MIDI×procedural + implementar o possível); estudo protan×deutan (o que dá pra fazer além de luminância); estudo Live2D Cubism p/ Libras | Cada item entregue ou com estudo/lista de opções |
 | **L9** | **Auditoria final WCAG/GAG (R5)** | Auditoria completa pós-tudo (axe/Lighthouse + manual GAG + gates ADR-001), com relatório honesto AA×AAA | Relatório em docs/ |
 
+## ⏸ Checklist "fica para depois" (José pediu para NÃO ser lembrado disso — 2026-07-03)
+
+- [ ] Teste da voz neural (Piper) no dia a dia — motor em Acessibilidade auditiva.
+- [ ] Conferência visual das scanlines corrigidas (v4.130.1/v4.131.1) no monitor dele.
+- [ ] Rodadas restantes do L1: re-teste do mapa DirectInput pós-`18eaaa1` e o roteiro abaixo com o
+      SEGUNDO controle quando chegar. (L1 fica `in_progress` até isso; não bloqueia nada.)
+
 ## Roteiro de teste do controle físico (tarefa do José, JÁ)
 
 Com o servidor em `http://localhost:8190/?debug=true`:
