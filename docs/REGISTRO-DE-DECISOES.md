@@ -147,7 +147,8 @@
 | Título da PÁGINA (topbar `The Inclusionist · vX`) só aparece em `?debug=true` (o splash já mostra) — libera a vertical p/ o canvas | Pedido explícito | v4.147.2 | ✅ |
 | Seletor de jogadores = UM botão só "◀ Nº de jogadores: X ▶"; lado clicado decide +1/−1 (←/→ no teclado idem); some o visual de 3 segmentos | Pedido explícito ("gráfico ficou horrível") | v4.147.2 | ✅ |
 | NADA spawna dentro da lava: `lifeSurfaceAt`/`lifeSurfaceLowAt`/decoração exigem `tileAt(tx,ty-1)!==9` (espaço de pé fora da lava) + criatura dá meia-volta ao andar rumo à lava. 3 tiles de lava (col 25-27) eram os pontos afetados | Pedido explícito ("animais dentro da lava") | v4.147.2 | ✅ |
-| KaTeX self-host + SVG inline p/ frações: pizzas (2-6 fatias iguais) e barras/quadrados (2-6 partes, vertical/horizontal) | Aprovação do José ("use KaTeX e SVG então") | pendente | 🔜 próxima |
+| **Frações como FIGURA (SVG inline, zero-dependência):** PIZZA (2-6 fatias iguais) e QUADRADO vertical/horizontal (2-6 partes) viram 3 novas NOTAÇÕES toggleáveis no menu Fração (pizza/barv/barh), somando-se a vertical/diagonal/decimal/percentual/mista. Fração imprópria (n>d) = ⌊n/d⌋ figuras cheias + resto. `data-frac` embarcado → fala e comparação de resposta funcionam. Cor de preenchimento com contorno preto (não depende só da cor, WCAG 1.4.1). Menu Fração passou a 2 colunas (não estoura o canvas). Denominadores das atividades ≤6 → 2-6 partes sempre cabem | Aprovação do José ("use KaTeX e SVG então") | v4.148.0 | ✅ SVG feito |
+| **KaTeX** (self-host offline) p/ tipografia da notação diagonal/mista: a vertical `.fv` (HTML) + as figuras SVG já cobrem o essencial. Pergunta em aberto: KaTeX vale ~1MB de fontes p/ frações n/d com d≤6? | Recomendação minha + "use KaTeX" do José | pendente | ⏸ aguarda decisão de escopo |
 
 ## 6. Arquitetura e plataforma
 

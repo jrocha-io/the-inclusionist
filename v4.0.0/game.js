@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.147.2';
+const INCL_VERSION='4.148.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2499,20 +2499,38 @@ const gcd=(a,b)=>b?gcd(b,a%b):a;
 function fracStr(n,D){ if(n===0)return '0'; const g=gcd(n,D)||1, a=n/g,d=D/g; return d===1?String(a):a+'/'+d; }
 const DEN_NAME={2:'meio',3:'terço',4:'quarto',5:'quinto',6:'sexto',7:'sétimo',8:'oitavo',9:'nono',10:'décimo',12:'doze avos'};
 /* NOTAÇÕES de fração (menu "Fração"): vertical · diagonal · decimal · percentual · mista — toggles persistidos */
-let fracNot=(()=>{ const d={v:1,d:0,dec:0,pct:0,mix:0};
+let fracNot=(()=>{ const d={v:1,d:0,dec:0,pct:0,mix:0,pizza:0,barv:0,barh:0};
   try{ const s=JSON.parse(localStorage.getItem('incl_fracnot')); if(s&&typeof s==='object')for(const k in d)if(k in s)d[k]=s[k]?1:0; }catch(e){}
   if(!Object.values(d).some(x=>x))d.v=1; return d; })();
-const FNOT_LBL={v:'Fracionária vertical',d:'Fracionária diagonal',dec:'Decimal',pct:'Percentual',mix:'Mista'};
+const FNOT_LBL={v:'Fracionária vertical',d:'Fracionária diagonal',dec:'Decimal',pct:'Percentual',mix:'Mista',pizza:'Pizza (fatias)',barv:'Quadrado vertical',barh:'Quadrado horizontal'};
 function fmtFrac(n,D,not){ if(n===0)return '0'; const g=gcd(n,D)||1, a=n/g, d=D/g;
+  if(not==='pizza'||not==='barv'||not==='barh')return fracFigure(a,d,not); // SVG inline (proper/improper → N unidades)
   if(d===1)return String(a);
   if(not==='dec'){ let s=(Math.round((n/D)*100)/100).toFixed(2).replace(/0$/,'').replace(/\.$/,''); return s.replace('.',','); }
   if(not==='pct'){ const r=Math.round((n/D)*1000)/10; return (Number.isInteger(r)?r:String(r).replace('.',','))+'%'; }
   if(not==='mix'&&a>d){ const i=Math.floor(a/d), r=a%d; return r? (i+' '+r+'/'+d) : String(i); }
   if(not==='v')return `<span class="fv"><b>${a}</b><b>${d}</b></span>`;
   return a+'/'+d; } // diagonal (inline)
+/* SVG inline p/ frações (José 2026-07-04): PIZZA em 2-6 fatias iguais e QUADRADO em 2-6 partes (vertical/horizontal).
+   Zero dependência (offline/Positivo). Fração imprópria (n>d) = ⌊n/d⌋ figuras cheias + o resto. data-frac p/ a fala/comparação. */
+function _pieUnit(k,d){ const R=18,C=20,seg=[]; // uma pizza: d fatias, k preenchidas (do topo, horário)
+  const pt=deg=>{ const a=(deg-90)*Math.PI/180; return [(C+R*Math.cos(a)).toFixed(2),(C+R*Math.sin(a)).toFixed(2)]; };
+  if(d===1){ seg.push(`<circle cx="${C}" cy="${C}" r="${R}" fill="${k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.6"/>`); }
+  else for(let i=0;i<d;i++){ const [x0,y0]=pt(i*360/d),[x1,y1]=pt((i+1)*360/d),large=360/d>180?1:0;
+    seg.push(`<path d="M${C} ${C} L${x0} ${y0} A${R} ${R} 0 ${large} 1 ${x1} ${y1} Z" fill="${i<k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.3"/>`); }
+  return `<svg class="frac-svg" viewBox="0 0 40 40" aria-hidden="true">${seg.join('')}<circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="#0d0d1a" stroke-width="1.6"/></svg>`; }
+function _barUnit(k,d,orient){ const S=40,seg=[]; // um quadrado: d partes (colunas=v / linhas=h), k preenchidas
+  for(let i=0;i<d;i++){ const [x,y,w,h]= orient==='barh' ? [0,i*S/d,S,S/d] : [i*S/d,0,S/d,S];
+    seg.push(`<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${i<k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.2"/>`); }
+  return `<svg class="frac-svg" viewBox="0 0 40 40" aria-hidden="true">${seg.join('')}<rect x=".8" y=".8" width="38.4" height="38.4" fill="none" stroke="#0d0d1a" stroke-width="1.6"/></svg>`; }
+function fracFigure(n,d,kind){ const whole=Math.floor(n/d), rem=n-whole*d, u=[]; // n/d como figura(s)
+  const one=k=> kind==='pizza'?_pieUnit(k,d):_barUnit(k,d,kind);
+  for(let i=0;i<whole;i++)u.push(one(d)); if(rem>0||whole===0)u.push(one(rem));
+  return `<span class="frac-fig" data-frac="${n}/${d}" role="img" aria-label="${fracSpeak(n+'/'+d)}">${u.join('')}</span>`; }
 function fracSpeak(s){ const m=/^(\d+)\/(\d+)$/.exec(String(s)); if(!m)return String(s);
   const n=+m[1],d=+m[2],nm=DEN_NAME[d]||(d+' avos'); return n===1?('um '+nm):(n+' '+nm+'s'); }
 function speakChoice(s){ s=String(s); // fala qualquer NOTAÇÃO: vertical (HTML)→a/b · mista → "N inteiros e a/b" · decimal/percentual literais
+  const fig=/data-frac="(\d+)\/(\d+)"/.exec(s); if(fig)return fracSpeak(fig[1]+'/'+fig[2]); // pizza/quadrado (SVG): lê a fração
   if(/</.test(s)) s=s.replace(/<\/b><b>/,'/').replace(/<[^>]+>/g,'');
   const m=/^(\d+)\s+(\d+)\/(\d+)$/.exec(s); if(m)return m[1]+(m[1]==='1'?' inteiro e ':' inteiros e ')+fracSpeak(m[2]+'/'+m[3]);
   return fracSpeak(s); }
@@ -3302,7 +3320,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
-  setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,
+  setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,fmtFrac,fracFigure,speakChoice,get fracNot(){return fracNot;},
   setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
   startAttract,stopAttract,get attract(){return attract;},set idleT(v){_idleT=v;},
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
