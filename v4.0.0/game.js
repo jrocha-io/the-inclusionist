@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.133.0';
+const INCL_VERSION='4.134.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1292,6 +1292,61 @@ function drawChair(g,pl){ const cx=pl.x, base=pl.y, f=pl.facing<0?-1:1, MET=0x4a
   g.moveTo(cx+f*4,base-4); g.lineTo(cx+f*9,base-2);                                 // apoio de pés à frente
   g.lineStyle(0); }
 
+/* ===================== L5: VIDA AMBIENTE (Cidade) — pombos, gatos, cães e adultos, 100% procedural =====================
+   Cosmético puro: sem colisão, sem dano (revoada de pombo ≠ susto de perigo). ATRÁS do player.
+   Pool de 8, spawn perto da câmera, 2 quadros por bicho; rm.decor (Movimento Reduzido de cena) desliga tudo. */
+const lifeLayer=new PIXI.Container(); camera.addChild(lifeLayer);
+const LIFE_TEX=(()=>{ const mk=(w,h,paint)=>{ const cv=makeCanvas(w,h),c=cv.getContext('2d'); paint((x,y,ww,hh,col)=>{c.fillStyle=col;c.fillRect(x,y,ww,hh);}); return tex(cv); };
+  const pombo=f=>mk(7,6,px=>{ px(1,2,4,2,'#9aa3b2'); px(0,3,2,1,'#7d8695');
+    if(f===0){ px(4,1,2,2,'#b9c2d0'); px(6,2,1,1,'#e0a23c'); } else { px(4,3,2,2,'#b9c2d0'); px(6,4,1,1,'#e0a23c'); } // cabeça alta / bicando
+    px(2,5,1,1,'#c96a2e'); px(4,5,1,1,'#c96a2e'); });
+  const pomboFly=f=>mk(8,7,px=>{ px(2,3,4,2,'#9aa3b2'); px(6,2,2,2,'#b9c2d0'); px(7,3,1,1,'#e0a23c');
+    if(f===0)px(1,0,4,2,'#c8d0dc'); else px(1,5,4,2,'#c8d0dc'); });                                  // asa cima/baixo
+  const gato=f=>mk(12,8,px=>{ px(1,3,8,3,'#454b58'); px(8,1,3,3,'#454b58'); px(8,0,1,1,'#454b58'); px(10,0,1,1,'#454b58');
+    px(0,2,1,3,'#454b58'); px(9,2,1,1,'#9fe07a');
+    if(f===0){ px(2,6,1,2,'#454b58'); px(7,6,1,2,'#454b58'); } else { px(3,6,1,2,'#454b58'); px(6,6,1,2,'#454b58'); } });
+  const cao=f=>mk(13,9,px=>{ px(1,3,9,4,'#8a6a44'); px(9,1,4,4,'#8a6a44'); px(12,2,1,2,'#3a2d1c'); px(9,0,2,2,'#6d5334');
+    px(0,2,1,3,'#8a6a44');
+    if(f===0){ px(2,7,1,2,'#6d5334'); px(8,7,1,2,'#6d5334'); } else { px(3,7,1,2,'#6d5334'); px(7,7,1,2,'#6d5334'); } });
+  const adulto=f=>mk(8,20,px=>{ px(2,0,4,4,'#5a6274'); px(1,4,6,9,'#4a5266');
+    if(f===0){ px(2,13,2,7,'#3c4456'); px(5,13,2,6,'#3c4456'); } else { px(1,13,2,6,'#3c4456'); px(5,13,2,7,'#3c4456'); } });
+  return { pombo:[pombo(0),pombo(1)], pomboFly:[pomboFly(0),pomboFly(1)], gato:[gato(0),gato(1)], cao:[cao(0),cao(1)], adulto:[adulto(0),adulto(1)] };
+})();
+const LIFE_KINDS=[
+  {k:'pombo', tex:'pombo', spd:0.15, peck:true, fly:true, alpha:0.95},
+  {k:'gato',  tex:'gato',  spd:0.30, alpha:0.9},
+  {k:'cao',   tex:'cao',   spd:0.35, alpha:0.9,  street:true},
+  {k:'adulto',tex:'adulto',spd:0.25, alpha:0.65, street:true}, // recuado (silhueta translúcida, bem atrás)
+];
+let creatures=[], _lifeSpawnT=0;
+function lifeSurfaceAt(tx){ for(let ty=3;ty<WORLD_H-1;ty++){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9) return ty; } return -1; }
+function spawnCreature(force){ if(creatures.length>=8)return false;
+  const pl=players[randInt(0,Math.max(0,numPlayers-1))]||players[0];
+  const tx=Math.floor(pl.x/TILE)+(rnd()<0.5?-1:1)*(Math.floor(LOGICAL_W/TILE/2)+2+randInt(0,5));
+  if(tx<1||tx>=WORLD_W-1)return false;
+  const K=LIFE_KINDS[randInt(0,LIFE_KINDS.length-1)];
+  const ty=lifeSurfaceAt(tx); if(ty<0)return false;
+  if(K.street && ty*TILE<WORLD_PX_H*0.55)return false; // adultos/cães só na RUA (parte baixa)
+  const s=new PIXI.Sprite(LIFE_TEX[K.tex][0]); s.anchor.set(0.5,1); s.alpha=K.alpha; lifeLayer.addChild(s);
+  creatures.push({K,s,x:tx*TILE+8,y:ty*TILE,dir:rnd()<0.5?-1:1,animT:0,f:0,state:'walk',stateT:0,vy:0});
+  return true; }
+function stepLife(dt){
+  if(rm.decor){ if(creatures.length){ creatures.forEach(c=>c.s.destroy()); lifeLayer.removeChildren(); creatures=[]; } return; }
+  if(++_lifeSpawnT>=90){ _lifeSpawnT=0; spawnCreature(); }
+  for(let i=creatures.length-1;i>=0;i--){ const c=creatures[i], K=c.K;
+    c.animT+=dt; if(c.animT>=12){ c.animT=0; c.f=1-c.f; }
+    if(c.state==='fly'){ c.y+=c.vy*dt; c.x+=c.dir*0.9*dt; c.vy=Math.max(-1.6,c.vy-0.04*dt); c.s.texture=LIFE_TEX.pomboFly[c.f]; }
+    else if(c.state==='peck'){ if((c.stateT-=dt)<=0)c.state='walk'; c.s.texture=LIFE_TEX.pombo[1]; }
+    else { c.x+=c.dir*K.spd*dt;
+      const ty=Math.floor(c.y/TILE), nx=Math.floor((c.x+c.dir*6)/TILE);
+      if(nx<1||nx>=WORLD_W-1||!solidAt(nx,ty)||solidAt(nx,ty-1)) c.dir*=-1; // beirada/parede: meia-volta
+      if(K.peck&&rnd()<0.004){ c.state='peck'; c.stateT=30; }
+      c.s.texture=LIFE_TEX[K.tex][c.f]; }
+    if(K.fly&&c.state!=='fly'){ for(const pl of players){ if(Math.abs(pl.x-c.x)<34&&Math.abs(pl.y-c.y)<26){ c.state='fly'; c.vy=-1.2; c.dir=(c.x<pl.x?-1:1); break; } } } // revoada cosmética
+    c.s.x=Math.round(c.x); c.s.y=Math.round(c.y); c.s.scale.x=c.dir<0?-1:1;
+    let near=false; for(const pl of players){ if(Math.abs(pl.x-c.x)<LOGICAL_W*1.6&&Math.abs(pl.y-c.y)<LOGICAL_H*1.6){near=true;break;} }
+    if(!near||c.y<-30||c.x<8||c.x>WORLD_PX_W-8){ c.s.destroy(); lifeLayer.removeChild(c.s); creatures.splice(i,1); }
+  } }
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
@@ -1716,6 +1771,7 @@ function update(dt){
   if(phase!=='playing')return; // E14: congelado no título e na pausa
   if(hitstopT>0){ hitstopT=Math.max(0,hitstopT-dt); return; } // JUICE: hit-stop congela o mundo por alguns ticks
   stepFx(dt); // partículas + decaimento de tremor/squash (roda até no fim de jogo → confete da vitória anima)
+  stepLife(dt); // L5: vida ambiente (pombos/gatos/cães/adultos) — cosmética, atrás do player
   if(ended)return;
   players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
   for(const pl of players) stepPlayer(pl,dt);
@@ -2761,7 +2817,8 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,
   setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
-  updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm};
+  updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
+  spawnCreature,stepLife,get creatures(){return creatures;}};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
   const e2=document.querySelector('.title-by span'); if(e2)e2.textContent=v; }
