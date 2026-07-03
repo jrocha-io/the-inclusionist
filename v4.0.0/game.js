@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.144.0';
+const INCL_VERSION='4.145.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -624,6 +624,8 @@ addEventListener('keydown',(e)=>{
   const easyKey = players[0].easy && numPlayers<=1 && (e.code==='ControlLeft'||e.code==='ControlRight'||e.code==='ShiftLeft'||e.code==='ShiftRight');
   const isGameKey = easyKey || GAME_KEYS.includes(e.code) || players.some(p=>p.ctrl && Object.values(p.ctrl).some(arr=>arr.includes(e.code)));
   if(isGameKey){ e.preventDefault(); hideTouchControls('teclado'); } // E13: jogar no teclado oculta os botões de toque
+  for(const p of players){ if(p.waiting && actionOf(e.code,p.i)){ p.waiting=false; // tecla DAQUELE jogador ativa a tela em espera
+    const scr=vpScreens[p.i], w=scr&&scr.querySelector('.vp-wait'); if(w)w.remove(); srSay('Jogador '+(p.i+1)+' entrou!'); } }
   if(!keys.has(e.code)){ for(const p of players){ if(!p.ctrl)continue;
     if(p.ctrl.jump.includes(e.code)) p.jumpEdge=true;
     if(p.ctrl.run.includes(e.code) && !p.easy) p.runEdge=true; // Fácil: sem correr
@@ -1004,7 +1006,7 @@ function setCenario(theme){ if(!CENARIOS[theme])theme='cidade';
   loadTileImages(theme).then(tiles=>{ if(CENARIO!==theme)return;
     worldCanvasNormal=worldCanvas(tiles); worldTexNormal=tex(worldCanvasNormal); _worldTexHC={}; // v3: blocos Clarity SEM recolor
     if(vizReady) reapplyVizAll(); else if(worldSprite) worldSprite.texture=worldTexNormal; });
-  document.querySelectorAll('.pm-cen').forEach(x=>{ x.textContent='🏙 Cenário: '+CENARIOS[theme].nome; });
+  // (o Cenário saiu do menu de pausa — a escolha é do J1 no splash, antes de começar)
   if(_vidaReady) applyCenarioVida(); // liga/desliga carros/deco da cidade e semeia as peculiaridades do tema
   if(vizReady) reapplyVizAll(); // reaplica o cenário recolorido (só após o init montar tudo)
   try{ localStorage.setItem('incl_cenario',theme); }catch(e){}
@@ -1744,7 +1746,7 @@ let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 // HUD por jogador em DOM SOBREPOSTO (alta definição, não pixela): moedas (1ª coluna) + poder (2ª coluna), por viewport.
 let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[], vpPause=[], pauseActor=0;
 // Menu de pausa POR TELA (Etapa 2): um por jogador, dentro da .player-screen dele.
-const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'nivel',lbl:'📚 Nível',nivel:true},{act:'tipo',lbl:'🔤 Tipografia'},{act:'cenario',lbl:'🏙 Cenário',cen:true},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
+const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'nivel',lbl:'📚 Nível',nivel:true},{act:'tipo',lbl:'🔤 Tipografia'},{act:'addplayer',lbl:'👥 Adicionar jogador'},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
 // Barra de atalhos de a11y no topo da pausa (por tela). Sons (cego/TTS) só com saída própria; webcam/voz em construção.
 const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo (protan/deutan/tritan)'},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
 let calmMode=0; // 0=normal · 1=calmo (reduz) · 2=silencioso (desliga) — nunca mexe em TTS/modo cego
@@ -1753,7 +1755,7 @@ function buildScreenPause(i){ const sp=document.createElement('div'); sp.classNa
   sp.innerHTML='<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'">'+
     '<div class="pause-icons" role="group" aria-label="Atalhos de acessibilidade">'+icons+'</div><p class="pause-icons-cap" aria-live="polite"></p>'+
     '<h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
-    PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+(b.nivel?' pm-nivel':'')+(b.cen?' pm-cen':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+(b.nivel?('📚 Nível '+quizLevel+' · '+QL_NAME[quizLevel]):b.cen?('🏙 Cenário: '+((CENARIOS[CENARIO]||{}).nome||'Cidade')):b.lbl)+'</button>').join('')+
+    PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+(b.nivel?' pm-nivel':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+(b.nivel?('📚 Nível '+quizLevel+' · '+QL_NAME[quizLevel]):b.lbl)+'</button>').join('')+
     '</div><p class="pause-legend" aria-hidden="true"></p></div>';
   sp.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(b){ pauseActor=i; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); return; }
     const ib=e.target.closest('.pi-btn'); if(ib){ pauseActor=i; iconAct(ib.dataset.pi,i); reflectPauseIcons(); const cp=sp.querySelector('.pause-icons-cap'); if(cp)cp.textContent=ib.getAttribute('aria-label')||''; } });
@@ -1915,7 +1917,7 @@ function triggerLava(pl){
   srAlert('Cuidado! Tocou na lava. As moedas voltaram para posições aleatórias.');
 }
 function stepPlayer(pl,dt){
-  if(pl.quiz||pl.quit)return; // P1 em desafio; ou jogador que abandonou (tela preta)
+  if(pl.quiz||pl.quit||pl.waiting)return; // em desafio; abandonou; ou ESPERANDO apertar um botão para entrar
   const run=held(pl,'run') && !pl.easy && !pl.toggleMove && (!caneOn(pl)||!!pl.runCane), turbo=pl.activePower==='turbo'; // cego só corre com a bengala de corrida
   let dir;
   if(pl.toggleMove){ // movimento por alternância (1 dedo): tocar trava a direção; segurar acelera
@@ -2449,11 +2451,17 @@ function setActivity(id){ if(!ACTIVITIES[id])id='ludico'; ACTIVITY=id; try{local
   const cat=ACTIVITIES[id].cat;
   if(cat==='alf')setQuizLevel(ALF_LEVEL[id],false); // reusa os 5 níveis da psicogênese
   MODE = cat==='alf'?'silabas':cat==='mat'?'somasub':'ludico'; }
-function startActivity(id){ setActivity(id);
-  if(isMobile()){ if(numPlayers>1)setNumPlayers(1);
+let _pendingAct='ludico', pendingPlayers=1, _cenBack='tm-main';
+function startActivity(id){ // R-splash 2: depois do desafio, o JOGADOR 1 escolhe o CENÁRIO (aos demais, "aguarde")
+  _pendingAct=id;
+  _cenBack = (ACTIVITIES[id].pick)?'tm-tab' : ACTIVITIES[id].cat==='alf'?'tm-alf' : ACTIVITIES[id].cat==='mat'?'tm-mat' : 'tm-main';
+  showTitleMenu('tm-cen'); srSay('Escolha o cenário.'); }
+function reallyStart(){ const id=_pendingAct; setActivity(id);
+  if(isMobile()){ if(pendingPlayers>1)pendingPlayers=1;
     try{ const el=document.documentElement, rf=el.requestFullscreen||el.webkitRequestFullscreen; if(rf)rf.call(el); }catch(e){} }
   players.forEach(p=>{ p.alfWins=0; });
-  restartGame(); setPhase('playing'); hideTips(); srSay(ACTIVITIES[id].nome+'. Jogo iniciado.'); }
+  if(pendingPlayers!==numPlayers) setNumPlayers(pendingPlayers); else restartGame();
+  setPhase('playing'); hideTips(); srSay(ACTIVITIES[id].nome+'. Jogo iniciado.'); }
 const gcd=(a,b)=>b?gcd(b,a%b):a;
 function fracStr(n,D){ if(n===0)return '0'; const g=gcd(n,D)||1, a=n/g,d=D/g; return d===1?String(a):a+'/'+d; }
 const DEN_NAME={2:'meio',3:'terço',4:'quarto',5:'quinto',6:'sexto',7:'sétimo',8:'oitavo',9:'nono',10:'décimo',12:'doze avos'};
@@ -2569,9 +2577,12 @@ function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só co
         if(dlg)navDialog(dlg,k); else { const menu=vpPause[pi]; if(menu&&!menu.hidden)navPause(menu,pi,k); } }
       continue; }
     if(phase==='playing'){ const owner=players.findIndex(p=>p.pad===gi);
-      if(owner<0){ if(startEdge){ // L1: 1º controle → assume o primeiro jogador SEM pad (P1); senão entra como novo jogador
-          const free=players.findIndex(p=>p&&p.pad<0&&!p.quit);
-          if(free>=0){ players[free].pad=gi; srSay('Controle associado ao Jogador '+(free+1)+'. O teclado continua funcionando.'); }
+      if(owner<0){ // atribuição POR ORDEM DE AÇÃO (R-splash 2): qualquer botão associa — 1º controle a agir → 1º jogador sem pad
+        const anyEdge=edge('jump')||edge('run')||edge('swap')||edge('especial')||startEdge||edge('left')||edge('right')||edge('up')||edge('down');
+        if(anyEdge){ const waitI=players.findIndex(p=>p&&p.waiting); const free=waitI>=0?waitI:players.findIndex(p=>p&&p.pad<0&&!p.quit);
+          if(free>=0){ players[free].pad=gi;
+            if(players[free].waiting){ players[free].waiting=false; const scr=vpScreens[free], w=scr&&scr.querySelector('.vp-wait'); if(w)w.remove(); }
+            srSay('Controle associado ao Jogador '+(free+1)+'. O teclado continua funcionando.'); }
           else joinPlayer(gi); } }
       else if(players[owner].quit){ if(startEdge) respawnPlayer(owner); } // tela abandonada → recomeça SÓ ela
       else { const p=players[owner];
@@ -3323,7 +3334,13 @@ const pauseActs={ resume:()=>setPhase('playing'),
   letra:()=>{ letraIdx=(letraIdx+1)%LETRA.length; applyLetra(true); },
   nivel:()=>setQuizLevel(quizLevel%5+1,true), // L3: cicla 1..5
   tipo:()=>openTypo(),
-  cenario:()=>{ const ks=Object.keys(CENARIOS); const nx=ks[(ks.indexOf(CENARIO)+1)%ks.length]; setCenario(nx); srSay('Cenário: '+CENARIOS[nx].nome+'.'); }, // L6: cicla os 5 temas
+  addplayer:()=>{ // R-splash 2: só AUMENTA (nunca diminui); a tela nova ESPERA um botão do jogador entrar
+    if(numPlayers>=4){ srAlert('Máximo de 4 jogadores.'); return; }
+    if(!fitsN(numPlayers+1)){ srAlert('Não cabe outra tela nesta janela — aumente a janela ou use tela cheia.'); return; }
+    if(joinPlayer(null)){ const p=players[numPlayers-1]; p.waiting=true;
+      const scr=vpScreens[p.i]; if(scr&&!scr.querySelector('.vp-wait'))scr.insertAdjacentHTML('beforeend',
+        '<div class="vphud-quit vp-wait">Jogador '+(p.i+1)+': aperte um botão do SEU teclado ou de um controle livre para entrar</div>');
+      setPhase('playing'); srAlert('Jogador '+(p.i+1)+': aperte um botão para entrar.'); } },
   audio:()=>openAudio(),
   motora:()=>{ selMovPlayer=pauseActor; openMovement(); },
   anim:()=>{ selAnimPlayer=pauseActor; openAnimation(); },
@@ -3393,9 +3410,9 @@ function quitGame(){ // Sair: single → volta ao MENU INICIAL; MP → tela do j
 function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==='paused')setPhase('playing'); }
 /* ===== Menu inicial (v3): principal → submenus de atividade → (tabuada/divisão) seletor de números ===== */
 let _tabFor='mat5';
-function showTitleMenu(which){ ['tm-main','tm-alf','tm-mat','tm-tab'].forEach(m=>{ const el=$('#'+m); if(el)el.hidden=(m!==which); });
+function showTitleMenu(which){ ['tm-main','tm-alf','tm-mat','tm-tab','tm-cen'].forEach(m=>{ const el=$('#'+m); if(el)el.hidden=(m!==which); });
   const el=$('#'+which), b=el&&el.querySelector('button'); if(b)b.focus(); }
-function titleButtons(){ const m=['tm-main','tm-alf','tm-mat','tm-tab'].map(id=>$('#'+id)).find(el=>el&&!el.hidden);
+function titleButtons(){ const m=['tm-main','tm-alf','tm-mat','tm-tab','tm-cen'].map(id=>$('#'+id)).find(el=>el&&!el.hidden);
   return m?[...m.querySelectorAll('button')]:[]; }
 function navTitle(k){ const bs=titleButtons(); if(!bs.length)return;
   let i=bs.indexOf(document.activeElement);
@@ -3413,6 +3430,9 @@ function buildTitleMenus(){
   const tab=$('#tm-tab'); if(tab)tab.innerHTML=h('Tabuada')+`<div class="game-subtitle">Escolha os números para treinar</div>`+
     `<div class="tab-row">${rows([0,1,2,3,4,5])}</div><div class="tab-row">${rows([6,7,8,9,10])}</div>`+
     `<button class="title-btn" id="tab-play" type="button">Jogar</button>`+back('tm-mat');
+  const cen=$('#tm-cen'); if(cen)cen.innerHTML=h('Cenário')+Object.keys(CENARIOS).map(c=>
+    `<button class="title-btn" data-cen="${c}" type="button">${CENARIOS[c].nome}</button>`).join('')+
+    `<button class="title-btn ghost" data-cen-back="1" type="button">Voltar</button>`;
 }
 /* Rodapé do splash: controles conforme o DISPOSITIVO plugado — teclado=letras (J/K/U/I),
    DirectInput=números (0/1/2/3), XInput=letras COLORIDAS (A/B/X/Y). Pausa: Enter/START. */
@@ -3458,6 +3478,13 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
   ov.addEventListener('click',(e)=>{ const b=e.target.closest('button'); if(!b)return;
     if(b.classList.contains('title-btn')){ b.classList.remove('act-fx'); void b.offsetWidth; b.classList.add('act-fx'); } // efeito de ATIVAÇÃO
     const go=fn=>{ if(ov._busy)return; ov._busy=true; setTimeout(()=>{ ov._busy=false; fn(); },230); }; // a animação toca ANTES de trocar de tela
+    if(b.dataset.np){ const d=+b.dataset.np; let n=Math.max(1,Math.min(4,pendingPlayers+d)); // seletor ◀ N jogadores ▶
+      if(n>1&&!fitsN(n)){ srAlert('Não cabem '+n+' telas nesta janela — aumente a janela ou use tela cheia.'); return; }
+      pendingPlayers=n; const lb=$('#np-label'); if(lb)lb.textContent=n+(n>1?' jogadores':' jogador');
+      srSay(n+(n>1?' jogadores.':' jogador.')); return; }
+    if(b.id==='np-label'){ return; } // rótulo central: sem ação
+    if(b.dataset.cen){ const c=b.dataset.cen; go(()=>{ setCenario(c); reallyStart(); }); return; }
+    if(b.dataset.cenBack){ go(()=>showTitleMenu(_cenBack)); return; }
     if(b.dataset.tm==='ludico'){ go(()=>startActivity('ludico')); return; }
     if(b.dataset.tm==='alf'){ go(()=>showTitleMenu('tm-alf')); return; }
     if(b.dataset.tm==='mat'){ go(()=>showTitleMenu('tm-mat')); return; }
