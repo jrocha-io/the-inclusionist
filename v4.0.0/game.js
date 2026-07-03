@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.138.0';
+const INCL_VERSION='4.139.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -331,13 +331,19 @@ function coinCanvas(){
   return cv;
 }
 function coinTexture(){ return tex(coinCanvas()); }
-function treeCanvas(){
-  const cv=makeCanvas(26,46),c=cv.getContext('2d');
-  c.fillStyle='#2e2012'; c.fillRect(10,26,6,20);                 // contorno do tronco
-  c.fillStyle='#5c4033'; c.fillRect(11,26,4,20);                 // tronco
-  pixDisc(c,13,17,12,'#1f7a4d','#143a22');                       // copa (verde + contorno)
-  pixDisc(c,8,15,7,'#2fa35f');                                   // tufos mais claros
-  pixDisc(c,18,13,6,'#46b06a');
+function treeCanvas(){ // árvore urbana caprichada (R-cidade): tronco sombreado c/ raízes + copa em 3 tons + luz de borda
+  const cv=makeCanvas(30,52),c=cv.getContext('2d');
+  c.fillStyle='#241a0e'; c.fillRect(12,28,7,22); c.fillRect(9,47,13,3);   // contorno tronco + raízes
+  c.fillStyle='#5c4033'; c.fillRect(13,28,5,21);                          // tronco
+  c.fillStyle='#7a5a48'; c.fillRect(13,28,2,21);                          // luz do tronco
+  c.fillStyle='#3f2c20'; c.fillRect(16,30,2,19);                          // sombra do tronco
+  c.fillStyle='#5c4033'; c.fillRect(10,47,4,2); c.fillRect(17,47,4,2);    // raízes
+  pixDisc(c,15,17,13,'#175e3c','#0e3a24');                                // copa base (escura + contorno)
+  pixDisc(c,10,15,8,'#1f7a4d'); pixDisc(c,20,14,7,'#1f7a4d');             // volumes médios
+  pixDisc(c,9,12,5,'#2fa35f');  pixDisc(c,19,10,5,'#2fa35f');             // tufos claros
+  pixDisc(c,12,9,3,'#46b06a');  pixDisc(c,21,8,2,'#46b06a');              // luz de topo
+  c.fillStyle='#0e3a24'; c.fillRect(6,25,18,3);                           // sombra sob a copa
+  c.fillStyle='rgba(255,255,255,.20)'; c.fillRect(8,7,3,1); c.fillRect(18,5,2,1); // brilhinhos
   return cv;
 }
 function treeTexture(){ return tex(treeCanvas()); }
@@ -1335,34 +1341,56 @@ const LIFE_TEX=(()=>{ const mk=(w,h,paint)=>{ const cv=makeCanvas(w,h),c=cv.getC
   const cao=f=>mk(13,9,px=>{ px(1,3,9,4,'#8a6a44'); px(9,1,4,4,'#8a6a44'); px(12,2,1,2,'#3a2d1c'); px(9,0,2,2,'#6d5334');
     px(0,2,1,3,'#8a6a44');
     if(f===0){ px(2,7,1,2,'#6d5334'); px(8,7,1,2,'#6d5334'); } else { px(3,7,1,2,'#6d5334'); px(7,7,1,2,'#6d5334'); } });
-  const adulto=f=>mk(8,20,px=>{ px(2,0,4,4,'#5a6274'); px(1,4,6,9,'#4a5266');
-    if(f===0){ px(2,13,2,7,'#3c4456'); px(5,13,2,6,'#3c4456'); } else { px(1,13,2,6,'#3c4456'); px(5,13,2,7,'#3c4456'); } });
-  return { pombo:[pombo(0),pombo(1)], pomboFly:[pomboFly(0),pomboFly(1)], gato:[gato(0),gato(1)], cao:[cao(0),cao(1)], adulto:[adulto(0),adulto(1)] };
+  return { pombo:[pombo(0),pombo(1)], pomboFly:[pomboFly(0),pomboFly(1)], gato:[gato(0),gato(1)], cao:[cao(0),cao(1)] };
 })();
+// Adultos = SILHUETAS 16×32 (mesma proporção/tamanho do personagem), formatos distintos M/F (pedido do José)
+const ADULT_TEX=(()=>{ const col='#262b38';
+  const mk=paint=>{ const cv=makeCanvas(16,32),c=cv.getContext('2d'); c.fillStyle=col;
+    const px=(x,y,w,h)=>c.fillRect(x,y,w,h); paint(px); return tex(cv); };
+  const legs=(px,f,skirt)=>{ if(skirt){ px(4,20,8,6); if(f===0){px(5,26,2,6);px(9,26,2,6);}else{px(4,26,2,6);px(10,26,2,6);} }
+    else { if(f===0){px(5,20,3,12);px(9,20,3,11);} else {px(4,20,3,11);px(10,20,3,12);} } };
+  const arms=(px,f)=>{ if(f===0){px(2,10,2,8);px(12,10,2,8);} else {px(2,11,2,7);px(12,9,2,8);} };
+  const V=[ // 3 silhuetas masculinas + 3 femininas, todas 16×32
+    f=>px=>{ px(4,0,8,6); px(3,6,10,14); arms(px,f); legs(px,f,false); },                              // M1: ombros largos
+    f=>px=>{ px(5,0,6,5); px(3,1,10,2); px(5,5,6,15); arms(px,f); legs(px,f,false); },                 // M2: magro, de boné
+    f=>px=>{ px(4,1,8,5); px(2,6,12,14); arms(px,f); legs(px,f,false); },                              // M3: troncudo
+    f=>px=>{ px(4,0,8,6); px(11,3,3,10); px(4,6,8,10); px(3,16,10,5); arms(px,f); legs(px,f,true); },  // F1: rabo de cavalo + saia
+    f=>px=>{ px(3,0,10,6); px(2,4,3,13); px(11,4,3,13); px(5,6,6,10); px(4,16,8,5); legs(px,f,true); },// F2: cabelo longo + vestido
+    f=>px=>{ px(3,0,10,7); px(4,7,8,9); px(3,16,10,5); arms(px,f); legs(px,f,true); },                 // F3: chanel + saia
+  ];
+  return V.map(v=>[mk(v(0)),mk(v(1))]); })();
 const LIFE_KINDS=[
   {k:'pombo', tex:'pombo', spd:0.15, peck:true, fly:true, alpha:0.95},
   {k:'gato',  tex:'gato',  spd:0.30, alpha:0.9},
   {k:'cao',   tex:'cao',   spd:0.35, alpha:0.9,  street:true},
-  {k:'adulto',tex:'adulto',spd:0.25, alpha:0.65, street:true}, // recuado (silhueta translúcida, bem atrás)
+  {k:'adulto',tex:null,   spd:0.25, alpha:0.8,  street:true}, // silhueta 16×32 (ADULT_TEX, 6 formatos M/F)
 ];
 let creatures=[], _lifeSpawnT=0;
 function inDark(tx,ty){ for(const r of darkRegions){ if(r.set.has(tx+','+ty))return true; } return false; } // célula de área secreta?
-function lifeSurfaceAt(tx){ for(let ty=3;ty<WORLD_H-1;ty++){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // superfície AO AR LIVRE (fora das secretas)
+function lifeSurfaceAt(tx){ for(let ty=3;ty<WORLD_H-1;ty++){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // superfície AO AR LIVRE (fora das secretas), a MAIS ALTA
+function lifeSurfaceLowAt(tx){ for(let ty=WORLD_H-2;ty>3;ty--){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // idem, a MAIS BAIXA (calçada/fachada)
+let _streetCols=null; // colunas ABERTAS da rua/fachada (superfície mais baixa, fora das secretas) — computadas 1×
+function streetCols(){ if(_streetCols)return _streetCols; _streetCols=[];
+  for(let tx=2;tx<WORLD_W-2;tx++){ const ty=lifeSurfaceLowAt(tx); if(ty>0&&ty*TILE>WORLD_PX_H*0.55)_streetCols.push([tx,ty]); }
+  return _streetCols; }
 function spawnCreature(force){ if(creatures.length>=10)return false;
-  const pl=players[randInt(0,Math.max(0,numPlayers-1))]||players[0];
-  const tx=Math.floor(pl.x/TILE)+(rnd()<0.5?-1:1)*(Math.floor(LOGICAL_W/TILE/2)+2+randInt(0,5));
-  if(tx<1||tx>=WORLD_W-1)return false;
+  const pl=players[randInt(0,Math.max(0,numPlayers-1))]||players[0], ptx=Math.floor(pl.x/TILE);
   const K=LIFE_KINDS[[0,0,0,1,2,3][randInt(0,5)]]; // pombos com peso 3× ("cadê os pombos no chão?")
   if(K.street&&CENARIO!=='cidade')return false; // adultos/cães são vida URBANA; campo/floresta ficam com bichos + borboletas
-  const ty=lifeSurfaceAt(tx); if(ty<0)return false;
-  if(K.street && ty*TILE<WORLD_PX_H*0.55)return false; // adultos/cães só na RUA (parte baixa)
-  const s=new PIXI.Sprite(LIFE_TEX[K.tex][0]); s.anchor.set(0.5,1); s.alpha=K.alpha; lifeLayer.addChild(s);
-  creatures.push({K,s,x:tx*TILE+8,y:ty*TILE,dir:rnd()<0.5?-1:1,animT:0,f:0,state:'walk',stateT:0,vy:0});
+  let tx,ty,fade=0;
+  if(K.street){ const open=streetCols().filter(([cx])=>Math.abs(cx-ptx)<=22); if(!open.length)return false;
+    [tx,ty]=open[randInt(0,open.length-1)]; fade=30; } // rua: coluna aberta da fachada (pode ser visível → nasce em FADE-IN)
+  else { tx=ptx+(rnd()<0.5?-1:1)*(Math.floor(LOGICAL_W/TILE/2)+2+randInt(0,5));
+    if(tx<1||tx>=WORLD_W-1)return false; ty=lifeSurfaceAt(tx); if(ty<0)return false; }
+  const tex2 = K.k==='adulto' ? ADULT_TEX[randInt(0,ADULT_TEX.length-1)] : LIFE_TEX[K.tex]; // adulto sorteia 1 dos 6 formatos
+  const s=new PIXI.Sprite(tex2[0]); s.anchor.set(0.5,1); s.alpha=fade?0:K.alpha; lifeLayer.addChild(s);
+  creatures.push({K,tex2,s,fade,x:tx*TILE+8,y:ty*TILE,dir:rnd()<0.5?-1:1,animT:0,f:0,state:'walk',stateT:0,vy:0});
   return true; }
 function stepLife(dt){
   if(rm.decor){ if(creatures.length){ creatures.forEach(c=>c.s.destroy()); lifeLayer.removeChildren(); creatures=[]; } return; }
   if(++_lifeSpawnT>=60){ _lifeSpawnT=0; spawnCreature(); }
   for(let i=creatures.length-1;i>=0;i--){ const c=creatures[i], K=c.K;
+    if(c.fade>0){ c.fade=Math.max(0,c.fade-dt); c.s.alpha=K.alpha*(1-c.fade/30); } // fade-in (spawn na rua pode ser visível)
     c.animT+=dt; if(c.animT>=12){ c.animT=0; c.f=1-c.f; }
     if(c.state==='fly'){ c.y+=c.vy*dt; c.x+=c.dir*0.9*dt; c.vy=Math.max(-1.6,c.vy-0.04*dt); c.s.texture=LIFE_TEX.pomboFly[c.f]; }
     else if(c.state==='peck'){ if((c.stateT-=dt)<=0)c.state='walk'; c.s.texture=LIFE_TEX.pombo[1]; }
@@ -1370,7 +1398,7 @@ function stepLife(dt){
       const ty=Math.floor(c.y/TILE), nx=Math.floor((c.x+c.dir*6)/TILE);
       if(nx<1||nx>=WORLD_W-1||!solidAt(nx,ty)||solidAt(nx,ty-1)) c.dir*=-1; // beirada/parede: meia-volta
       if(K.peck&&rnd()<0.004){ c.state='peck'; c.stateT=30; }
-      c.s.texture=LIFE_TEX[K.tex][c.f]; }
+      c.s.texture=c.tex2[c.f]; }
     if(K.fly&&c.state!=='fly'){ for(const pl of players){ if(Math.abs(pl.x-c.x)<34&&Math.abs(pl.y-c.y)<26){ c.state='fly'; c.vy=-1.2; c.dir=(c.x<pl.x?-1:1); break; } } } // revoada cosmética
     c.s.x=Math.round(c.x); c.s.y=Math.round(c.y); c.s.scale.x=c.dir<0?-1:1;
     let near=false; for(const pl of players){ if(Math.abs(pl.x-c.x)<LOGICAL_W*1.6&&Math.abs(pl.y-c.y)<LOGICAL_H*1.6){near=true;break;} }
@@ -1380,13 +1408,20 @@ function stepLife(dt){
 // Carros cruzam a rua À FRENTE do player (carLayer re-erguido em ensureSprites); param no vermelho/amarelo
 // do semáforo e seguem no verde. Ciclo LENTO (verde 8s → amarelo 2s → vermelho 6s) — sem flashes (WCAG 2.3.1).
 const carLayer=new PIXI.Container(); camera.addChild(carLayer);
-const CAR_TEX=(()=>{ const mk=(col,top)=>{ const cv=makeCanvas(26,12),c=cv.getContext('2d');
+const CAR_TEX=(()=>{ const mk=(body,dark,top)=>{ const cv=makeCanvas(78,36),c=cv.getContext('2d'); // 3× NATIVO (detalhado, sem upscale)
   const px=(x,y,w,h,cl)=>{c.fillStyle=cl;c.fillRect(x,y,w,h);};
-  px(1,4,24,5,col); px(5,1,13,4,top); px(7,2,4,2,'#bcd6ee'); px(13,2,3,2,'#bcd6ee'); // corpo+cabine+vidros
-  px(0,5,1,3,'#ffd9a0'); px(25,5,1,3,'#ff6a5a');                                     // farol/lanterna
-  px(4,9,4,3,'#181b22'); px(18,9,4,3,'#181b22'); px(5,10,2,1,'#3a4152'); px(19,10,2,1,'#3a4152'); // rodas
+  px(3,14,72,13,body); px(3,25,72,2,dark);              // corpo + saia escura
+  px(1,16,2,8,dark); px(75,16,2,8,dark);                // para-choques
+  px(15,4,40,11,top); px(17,6,36,9,body);               // cabine (teto escuro + faixa)
+  px(19,7,14,7,'#bcd6ee'); px(37,7,14,7,'#bcd6ee');     // vidros
+  px(20,8,4,2,'#eef6ff'); px(38,8,4,2,'#eef6ff');       // brilho dos vidros
+  px(34,7,3,7,top); px(53,10,4,4,dark);                 // coluna B + retrovisor
+  px(3,14,72,1,'rgba(255,255,255,.28)');                // realce superior da lataria
+  px(0,17,3,5,'#ffd9a0'); px(75,17,3,5,'#ff6a5a');      // farol / lanterna
+  const wheel=(wx)=>{ px(wx-2,22,18,6,dark); px(wx,24,14,11,'#10131a'); px(wx+3,27,8,5,'#2b3140'); px(wx+5,29,4,2,'#8a93a8'); }; // caixa de roda + pneu + calota
+  wheel(11); wheel(53);
   return tex(cv); };
-  return [mk('#c8452e','#8f2f1e'),mk('#2e6fc8','#1e4a8f'),mk('#3aa15b','#26743f'),mk('#c8a12e','#8f731e')]; })();
+  return [mk('#c8452e','#7d2717','#a03a24'),mk('#2e6fc8','#193f7d','#2757a0'),mk('#3aa15b','#1f6336','#2f8a4c'),mk('#c8a12e','#7d641a','#a8862a')]; })();
 // R-cidade (José 2026-07-03): o cenário é o INTERIOR de um prédio; a parte mais baixa é a FACHADA e a
 // rua fica NA FRENTE dela → carros (3×) e placas de PARE vivem na BASE do mundo, na camada da frente.
 let cars=[], _carT=0; const STREET_Y=WORLD_PX_H;
@@ -1404,9 +1439,14 @@ function initTraffic(){ SEM.x=Math.round(WORLD_PX_W/2); SEM.y=STREET_Y;
     g.beginFill(0xd23a2e).drawRect(X-5,STREET_Y-42,12,14).endFill();
     g.beginFill(0xffffff).drawRect(X-3,STREET_Y-37,8,3).endFill(); } }
 function spawnCar(){ if(cars.length>=3)return false; const dir=rnd()<0.5?1:-1;
-  const s=new PIXI.Sprite(CAR_TEX[randInt(0,CAR_TEX.length-1)]); s.anchor.set(0.5,1); s.scale.set(dir*3,3); // 3× altura e largura (pedido)
-  s.y=STREET_Y; const x=dir>0?-90:WORLD_PX_W+90; s.x=x; carLayer.addChild(s);
+  const s=new PIXI.Sprite(CAR_TEX[randInt(0,CAR_TEX.length-1)]); s.anchor.set(0.5,1); s.scale.x=dir; // textura já é 3× nativa
+  s.y=STREET_Y; const x=dir>0?-90:WORLD_PX_W+90; s.x=x; if(_frontDim){ s.tint=0x4a5058; s.alpha=0.55; } carLayer.addChild(s);
   cars.push({s,x,dir,vx:dir*1.4}); return true; }
+// Alto contraste: carros/placas/semáforo estão NA FRENTE mas são AMBIENTE — escurecem como o fundo
+// para não competir com plataformas/itens (pedido do José 2026-07-03).
+let _frontDim=false;
+function setFrontDim(on){ _frontDim=!!on; const t=on?0x4a5058:0xffffff, a=on?0.55:1;
+  carLayer.children.forEach(ch=>{ ch.tint=t; ch.alpha=a; }); }
 function stepTraffic(dt){ if(CENARIO!=='cidade')return; // L6: trânsito é peculiaridade da Cidade
   SEM.t+=dt; const cyc=(SEM.t/60)%16, st=cyc<8?'green':cyc<10?'yellow':'red';
   if(st!==SEM.state){ SEM.state=st; drawSemaforo(); }
@@ -1503,6 +1543,7 @@ function applyCenarioVida(){ const city=CENARIO==='cidade';
 _vidaReady=true; applyCenarioVida(); // estado inicial (CENARIO já veio do setCenario do boot)
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
+camera.addChild(carLayer); camera.addChild(themeFxG); // FRENTE do player TAMBÉM no boot solo (bug: só o ensureSprites re-erguia — report do José); o fxG nasce logo abaixo, já por cima
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
    Cada efeito respeita o Movimento Reduzido do jogador: partículas→rm.particles, cintilar→rm.items,
    tremor de tela→rm.parallax (movimento de câmera), squash→rmWalk (personagem). Hit-stop é PAUSA, não movimento. */
@@ -1554,7 +1595,7 @@ applyCrt();
 let allPSprites=[playerSprite];
 function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
-  camera.addChild(fxG); camera.addChild(carLayer); // re-adicionar = mover ao topo (partículas e CARROS à frente dos players)
+  camera.addChild(fxG); camera.addChild(carLayer); camera.addChild(themeFxG); // re-adicionar = mover ao topo (partículas, CARROS e decor-front à frente dos players)
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
@@ -2487,6 +2528,7 @@ function playerVizTex(base,mode){ if(!base)return base;
 // estáticos (mundo/parallax/moedas/itens) só re-aplicam quando o modo muda (_lastSharedViz declarado no topo do render)
 function applySharedTextures(mode){
   if(mode!==_lastSharedViz){ _lastSharedViz=mode;
+    setFrontDim(!!DIRECT_CFG[mode]); // HC: carros/placas/semáforo (frente) escurecem como fundo
     worldSprite.texture=worldTexFor(mode);
     parallaxLayers.forEach((ts,j)=>ts.texture=parallaxTexFor(j,mode));
     decoSprites.forEach(s=>s.texture=treeTexFor(mode));
@@ -2512,6 +2554,7 @@ function applyVizGlobal(mode){
   vizMode=mode; hcMode=(m.kind==='hcnew'); try{localStorage.setItem('incl_viz',mode);}catch(e){}
   if(app&&app.view) app.view.style.filter=[VIZ_FILTER[mode]||'',lqFilter()].filter(Boolean).join(' '); // sim. daltonismo/baixa-visão/cegueira + realce L/Q compostos
   camera.filters = (m.kind==='hcnew') ? pixiFilterFor(mode) : null; // solo: alto contraste experimental = filtro GPU na câmera
+  if(typeof setFrontDim==='function')setFrontDim(!!DIRECT_CFG[mode]); // HC: frente (carros/placas/semáforo) escurece como fundo
   worldSprite.texture=worldTexFor(mode);            // alto contraste direto = Renderização Direta · resto=normal
   parallaxLayers.forEach((ts,i)=>{ ts.texture=parallaxTexFor(i,mode); });
   decoSprites.forEach(s=>{ s.texture=treeTexFor(mode); });
