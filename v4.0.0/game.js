@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.154.1';
+const INCL_VERSION='4.154.2';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2517,10 +2517,10 @@ $('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').
    Trocar de atividade = todo mundo sai do jogo → volta ao menu inicial. */
 const ACTIVITIES={ // d = descrição do minigame (rodapé dos menus secundários)
   ludico:{cat:'ludico',nome:'Coletar 10 moedas'},
-  alf1:{cat:'alf',nome:'Descobrindo palavras', d:'Elaborado para ajudar a superar as hipóteses pré-silábicas.'},
-  alf2:{cat:'alf',nome:'Descobrindo sílabas',  d:'Feito para ajudar a superar a hipótese silábica sem valor sonoro (uma letra errada por sílaba) e com valor sonoro (vogal ou consoante correta por sílaba), deixando claro que cada som é uma sílaba e cada sílaba tem sua forma correta de escrever.'},
-  alf3:{cat:'alf',nome:'Montando palavras',    d:'Feito para superar a fase da hipótese silábico-alfabética, desafiando o aluno a encontrar as sílabas corretas para montar a palavra.'},
-  alf4:{cat:'alf',nome:'Escrevendo palavras',  d:'Atividade com o objetivo de treinar ortografia.'},
+  alf1:{cat:'alf',nome:'Descobrindo palavras', sub:'BABA • BOLA • BEBE',        d:'Elaborado para ajudar a superar as hipóteses pré-silábicas.'},
+  alf2:{cat:'alf',nome:'Descobrindo sílabas',  sub:'BA • BE • BI',              d:'Feito para ajudar a superar a hipótese silábica sem valor sonoro (uma letra errada por sílaba) e com valor sonoro (vogal ou consoante correta por sílaba), deixando claro que cada som é uma sílaba e cada sílaba tem sua forma correta de escrever.'},
+  alf3:{cat:'alf',nome:'Montando palavras',    sub:'BA+BA • BE+BE • BO+LA',     d:'Feito para superar a fase da hipótese silábico-alfabética, desafiando o aluno a encontrar as sílabas corretas para montar a palavra.'},
+  alf4:{cat:'alf',nome:'Escrevendo palavras',  sub:'B-A-B-A • B-O-L-A • B-E-B-E',d:'Atividade com o objetivo de treinar ortografia.'},
   alf5:{cat:'alf',nome:'Escrevendo em Braille',d:'Escreva letra por letra; o jogo dita os pontos da cela Braille (12 letras).'},
   mat1:{cat:'mat',nome:'Quantidade',           d:'Conte as bolinhas e escolha o número certo (1 a 9).'},
   mat2:{cat:'mat',nome:'Soma fácil',           d:'Somas com parcelas de 0 a 5.'},
@@ -3576,7 +3576,7 @@ function navTitle(k){ const bs=titleButtons(); if(!bs.length)return;
   else if(k.yes){ (i<0?bs[0]:bs[i]).click(); }
   else if(k.no){ const back=bs.find(b=>b.dataset.tmBack); if(back)back.click(); } }
 function buildTitleMenus(){
-  const mk=id=>`<button class="title-btn" data-act-id="${id}" type="button">${ACTIVITIES[id].nome}</button>`;
+  const mk=id=>{ const a=ACTIVITIES[id]; return `<button class="title-btn" data-act-id="${id}" type="button">${a.nome}${a.sub?`<span class="act-sub">${a.sub}</span>`:''}</button>`; }; // subtítulo de exemplo (letramento)
   const back=(to)=>`<button class="title-btn ghost" data-tm-back="${to}" type="button">Voltar</button>`;
   const desc=`<div class="tm-desc" aria-live="polite"></div>`; // rodapé com a descrição do minigame focado
   const h=t=>`<h3 class="tm-title">${t}</h3>`;                  // título do submenu (pedido do José)

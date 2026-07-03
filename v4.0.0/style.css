@@ -55,6 +55,7 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .tm-title{color:#fff;font-size:1em;margin:0 0 .1em;text-align:center;text-shadow:1px 1px 0 #0d0d1a} /* título do submenu */
 .title-btn{background:var(--accent);color:var(--accent-ink);border:3px solid #0d0d1a;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em} /* contorno PRETO grosso (3px) = mesma cor do texto (José) */
 .title-btn.ghost{background:#e8862b;color:#0d0d1a;border:2px solid #0d0d1a} /* Voltar = preenchimento LARANJA */
+.act-sub{display:block;font-size:.72em;font-weight:600;opacity:.7;letter-spacing:.02em;margin-top:.06em;font-family:var(--font-math,inherit)} /* subtítulo de exemplo do jogo de letramento (2ª linha) */
 /* Seletor VERMELHO fixo (piscar removido a pedido do José). Especificidade via #title-overlay. */
 #title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{outline:4px solid #ff3b30;outline-offset:2px}
 #title-overlay .title-btn.act-fx{animation:titleAct .22s ease}         /* efeito de ATIVAÇÃO (antes de trocar de tela) */
