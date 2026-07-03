@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.155.0';
+const INCL_VERSION='4.155.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -901,8 +901,11 @@ function ttsSpeak(text){ if(ttsEngineSel!=='webspeech'){
 function narrate(text){ if(!soundOn||!audioCat.tts.on||!text)return; _narrateCount++; ttsSpeak(text); } // gated pelo toggle 'Narração (TTS)' do mixer, independente das legendas
 // Fala de JOGO essencial (nome da palavra/sílaba/letra/fonema nos desafios de alfabetização): SEMPRE toca, mesmo com
 // o toggle 'Narração (TTS)' DESLIGADO — via voz nativa do navegador, fora do mixer (José 2026-07-04). Respeita o volume mestre.
-function gameSay(text){ if(!text||!soundOn)return; try{ if(speakWebSpeech(text))return; }catch(e){}
-  try{ const ss=window.speechSynthesis; if(ss){ ss.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; ss.speak(u); } }catch(e){} }
+// Escolhe uma voz pt-BR (Brasil), evitando pt-PT (José: sílabas soavam "estranhas / pt-pt?"). Não cacheia — getVoices é barato e carrega assíncrono.
+function ptbrVoice(){ try{ const vs=(window.speechSynthesis&&window.speechSynthesis.getVoices())||[]; if(!vs.length)return null;
+  return vs.find(v=>/pt[-_]?br/i.test(v.lang)) || vs.find(v=>/pt/i.test(v.lang)&&/bras|brazil/i.test(v.name)) || vs.find(v=>/pt/i.test(v.lang)&&!/pt[-_]?pt/i.test(v.lang)) || null; }catch(e){ return null; } }
+function gameSay(text){ if(!text||!soundOn)return; try{ const ss=window.speechSynthesis; if(!ss)return; ss.cancel();
+  const u=new SpeechSynthesisUtterance(text); u.lang='pt-BR'; const v=ptbrVoice(); if(v)u.voice=v; u.volume=Math.min(1,volume*1.4); ss.speak(u); }catch(e){} } // FORÇA pt-BR (não usa a voz do mixer, que pode ser pt-PT)
 function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
   o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   o.connect(g).connect(catNode('earcons')||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
@@ -2302,8 +2305,14 @@ function openQuiz(pl,coinIndex,shapeId){ // MATEMÁTICA: gerador POR ATIVIDADE (
   srSay(quizWho(pl)+fala);
   renderQuiz(pl);
 }
-function pickWord(letter){ const pool=SILABAS_WORDS.filter(w=>w.w[0]===letter);
-  return pool.length?pool[randInt(0,pool.length-1)]:SILABAS_WORDS[randInt(0,SILABAS_WORDS.length-1)]; }
+let _recentWords=[]; // NÃO REPETIR a mesma palavra por 5 rounds (José): distância mínima de repetição = 5
+function pickWord(letter){ const byL=SILABAS_WORDS.filter(w=>w.w[0]===letter);
+  let cands=byL.filter(w=>!_recentWords.includes(w.w));                          // prefere a letra da moeda, sem repetir
+  if(!cands.length)cands=SILABAS_WORDS.filter(w=>!_recentWords.includes(w.w));   // sem a letra, mas GARANTE não-repetição (15 palavras > 5)
+  if(!cands.length)cands=byL.length?byL:SILABAS_WORDS;                           // salvaguarda
+  const item=cands[randInt(0,cands.length-1)];
+  _recentWords.push(item.w); if(_recentWords.length>5)_recentWords.shift();      // janela dos últimos 5
+  return item; }
 function openSilabas(pl,coinIndex,letter){ // L3: despacha pelo NÍVEL (1..5); modo cego mantém o ditado passivo (a11y)
   const cego = blindMode || modoCego || (VIZ_BY_KEY[(pl&&pl.viz)||'']||{}).kind==='blind';
   if(cego){ openBraille(pl,coinIndex,letter); return; } // E8: ditado de Braille
@@ -2314,7 +2323,7 @@ function openSilabas(pl,coinIndex,letter){ // L3: despacha pelo NÍVEL (1..5); m
   for(const sy of shuffle(SILABA_POOL)){ if(distract.length>=7)break; if(!correct.includes(sy)&&!distract.includes(sy))distract.push(sy); }
   pl.quiz={kind:'silabas',hearSyl:(quizLevel===2),coinIndex,letter,word:item.w,emoji:item.e,correct,options:shuffle(correct.concat(distract)),boxes:[null,null],sel:0,tries:0,revealed:false}; // hearSyl: Descobrindo sílabas (nível 2) fala a sílaba no hover/seleção; Montando (3) não
   pl.vx=0;pl.vy=0;
-  srSay(`${quizWho(pl)}Letra ${disp(letter)}. Monte a palavra: ${item.w}.`);
+  srSay(`${quizWho(pl)}Letra ${disp(item.w[0])}. Monte a palavra: ${item.w}.`); // letra da PRÓPRIA palavra (o não-repetir pode trocar a letra da moeda)
   gameSay(item.w); // ao abrir, fala a palavra SEMPRE (independente do toggle TTS) — José
   renderQuiz(pl);
 }

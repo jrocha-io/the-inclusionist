@@ -42,6 +42,9 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .title-menu[hidden]{display:none}
 #tm-mat,#tm-fr{display:grid;grid-template-columns:1fr 1fr;gap:.35em;width:22em}   /* muitos itens → 2 colunas (nada fora do canvas) */
 #tm-mat .ghost,#tm-mat .tm-desc,#tm-mat .tm-title,#tm-fr .ghost,#tm-fr .tm-desc,#tm-fr .tm-title{grid-column:1/-1}
+/* Letramento: 2 colunas + botões LARGOS p/ o subtítulo caber em UMA linha (José) */
+#tm-alf{display:grid;grid-template-columns:1fr 1fr;gap:.4em;width:34em}
+#tm-alf .ghost,#tm-alf .tm-title,#tm-alf .tm-desc{grid-column:1/-1}
 /* Fração: 11 itens → compacto p/ CABER no quadro lógico 180px (k=2). Mais largo = rótulos longos em 2 linhas, não 3. */
 #tm-fr{width:31em;gap:.25em}
 #tm-fr .title-btn{min-height:1.85em;padding:.2em .5em;font-size:.82em;line-height:1.05}
@@ -55,7 +58,7 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .tm-title{color:#fff;font-size:1em;margin:0 0 .1em;text-align:center;text-shadow:1px 1px 0 #0d0d1a} /* título do submenu */
 .title-btn{background:var(--accent);color:var(--accent-ink);border:3px solid #0d0d1a;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em} /* contorno PRETO grosso (3px) = mesma cor do texto (José) */
 .title-btn.ghost{background:#e8862b;color:#0d0d1a;border:2px solid #0d0d1a} /* Voltar = preenchimento LARANJA */
-.act-sub{display:block;font-size:.72em;font-weight:600;opacity:.7;letter-spacing:.02em;margin-top:.06em;font-family:var(--font-math,inherit)} /* subtítulo de exemplo do jogo de letramento (2ª linha) */
+.act-sub{display:block;font-size:.72em;font-weight:600;opacity:.7;letter-spacing:.02em;margin-top:.06em;font-family:var(--font-math,inherit);white-space:nowrap} /* subtítulo de exemplo (2ª linha, NUNCA quebra — botão largo o bastante) */
 /* Seletor VERMELHO fixo (piscar removido a pedido do José). Especificidade via #title-overlay. */
 #title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{outline:4px solid #ff3b30;outline-offset:2px}
 #title-overlay .title-btn.act-fx{animation:titleAct .22s ease}         /* efeito de ATIVAÇÃO (antes de trocar de tela) */
@@ -64,8 +67,10 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .title-btn.tab-on{box-shadow:inset 0 0 0 3px #14141f}
 .tab-row{display:flex;gap:.35em;justify-content:center}
 .tab-row .title-btn{min-width:2.2em;padding:.4em 0;flex:1}
-/* RODAPÉ (mesmo estilo do menu de pausa): descrição no fundo do canvas, NÃO colada ao grupo de botões (José) */
-.tm-desc{position:absolute;left:0;right:0;bottom:10px;margin:0 auto;max-width:92%;color:#f6f5f0;font-size:.8em;text-align:center;min-height:1.3em;text-shadow:1px 1px 0 #0d0d1a}
+/* RODAPÉ (mesmo estilo do menu de pausa): descrição no fundo do canvas, NÃO colada ao grupo de botões (José).
+   Fundo fumê PRETO → contraste ≥7:1 entre o texto claro (#f6f5f0) e o fundo (≈#0a0a12). */
+.tm-desc:not(:empty){position:absolute;left:50%;transform:translateX(-50%);bottom:10px;max-width:88%;color:#f6f5f0;font-size:.8em;text-align:center;background:rgba(8,8,16,.92);padding:.35em .7em;border-radius:8px;line-height:1.25}
+.tm-desc:empty{position:absolute;left:0;bottom:10px}
 /* Legenda de controles: mesmo visual/posição da legenda do menu de pausa (chips), em 2 LINHAS */
 .title-legend{display:flex;flex-direction:column;gap:.25em;align-items:center;margin:.5em 0 .1em;font-size:.82em;color:#c3cfe0}
 .title-legend .lg-row{display:flex;gap:1.1em;justify-content:center;flex-wrap:wrap}
