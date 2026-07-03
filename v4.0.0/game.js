@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.131.1';
+const INCL_VERSION='4.132.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -616,8 +616,22 @@ const anyOf=(arr)=>arr.some(k=>keys.has(k));
 const held=(pl,act)=>pl.ctrl[act].some(k=>keys.has(k)) || (pl.pad>=0 && padCur[pl.pad] && !!padCur[pl.pad][act]); // teclado OU gamepad do jogador
 
 /* ===================== a11y ===================== */
-const srSay=(t)=>{const el=$('#sr-status');el.textContent='';requestAnimationFrame(()=>el.textContent=t);};
-const srAlert=(t)=>{const el=$('#sr-alert');el.textContent='';requestAnimationFrame(()=>el.textContent=t);};
+/* VLibras: com o painel ABERTO, as narrações do jogo vão para o intérprete. O plugin traduz o TEXTO do
+   elemento CLICADO — usamos um nó quase invisível e disparamos o clique. Fila de 1 (tradução leva ~s;
+   fala nova substitui a pendente). _vlOpen é setado pelo vlTick (evita TDZ de librasOpen no boot). */
+let _vlOpen=false,_vlNode=null,_vlBusyUntil=0,_vlNext=null;
+function vlibrasSay(text){ if(!_vlOpen||!text)return;
+  const now=Date.now();
+  if(now<_vlBusyUntil){ _vlNext=text; return; }
+  _vlBusyUntil=now+4000;
+  if(!_vlNode){ _vlNode=document.createElement('span'); _vlNode.setAttribute('aria-hidden','true');
+    _vlNode.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:.01;z-index:1;pointer-events:auto';
+    document.body.appendChild(_vlNode); }
+  _vlNode.textContent=text; try{ _vlNode.click(); }catch(e){}
+  setTimeout(()=>{ const nx=_vlNext; _vlNext=null; _vlBusyUntil=0; if(nx)vlibrasSay(nx); },4100);
+}
+const srSay=(t)=>{const el=$('#sr-status');el.textContent='';requestAnimationFrame(()=>el.textContent=t); vlibrasSay(t);};
+const srAlert=(t)=>{const el=$('#sr-alert');el.textContent='';requestAnimationFrame(()=>el.textContent=t); vlibrasSay(t);};
 
 /* ===== E9: áudio (WebAudio) + legendas (C1) + assistência (C2) ===== */
 const SFX={
@@ -2783,7 +2797,8 @@ function layout(){
   document.documentElement.style.setProperty('--ui-fs', (8*k)+'px'); // fonte-base dos menus: 16px a 640×360 (k=2) e escala com o canvas (8·k)
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
 }
-function vlTick(){ const o=vlibrasOpen(); if(o!==librasOpen){ librasOpen=o; layout(); } }
+function vlTick(){ const o=vlibrasOpen(); _vlOpen=o; if(o!==librasOpen){ librasOpen=o; layout();
+  if(o)vlibrasSay('Tradução em Libras ligada.'); } }
 addEventListener('resize', layout);
 setInterval(vlTick, 250);
 layout(); requestAnimationFrame(layout); setTimeout(layout, 1500);
