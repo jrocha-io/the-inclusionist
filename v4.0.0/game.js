@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.149.0';
+const INCL_VERSION='4.149.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -3380,6 +3380,7 @@ function layout(){
   const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
   document.documentElement.style.setProperty('--ui-fs', (8*k)+'px'); // k INTEIRO ⇒ fonte-base dos menus sempre inteira
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
+  if(/[?&]debug=true/.test(location.search))console.info(`[escala] k=${k}× → canvas ${baseW*k}×${baseH*k} (múltiplo INTEIRO de ${baseW}×${baseH}; dpr=${window.devicePixelRatio||1}, ignorado de propósito — ADR-001)`); // José pode confirmar os passos inteiros ao redimensionar
 }
 function vlTick(){ const o=vlibrasOpen(); _vlOpen=o; if(o!==librasOpen){ librasOpen=o; layout();
   if(o)vlibrasSay('Tradução em Libras ligada.'); } }
