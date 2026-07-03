@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.154.0';
+const INCL_VERSION='4.154.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2345,13 +2345,16 @@ function quizSpeakSel(pl){ const q=pl.quiz; if(!q)return; // fala o item sob o c
   const N=q.options?q.options.length:0;
   if(q.sel>=N){ srSay(q.sel===N?'apagar':'ok'); return; }
   const it=q.options[q.sel];
-  if(q.kind==='silabas'){ srSay(disp(it)); if(q.hearSyl)gameSay(it); }                            // Descobrindo sílabas (2): hover FALA a sílaba (áudio, sempre); Montando (3): sem áudio
+  if(q.kind==='silabas'){ if(q.hearSyl){ srSay(disp(it)); gameSay(it); }                          // Descobrindo sílabas (2): sílaba INTEIRA, áudio SEMPRE (gameSay)
+    else { srSay(soletra(it)); narrate(soletra(it)); } }                                           // Montando (3): SOLETRA as letras, áudio só com TTS ligado (narrate)
   else if(q.kind==='alf') srSay(q.braille?brailleText(it):(LETTER_NAME[it]||it)); // 4 nome da letra · 5 SÓ os pontos da cela ("a"→"um")
 }
 function placeLetter(pl,ch){ const q=pl.quiz; if(!q)return; const idx=q.boxes.indexOf(null); if(idx<0)return;
   q.boxes[idx]=ch; sfx('place'); srSay(q.braille?brailleText(ch):(LETTER_NAME[ch]||ch)); renderQuiz(pl); } // braille: só os PONTOS
 function eraseLastLetter(pl){ const q=pl.quiz; if(!q)return; for(let i=q.boxes.length-1;i>=0;i--){ if(q.boxes[i]!==null){ q.boxes[i]=null; break; } } renderQuiz(pl); }
-function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place'); srSay(disp(sy)); if(q.hearSyl)gameSay(sy); renderQuiz(pl); } // Descobrindo sílabas: seleção = confirmação (sfx) + refala a sílaba (gameSay); Montando: só o sfx
+function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place');
+  if(q.hearSyl){ srSay(disp(sy)); gameSay(sy); } else { srSay(soletra(sy)); narrate(soletra(sy)); } // Descobrindo: confirmação + refala a sílaba (sempre); Montando: SOLETRA as letras (só c/ TTS)
+  renderQuiz(pl); }
 function eraseLastSilaba(pl){ const q=pl.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(pl); }
 // E8: ditado de Braille (modo pessoa cega) — dita os pontos da cela por letra
 function openBraille(pl,coinIndex,letter){
