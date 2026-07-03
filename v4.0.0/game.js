@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.130.1';
+const INCL_VERSION='4.131.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -803,13 +803,40 @@ let ttsEngineSel=(()=>{try{return localStorage.getItem('incl_tts_engine')||'webs
 let _ttsVoiceObj=null; // voz do Web Speech selecionada
 function speakWebSpeech(text){ try{ const ss=window.speechSynthesis; if(!ss)return false; ss.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; u.rate=1; u.volume=Math.min(1,volume*1.4); ss.speak(u); return true; }catch(e){ return false; } }
 const TTS_SOURCES={ 'pt-BR':{ engine:'piper', voice:'pt_BR-faber-medium',
-  // URL configurável (D1: CDN agora; espelhar no LAN depois). Modelo VITS + fonemizador espeak-ng (só fonemas).
-  model:'https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx' } };
-function loadTTS(){ if(ttsEngine||ttsLoading)return; ttsLoading=true; // PONTO DE INTEGRAÇÃO F5: vendorizar piper-tts-web + onnxruntime-web + espeak WASM,
-  // baixar TTS_SOURCES[ttsLang].model (lazy, cache), instanciar e setar ttsEngine={speak(text){ ...PCM→AudioBuffer→catNode('tts')... }}.
-  // Deixado como no-op verificável até a sessão de integração+hardware (a voz real precisa das libs + teste no Positivo).
+  // D1: lazy-CDN + cache OPFS (a lib guarda o onnx no Origin Private File System → 2ª sessão fala offline).
+  // A lib puxa: bundle ESM (jsDelivr) + onnxruntime-web (cdnjs) + fonemizador espeak-ng WASM (jsDelivr, SÓ fonemas)
+  // + modelo VITS (HF diffusionstudio/piper-voices). URL do bundle configurável p/ espelho LAN futuro.
+  lib:'https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.4/+esm' } };
+let ttsFailed=false, _ttsPct=0;
+function loadTTS(){ if(ttsEngine||ttsLoading||ttsFailed)return;
+  if(ttsEngineSel!=='piper'){ // F5 D4: Kokoro/Kitten não têm pt-BR (ficam p/ os builds i18n); eSpeak NG entra depois
+    if(ttsEngineSel!=='webspeech') srAlert('Este motor ainda não fala português — por enquanto, use Piper (neural) ou a voz do navegador.');
+    return; }
+  ttsLoading=true; const t0=performance.now(); srSay('Baixando a voz neural (precisa de internet só no 1º uso)…');
+  import(TTS_SOURCES['pt-BR'].lib).then(async(tts)=>{
+    const session=await tts.TtsSession.create({ voiceId:TTS_SOURCES['pt-BR'].voice,
+      progress:(p)=>{ if(!p||!p.total)return; const pct=Math.round(p.loaded*100/p.total);
+        if(pct>=_ttsPct+25&&pct<100){ _ttsPct=pct; srSay('Voz neural: '+pct+'%.'); } },
+      logger:()=>{} });
+    let playing=null, busy=false, next=null; // fila de 1: narração de jogo envelhece — só a ÚLTIMA pendente vale
+    const speakNow=async(text)=>{ busy=true;
+      try{ const wav=await session.predict(text); const ac=ensureAC();
+        if(ac){ const buf=await ac.decodeAudioData(await wav.arrayBuffer());
+          if(playing){ try{playing.stop();}catch(e){} }
+          const src=ac.createBufferSource(); src.buffer=buf; src.connect(catNode('tts')||audioOut()||ac.destination);
+          src.onended=()=>{ if(playing===src)playing=null; const nx=next; next=null; if(nx)speakNow(nx); else busy=false; };
+          src.start(); playing=src; return; } }catch(e){}
+      const nx=next; next=null; if(nx)speakNow(nx); else busy=false; };
+    ttsEngine={ id:'piper', speak:(text)=>{ if(busy)next=text; else speakNow(text); } };
+    ttsLoading=false;
+    try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){}
+    narrate('Voz neural pronta, em '+((performance.now()-t0)/1000).toFixed(0)+' segundos.'); // já sai NA voz nova
+  }).catch(()=>{ ttsLoading=false; ttsFailed=true;
+    srAlert('Não deu para carregar a voz neural (precisa de internet no 1º uso) — seguindo com a voz do navegador.'); });
 }
-function ttsSpeak(text){ if(ttsEngineSel!=='webspeech'){ if(ttsEngine&&ttsEngine.speak){ try{ ttsEngine.speak(text); }catch(e){} return true; } loadTTS(); } // motor neural (baixando) → cai no fallback
+function ttsSpeak(text){ if(ttsEngineSel!=='webspeech'){
+    if(ttsEngine&&ttsEngine.id===ttsEngineSel&&ttsEngine.speak){ try{ ttsEngine.speak(text); }catch(e){} return true; }
+    loadTTS(); } // motor neural (baixando/indisponível) → cai no fallback
   return speakWebSpeech(text); } // fallback imediato: Web Speech (nativo pt-BR); enquanto o neural não carrega
 
 function narrate(text){ if(!soundOn||!audioCat.tts.on||!text)return; _narrateCount++; ttsSpeak(text); } // gated pelo toggle 'Narração (TTS)' do mixer, independente das legendas
@@ -2713,7 +2740,8 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
   setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,
-  setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;}};
+  setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
+  loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;}};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
   const e2=document.querySelector('.title-by span'); if(e2)e2.textContent=v; }
