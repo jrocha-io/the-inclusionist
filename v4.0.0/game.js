@@ -1178,10 +1178,36 @@ function drawChair(g,pl){ const cx=pl.x, base=pl.y, f=pl.facing<0?-1:1, MET=0x4a
 
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
+/* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
+   Cada efeito respeita o Movimento Reduzido do jogador: partículas→rm.particles, cintilar→rm.items,
+   tremor de tela→rm.parallax (movimento de câmera), squash→rmWalk (personagem). Hit-stop é PAUSA, não movimento. */
+const JUICE=(()=>{ const d={dust:true,sparkle:true,squash:true,hitstop:true,shake:true,shimmer:true};
+  try{ const s=JSON.parse(localStorage.getItem('incl_juice')); if(s&&typeof s==='object') for(const k in d) if(k in s) d[k]=!!s[k]; }catch(e){}
+  return d; })();
+function saveJuice(){ try{ localStorage.setItem('incl_juice',JSON.stringify(JUICE)); }catch(e){} }
+const easeOut3=t=>1-Math.pow(1-t,3); // easing padrão (recuperação do squash, fade das partículas)
+let particles=[], fxClock=0, hitstopT=0, shakeT=0, shakeDur=1, shakeMag=0;
+const fxG=new PIXI.Graphics(); camera.addChild(fxG); // acima dos players (re-erguida em ensureSprites)
+function spawnParticle(x,y,vx,vy,life,color,size,grav){ if(particles.length>=160)particles.shift(); particles.push({x,y,vx,vy,life,max:life,color,size,g:grav||0}); }
+function puffDust(x,y,n){ if(!JUICE.dust||rm.particles)return; for(let i=0;i<n;i++)
+  spawnParticle(x+(rnd()-0.5)*8, y-1-rnd()*2, (rnd()-0.5)*0.9, -0.2-rnd()*0.4, 14+rnd()*10, 0xcfc6b8, rnd()<0.4?2:1, 0.02); }
+function burstSparkle(x,y,color,n){ if(!JUICE.sparkle||rm.particles)return; const N=n||8; for(let i=0;i<N;i++){ const a=(i/N)*Math.PI*2+rnd()*0.5, sp=0.5+rnd()*0.9;
+  spawnParticle(x,y, Math.cos(a)*sp, Math.sin(a)*sp-0.3, 18+rnd()*12, color||0xffd23f, rnd()<0.5?2:1, 0.015); } }
+function addShake(mag,dur){ if(!JUICE.shake||rm.parallax)return; shakeMag=Math.max(shakeMag,mag); shakeDur=dur; shakeT=Math.max(shakeT,dur); }
+function addHitstop(t){ if(!JUICE.hitstop)return; hitstopT=Math.max(hitstopT,t); }
+function setSquash(pl,amt){ if(!JUICE.squash||pl.rmWalk)return; pl.sq=Math.max(-0.28,Math.min(0.2,amt)); pl.sqT=8; }
+function stepFx(dt){ fxClock+=dt;
+  if(shakeT>0)shakeT=Math.max(0,shakeT-dt);
+  for(const pl of players) if(pl.sqT>0)pl.sqT=Math.max(0,pl.sqT-dt);
+  for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.life-=dt; if(p.life<=0){particles.splice(i,1);continue;}
+    p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; } }
+function drawFx(){ fxG.clear(); for(const p of particles){ const f=p.life/p.max;
+  fxG.beginFill(p.color, 0.9*easeOut3(f)); fxG.drawRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size); fxG.endFill(); } }
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
 let allPSprites=[playerSprite];
 function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
+  camera.addChild(fxG); // re-adicionar = mover ao topo (partículas sobre TODOS os players)
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
@@ -1355,6 +1381,7 @@ function triggerLava(pl){
   coins=pickCoins(COIN_TARGET); rebuildCoins();
   players.forEach(p=>p.collected=0); collected=0; updateHud();
   sfx('hurt'); pl.hurtTimer=60; pl.vy=-10; pl.vx=(rnd()<0.5?-1:1)*5;
+  addShake(3,14); addHitstop(4); // JUICE: dano é o impacto mais forte do jogo
   srAlert('Cuidado! Tocou na lava. As moedas voltaram para posições aleatórias.');
 }
 function stepPlayer(pl,dt){
@@ -1433,6 +1460,7 @@ function stepPlayer(pl,dt){
         if(run && isBouncyGroundBelow(pl) && pl.jumpChain>0) pl.jumpChain=Math.min(pl.jumpChain+1,3); else pl.jumpChain=1;
         pl.vy = (pl.activePower==='ultrajump') ? -TUNE.ultraJumpVel : jumpVel(pl, pl.activePower==='superjump'?9:[0,5,8,9][pl.jumpChain]);
         pl.onGround=false; pl.jumpBuffer=0; fired=true; sfx('jump'); hideTips();
+        setSquash(pl,0.16); puffDust(pl.x,pl.y,3); // JUICE: estica ao saltar + poeira do impulso
       }
       pl.vy=Math.min(pl.vy,TUNE.maxFall);
     }
@@ -1450,9 +1478,11 @@ function stepPlayer(pl,dt){
   if(_ry!=null && Math.abs(_ry-pl.y)<=TILE+4 && (_ry<pl.y || pl.onGround)){
     pl.y=_ry; pl.vy=0; pl.onGround=true;                 // superfície da rampa (subindo sempre; descendo só se já apoiado)
   } else {
-    pl.onGround=false; pl.y+=pl.vy*dt; resolveY(pl);
+    pl.onGround=false; pl._fallV=pl.vy; pl.y+=pl.vy*dt; resolveY(pl); // _fallV: velocidade ANTES do resolve (p/ juice de pouso)
   }
   if(pl.clinging) spiderReattach(pl,_preX,_preY); // E18c: mantém contato e contorna quinas (parede↔teto↔topo)
+  if(pl.onGround && pl.airTime>6 && !pl.inWater){ const v=pl._fallV||0; // JUICE: pouso após queda real (airTime ainda é o valor do ar)
+    if(v>1.2){ puffDust(pl.x,pl.y,Math.min(8,2+Math.round(v))); setSquash(pl,-0.08-0.03*v); if(v>=TUNE.maxFall*0.85)addShake(2.5,10); } }
   if(pl.onGround && !fired){ if(++pl.groundIdle>10)pl.jumpChain=0; } else pl.groundIdle=0; // zera cadeia parado
   if(pl.onGround) pl.airTime=0; else pl.airTime+=dt; // E16: tempo no ar (estabiliza anim — onGround pisca ao repousar)
   // F2: passos por superfície · escada (madeira) · escalada (parede). Cadência = ritmo do andar/correr.
@@ -1460,7 +1490,8 @@ function stepPlayer(pl,dt){
     if(caneOn(pl)){ if(pl.airTime<=5){ // modo cego: chão ESTÁVEL (coyote) evita o flicker do onGround
       if(dir!==0){ pl.caneDist=(pl.caneDist||0)+Math.abs(pl.vx*dt); if(pl.caneDist>=caneBlockPx()){ pl.caneDist=0; caneTap(pl); } } // ANDANDO: batida por DISTÂNCIA
       else { pl.caneDist=0; if(held(pl,'run')){ pl.stepT+=dt; if(pl.stepT>=25){ pl.stepT=0; caneTap(pl); } } else pl.stepT=99; } } } // PARADO: sem batida; segurar corrida = sondagem (batida no chão à frente)
-    else if(pl.onGround && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m); } } } // normal: passo no chão sob os pés
+    else if(pl.onGround && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m);
+      if(run)puffDust(pl.x-pl.facing*5,pl.y,2); } } } // normal: passo no chão sob os pés · JUICE: correndo levanta poeira nos calcanhares
   else if(pl.onLadder && pl.vy!==0){ pl.stepT+=dt; if(pl.stepT>=20){ pl.stepT=0; noiseHit('madeira'); } }
   else if(pl.clinging && (pl.vx!==0||pl.vy!==0)){ pl.stepT+=dt; if(pl.stepT>=16){ pl.stepT=0; noiseHit('parede'); } }
   else if(pl.inWater && caneOn(pl)){ waterNav(pl); } // NADO CEGO: guia por contato (paredes/chão/superfície-cordas)
@@ -1480,6 +1511,7 @@ function stepPlayer(pl,dt){
       if(MODE==='somasub'&&cn.shape){ if(pl===player&&!player.quiz) openQuiz(i,cn.shape); }
       else if(MODE==='silabas'&&cn.letter){ if(pl===player&&!player.quiz) openSilabas(i,cn.letter); }
       else { takeCoin(cn); coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin'); // some p/ todas as telas (item tem 1 dono)
+        burstSparkle(cn.x+5,cn.y+5,PCOLOR[cn.owner]||0xffd23f,8); // JUICE: brilho na cor do dono
         updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); narrate(msg); }
         if(pl.collected>=COIN_TARGET)win(pl); }
     }});
@@ -1487,13 +1519,14 @@ function stepPlayer(pl,dt){
   powerups.forEach(pu=>{ if(puTaken(pu,pl.i))return;
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       takePu(pu,pl.i); if((numPlayers<=1||pu.kind==='key') && pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:''; // chave: some p/ todos; demais: por viewport (no draw)
+      burstSparkle(pu.x+6,pu.y+6,0xfff1a8,10); addHitstop(3); // JUICE: power-up = brilho dourado + micro hit-stop
       if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); } // chave individual: só quem pegou fica com ela (mas o portão, aberto, vale p/ todos)
       else if(pu.kind==='runcane'){ pl.runCane=true; sfx('power'); const pm=who+'Bengala de corrida! Agora dá para correr — segure Correr.'; srSay(pm); narrate(pm); } // cego: habilita correr (bengala com roda)
       else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); narrate(pm); } // entra no inventário; ativo = o último pego
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
-      if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); sfx('gate'); doorSound('madeira'); srAlert('Portão aberto!'); break; } }
+      if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); sfx('gate'); doorSound('madeira'); srAlert('Portão aberto!'); addShake(2,12); break; } } // JUICE: portão pesado sacode a tela
   }
   // animação por frames (E15). 'moving' baseado no INPUT (direção segurada), NÃO em vx — a colisão
   // zera vx por frames e isso resetava o ciclo (só apareciam 2 quadros). Assim os 8 quadros tocam contínuos.
@@ -1542,7 +1575,10 @@ function stepPlayer(pl,dt){
   if(pl.sprite) pl.sprite.texture=playerVizTex(tx, pl.viz);      // solo/default; no MP o draw troca por viewport
 }
 function update(dt){
-  if(ended||phase!=='playing')return; // E14: congelado no título e na pausa
+  if(phase!=='playing')return; // E14: congelado no título e na pausa
+  if(hitstopT>0){ hitstopT=Math.max(0,hitstopT-dt); return; } // JUICE: hit-stop congela o mundo por alguns ticks
+  stepFx(dt); // partículas + decaimento de tremor/squash (roda até no fim de jogo → confete da vitória anima)
+  if(ended)return;
   players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
   for(const pl of players) stepPlayer(pl,dt);
   // E1 (corrigido): revela a área secreta ENQUANTO houver jogador dentro e RE-ESCURECE ao sair.
@@ -1567,15 +1603,20 @@ function update(dt){
 function placeCam(pl){
   let camX=pl.x-LOGICAL_W/2, camY=(pl.y-BOX.h/2)-LOGICAL_H/2;
   camX=Math.max(0,Math.min(camX,WORLD_PX_W-LOGICAL_W)); camY=Math.max(0,Math.min(camY,WORLD_PX_H-LOGICAL_H));
+  if(shakeT>0&&shakeMag>0){ const k=shakeMag*(shakeT/shakeDur); // JUICE: tremor decai linearmente; re-clampa p/ não mostrar o vazio
+    camX=Math.max(0,Math.min(camX+(rnd()*2-1)*k,WORLD_PX_W-LOGICAL_W)); camY=Math.max(0,Math.min(camY+(rnd()*2-1)*k,WORLD_PX_H-LOGICAL_H)); }
   camera.x=-Math.round(camX); camera.y=-Math.round(camY); updateParallax(camX,camY); return {camX,camY};
 }
 function draw(){
   for(const pl of players){ if(!pl.sprite)continue;
     pl.sprite.x=pl.x; pl.sprite.y=pl.y+1;
-    pl.sprite.scale.set((pl.facing<0?-1:1), 1); // sem escala procedural (parecia mastigar) — respiração agora é por FRAMES
+    const q=(JUICE.squash&&!pl.rmWalk&&pl.sqT>0)?(pl.sq||0)*easeOut3(pl.sqT/8):0; // JUICE: squash&stretch com easing, ancorado nos pés
+    pl.sprite.scale.set((pl.facing<0?-1:1)*(1-q*0.7), 1+q); // sem escala procedural de respiração (parecia mastigar) — respiração é por FRAMES
     pl.sprite.alpha = pl.hurtTimer>0 ? (Math.floor(pl.hurtTimer/4)%2?0.4:1) : 1;
   }
   drawElevators(elevLayer); // cadeirante: plataforma do elevador sob os pés (largo/fino)
+  drawFx(); // JUICE: partículas (poeira/brilhos) na camada acima dos players
+  const shimOn=JUICE.shimmer&&!rm.items; // JUICE: cintilar dos itens (respeita Movimento Reduzido de itens)
   caneLayer.clear(); // modo cego: bengala SÓ andando (corrida = bengala de roda); nada parado/nadando/voando/escada
   for(const pl of players){ if(!caneOn(pl)||!pl.sprite||!pl.sprite.visible)continue;
     if(pl.running) drawRunCane(caneLayer,pl); else if(pl.walking) drawCane(caneLayer,pl); }
@@ -1586,6 +1627,7 @@ function draw(){
     easyHitbox.lineStyle(1,0xffffff,0.45); easyHitbox.beginFill(0xffffff,0.10);
     easyHitbox.drawRect(pl.x-BOX.w/2-pad, pl.y-BOX.h-pad, BOX.w+2*pad, BOX.h+2*pad); easyHitbox.endFill(); }
   if(numPlayers<=1){
+    for(let j=0;j<coinSprites.length;j++){ const s=coinSprites[j]; if(s)s.alpha=shimOn?0.8+0.2*Math.sin(fxClock*0.12+j*1.7):1; }
     const {camX,camY}=placeCam(players[0]);
     markSeen(camX,camY); if(mmDirty) redrawMinimap();
     mmPlayer.clear(); mmPlayer.beginFill(0xffd23f,1);
@@ -1596,7 +1638,8 @@ function draw(){
     if(allSame) applySharedTextures(v0);
     for(let i=0;i<numPlayers;i++){ const viz=players[i].viz;
       if(!allSame) applySharedTextures(viz);                      // só troca por viewport quando os modos diferem
-      for(let j=0;j<coinSprites.length;j++){ const s=coinSprites[j]; if(!s)continue; const cn=coins[j]; s.visible=!cn.taken; s.alpha=(cn.owner===i)?1:0.4; } // Lote C: item alheio esmaecido (cor do dono) p/ ajudar a achar; o seu, cheio
+      for(let j=0;j<coinSprites.length;j++){ const s=coinSprites[j]; if(!s)continue; const cn=coins[j]; s.visible=!cn.taken;
+        s.alpha=((cn.owner===i)?1:0.4)*(shimOn?0.8+0.2*Math.sin(fxClock*0.12+j*1.7):1); } // Lote C: item alheio esmaecido (cor do dono); JUICE: cintilar multiplicativo
       for(const pu of powerups){ if(pu.sprite)pu.sprite.visible=!puTaken(pu,i); }                            // chave some p/ todos; demais são por jogador
       placeCam(players[i]); app.renderer.render(camera,{renderTexture:vpTex[i]});
       if(anyOverlay) renderVpOverlay(i,viz);                      // passada extra só se algum jogador está em baixa visão
@@ -1714,6 +1757,7 @@ function updateHud(){
   else $('#hud-coins').textContent=players.map((p,i)=>`P${i+1}:${p.collected}`).join('  ');
 }
 function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); playVictory(); $('#hud-objective').textContent='Concluído! 🎉';
+  if(pl&&pl.sprite) for(let i=0;i<4;i++) burstSparkle(pl.x+(rnd()-0.5)*24, pl.y-BOX.h/2-rnd()*12, PCOLOR[i]||0xffd23f, 10); // JUICE: confete nas 4 cores
   const who = numPlayers>1 ? `Jogador ${(pl?pl.i:0)+1} venceu! ` : '';
   $('#win-msg').textContent=`${who}Coletou as ${COIN_TARGET} moedas.`;
   $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); narrate(`${who}Venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
@@ -2413,7 +2457,8 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw(); fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
 window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
-  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE};
+  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
+  JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;}};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
@@ -2652,12 +2697,23 @@ function showTouchControls(){ if(numPlayers>1 || phase==='paused') return; const
     {label:'Correr', get:()=>ANIM.runHold, set:v=>ANIM.runHold=v, min:1, max:20, step:1, cad:true},
     {label:'Parado (idle)', get:()=>ANIM.idleHold, set:v=>ANIM.idleHold=v, min:2, max:40, step:1, cad:true},
     {label:'Nado', get:()=>ANIM.swimHold, set:v=>ANIM.swimHold=v, min:2, max:24, step:1, cad:true},
+    {h:'Juice (efeitos de resposta) — toggles independentes'},
+    {label:'💨 Poeira (pulo/pouso/corrida)', chk:()=>JUICE.dust,    set:v=>{JUICE.dust=v;saveJuice();}},
+    {label:'✨ Brilho ao coletar',           chk:()=>JUICE.sparkle, set:v=>{JUICE.sparkle=v;saveJuice();}},
+    {label:'🤸 Squash & stretch',            chk:()=>JUICE.squash,  set:v=>{JUICE.squash=v;saveJuice();}},
+    {label:'⏱️ Hit-stop (impacto)',          chk:()=>JUICE.hitstop, set:v=>{JUICE.hitstop=v;saveJuice();}},
+    {label:'📳 Tremor de tela',              chk:()=>JUICE.shake,   set:v=>{JUICE.shake=v;saveJuice();}},
+    {label:'🌟 Cintilar dos itens',          chk:()=>JUICE.shimmer, set:v=>{JUICE.shimmer=v;saveJuice();}},
   ];
   const p=document.createElement('div'); p.id='debug-panel'; p.hidden=true; p.setAttribute('role','group'); p.setAttribute('aria-label','Painel de depuração'); // começa oculto; abre pelo botão 🐞 Debug
   p.style.cssText='position:fixed;top:8px;right:8px;z-index:200;background:rgba(11,16,32,.97);color:#fff;border:2px solid #ffd23f;border-radius:8px;padding:.6rem .7rem;font:13px/1.4 system-ui,sans-serif;max-width:270px;max-height:86vh;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.5)';
   p.innerHTML='<strong>🔧 ?debug — valores ao vivo</strong>';
   KNOBS.forEach(k=>{
     if(k.h){ const h=document.createElement('div'); h.textContent=k.h; h.style.cssText='margin:.7rem 0 .1rem;font-weight:700;color:#ffd23f;border-bottom:1px solid rgba(255,210,63,.4)'; p.appendChild(h); return; }
+    if(k.chk){ const row=document.createElement('label'); row.style.cssText='display:flex;gap:.4rem;align-items:center;margin-top:.4rem;font-size:12px;cursor:pointer';
+      const inp=document.createElement('input'); inp.type='checkbox'; inp.checked=k.chk();
+      inp.addEventListener('change',()=>k.set(inp.checked));
+      row.appendChild(inp); row.appendChild(document.createTextNode(k.label)); p.appendChild(row); return; }
     const row=document.createElement('div'); row.style.cssText='margin-top:.5rem';
     const lab=document.createElement('label'); lab.style.cssText='display:block;font-size:12px;margin-bottom:2px';
     const val=document.createElement('strong'); val.style.cssText='color:#ffd23f;float:right';
