@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.126.0';
+const INCL_VERSION='4.127.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1240,12 +1240,17 @@ function stepFx(dt){ fxClock+=dt;
     p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; } }
 function drawFx(){ fxG.clear(); for(const p of particles){ const f=p.life/p.max;
   fxG.beginFill(p.color, 0.9*easeOut3(f)); fxG.drawRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size); fxG.endFill(); } }
-/* L2: CRT (scanlines/vinheta/cantos) — estética opcional só em CSS (classes no #game-region); padrão DESLIGADO */
-const CRT=(()=>{ const d={scan:false,vig:false,round:false};
-  try{ const s=JSON.parse(localStorage.getItem('incl_crt')); if(s&&typeof s==='object') for(const k in d) if(k in s) d[k]=!!s[k]; }catch(e){}
+/* L2: Estética CRT (menu Sensibilidade visual) — scanlines/vinheta/cantos em 3 NÍVEIS (0=desligado,
+   1=pequeno, 2=grande), só CSS. Cantos: 0=tela quadrada, 1=padrão de sempre (8px), 2=arredondadão (24px).
+   Migra o formato booleano antigo (true→ligado; round true→2, false→1). */
+const CRT=(()=>{ const d={scan:0,vig:0,round:1};
+  try{ const s=JSON.parse(localStorage.getItem('incl_crt')); if(s&&typeof s==='object') for(const k in d) if(k in s){ const v=s[k];
+    d[k]= v===true?(k==='round'?2:1) : v===false?(k==='round'?1:0) : Math.max(0,Math.min(2,v|0)); } }catch(e){}
   return d; })();
 function applyCrt(){ const g=$('#game-region'); if(!g)return;
-  g.classList.toggle('crt-scan',CRT.scan); g.classList.toggle('crt-vig',CRT.vig); g.classList.toggle('crt-round',CRT.round);
+  ['crt-scan-1','crt-scan-2','crt-vig-1','crt-vig-2','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
+  if(CRT.scan)g.classList.add('crt-scan-'+CRT.scan); if(CRT.vig)g.classList.add('crt-vig-'+CRT.vig);
+  if(CRT.round!==1)g.classList.add('crt-round-'+CRT.round); // 1 = visual padrão (8px), sem classe
   try{ localStorage.setItem('incl_crt',JSON.stringify(CRT)); }catch(e){} }
 applyCrt();
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
@@ -2465,10 +2470,16 @@ function renderMotion(){ const el=$('#motion-list'); if(!el)return; if(selAnimPl
     tabs.innerHTML='';
     tabs.querySelectorAll('button[data-ap]').forEach(b=>b.addEventListener('click',()=>{ selAnimPlayer=+b.dataset.ap; renderMotion(); })); }
   const p=players[selAnimPlayer];
-  const row=(lbl,on,attr,soon)=>`<div class="ctrl-row"><span>${lbl}${soon?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn switch${on?' is-on':''}" ${attr} type="button" aria-pressed="${on}" aria-label="${on?'Congelado':'Animado'}">${on?'❄ Congelado':'▶ Animado'}</button></div>`;
+  // Switch = "animação LIGADA" (rm/prop true = congelado ⇒ switch DESLIGADO). Antes o switch acendia
+  // no congelado e lia-se invertido em relação ao rótulo da linha (report do José 2026-07-02).
+  const row=(lbl,frozen,attr,soon)=>{ const on=!frozen; return `<div class="ctrl-row"><span>${lbl}${soon?' <em style="opacity:.7">(em breve)</em>':''}</span><button class="mode-btn switch${on?' is-on':''}" ${attr} type="button" aria-pressed="${on}" aria-label="${lbl}: ${on?'animação ligada':'animação congelada'}">${on?'▶ Animado':'❄ Congelado'}</button></div>`; };
   const charRows=RM_CHAR.map(c=>row(c.lbl, p&&p[c.prop], 'data-rmc="'+c.prop+'"', false)).join('');
   const sceneRows=RM_KEYS.map(k=>row(RM_LABEL[k], rm[k], 'data-rm="'+k+'"', RM_SOON.has(k))).join('');
-  el.innerHTML=`<h3 class="panel-sub">Personagem${numPlayers>1?' · Jogador '+(selAnimPlayer+1):''} <span class="panel-sub__tag">por jogador</span></h3>`+charRows+`<h3 class="panel-sub">Cena <span class="panel-sub__tag">todos os jogadores</span></h3>`+sceneRows;
+  const CRT_LBL={scan:'Scanlines',vig:'Vinheta',round:'Cantos arredondados'};
+  const crtRow=k=>`<div class="ctrl-row"><span>${CRT_LBL[k]}</span><select class="vol" data-crt="${k}" aria-label="${CRT_LBL[k]}"><option value="0"${CRT[k]===0?' selected':''}>Desligado</option><option value="1"${CRT[k]===1?' selected':''}>Pequeno</option><option value="2"${CRT[k]===2?' selected':''}>Grande</option></select></div>`;
+  el.innerHTML=`<h3 class="panel-sub">Personagem${numPlayers>1?' · Jogador '+(selAnimPlayer+1):''} <span class="panel-sub__tag">por jogador</span></h3>`+charRows+`<h3 class="panel-sub">Cena <span class="panel-sub__tag">todos os jogadores</span></h3>`+sceneRows+
+    `<h3 class="panel-sub">Estética CRT <span class="panel-sub__tag">todos os jogadores</span></h3>`+['scan','vig','round'].map(crtRow).join('');
+  el.querySelectorAll('select[data-crt]').forEach(s=>s.addEventListener('change',()=>{ CRT[s.dataset.crt]=+s.value; applyCrt(); srSay(CRT_LBL[s.dataset.crt]+': '+['desligado','pequeno','grande'][+s.value]+'.'); }));
   el.querySelectorAll('button[data-rmc]').forEach(b=>b.addEventListener('click',()=>{ const pr=b.dataset.rmc, pl=players[selAnimPlayer]; pl[pr]=!pl[pr]; try{localStorage.setItem('incl_'+pr+'_p'+selAnimPlayer,pl[pr]?'1':'0');}catch(e){} renderMotion(); }));
   el.querySelectorAll('button[data-rm]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.rm; rm[k]=!rm[k]; saveRM(); renderMotion(); updateMotionMaster(); srSay(RM_LABEL[k]+(rm[k]?' congelado.':' animado.')); }));
   updateMotionMaster();
@@ -2782,11 +2793,7 @@ function showTouchControls(){ if(numPlayers>1 || phase==='paused') return; const
     {label:'⏱️ Hit-stop (impacto)',          chk:()=>JUICE.hitstop, set:v=>{JUICE.hitstop=v;saveJuice();}},
     {label:'📳 Tremor de tela',              chk:()=>JUICE.shake,   set:v=>{JUICE.shake=v;saveJuice();}},
     {label:'🌟 Cintilar dos itens',          chk:()=>JUICE.shimmer, set:v=>{JUICE.shimmer=v;saveJuice();}},
-    {h:'CRT (estética, CSS) — padrão desligado'},
-    {label:'📺 Scanlines',          chk:()=>CRT.scan,  set:v=>{CRT.scan=v;applyCrt();}},
-    {label:'🌘 Vinheta',            chk:()=>CRT.vig,   set:v=>{CRT.vig=v;applyCrt();}},
-    {label:'⬭ Cantos arredondados', chk:()=>CRT.round, set:v=>{CRT.round=v;applyCrt();}},
-  ];
+  ]; // Estética CRT saiu daqui: agora mora no menu Sensibilidade visual (pedido do José)
   const p=document.createElement('div'); p.id='debug-panel'; p.hidden=true; p.setAttribute('role','group'); p.setAttribute('aria-label','Painel de depuração'); // começa oculto; abre pelo botão 🐞 Debug
   p.style.cssText='position:fixed;top:8px;right:8px;z-index:200;background:rgba(11,16,32,.97);color:#fff;border:2px solid #ffd23f;border-radius:8px;padding:.6rem .7rem;font:13px/1.4 system-ui,sans-serif;max-width:270px;max-height:86vh;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.5)';
   p.innerHTML='<strong>🔧 ?debug — valores ao vivo</strong>';
