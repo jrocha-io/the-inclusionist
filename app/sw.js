@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Service worker — cache do app-shell para rodar 100% offline (PWA).
-const CACHE = 'inclusionist-v4.157.0'; // = versão do jogo (bump A CADA commit invalida o cache antigo)
+const CACHE = 'inclusionist-v4.158.0'; // = versão do jogo (bump A CADA commit invalida o cache antigo)
 const SHELL = [
-  './', 'index.html', 'game.js', 'style.css',
+  './', 'index.html', 'js/game.js', 'css/style.css',
   'manifest.webmanifest', 'icon.svg', 'vendor/pixi.min.js',
   // tipografia: fonts.css + Atkinson padrão (Andika/Lexend cacheiam sob demanda como os sprites)
   'vendor/fonts.css', 'vendor/fonts/atkinson-400.woff2', 'vendor/fonts/atkinson-700.woff2',

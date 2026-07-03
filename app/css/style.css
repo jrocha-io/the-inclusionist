@@ -16,7 +16,7 @@
 }
 /* Emoji: usa o Noto Color Emoji do sistema (Chromebook/Android/Linux) e, se ausente, o woff2 embutido
    (offline). Se o arquivo não estiver presente, o navegador cai no emoji do SO — sem quebrar. */
-@font-face{ font-family:'Noto Color Emoji'; src:local('Noto Color Emoji'), url('vendor/fonts/NotoColorEmoji.woff2') format('woff2'); font-display:swap; }
+@font-face{ font-family:'Noto Color Emoji'; src:local('Noto Color Emoji'), url('../vendor/fonts/NotoColorEmoji.woff2') format('woff2'); font-display:swap; }
 /* Modo ALFABETIZAÇÃO → Andika */
 :root[data-fonte="alfabetizacao"]{ --font:'Andika',var(--font-fallback); }
 /* Modo DISLEXIA/TDAH → Lexend + espaçamento da British Dyslexia Association

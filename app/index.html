@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="preload" href="vendor/fonts/atkinson-400.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="vendor/fonts.css" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body data-theme="cave">
   <a class="skip-link" href="#game-region">Pular para o jogo</a>
@@ -408,7 +408,7 @@
   <!-- game.js é ES Module (type=module) — habilita `import` na modularização incremental (docs/plano-modularizacao.md).
        PIXI continua global do vendor acima; módulos leem globais normalmente. Módulo é `defer` por natureza:
        o DOM já está parseado (script no fim do body), então o comportamento de init é idêntico. -->
-  <script type="module" src="game.js"></script>
+  <script type="module" src="js/game.js"></script>
 
   <!-- VLibras — tradução para Libras (interina; online). Futuro: motor próprio em zdog (P2/P5). -->
   <div vw class="enabled">
