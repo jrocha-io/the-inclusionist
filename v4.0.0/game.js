@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.149.1';
+const INCL_VERSION='4.149.2';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2251,7 +2251,9 @@ function openQuiz(pl,coinIndex,shapeId){ // MATEMÁTICA: gerador POR ATIVIDADE (
     const F=(nn,dd)=>fmtFrac(nn,dd,not);
     const ans=F(N,D), set=[ans]; let gd=0;
     while(set.length<9&&gd++<400){ const s=F(randInt(0,2*D),D); if(!set.includes(s))set.push(s); }
-    q={...base,not,prob:`${F(n1,d1)} ${op} ${F(n2,d2)} = ?`,answer:ans,choices:shuffle(set)};
+    // GRÁFICO (círculo/quadrado da atividade) acompanha CADA operando, junto do número (José: "também mostram")
+    const G=(nn,dd)=>fracGraphic(nn,dd);
+    q={...base,not,prob:`<span class="frac-op">${F(n1,d1)}${G(n1,d1)}</span> ${op} <span class="frac-op">${F(n2,d2)}${G(n2,d2)}</span> = ?`,answer:ans,choices:shuffle(set)};
     fala=`Quanto é ${fracSpeak(n1+'/'+d1)} ${op==='+'?'mais':'menos'} ${fracSpeak(n2+'/'+d2)}?`; }
   else { // SOMA E SUBTRAÇÃO 1 (padrão — dá para fazer nos dedos): soma ≤10, minuendo ≤10
     const op=rnd()<0.5?'+':'−'; let a,b,ans;
@@ -2502,43 +2504,43 @@ const gcd=(a,b)=>b?gcd(b,a%b):a;
 function fracStr(n,D){ if(n===0)return '0'; const g=gcd(n,D)||1, a=n/g,d=D/g; return d===1?String(a):a+'/'+d; }
 const DEN_NAME={2:'meio',3:'terço',4:'quarto',5:'quinto',6:'sexto',7:'sétimo',8:'oitavo',9:'nono',10:'décimo',12:'doze avos'};
 /* NOTAÇÕES de fração (menu "Fração"): vertical · diagonal · decimal · percentual · mista — toggles persistidos */
-let fracNot=(()=>{ const d={v:1,d:0,dec:0,pct:0,mix:0,pizza:0,barv:0,barh:0};
+// NOTAÇÕES = opções de jogo (toggles). GRÁFICOS (círculo/quadrado) NÃO são opção — são intrínsecos à atividade (José).
+let fracNot=(()=>{ const d={v:1,d:0,dec:0,pct:0,mix:0};
   try{ const s=JSON.parse(localStorage.getItem('incl_fracnot')); if(s&&typeof s==='object')for(const k in d)if(k in s)d[k]=s[k]?1:0; }catch(e){}
   if(!Object.values(d).some(x=>x))d.v=1; return d; })();
-const FNOT_LBL={v:'Fracionária vertical',d:'Fracionária diagonal',dec:'Decimal',pct:'Percentual',mix:'Mista',pizza:'Pizza (fatias)',barv:'Quadrado vertical',barh:'Quadrado horizontal'};
+const FNOT_LBL={v:'Fracionária vertical',d:'Fracionária diagonal',dec:'Decimal',pct:'Percentual',mix:'Mista'};
 const FNOT_DESC={ // rodapé (mesmo estilo do menu de pausa): explica cada notação
   v:'Liga a exibição de frações verticais.',
   d:'Liga a exibição de frações na horizontal.',
   dec:'Liga números que sempre aparecem com uma casa decimal.',
   pct:'Liga números percentuais.',
-  mix:'Liga números inteiros e frações reduzidas.',
-  pizza:'Liga a exibição de frações como pizza (fatias iguais).',
-  barv:'Liga a exibição de frações como quadrado dividido em colunas.',
-  barh:'Liga a exibição de frações como quadrado dividido em linhas.' };
+  mix:'Liga números inteiros e frações reduzidas.' };
 function fmtFrac(n,D,not){ if(n===0)return not==='dec'?'0,0':'0'; const g=gcd(n,D)||1, a=n/g, d=D/g;
-  if(not==='pizza'||not==='barv'||not==='barh')return d>6? a+'/'+d : fracFigure(a,d,not); // figura só de 2-6 partes; d>6 cai na diagonal
   if(not==='dec')return (Math.round((n/D)*10)/10).toFixed(1).replace('.',','); // SEMPRE 1 casa decimal (José 2026-07-04)
   if(not==='pct'){ const r=Math.round((n/D)*1000)/10; return (Number.isInteger(r)?r:String(r).replace('.',','))+'%'; }
   if(d===1)return String(a);
   if(not==='mix'&&a>d){ const i=Math.floor(a/d), r=a%d; return r? (i+' '+r+'/'+d) : String(i); }
   if(not==='v')return `<span class="fv"><b>${a}</b><b>${d}</b></span>`;
   return a+'/'+d; } // diagonal (inline)
-/* SVG inline p/ frações (José 2026-07-04): PIZZA em 2-6 fatias iguais e QUADRADO em 2-6 partes (vertical/horizontal).
-   Zero dependência (offline/Positivo). Fração imprópria (n>d) = ⌊n/d⌋ figuras cheias + o resto. data-frac p/ a fala/comparação. */
-function _pieUnit(k,d){ const R=18,C=20,seg=[]; // uma pizza: d fatias, k preenchidas (do topo, horário)
+/* GRÁFICOS de fração (José 2026-07-04): NÃO são opção de jogo — cada atividade mostra CÍRCULO (radial) e/ou
+   QUADRADO conforme o denominador: 2→ao meio · 3→3 faixas · 4→2×2 (cruz) · 5→só círculo · 6→2×3 (grade).
+   Zero dependência (offline). Fração imprópria (n>d) = ⌊n/d⌋ figuras cheias + resto. data-frac p/ fala/comparação. */
+const FRAC_GFX={ 2:{cols:2,rows:1}, 3:{cols:3,rows:1}, 4:{cols:2,rows:2}, 5:null, 6:{cols:2,rows:3} }; // quadrado por denominador (5 = sem quadrado)
+function _pieUnit(k,d){ const R=18,C=20,seg=[]; // círculo RADIAL: d setores, k preenchidos (do topo, horário)
   const pt=deg=>{ const a=(deg-90)*Math.PI/180; return [(C+R*Math.cos(a)).toFixed(2),(C+R*Math.sin(a)).toFixed(2)]; };
   if(d===1){ seg.push(`<circle cx="${C}" cy="${C}" r="${R}" fill="${k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.6"/>`); }
   else for(let i=0;i<d;i++){ const [x0,y0]=pt(i*360/d),[x1,y1]=pt((i+1)*360/d),large=360/d>180?1:0;
     seg.push(`<path d="M${C} ${C} L${x0} ${y0} A${R} ${R} 0 ${large} 1 ${x1} ${y1} Z" fill="${i<k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.3"/>`); }
   return `<svg class="frac-svg" viewBox="0 0 40 40" aria-hidden="true">${seg.join('')}<circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="#0d0d1a" stroke-width="1.6"/></svg>`; }
-function _barUnit(k,d,orient){ const S=40,seg=[]; // um quadrado: d partes (colunas=v / linhas=h), k preenchidas
-  for(let i=0;i<d;i++){ const [x,y,w,h]= orient==='barh' ? [0,i*S/d,S,S/d] : [i*S/d,0,S/d,S];
-    seg.push(`<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${i<k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.2"/>`); }
+function _sqGrid(k,cols,rows){ const S=40,cw=S/cols,ch=S/rows,seg=[]; // quadrado em grade cols×rows, k células preenchidas
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const idx=r*cols+c;
+    seg.push(`<rect x="${(c*cw).toFixed(2)}" y="${(r*ch).toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" fill="${idx<k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.2"/>`); }
   return `<svg class="frac-svg" viewBox="0 0 40 40" aria-hidden="true">${seg.join('')}<rect x=".8" y=".8" width="38.4" height="38.4" fill="none" stroke="#0d0d1a" stroke-width="1.6"/></svg>`; }
-function fracFigure(n,d,kind){ const whole=Math.floor(n/d), rem=n-whole*d, u=[]; // n/d como figura(s)
-  const one=k=> kind==='pizza'?_pieUnit(k,d):_barUnit(k,d,kind);
+function fracGraphic(n,D){ const g=gcd(n,D)||1, N=n/g, d=D/g; if(d<1||d>6)return ''; // gráfico só p/ denominador reduzido 1..6
+  const sq=FRAC_GFX[d], whole=Math.floor(N/d), rem=N-whole*d, u=[];
+  const one=k=>`<span class="frac-shape">${_pieUnit(k,d)}${sq?_sqGrid(k,sq.cols,sq.rows):''}</span>`;
   for(let i=0;i<whole;i++)u.push(one(d)); if(rem>0||whole===0)u.push(one(rem));
-  return `<span class="frac-fig" data-frac="${n}/${d}" role="img" aria-label="${fracSpeak(n+'/'+d)}">${u.join('')}</span>`; }
+  return `<span class="frac-fig" data-frac="${N}/${d}" role="img" aria-label="${fracSpeak(N+'/'+d)}">${u.join('')}</span>`; }
 function fracSpeak(s){ const m=/^(\d+)\/(\d+)$/.exec(String(s)); if(!m)return String(s);
   const n=+m[1],d=+m[2],nm=DEN_NAME[d]||(d+' avos'); return n===1?('um '+nm):(n+' '+nm+'s'); }
 function speakChoice(s){ s=String(s); // fala qualquer NOTAÇÃO: vertical (HTML)→a/b · mista → "N inteiros e a/b" · decimal/percentual literais
@@ -3332,7 +3334,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
-  setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,fmtFrac,fracFigure,speakChoice,get fracNot(){return fracNot;},
+  setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,fmtFrac,fracGraphic,speakChoice,get fracNot(){return fracNot;},
   setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
   startAttract,stopAttract,get attract(){return attract;},set idleT(v){_idleT=v;},
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},

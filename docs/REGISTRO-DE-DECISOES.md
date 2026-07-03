@@ -158,6 +158,15 @@
 | Menu Fração: título "Soma e subtração de frações"; toggles SEM ✔ (estado só pelo realce `tab-on`); decimal SEMPRE 1 casa (`0,5`/`0,3`/`1,0`); 6ª atividade `fr2a6` (dens [2,3,4,5,6] "de meio a sextos", D=lcm=60 → pizza cai na diagonal quando d>6); atividades renomeadas p/ "Soma e subtração com …"; descrição no RODAPÉ do canvas (não colada aos botões, `position:absolute;bottom:10px`) e legenda de controles esconde nos submenus | Pedidos explícitos | v4.149.0 | ✅ · pizza/quadrado mantidos (não estavam na lista dele desta vez — confirmar se quer fora) |
 | Toggle TEA (autismo) reflete no SPLASH: 1=redução→branco (`.pi-calm`), 2=desligamento completo→amarelo (`.pi-on`), 0=off. Bug era `reflectPauseIcons` só atualizar os ícones da PAUSA (`vpPause`), nunca os do `#title-icons` → novo `reflectTitleIcons` (lógica extraída p/ `reflectIconBtn`) | Pedido explícito ("não funciona da forma correta") | v4.149.0 | ✅ |
 | **Escala AUDITADA de novo:** medido no preview k=2/3/4 em 640/960/1280 (passos INTEIROS exatos, aspect 1,7778); a fórmula não tem `dpr`. A "esticada" reportada = build antigo em cache (o `kDev/dpr` saltava em 0,8× CSS, parecia contínuo). Ação: pedir hard-reload + conferir versão no splash | Item reaberto pelo José | v4.147.2 (já correto) | ✅ código · ⚠️ cache do cliente |
+| **Modularização (game.js → ES Modules nativos, sem build):** decidido fazer DEPOIS da estabilização, como marco próprio com plano + verificação módulo a módulo (não no meio dos testes). Bundler descartado (contra runtime enxuto/offline) | Pergunta do José ("reavalie") | conversa 2026-07-04 | ⏸ agendado pós-polimento |
+
+### 5.9 Gráficos de fração NÃO são opção + renderização matemática (2026-07-04, rodada 5)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| **GRÁFICOS NÃO SÃO OPÇÃO DE JOGO.** Pizza/quadrado saíram dos toggles (voltam a ser 5 notações numéricas). Os gráficos são INTRÍNSECOS a cada atividade e acompanham cada operando da conta (número em cima, figura embaixo) | Correção explícita | v4.149.2 | ✅ · placement nos operandos a confirmar |
+| **Estilo por denominador** (CÍRCULO radial sempre; QUADRADO por atividade): 2→ao meio · 3→3 faixas · 4→2×2 · 5→**só círculo** · 6→grade 2×3. Imprópria = ⌊n/d⌋ figuras + resto; denominador reduzido >6 (só fr2a6) → sem figura | Especificação do José | v4.149.2 | ✅ |
+| **Renderização matemática (pesquisa de custo real):** **MathML Core nativo = 0 KB/0 fontes** (Chromium ≥109, nativo desde Chrome 109 jan/2023; leitor de tela lê via MathML AAM); **KaTeX = ~613 KB** total (não ~200), **MathLive ~1 MB** (único p/ a criança ESCREVER), Temml ~180 KB (fallback), jqMath abandonado. Recomendação: MathML nativo p/ exibir (verificar Chromium do parque ≥109) + MathLive lazy só p/ escrever no futuro | Pesquisa dirigida | 2026-07-04 | 🔜 aguarda decisão |
 
 ## 6. Arquitetura e plataforma
 
