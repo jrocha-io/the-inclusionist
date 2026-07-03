@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.153.3';
+const INCL_VERSION='4.154.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2311,7 +2311,7 @@ function openSilabas(pl,coinIndex,letter){ // L3: despacha pelo NÍVEL (1..5); m
   const item=pickWord(letter);
   const correct=item.s.slice(), distract=[];
   for(const sy of shuffle(SILABA_POOL)){ if(distract.length>=7)break; if(!correct.includes(sy)&&!distract.includes(sy))distract.push(sy); }
-  pl.quiz={kind:'silabas',spell:quizLevel===3,coinIndex,letter,word:item.w,emoji:item.e,correct,options:shuffle(correct.concat(distract)),boxes:[null,null],sel:0,tries:0,revealed:false};
+  pl.quiz={kind:'silabas',hearSyl:(quizLevel===2),coinIndex,letter,word:item.w,emoji:item.e,correct,options:shuffle(correct.concat(distract)),boxes:[null,null],sel:0,tries:0,revealed:false}; // hearSyl: Descobrindo sílabas (nível 2) fala a sílaba no hover/seleção; Montando (3) não
   pl.vx=0;pl.vy=0;
   srSay(`${quizWho(pl)}Letra ${disp(letter)}. Monte a palavra: ${item.w}.`);
   gameSay(item.w); // ao abrir, fala a palavra SEMPRE (independente do toggle TTS) — José
@@ -2345,13 +2345,13 @@ function quizSpeakSel(pl){ const q=pl.quiz; if(!q)return; // fala o item sob o c
   const N=q.options?q.options.length:0;
   if(q.sel>=N){ srSay(q.sel===N?'apagar':'ok'); return; }
   const it=q.options[q.sel];
-  if(q.kind==='silabas') srSay(q.spell?soletra(it):disp(it));                                    // 2 lê · 3 soletra
+  if(q.kind==='silabas'){ srSay(disp(it)); if(q.hearSyl)gameSay(it); }                            // Descobrindo sílabas (2): hover FALA a sílaba (áudio, sempre); Montando (3): sem áudio
   else if(q.kind==='alf') srSay(q.braille?brailleText(it):(LETTER_NAME[it]||it)); // 4 nome da letra · 5 SÓ os pontos da cela ("a"→"um")
 }
 function placeLetter(pl,ch){ const q=pl.quiz; if(!q)return; const idx=q.boxes.indexOf(null); if(idx<0)return;
   q.boxes[idx]=ch; sfx('place'); srSay(q.braille?brailleText(ch):(LETTER_NAME[ch]||ch)); renderQuiz(pl); } // braille: só os PONTOS
 function eraseLastLetter(pl){ const q=pl.quiz; if(!q)return; for(let i=q.boxes.length-1;i>=0;i--){ if(q.boxes[i]!==null){ q.boxes[i]=null; break; } } renderQuiz(pl); }
-function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place'); srSay(q.spell?soletra(sy):disp(sy)); renderQuiz(pl); } // nível 3 soletra
+function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place'); srSay(disp(sy)); if(q.hearSyl)gameSay(sy); renderQuiz(pl); } // Descobrindo sílabas: seleção = confirmação (sfx) + refala a sílaba (gameSay); Montando: só o sfx
 function eraseLastSilaba(pl){ const q=pl.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(pl); }
 // E8: ditado de Braille (modo pessoa cega) — dita os pontos da cela por letra
 function openBraille(pl,coinIndex,letter){
