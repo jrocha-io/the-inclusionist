@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.139.0';
+const INCL_VERSION='4.140.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -807,7 +807,7 @@ function updateWeather(){ _weatherT++;
   // L5 (rotina do José): tempo bom nos primeiros 30s; depois LOOP de 60s = garoa 5s → chuva 5s → garoa 5s → bom 45s.
   // rm.decor (Movimento Reduzido de cena) desliga a chuva visual — o áudio segue o visual (updateAmbient lê _rainLevel).
   const sec=_weatherT/60; let lvl=0;
-  if(sec>=30 && !rm.decor){ const c=(sec-30)%60; lvl = c<5 ? 0.35 : c<10 ? 1 : c<15 ? 0.35 : 0; } // garoa=0,35 · chuva=1
+  if(sec>=30 && !rm.decor && CENARIO==='cidade'){ const c=(sec-30)%60; lvl = c<5 ? 0.35 : c<10 ? 1 : c<15 ? 0.35 : 0; } // garoa=0,35 · chuva=1 — SÓ NA CIDADE (nenhum tema v3 tem chuva)
   const step=1/30; _rainLevel += Math.max(-step, Math.min(step, lvl-_rainLevel)); if(Math.abs(lvl-_rainLevel)<0.02)_rainLevel=lvl; // rampa ~1s (sem ligar "seco")
   if(_rainLevel>0.45){ _thunderCD--; if(_thunderCD<=0){ _thunderCD=200+Math.floor(rnd()*420); const inten=0.35+rnd()*0.65; _flash=Math.max(_flash,inten); thunder(inten); } } // trovão SÓ na chuva forte
   if(_flash>0) _flash=Math.max(0,_flash-0.05); }
@@ -895,34 +895,40 @@ const PARALLAX=[
   {key:'far',  factor:0.28, fy:0}, // Camada 3
   {key:'near', factor:0.52, fy:0}, // Camada 2 — mais próxima do tileset (fy=0: parallax horizontal clássico; textura=altura do viewport → sem repetição vertical)
 ];
-/* L6: temas da v3 portados — PROCEDURAL até a arte do José chegar (PNG do tema, se existir, tem precedência).
-   ramp = recolor do mundo por luminância (água/lava preservadas); flora = peculiaridades vivas do tema. */
+/* L6 (REFEITO — fiel à v3.1.100): os 4 temas usam EXATAMENTE o céu, as nuvens, as montanhas, a grama
+   e a decoração viva de lá (fórmulas copiadas). BLOCOS = Clarity SEM recolor (a v3 não recoloria tiles
+   por tema). NENHUM tema tem chuva — chuva é só da Cidade. */
 const CENARIOS={
-  cidade:   {nome:'Cidade',                        pals:[['#0a1024','#1b2350'],['#13284a','#22406e'],['#1d3a52','#356a86']], ramp:null,                 flora:'cidade'},
-  campo:    {nome:'Dia no Campo',                  pals:[['#7ec8ff','#cfeaff'],['#a8d8a0','#68b268'],['#5fae5f','#356e35']], ramp:['#2e4d2a','#7ac95e'], flora:'campo'},
-  cemiterio:{nome:'Fim da noite (Cemitério)',      pals:[['#241a38','#c86a4a'],['#3a2a4e','#6a4a6a'],['#2c2444','#4a3a5e']], ramp:['#352b44','#8d74a4'], flora:'cemiterio'},
-  noite:    {nome:'Noite no Campo',                pals:[['#040718','#0e1734'],['#0a1228','#182448'],['#0e1830','#203058']], ramp:['#141c36','#48588c'], flora:'noite'},
-  floresta: {nome:'Floresta',                      pals:[['#9adcae','#d8f2c8'],['#2e6e3e','#1e4e2e'],['#25592f','#153f1f']], ramp:['#1e3a22','#4e8a4e'], flora:'floresta'},
+  cidade:   {nome:'Cidade', v3:false},
+  campo:    {nome:'Dia no Campo',       v3:true, sky:['#86c5e8','#cfeecb'], cloud:['#ffffff','#d4e6f5'], hills:['#9fd47e','#6fb84e'], decor:['nuvens','passaros','borboletas']},
+  cemiterio:{nome:'Amanhecer no Campo', v3:true, sky:['#2b2540','#5a4f6b'], cloud:['#d9c4dd','#a98fb6'], hills:['#4a5f55','#33473d'], decor:['nuvens','passaros','sparkles','minhocas','nevoa']},
+  espaco:   {nome:'Noite no Campo',     v3:true, sky:['#05030f','#161033'], cloud:['#3a3550','#262238'], hills:['#1e3030','#142024'], decor:['nuvens','sparkles','vagalumes']},
+  floresta: {nome:'Floresta',           v3:true, sky:['#3f6b50','#8fbf73'], cloud:['#cfe6b8','#a7cf86'], hills:['#2f5e35','#1f4226'], decor:['nuvens','passaros','borboletas']},
 };
-function parallaxPlaceholder(i,theme){ // gradiente + silhuetas POR TEMA (substituído pela arte quando o PNG existir)
+const THEME_FLORA={ // v3 exato — grama/flores por tema
+  campo:    {base:'#52933c',top:'#7cc35a',bLt:'#8fd968',bDk:'#46822f',center:'#ffe14d',petals:['#ffe14d','#ff7eb6','#ffffff','#ff6b6b']},
+  cemiterio:{base:'#46624f',top:'#5e7d68',bLt:'#6f9079',bDk:'#3a5244',center:'#f0e6d0',petals:['#c9b6e8','#e7c9dd','#b6c9e8']},
+  espaco:   {base:'#2d4650',top:'#40606a',bLt:'#557f88',bDk:'#26404a',center:'#fff6c0',petals:['#d6ecff','#ffffff','#cfffe8']},
+  floresta: {base:'#3a7a34',top:'#5fa84a',bLt:'#6fc255',bDk:'#2f6329',center:'#ffe14d',petals:['#c98ce0','#ffffff','#ffd166','#ff7eb6']},
+};
+const hexN=s=>parseInt(String(s).slice(1),16);
+function parallaxPlaceholder(i){ // placeholder da CIDADE (os 4 temas v3 têm céu/montanhas próprios abaixo)
   const w=320,h=LOGICAL_H,cv=makeCanvas(w,h),c=cv.getContext('2d');
-  const T=CENARIOS[theme]||CENARIOS.cidade, pal=T.pals[i];
+  const pal=[['#0a1024','#1b2350'],['#13284a','#22406e'],['#1d3a52','#356a86']][i];
   const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,pal[0]); g.addColorStop(1,pal[1]); c.fillStyle=g; c.fillRect(0,0,w,h);
   c.fillStyle=pal[1];
   for(let x=0;x<w;x+=44+i*14){ const hh=24+((x*7+i*29)%(46+i*22)); c.fillRect(x,h-hh,30+i*6,hh); }
-  if(T.flora==='noite'&&i===0){ c.fillStyle='rgba(255,255,255,.9)'; for(let k=0;k<26;k++)c.fillRect((k*37)%w,(k*23)%(h-60),1,1); } // ESTRELAS
-  else { c.fillStyle='rgba(255,255,255,.18)'; for(let k=0;k<8;k++)c.fillRect((k*53+i*17)%w,(k*23+i*11)%(h-40),2,2); }
+  c.fillStyle='rgba(255,255,255,.18)'; for(let k=0;k<8;k++)c.fillRect((k*53+i*17)%w,(k*23+i*11)%(h-40),2,2);
   return tex(cv);
 }
-function themeRecolor(cv,ramp){ // mundo recolorido por LUMINÂNCIA (procedural); água/lava mantêm a leitura
-  const c=cv.getContext('2d'), img=c.getImageData(0,0,cv.width,cv.height), d=img.data;
-  const A=hexRgb(ramp[0]), B=hexRgb(ramp[1]);
-  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const r=d[i],g=d[i+1],b=d[i+2];
-    if((b>r+40&&b>g+30)||(r>g+60&&r>b+60))continue; // água azul / lava vermelha preservadas
-    const l=(0.299*r+0.587*g+0.114*b)/255;
-    d[i]=A[0]+(B[0]-A[0])*l; d[i+1]=A[1]+(B[1]-A[1])*l; d[i+2]=A[2]+(B[2]-A[2])*l; }
-  c.putImageData(img,0,0); return cv;
-}
+function themeSkyTexture(T){ const w=64,h=LOGICAL_H,cv=makeCanvas(w,h),c=cv.getContext('2d'); // drawBackdrop v3: gradiente puro
+  const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,T.sky[0]); g.addColorStop(1,T.sky[1]); c.fillStyle=g; c.fillRect(0,0,w,h); return tex(cv); }
+function themeHillsTexture(T,near){ // drawHillBand v3: dupla senoide (amp 5/9, freq 0.018/0.013, fase 140/0), transparente acima
+  const w=1280,h=LOGICAL_H,cv=makeCanvas(w,h),c=cv.getContext('2d');
+  const horizon=Math.round(h*0.5), amp=near?9:5, freq=near?0.013:0.018, baseY=horizon+(near?16:4), phase=near?0:140;
+  c.fillStyle=T.hills[near?1:0];
+  for(let x=0;x<w;x++){ const hh=Math.sin((x+phase)*freq)*amp+Math.sin((x+phase)*freq*2.3+1.7)*amp*0.4; const top=Math.round(baseY-hh); c.fillRect(x,top,1,h-top); }
+  return tex(cv); }
 const parallaxLayers=PARALLAX.map((p,i)=>{
   const ts=new PIXI.TilingSprite(parallaxPlaceholder(i),LOGICAL_W,LOGICAL_H);
   camera.addChildAt(ts,i); // i=0 (sky) fica no fundo; depois far, near; tileset entra por cima
@@ -936,6 +942,8 @@ function updateParallax(camX,camY){
     if(rm.parallax){ ts.tilePosition.set(0,0); continue; } // movimento reduzido: fundo vira papel de parede estático
     ts.tilePosition.x=-camX*p.factor; ts.tilePosition.y=-camY*p.fy;
   }
+  // L6: decor de TELA da v3 (estrelas atrás dos morros · nuvens/pássaros à frente deles · névoa na frente de tudo)
+  if(typeof starsG!=='undefined'){ starsG.position.set(camX,camY); skyDecoG.position.set(camX,camY); fogG.position.set(camX,camY); }
 }
 /* Tema de cenário: troca as 3 texturas de parallax por assets/cenarios/<tema>/c{4,3,2}.png.
    Sem tema definido → placeholders. Persiste em localStorage. */
@@ -948,16 +956,18 @@ function loadTileImages(theme){ return new Promise(res=>{
 }); }
 function setCenario(theme){ if(!CENARIOS[theme])theme='cidade';
   CENARIO=theme;
-  parallaxLayers.forEach((ts,i)=>{ const n=[4,3,2][i], img=new Image(); // PNG do tema tem precedência; sem ele → placeholder TEMÁTICO
+  const T=CENARIOS[theme];
+  if(T.v3){ // fiel à v3: céu-gradiente + 2 bandas de morros (fórmulas de lá); sem PNG (a arte por tema entra depois)
+    const texs=[themeSkyTexture(T),themeHillsTexture(T,false),themeHillsTexture(T,true)];
+    parallaxLayers.forEach((ts,i)=>{ parallaxTexNormal[i]=texs[i]; for(const k in _parallaxTexHC)delete _parallaxTexHC[k]; if(vizMode==='normal') ts.texture=texs[i]; });
+  } else parallaxLayers.forEach((ts,i)=>{ const n=[4,3,2][i], img=new Image(); // Cidade: PNG com fallback p/ placeholder
     img.onload=()=>{ if(CENARIO!==theme)return; const t=PIXI.Texture.from(img); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST;
       parallaxTexNormal[i]=t; for(const k in _parallaxTexHC)delete _parallaxTexHC[k]; if(vizMode==='normal') ts.texture=t; };
-    img.onerror=()=>{ if(CENARIO!==theme)return; const t=parallaxPlaceholder(i,theme);
+    img.onerror=()=>{ if(CENARIO!==theme)return; const t=parallaxPlaceholder(i);
       parallaxTexNormal[i]=t; for(const k in _parallaxTexHC)delete _parallaxTexHC[k]; if(vizMode==='normal') ts.texture=t; };
     img.src='assets/cenarios/'+theme+'/c'+n+'.png'; });
   loadTileImages(theme).then(tiles=>{ if(CENARIO!==theme)return;
-    let cvn=worldCanvas(tiles); const T=CENARIOS[theme];
-    if(!tiles && T.ramp) cvn=themeRecolor(cvn,T.ramp); // sem tileset do tema → recolor procedural
-    worldCanvasNormal=cvn; worldTexNormal=tex(cvn); _worldTexHC={};
+    worldCanvasNormal=worldCanvas(tiles); worldTexNormal=tex(worldCanvasNormal); _worldTexHC={}; // v3: blocos Clarity SEM recolor
     if(vizReady) reapplyVizAll(); else if(worldSprite) worldSprite.texture=worldTexNormal; });
   document.querySelectorAll('.pm-cen').forEach(x=>{ x.textContent='🏙 Cenário: '+CENARIOS[theme].nome; });
   if(_vidaReady) applyCenarioVida(); // liga/desliga carros/deco da cidade e semeia as peculiaridades do tema
@@ -1018,7 +1028,11 @@ let vizReady=false; // só após todas as dependências de applyViz existirem (e
 let worldCanvasNormal=worldCanvas();
 let worldTexNormal=tex(worldCanvasNormal);
 const worldSprite=new PIXI.Sprite(worldTexNormal); camera.addChild(worldSprite);
-try{ setCenario(localStorage.getItem('incl_cenario')||'cidade'); }catch(e){ setCenario('cidade'); }
+// L6: camadas de decor de TELA da v3 (contra-posicionadas no updateParallax, como o parallax)
+var starsG=new PIXI.Graphics();   camera.addChildAt(starsG, camera.getChildIndex(parallaxLayers[1]));  // estrelas ATRÁS dos morros
+var skyDecoG=new PIXI.Graphics(); camera.addChildAt(skyDecoG, camera.getChildIndex(worldSprite));      // nuvens/pássaros à frente dos morros, atrás dos tiles
+var fogG=new PIXI.Graphics();     camera.addChild(fogG);                                                // névoa: FRENTE (re-erguida com o carLayer)
+try{ setCenario((v=>v==='noite'?'espaco':v)(localStorage.getItem('incl_cenario')||'cidade')); }catch(e){ setCenario('cidade'); } // migra a chave antiga 'noite'
 const coinCanvasNormal=coinCanvas();
 const coinTex=tex(coinCanvasNormal);
 // caches de modos acessíveis (preguiçosos), invalidados ao trocar de cenário (worldCanvasNormal muda)
@@ -1513,37 +1527,95 @@ function stepSky(dt){ if(rm.decor){ if(birds.length){ birds.forEach(b=>{skyLayer
     birds.push({s,dir,f:0,t:0}); }
   for(let i=birds.length-1;i>=0;i--){ const b=birds[i]; b.s.x+=b.dir*0.7*dt; b.t+=dt; if(b.t>=8){ b.t=0; b.f=1-b.f; b.s.texture=BIRD_TEX[b.f]; }
     if(b.s.x<-16||b.s.x>WORLD_PX_W+16){ skyLayer.removeChild(b.s); b.s.destroy(); birds.splice(i,1); } } }
-/* ===================== L6: PECULIARIDADES VIVAS por tema (procedural) =====================
-   noite: vagalumes (pulso ~0,5Hz — WCAG 2.3.1 ok) · cemitério: névoa à deriva · campo/floresta:
-   borboletas + banda de GRAMA nos topos. themeFxG fica À FRENTE do player (como o decor-front da v3). */
-const themeStaticG=new PIXI.Graphics(); lifeLayer.addChildAt(themeStaticG,0); // grama/musgo (estático, atrás dos bichos)
-const themeFxG=new PIXI.Graphics(); // à frente: junto do carLayer (re-erguido em ensureSprites via carLayer? não — adiciona ao camera aqui)
-camera.addChild(themeFxG);
-let themeFx=[];
-function seedThemeFx(){ themeFx=[]; themeFxG.clear(); themeStaticG.clear();
-  const f=(CENARIOS[CENARIO]||{}).flora;
-  if(f==='noite'){ for(let i=0;i<24;i++)themeFx.push({k:'vaga',x:rnd()*WORLD_PX_W,y:WORLD_PX_H*0.45+rnd()*WORLD_PX_H*0.5,ph:rnd()*6.28}); }
-  if(f==='cemiterio'){ for(let i=0;i<5;i++)themeFx.push({k:'nevoa',x:rnd()*WORLD_PX_W,y:WORLD_PX_H-40-i*70,w:90+rnd()*120}); }
-  if(f==='campo'||f==='floresta'){ for(let i=0;i<10;i++){ const tx=2+randInt(0,WORLD_W-5), ty=lifeSurfaceAt(tx); if(ty>0)themeFx.push({k:'borbo',x:tx*TILE+8,y:ty*TILE-10,ph:rnd()*6.28}); } }
-  if(f==='campo'||f==='floresta'||f==='cemiterio'){ const col=f==='campo'?0x58b04a:f==='floresta'?0x2e7a3e:0x6a5a80; // grama/musgo no topo do piso
-    for(let tx=1;tx<WORLD_W-1;tx++){ const ty=lifeSurfaceAt(tx); if(ty>0)themeStaticG.beginFill(col,0.95).drawRect(tx*TILE,ty*TILE,TILE,2).endFill(); } }
+/* ===================== L6 (fiel à v3): decoração viva por tema — fórmulas COPIADAS da v3.1.100 =====================
+   Tela: estrelas (starsG, atrás dos morros) · nuvens+pássaros (skyDecoG, à frente dos morros) · névoa (fogG, frente).
+   Mundo: grama+flores c/ vento (grassG, atrás do player) · minhocas/vagalumes/borboletas (themeFxG, FRENTE, como na v3). */
+const grassG=new PIXI.Graphics(); lifeLayer.addChildAt(grassG,0);
+const themeFxG=new PIXI.Graphics(); camera.addChild(themeFxG);
+function drawV3Cloud(g,x,y,col){ // drawCloud v3: laje + 3 puffs + sombra
+  g.beginFill(hexN(col[0])).drawRect(x,y+6,24,6).drawRect(x+2,y+4,8,4).drawRect(x+3,y+2,6,2)
+   .drawRect(x+8,y+2,12,6).drawRect(x+10,y,8,2).drawRect(x+16,y+4,8,4).endFill();
+  g.beginFill(hexN(col[1])).drawRect(x+1,y+11,22,1).endFill(); }
+function drawV3Grass(g,tx,ty,fl,t){ const x=tx*TILE,y=ty*TILE; // drawSurfaceGrass v3 (tufos ao vento + flor ocasional)
+  const wind=rm.decor?0:Math.sin(t*0.045+tx*0.6);
+  g.beginFill(hexN(fl.base)).drawRect(x,y,TILE,2).endFill();
+  g.beginFill(hexN(fl.top)).drawRect(x,y,TILE,1).endFill();
+  const seed=(tx*1103515245+12345)>>>0;
+  for(let i=0;i<6;i++){ const bx=(seed>>(i*4))&15, bh=2+((seed>>(i*4+4))&1);
+    g.beginFill(hexN((i&1)?fl.bDk:fl.bLt));
+    for(let h=0;h<bh;h++){ const dx=Math.round(wind*(h/Math.max(1,bh-1))*1.5); g.drawRect(x+bx+dx,y-1-h,1,1); }
+    g.endFill(); }
+  if((seed>>9)%7===0){ const fx=x+4+(seed%7), sh=4, cy=y-sh-2;
+    g.beginFill(hexN(fl.bDk)); let topDx=0;
+    for(let h=0;h<sh;h++){ topDx=Math.round(wind*(h/sh)*2.4); g.drawRect(fx+topDx,y-1-h,1,1); } g.endFill();
+    const bxC=fx+topDx;
+    g.beginFill(hexN(fl.petals[(seed>>>17)%fl.petals.length])).drawRect(bxC-1,cy+1,3,1).drawRect(bxC,cy,1,3).endFill(); // >>> (a v3 usava >> e o canvas2d engolia o índice negativo; o PIXI lança)
+    g.beginFill(hexN(fl.center)).drawRect(bxC,cy+1,1,1).endFill(); } }
+function stepV3Decor(){ const T=CENARIOS[CENARIO]||{};
+  starsG.clear(); skyDecoG.clear(); fogG.clear(); grassG.clear(); themeFxG.clear();
+  if(!T.v3 || DIRECT_CFG[vizMode]) return; // Cidade tem o próprio céu; alto contraste dispensa decor (viewHC da v3)
+  const t=fxClock, d=T.decor, vw=LOGICAL_W, vh=LOGICAL_H, reduzido=rm.decor;
+  // --- TELA: estrelas (sparkles v3) — cintilam a ~0,3Hz
+  if(!reduzido && d.includes('sparkles')){ const top=Math.max(1,Math.floor(vh*0.7));
+    for(let i=0;i<22;i++){ const a=0.3+0.35*Math.sin(t*0.03+i*1.3); if(a<=0.05)continue;
+      starsG.beginFill(0xffffff,a).drawRect((i*73)%vw,(i*49)%top,1,1).endFill(); } }
+  // --- TELA: nuvens (3, derivas 0.08/0.05/0.11) e pássaros (3, em "v" batendo asas) — v3 exato
+  if(d.includes('nuvens')){ const col=T.cloud, defs=[{y:6,sp:0.08,off:0},{y:20,sp:0.05,off:130},{y:12,sp:0.11,off:250}];
+    for(const c0 of defs){ const x=Math.round((((reduzido?0:t)*c0.sp+c0.off)%(vw+64))-44); drawV3Cloud(skyDecoG,x,c0.y,col); } }
+  if(!reduzido && d.includes('passaros')){ skyDecoG.beginFill(0x282837,0.7);
+    for(let i=0;i<3;i++){ const bx=((t*(0.25+i*0.07)+i*90)%(vw+20))-10, by=14+i*9+Math.sin(t*0.04+i)*2, f=Math.sin(t*0.2+i)>0?1:2;
+      const X=Math.round(bx),Y=Math.round(by); skyDecoG.drawRect(X-2,Y+f,2,1).drawRect(X+1,Y+f,2,1).drawRect(X,Y,1,1); }
+    skyDecoG.endFill(); }
+  // --- TELA: névoa do amanhecer (3 camadas onduladas que derivam) — v3 exato, na FRENTE
+  if(d.includes('nevoa')){ const base=Math.floor(vh*0.72);
+    const Ls=[{y:base,drift:0.30,amp:3,op:0.06,freq:0.080},{y:base+6,drift:0.55,amp:4,op:0.08,freq:0.060},{y:base+13,drift:0.85,amp:5,op:0.10,freq:0.050}];
+    for(const L of Ls){ fogG.beginFill(0xdee2ec,L.op);
+      for(let x=0;x<vw;x+=2){ const top=L.y+Math.round(L.amp*Math.sin((x+(reduzido?0:t)*L.drift)*L.freq)); fogG.drawRect(x,top,2,vh-top); }
+      fogG.endFill(); } }
+  // --- MUNDO (culled por jogador, com dedupe): grama em TODA superfície + minhocas/vagalumes/borboletas
+  const fl=THEME_FLORA[CENARIO], seen=new Set();
+  for(const pl of players){ if(pl.quit)continue;
+    const camX=Math.max(0,Math.min(pl.x-vw/2,WORLD_PX_W-vw)), camY=Math.max(0,Math.min((pl.y-BOX.h/2)-vh/2,WORLD_PX_H-vh));
+    const tx0=Math.max(0,Math.floor(camX/TILE)-1), tx1=Math.min(WORLD_W-1,Math.floor((camX+vw)/TILE)+1);
+    const ty0=Math.max(0,Math.floor(camY/TILE)-1), ty1=Math.min(WORLD_H-1,Math.floor((camY+vh)/TILE)+1);
+    for(let tx=tx0;tx<=tx1;tx++){
+      for(let ty=ty0;ty<=ty1;ty++){
+        if(!(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3))continue;
+        const k=tx+','+ty; if(seen.has('g'+k))continue; seen.add('g'+k);
+        if(fl)drawV3Grass(grassG,tx,ty,fl,t);
+        if(d.includes('minhocas')&&(((tx%4)+4)%4)===0&&!seen.has('w'+tx)){ seen.add('w'+tx); // drawWorms v3: 1/4 colunas, 5 segmentos ondulando
+          themeFxG.beginFill(0xc47b8a); const bx=tx*TILE+5, by=ty*TILE+4;
+          for(let s2=0;s2<5;s2++)themeFxG.drawRect(bx+s2,by+Math.round(reduzido?0:Math.sin(t*0.15+tx*0.7+s2*0.8)),1,1);
+          themeFxG.endFill(); }
+        if(!reduzido&&d.includes('borboletas')&&(tx*374761393>>>0)%5===0&&!seen.has('b'+tx)){ seen.add('b'+tx); // drawButterflies v3: 1/5 colunas
+          const cols=[0xff8c42,0xffd166,0xef476f,0xfca5d4,0xf4a261,0xe9c46a], h=(tx*374761393)>>>0;
+          const groundY=ty*TILE, wx=tx*TILE+8+14*Math.sin(t*0.015+tx)+5*Math.cos(t*0.04+tx);
+          const rise=8+26*(0.5+0.5*Math.sin(t*0.012+tx*1.3)), wy=groundY-rise+4*Math.sin(t*0.05+tx);
+          const flap=Math.abs(Math.sin(t*0.4+tx*0.7)), w=1+Math.round(flap*2), X=Math.round(wx),Y=Math.round(wy);
+          themeFxG.beginFill(cols[h%cols.length]).drawRect(X-w,Y,w,2).drawRect(X+2,Y,w,2).endFill();
+          themeFxG.beginFill(0x3a2a1a).drawRect(X,Y,2,2).endFill(); }
+        break; // uma superfície por coluna (como a v3: break após achar o topo)
+      } }
+    if(!reduzido&&d.includes('vagalumes')){ const cell=64; // drawFireflies v3: grade hash fixa no mundo, só no ar
+      const cx0=Math.floor(camX/cell)-1,cx1=Math.floor((camX+vw)/cell)+1,cy0=Math.floor(camY/cell)-1,cy1=Math.floor((camY+vh)/cell)+1;
+      for(let cyi=cy0;cyi<=cy1;cyi++)for(let cxi=cx0;cxi<=cx1;cxi++){
+        const h=((cxi*73856093)^(cyi*19349663))>>>0; if(h%3!==0)continue;
+        const k='f'+cxi+','+cyi; if(seen.has(k))continue; seen.add(k);
+        const ph=((h>>4)%628)/100;
+        const wx=cxi*cell+8+(h%(cell-16))+8*Math.sin(t*0.013+ph), wy=cyi*cell+8+((h>>9)%(cell-16))+6*Math.cos(t*0.017+ph*1.3);
+        const a=0.45+0.45*Math.sin(t*0.05+ph); if(a<=0.06)continue;
+        if(solidAt(Math.floor(wx/TILE),Math.floor(wy/TILE)))continue;
+        themeFxG.beginFill(0xfff096,a*0.35).drawRect(wx-1,wy-1,3,3).endFill();
+        themeFxG.beginFill(0xffffbe,a).drawRect(wx,wy,1,1).endFill(); } }
+  }
 }
-function stepThemeFx(dt){ if(rm.decor||!themeFx.length){ themeFxG.clear(); return; }
-  const t=fxClock, g=themeFxG; g.clear();
-  for(const p of themeFx){
-    if(p.k==='vaga'){ const x=p.x+Math.sin(t*0.01+p.ph)*8, y=p.y+Math.cos(t*0.013+p.ph)*5, glow=0.5+0.3*Math.sin(t*0.05+p.ph);
-      g.beginFill(0xd8ff9a,glow*0.85).drawRect(x,y,2,2).endFill(); g.beginFill(0xd8ff9a,glow*0.2).drawRect(x-2,y-2,6,6).endFill(); }
-    else if(p.k==='nevoa'){ p.x+=0.05*dt; if(p.x>WORLD_PX_W+80)p.x=-p.w; g.beginFill(0xcfd8ea,0.13).drawRect(p.x,p.y,p.w,18).endFill(); }
-    else if(p.k==='borbo'){ const x=p.x+Math.sin(t*0.02+p.ph)*10, y=p.y+Math.sin(t*0.045+p.ph)*6, wing=Math.sin(t*0.3+p.ph)>0;
-      g.beginFill(0xffb0d0,0.95).drawRect(x,y,2,2).endFill(); if(wing)g.beginFill(0xff7ab0,0.9).drawRect(x-2,y-1,2,2).drawRect(x+2,y-1,2,2).endFill(); } } }
 function applyCenarioVida(){ const city=CENARIO==='cidade';
-  carLayer.visible=city; cityDecoG.visible=city; // carros/semáforo/placas + deco urbana SÓ na Cidade
-  if(!city&&cars.length){ cars.forEach(c=>{ carLayer.removeChild(c.s); c.s.destroy(); }); cars=[]; }
-  seedThemeFx(); }
+  carLayer.visible=city; cityDecoG.visible=city; skyLayer.visible=city; // trânsito/deco/céu-da-cidade SÓ na Cidade
+  if(!city&&cars.length){ cars.forEach(c=>{ carLayer.removeChild(c.s); c.s.destroy(); }); cars=[]; } }
 _vidaReady=true; applyCenarioVida(); // estado inicial (CENARIO já veio do setCenario do boot)
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
-camera.addChild(carLayer); camera.addChild(themeFxG); // FRENTE do player TAMBÉM no boot solo (bug: só o ensureSprites re-erguia — report do José); o fxG nasce logo abaixo, já por cima
+camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); // FRENTE do player TAMBÉM no boot solo (bug: só o ensureSprites re-erguia); névoa por cima do decor-front (ordem da v3); o fxG nasce logo abaixo, já por cima
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
    Cada efeito respeita o Movimento Reduzido do jogador: partículas→rm.particles, cintilar→rm.items,
    tremor de tela→rm.parallax (movimento de câmera), squash→rmWalk (personagem). Hit-stop é PAUSA, não movimento. */
@@ -1595,7 +1667,7 @@ applyCrt();
 let allPSprites=[playerSprite];
 function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
-  camera.addChild(fxG); camera.addChild(carLayer); camera.addChild(themeFxG); // re-adicionar = mover ao topo (partículas, CARROS e decor-front à frente dos players)
+  camera.addChild(fxG); camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); // re-adicionar = mover ao topo (partículas, CARROS, decor-front e névoa à frente dos players)
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
@@ -1969,7 +2041,7 @@ function update(dt){
   stepLife(dt); // L5: vida ambiente (pombos/gatos/cães/adultos) — cosmética, atrás do player
   stepTraffic(dt); // L5: carros (frente, na rua da base) + semáforo
   stepSky(dt); // L5: nuvens + pássaros no céu
-  stepThemeFx(dt); // L6: vagalumes/névoa/borboletas do tema
+  stepV3Decor(); // L6: decoração viva da v3 (estrelas/nuvens/pássaros/névoa/grama/minhocas/vagalumes/borboletas)
   if(ended)return;
   players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
   for(const pl of players) stepPlayer(pl,dt);
@@ -3019,7 +3091,8 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
   spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,STREET_Y,
-  get clouds(){return clouds;},get birds(){return birds;},stepSky,CENARIOS,get themeFx(){return themeFx;},stepThemeFx};
+  get clouds(){return clouds;},get birds(){return birds;},stepSky,CENARIOS,stepV3Decor,
+  get decorCounts(){ const n=g=>g.geometry&&g.geometry.graphicsData?g.geometry.graphicsData.length:0; return {stars:n(starsG),skyDeco:n(skyDecoG),fog:n(fogG),grass:n(grassG),front:n(themeFxG)}; }};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
   const e2=document.querySelector('.title-by span'); if(e2)e2.textContent=v; }
