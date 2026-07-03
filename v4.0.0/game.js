@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.152.1';
+const INCL_VERSION='4.153.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1320,12 +1320,13 @@ function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!whee
       rampLayer.lineStyle(2,STRIPE); rampLayer.moveTo(X,yL-1); rampLayer.lineTo(X+TILE,yD-1); rampLayer.lineStyle(0);
     }
   }
-  // cadeirante: LAVA (9) vira CHÃO seguro (bloco de concreto). O TRAMPOLIM (5) NÃO é coberto — ele É a base do
-  // elevador (José): a rampa leva o jogador do chão até o trampolim, e o trampolim sobe/desce (cabine de vidro por cima).
-  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ if(tileAt(x,y)!==9)continue; const X=x*TILE,Y=y*TILE;
+  // cadeirante: LAVA (9) vira CHÃO seguro (bloco de concreto, com borda). O TRAMPOLIM (5) vira CHÃO NORMAL (José):
+  // piso plano pisável, SEM contorno de bloco (era o contorno que o fazia parecer parede/"bloco acima"). Continua
+  // sólido e é a base do elevador — a rampa leva o jogador do chão até ele e a cabine de vidro sobe/desce por cima.
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=tileAt(x,y); if(t!==9&&t!==5)continue; const X=x*TILE,Y=y*TILE;
     rampLayer.beginFill(0x6f7481); rampLayer.drawRect(X,Y,TILE,TILE); rampLayer.endFill();
-    rampLayer.beginFill(0x8a8f9c); rampLayer.drawRect(X,Y,TILE,2); rampLayer.endFill();               // topo claro
-    rampLayer.lineStyle(1,0x4a4e59); rampLayer.drawRect(X+0.5,Y+0.5,TILE-1,TILE-1); rampLayer.lineStyle(0); // borda
+    rampLayer.beginFill(0x8a8f9c); rampLayer.drawRect(X,Y,TILE,3); rampLayer.endFill();               // topo claro = superfície pisável (chão)
+    if(t===9){ rampLayer.lineStyle(1,0x4a4e59); rampLayer.drawRect(X+0.5,Y+0.5,TILE-1,TILE-1); rampLayer.lineStyle(0); } // só a LAVA tem borda de bloco; trampolim = chão liso
   }
   // cadeirante: PLATAFORMAS só-cadeirante (wcSolid) desenhadas como concreto (ex.: ponte que liga o elevador do corredor à escada)
   for(const k of wcSolid){ const [x,y]=k.split(',').map(Number); const X=x*TILE,Y=y*TILE;
@@ -1795,7 +1796,7 @@ let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[], vpPause=[], pauseAc
 // Menu de pausa POR TELA (Etapa 2): um por jogador, dentro da .player-screen dele.
 const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'tipo',lbl:'🔤 Tipografia'},{act:'addplayer',lbl:'👥 Adicionar jogador'},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
 // Barra de atalhos de a11y no topo da pausa (por tela). Sons (cego/TTS) só com saída própria; webcam/voz em construção.
-const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo (protan/deutan/tritan)'},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
+const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'libras',e:'🤟',n:'Modo pessoa surda (Libras)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo (protan/deutan/tritan)'},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
 let calmMode=0; // 0=normal · 1=calmo (reduz) · 2=silencioso (desliga) — nunca mexe em TTS/modo cego
 function buildScreenPause(i){ const sp=document.createElement('div'); sp.className='screen-pause'; sp.hidden=true; sp.dataset.player=String(i);
   const icons=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+(ic.soon?' (em construção)':'')+'">'+ic.e+'</button>').join('');
@@ -1819,6 +1820,7 @@ function iconAct(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k);
   if((k==='blind'||k==='tts')&&!hasPrivateOutput(i)){ srAlert('Só dá para mexer em som/TTS/modo cego com uma saída de áudio SÓ sua (não compartilhada). Escolha um dispositivo próprio em A12e auditiva.'); return; }
   if(k==='blind'){ setModoCego(!modoCego); srSay('Modo cego '+(modoCego?'ligado.':'desligado.')); }
   else if(k==='tts'){ audioCat.tts.on=!audioCat.tts.on; if(typeof setCatGain==='function')setCatGain('tts'); if(typeof reflectTTS==='function')reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); }
+  else if(k==='libras'){ toggleLibras(); srSay('Modo pessoa surda: Libras '+(vlibrasOpen()?'ligado.':'desligado.')); } // abre/fecha o intérprete VLibras
   else if(k==='tea'){ calmMode=(calmMode+1)%3; applyCalm(); srSay('Modo TEA: '+['off','calmo','silencioso'][calmMode]+'.'); }
   else if(k==='altmove'){ if(typeof setToggleMove==='function')setToggleMove(i,!players[i].toggleMove); }
   else if(k==='contrast'){ const cur=(players[i]||{}).viz; let idx=HC_SEQ.indexOf(cur); idx=idx<0?0:idx; const nx=HC_SEQ[(idx+1)%HC_SEQ.length]; setPlayerViz(i,nx); srSay('Alto contraste: '+HC_LABEL[nx]+'.'); }
@@ -1830,6 +1832,7 @@ function iconLabel(k,i){ const ic=PAUSE_ICONS.find(x=>x.k===k); if(!ic)return ''
   const p=players[i]||{};
   if(k==='blind')   return 'Modo cego (navegação sonora): '+(modoCego?'on':'off');
   if(k==='tts')     return 'Narração por voz (TTS): '+((audioCat.tts&&audioCat.tts.on)?'on':'off');
+  if(k==='libras')  return 'Modo pessoa surda (Libras): '+(vlibrasOpen()?'on':'off');
   if(k==='tea')     return 'Modo TEA: '+['off','calmo','silencioso'][calmMode];
   if(k==='altmove') return 'Teclas de alternância: '+(p.toggleMove?'on':'off');
   if(k==='contrast'){ return 'Alto contraste: '+(HC_LABEL[p.viz]||'off'); }
@@ -1839,6 +1842,7 @@ function reflectIconBtn(b,i){ const k=b.dataset.pi; let on=false,dis=false; // a
   b.classList.remove('pi-calm','pi-cvd-protan','pi-cvd-deuter','pi-cvd-tritan');
   if(k==='blind'){ on=modoCego; dis=!hasPrivateOutput(i); }
   else if(k==='tts'){ on=!!(audioCat.tts&&audioCat.tts.on); dis=!hasPrivateOutput(i); }
+  else if(k==='libras'){ on=vlibrasOpen(); }
   else if(k==='tea'){ on=(calmMode===2); if(calmMode===1)b.classList.add('pi-calm'); } // TEA: 1=redução (branco, .pi-calm) · 2=desligamento completo (amarelo, .pi-on) · 0=off (base)
   else if(k==='altmove'){ on=!!(players[i]&&players[i].toggleMove); }
   else if(k==='contrast'){ on=/^hc-direto/.test((players[i]||{}).viz||''); }
@@ -3403,6 +3407,11 @@ function hideTips(){} // dicas de início REMOVIDAS (José 2026-07-04); stub man
 let librasOpen=false;
 const vwBtn=()=>document.querySelector('[vw-access-button]');
 function vlibrasOpen(){ const b=vwBtn(); if(!b)return false; const r=b.getBoundingClientRect(); return r.width===0||r.height===0||b.offsetParent===null; }
+// Liga/desliga o intérprete de Libras (modo pessoa surda). Abre clicando o botão de acesso do VLibras; fecha pelo
+// evento oficial do widget (pesquisa 2026-07-04: widget é DOM/Unity na própria origem, não iframe).
+function toggleLibras(){ const b=vwBtn(); if(!b){ srAlert('Intérprete de Libras ainda carregando — tente de novo em instantes.'); return; }
+  if(vlibrasOpen()){ try{ window.dispatchEvent(new CustomEvent('vp-widget-close')); }catch(e){} }
+  else { try{ b.click(); }catch(e){} } }
 const LIBRAS_RESERVE=380; // px reservados p/ o painel do VLibras quando aberto
 function layout(){
   const wrap=$('#stage-wrap'); if(!wrap)return;
