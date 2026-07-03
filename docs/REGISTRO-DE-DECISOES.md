@@ -101,7 +101,9 @@
 | Decisão | Fundamento | Fonte | Status |
 |---|---|---|---|
 | Modelo do cenário Cidade (José 2026-07-03): interior de prédio; parte mais baixa = FACHADA; a RUA (carros 3×, semáforo 2×, placas de PARE) fica NA FRENTE dela, na base do mundo; árvores/calçada/postes/letreiros só na banda baixa; janelas removidas; céu com nuvens à deriva + pássaros; pombos com peso 3× | Correção de leitura espacial do José | commit `0019350` | ✅ |
-| L6 portado PROCEDURAL: CENARIOS {cidade,campo,noite,cemiterio,floresta} — PNG do tema tem precedência; sem ele, parallax temático + recolor do mundo por luminância (água/lava preservadas); peculiaridades vivas por tema (vagalumes 0,5Hz / névoa / borboletas+grama); trânsito e vida urbana só na Cidade | v3 THEMES + plano L6; WCAG 2.3.1 | commit `cf105eb` | ✅ · arte por tema = José |
+| ~~L6 procedural inventado~~ **REJEITADO pelo José** ("misturou tudo") → L6 REFEITO como CÓPIA das fórmulas da v3.1.100: THEMES exatos (sky/cloud/hills/decor), blocos Clarity SEM recolor, chuva SÓ na Cidade, decor de tela contra-posicionado (estrelas/nuvens/pássaros/névoa) + decor de mundo culled (grama THEME_FLORA/minhocas/vagalumes/borboletas). Lição: portar = copiar a fonte, não reinterpretar | Ordem explícita do José 2026-07-03 | commits `cf105eb`→`87d8ef6` | ✅ |
+| Pegadinha v3→PIXI: `(seed>>17)%len` fica negativo (shift COM sinal) — o canvas2d engolia o fillStyle inválido; o PIXI lança "Unable to convert color NaN". Em ports, trocar `>>` por `>>>` em índices de array | Diagnóstico por monkeypatch no beginFill | game.js drawV3Grass | ✅ |
+| R-cidade 2: carros 3× NATIVOS (78×36 detalhados) SEMPRE à frente (boot solo corrigido); HC escurece a frente (setFrontDim 0x4a5058/0,55 — frente é ambiente); adultos = silhuetas 16×32 (3M+3F) nascendo nas colunas abertas da fachada com fade-in | Correções do José 2026-07-03 | commit `f1ee6ed` | ✅ |
 
 ## 6. Arquitetura e plataforma
 
