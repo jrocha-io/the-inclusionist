@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-<!-- The Inclusionist v4.0.0 — esqueleto PixiJS (validação-primeiro). Código: GPL-3.0. -->
+<!-- The Inclusionist v4 — PixiJS (validação-primeiro). Código: GPL-3.0. Versão completa: INCL_VERSION no game.js (JS preenche o DOM). -->
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1020" />
-  <meta name="description" content="The Inclusionist — jogo educativo acessível (esqueleto PixiJS v4.0.0)." />
-  <title>The Inclusionist · v4.0.0 (PixiJS)</title>
+  <meta name="description" content="The Inclusionist — jogo educativo acessível (PixiJS, v4)." />
+  <title>The Inclusionist · v4 (PixiJS)</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="preload" href="vendor/fonts/atkinson-400.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="vendor/fonts.css" />
@@ -37,7 +37,7 @@
   <!-- Barra de topo: só o título por padrão (libera a vertical p/ 4 telas em tela cheia no Chromebook).
        As opções da direita (modo · nº telas · debug · FPS) só aparecem com ?debug=true. -->
   <header class="topbar">
-    <h1 class="title">The Inclusionist <span class="ver">· v4.0.0</span></h1>
+    <h1 class="title">The Inclusionist <span class="ver">· v4</span></h1>
     <div class="topbar__right" id="topbar-tools" hidden>
       <button id="opt-mode" class="mode-btn" type="button" aria-label="Trocar o modo de jogo (Lúdico, Soma-Sub, Sílabas)">🪙 Lúdico</button>
       <button id="opt-telas" class="mode-btn" type="button" aria-label="Trocar o número de telas (jogadores)">👤 1 tela</button>
@@ -161,7 +161,7 @@
   <div id="title-overlay" class="overlay">
     <div class="overlay__card title-card" role="dialog" aria-modal="true" aria-labelledby="title-h">
       <h2 id="title-h" class="title-big">The Inclusionist</h2>
-      <p class="title-by">por Prof. José Rocha · <span>v4.0.0</span></p>
+      <p class="title-by">por Prof. José Rocha · <span>v4</span></p>
       <p class="opt-hint">Jogo educativo acessível. Colete 10 moedas. Mova com <kbd>A</kbd>/<kbd>D</kbd> ou setas; pule com <kbd>L</kbd> ou Espaço. Pause com <kbd>Esc</kbd>.</p>
       <button id="btn-play" class="btn btn--primary" type="button">▶ Jogar</button>
     </div>
