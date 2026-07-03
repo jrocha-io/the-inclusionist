@@ -4,7 +4,11 @@ Pedido do José em 2026-07-04. Grande; executar em ETAPAS. Base psicogenética (
 
 ## Decisões travadas (José)
 - **Fonema** (jogo Grafema e fonema): **eSpeak em modo fonema** (emite /b/, /a/… reais; eSpeak já está no projeto).
-- **VLibras** (modo surdo: intérprete sobrepõe, gesticula, sai pela direita): **pesquisar viabilidade primeiro** (agente disparado). O widget gov.br é iframe fechado; ver veredito antes de codar.
+- **VLibras** (modo surdo): **VIÁVEL** (pesquisa feita, código-fonte LGPLv3 dos repos `spbgovbr-vlibras/vlibras-web-browsers` e `vlibras-player-webjs`). NÃO é iframe — é Unity/canvas na PRÓPRIA origem, controle total por JS/CSS:
+  - Gesticular sob demanda: `window.plugin.translate('gato')` (mesmo método da caixa "digitar" do widget). `window.plugin` só existe após abrir o painel 1×: `document.querySelector('[vw-access-button]').click()`.
+  - Saber quando o sinal acabou: `window.plugin.player.on('gloss:end', cb)`. Outros: `stop/pause/repeat/setSpeed/changeAvatar`.
+  - Entrada/saída animada: aplicar CSS no `document.querySelector('[vw]')` — ex.: `transform:translateX(120%);opacity:0` p/ sair pela direita. Fechar oficial: `dispatchEvent(new CustomEvent('vp-widget-close'))`; reposicionar: `'vp-widget-wrapper-set-side'` detail `'R'`.
+  - **RESSALVA:** a tradução é REMOTA (`traducao2-dth`/`dicionario2-dth.vlibras.gov.br`) → NÃO funciona offline. Conflita com o pilar offline; no offline, cair no TTS/legenda. Self-host dos repos é possível mas a tradução PT→glosa é o ponto difícil de internalizar.
 - **Fala sempre-ativa**: SIM. `gameSay()` fala as falas pedagógicas essenciais mesmo com o toggle 'Narração (TTS)' desligado, via voz nativa do navegador (fora do mixer). ✅ feito.
 
 ## Nova estrutura (6 jogos, nesta ordem)

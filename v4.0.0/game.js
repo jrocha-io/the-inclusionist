@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.152.0';
+const INCL_VERSION='4.152.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -410,6 +410,18 @@ function malform(w){ const vow='aeiou'; // distrator MALFORMADO plausível: troc
     else if(w.length>=3){ const a=w.split(''), i=randInt(0,w.length-2); const x=a[i]; a[i]=a[i+1]; a[i+1]=x; out=a.join(''); }
     if(out!==w && !SILABAS_WORDS.some(x=>x.w===out)) return out; } // nunca devolve palavra real
   return w.split('').reverse().join(''); }
+// Distratores de FERREIRO & TEBEROSKY (jogo "Descobrindo palavras", pré-silábico): a correta é a palavra normal;
+// as erradas atacam as hipóteses pré-silábicas comuns: (a) símbolo/emoji → refuta hipótese ICÔNICA; (b) 4-8 letras
+// repetidas → falta de VARIEDADE interna; (c) emoji NO MEIO; (d) 1 letra/sílaba (ou menos) OU 4+/sílaba → refuta TAMANHO=objeto.
+const _FER_SYM=['★','◆','#','@','%','&','✦','◇','■','●'];
+const _FER_EMO=['🐱','🍎','🌟','🚗','🐶','🎈','🐸','🍌','⭐','🎲','🌙','🔥'];
+function ferreiroDistractors(item){ const w=item.w, n=item.s.length, L=w.length, pick=a=>a[randInt(0,a.length-1)], mid=Math.max(1,Math.floor(L/2));
+  const a=()=> rnd()<0.5 ? pick(_FER_SYM)+w : w.slice(0,mid)+pick(_FER_SYM)+w.slice(mid);        // (a) símbolo
+  const b=()=> pick(w).repeat(randInt(4,8));                                                      // (b) letra repetida 4-8×
+  const c=()=> w.slice(0,mid)+pick(_FER_EMO)+w.slice(mid);                                        // (c) emoji no meio
+  const d=()=> rnd()<0.5 ? w.slice(0,Math.max(1,n-1))                                             // (d-) ≤1 letra/sílaba
+                         : w.split('').map(ch=>ch+ch+ch+ch).join('').slice(0,Math.max(n*4,8));     // (d+) 4+ letras/sílaba
+  return [a(),b(),c(),d()]; }
 let letterCase='lower'; // 'lower' | 'upper' (E7: selecionável)
 const disp=(s)=> letterCase==='upper'?String(s).toUpperCase():String(s).toLowerCase();
 // E8: Braille (modo pessoa cega). Padrão de pontos da cela por letra (Grau 1, PT).
@@ -2301,7 +2313,9 @@ function openSilabas(pl,coinIndex,letter){ // L3: despacha pelo NÍVEL (1..5); m
 // Nível 1 — pré-silábico: qual das 3 escritas é a certa? O jogo SOLETRA a opção sob o cursor.
 function openPre(pl,coinIndex,letter){
   const item=pickWord(letter);
-  const opts=[item.w]; while(opts.length<3){ const m=malform(item.w); if(!opts.includes(m))opts.push(m); }
+  const opts=[item.w]; // correta = palavra normal; 3 distratores de FERREIRO (símbolo/repetidas/emoji-no-meio/tamanho)
+  for(const d of shuffle(ferreiroDistractors(item))){ if(opts.length>=4)break; if(!opts.includes(d))opts.push(d); }
+  let guard=0; while(opts.length<4&&guard++<20){ const d=ferreiroDistractors(item)[randInt(0,3)]; if(!opts.includes(d))opts.push(d); }
   pl.quiz={kind:'pre',coinIndex,word:item.w,emoji:item.e,choices:shuffle(opts),sel:0,tries:0,revealed:false};
   pl.vx=0;pl.vy=0;
   srSay(`${quizWho(pl)}${item.w}. Qual é a escrita certa? O jogo soletra cada opção.`);
