@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.155.1';
+const INCL_VERSION='4.156.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2351,6 +2351,7 @@ function openAlf(pl,coinIndex,letter){
   renderQuiz(pl); quizSpeakSel(pl);
 }
 function quizSpeakSel(pl){ const q=pl.quiz; if(!q)return; // fala o item sob o cursor CONFORME O NÍVEL
+  if(q.sel<0){ srSay(disp(q.word)); gameSay(q.word); return; } // cursor na PALAVRA do topo → fala a palavra
   if(q.kind==='pre'){ srSay(soletra(q.choices[q.sel])); return; }
   const N=q.options?q.options.length:0;
   if(q.sel>=N){ srSay(q.sel===N?'apagar':'ok'); return; }
@@ -2390,12 +2391,12 @@ function silabaHtml(q){
   const opts=q.options.map((sy,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}" data-i="${i}" type="button">${disp(sy)}</button>`).join('');
   const acts=`<button class="quiz-choice${q.sel===N?' sel':''}" data-i="${N}" type="button">Apagar</button><button class="quiz-choice${q.sel===N+1?' sel':''}" data-i="${N+1}" type="button">OK</button>`;
   const hint=q.revealed?`A palavra é "${disp(q.word)}". Pule (L) para seguir.`:'Monte a palavra. Pule (L) coloca/confirma.';
-  return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Monte a palavra"><div class="quiz-emoji" aria-label="${q.word}">${q.emoji}</div><div class="quiz-letter">letra: ${disp(q.letter)}</div>${boxes}<div class="quiz-grid">${opts}</div><div class="silaba-actions">${acts}</div><div class="quiz-hint">${hint}</div></div>`;
+  return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Monte a palavra"><button class="quiz-word${q.sel===-1?' sel':''}" data-i="-1" type="button" aria-label="Ouvir a palavra ${q.word} de novo">${q.emoji}</button><div class="quiz-letter">letra: ${disp(q.letter)}</div>${boxes}<div class="quiz-grid">${opts}</div><div class="silaba-actions">${acts}</div><div class="quiz-hint">${hint}</div></div>`;
 }
 function preHtml(q){ // nível 1: 3 escritas, só UMA certa
   const opts=q.choices.map((w,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&w===q.word?' reveal':''}" data-i="${i}" type="button">${disp(w)}</button>`).join('');
   const hint=q.revealed?`A certa é "${disp(q.word)}". Pule (L) para seguir.`:(q.tries>0?'Quase! Tente de novo.':'Qual é a escrita certa? Pule (L) confirma.');
-  return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Escolha a palavra certa"><div class="quiz-emoji" aria-label="${q.word}">${q.emoji}</div><div class="quiz-letter">nível 1 · ${QL_NAME[1]}</div><div class="quiz-grid">${opts}</div><div class="quiz-hint">${hint}</div></div>`;
+  return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Escolha a palavra certa"><button class="quiz-word${q.sel===-1?' sel':''}" data-i="-1" type="button" aria-label="Ouvir a palavra ${q.word} de novo">${q.emoji}</button><div class="quiz-letter">nível 1 · ${QL_NAME[1]}</div><div class="quiz-grid">${opts}</div><div class="quiz-hint">${hint}</div></div>`;
 }
 function alfHtml(q){ // níveis 4/5: caixas do tamanho da palavra + grade de letras
   const N=q.options.length;
@@ -2422,7 +2423,7 @@ function renderQuiz(pl){
   ov.innerHTML = q.kind==='braille' ? brailleHtml(q) : q.kind==='silabas' ? silabaHtml(q) : q.kind==='pre' ? preHtml(q) : q.kind==='alf' ? alfHtml(q) : somasubHtml(q);
   const box=ov.querySelector('.quiz-box'); if(box){ const n=Math.min(3,pl.alfWins||0); // 3 luzes de progresso (canto sup. dir.): acesa = amarela com brilho
     box.insertAdjacentHTML('afterbegin','<div class="quiz-wins" aria-label="'+n+' de 3 acertos para a moeda">'+[0,1,2].map(i=>'<span class="qw-dot'+(i<n?' on':'')+'"></span>').join('')+'</div>'); }
-  ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(pl.quiz){pl.quiz.sel=+b.dataset.i; quizConfirm(pl);} }));
+  ov.querySelectorAll('.quiz-choice,.quiz-word').forEach(b=>b.addEventListener('click',()=>{ if(pl.quiz){pl.quiz.sel=+b.dataset.i; quizConfirm(pl);} })); // .quiz-word (palavra do topo, data-i=-1) → repete a fala
   ov.hidden=false; hideTouchControls(); // quiz aberto = menu na tela → sem controle virtual
 }
 function quizErase(pl){ const q=pl.quiz; if(!q)return; // ESPECIAL: apaga a última sílaba/letra (jogos que MONTAM a palavra; NÃO no Descobrindo palavras/pre)
@@ -2430,7 +2431,8 @@ function quizErase(pl){ const q=pl.quiz; if(!q)return; // ESPECIAL: apaga a últ
   else if(q.kind==='alf'){ eraseLastLetter(pl); sfx('place'); } }
 function quizMove(pl,d){ const q=pl.quiz; if(!q)return;
   const max = (q.kind==='silabas'||q.kind==='alf') ? q.options.length+1 : q.choices.length-1;
-  q.sel=Math.max(0,Math.min(max,q.sel+d)); renderQuiz(pl);
+  const min = (q.kind==='pre'||q.kind==='silabas') ? -1 : 0; // -1 = a PALAVRA do topo (selecionável p/ repetir a fala) — jogos 1..3
+  q.sel=Math.max(min,Math.min(max,q.sel+d)); renderQuiz(pl);
   if(q.kind==='silabas'||q.kind==='alf'||q.kind==='pre') quizSpeakSel(pl); // L3: leitura conforme o nível
   else srSay(speakChoice(cKey(q.choices[q.sel]))); // matemática: fala pela CHAVE (número/fração), mesmo quando exibido como gráfico
 }
@@ -2455,6 +2457,7 @@ function quizWin(pl,q){ // 3 VITÓRIAS = 1 MOEDA em TODOS os minigames, sem exce
   setTimeout(()=>{ pl.alfWins=0; quizTake(pl,q); }, 900); } // deixa a 3ª luz + animação aparecerem antes de fechar
 function quizConfirm(pl){
   const q=pl.quiz; if(!q||q.celebrating||q.won)return; // durante a comemoração/pausa pós-acerto, ignora entrada
+  if(q.sel===-1 && q.word){ gameSay(q.word); return; } // PALAVRA do topo selecionada → repete a fala (VLibras gesticula, na etapa do modo surdo)
   if(q.revealed){ // SEM PENALIDADE na alfabetização: a moeda fica no lugar (nova pergunta ao tocar); matemática re-sorteia a figura
     if(actCat()==='alf'){ closeQuiz(pl); } else { respawnFigure(q.coinIndex); closeQuiz(pl); } return; }
   if(q.kind==='braille'){ sfx('coin'); srSay(quizWho(pl)+'Coletado!'); quizWin(pl,q); return; }
