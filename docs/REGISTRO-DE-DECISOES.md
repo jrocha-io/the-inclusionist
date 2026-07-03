@@ -106,8 +106,10 @@
 |---|---|---|---|
 | Arte = **dados/código procedural** (PixelLab/Magnific só referência de design); pixel art PNG agora → procedural depois | GPL-clean + leveza; licenças conferidas | LICENCAS-GERACAO-IMAGEM.md, [DIRETRIZES-VISUAIS-E-FISICA.md](../v4.0.0/DIRETRIZES-VISUAIS-E-FISICA.md) | bases = José (Aseprite) |
 | Cores CHAPADAS sem contorno/sombra/luz nos personagens (TDAH); 320×180/16px mantidos (48×48 cancelado: "resolução rica demais pode ser problema para TDAH") | Hipótese pedagógica do José — ⚠️ sem estudo formal citado | DIRETRIZES | ⚠️ anotar como hipótese a validar |
-| Juice (poeira/brilho/squash/hit-stop/screenshake/shimmer/easing) — **cada efeito desligável no debug** p/ teste no hardware | GAG (efeitos desativáveis) + medição de custo | DIRETRIZES | 🔨 **L2** |
-| Pós-processamento CRT + vinheta como overlays CSS desligáveis | idem | DIRETRIZES | 🔨 **L2** |
+| Juice (poeira/brilho/squash/hit-stop/screenshake/shimmer/easing) — **cada efeito desligável no debug** p/ teste no hardware | GAG (efeitos desativáveis) + medição de custo | DIRETRIZES | ✅ commit `5e18fc0` |
+| Juice × Movimento Reduzido (WCAG 2.3.3): partículas→`rm.particles`, cintilar→`rm.items`, tremor de tela→`rm.parallax` (categoria "movimento de câmera"), squash→`rmWalk` por jogador; **hit-stop não é movimento** (é pausa) e fica fora do RM | Mapeamento 1:1 com os alvos de RM já existentes; evita criar chave nova | game.js (bloco JUICE) | ✅ decisão anotada |
+| Pós-processamento CRT (scanlines/vinheta/cantos 24px) como classes CSS no `#game-region`, **padrão DESLIGADO** (estética opt-in); z-index 5 = sobre o jogo e ABAIXO de pausa (6) e diálogos (60) → menus nunca perdem legibilidade; `prefers-reduced-transparency` desativa | GAG (efeitos desativáveis); legibilidade de menus > estética | style.css | ✅ commit `cf07b5a` |
+| Realce de contraste **Linear→Quadrático** = 1 slider (0=off; começo=stretch linear α1,3; fim=curva S quadrática), GPU via feComponentTransfer sRGB, **global** (tela toda; por-viewport adiado — exigiria filtro WebGL por tela) | PESQUISA-ALTO-CONTRASTE §2.3 (contrast stretching clássico, SPIE TT92 cap. 9) | PESQUISA-ALTO-CONTRASTE.md | ✅ commit `78995de` |
 | 4 camadas de cena (tileset+jogo / 3 parallax) | Profundidade visual barata (TilingSprite) | DIRETRIZES | ✅ estrutura · riqueza = José |
 
 ## 9. Agenda de estudos pendentes (ordem)
