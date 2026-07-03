@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Service worker — cache do app-shell para rodar 100% offline (PWA).
-const CACHE = 'inclusionist-v4.149.4'; // = versão do jogo (bump A CADA commit invalida o cache antigo)
+const CACHE = 'inclusionist-v4.149.5'; // = versão do jogo (bump A CADA commit invalida o cache antigo)
 const SHELL = [
   './', 'index.html', 'game.js', 'style.css',
   'manifest.webmanifest', 'icon.svg', 'vendor/pixi.min.js',
@@ -29,8 +29,11 @@ self.addEventListener('fetch', (e) => {
   // o cache; offline cai no cache. Evita o quirk de "CSS/JS velho preso" sem perder o offline (PWA).
   const isShell = e.request.mode === 'navigate' || url.pathname === '/' || /\.(html|css|js)$/i.test(url.pathname);
   if (isShell) {
+    // NETWORK-FIRST com cache:'reload' → ignora o cache HTTP do NAVEGADOR (o python http.server não manda
+    // Cache-Control, então o Chrome cacheia html/js/css por heurística e o SW servia arquivo VELHO). Assim o
+    // José sempre recebe o build novo online; offline cai no cache do SW. (Corrige o "canvas velho preso".)
     e.respondWith(
-      fetch(e.request).then((res) => {
+      fetch(e.request.url, { cache: 'reload' }).then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
         return res;

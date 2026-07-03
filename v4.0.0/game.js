@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.149.4';
+const INCL_VERSION='4.149.5';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -399,7 +399,7 @@ const WORD_INITIALS=[...new Set(SILABAS_WORDS.map(w=>w.w[0]))];
    3 silábico-alfabético — montar por SÍLABAS; o jogo SOLETRA as letras da sílaba.
    4 escritor (alfabético) — montar por LETRAS numa grade; o jogo fala o NOME da letra.
    5 escritor cego — montar por LETRAS; o jogo dita a CELA BRAILLE de cada letra. */
-let quizLevel=(()=>{ const v=+(localStorage.getItem('incl_quizlevel')||2); return v>=1&&v<=5?v:2; })();
+let quizLevel=(()=>{ try{ const v=+(localStorage.getItem('incl_quizlevel')||2); return v>=1&&v<=5?v:2; }catch(e){ return 2; } })(); // try/catch: localStorage lança em file:// (Firefox etc.) e derrubava o boot inteiro
 const QL_NAME={1:'pré-silábico',2:'silábico',3:'silábico-alfabético',4:'escritor',5:'escritor cego'};
 const LETTER_NAME={a:'á',b:'bê',c:'cê',d:'dê',e:'é',f:'éfe',g:'gê',h:'agá',i:'i',j:'jota',k:'cá',l:'éle',m:'ême',n:'êne',o:'ó',p:'pê',q:'quê',r:'érre',s:'ésse',t:'tê',u:'u',v:'vê',w:'dáblio',x:'xis',y:'ípsilon',z:'zê'};
 const soletra=w=>String(w).split('').map(c=>LETTER_NAME[c]||c).join(', ');
