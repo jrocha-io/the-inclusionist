@@ -46,6 +46,10 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 #tm-fr{width:31em;gap:.25em}
 #tm-fr .title-btn{min-height:1.85em;padding:.2em .5em;font-size:.82em;line-height:1.05}
 #tm-fr .tm-title{font-size:.95em;margin:0}
+/* Notações lado a lado (5 símbolos numa linha) → ocupam menos espaço */
+#tm-fr .frac-nots{grid-column:1/-1;display:flex;gap:.25em;justify-content:center}
+#tm-fr .frac-nots .title-btn{flex:1;min-width:0;padding:.25em .15em;font-size:1em}
+#tm-fr .frac-nots .fv{font-size:.8em}
 .tm-title{color:#fff;font-size:1em;margin:0 0 .1em;text-align:center;text-shadow:1px 1px 0 #0d0d1a} /* título do submenu */
 .title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em}
 .title-btn.ghost{background:transparent;color:#fff;border:2px solid #fff}

@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.149.3';
+const INCL_VERSION='4.149.4';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1751,10 +1751,11 @@ const CRT=(()=>{ const d={scan:1,vig:0,round:1}; // scanline LIGADA por padrão 
       d[k]= v===true?(k==='round'?2:1) : v===false?(k==='round'?1:0) : Math.max(0,Math.min(2,v|0)); } }catch(e){}
   d.scan=d.scan?1:0; d.vig=d.vig?1:0; // scanlines/vinheta são ON/OFF (só cantos tem 3 níveis)
   return d; })();
-function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return; // scanline = 1 LINHA por pixel LÓGICO, em px CSS INTEIROS
-  const rows=numPlayers<=2?1:2;
-  const k=Math.max(2,Math.round((g.clientHeight||360)/(180*rows))); // fator INTEIRO (canvas = 180·rows·k). SEM dpr: era ele que desalinhava a cada resize.
-  g.style.setProperty('--scan-per', k+'px'); g.style.setProperty('--scan-line', Math.max(1,Math.round(k/3))+'px'); } // período = k px CSS (1 px lógico); linha ≈ 1/3
+function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return;
+  const rows=numPlayers<=2?1:2, dpr=window.devicePixelRatio||1;
+  const k=Math.max(2,Math.round((g.clientHeight||360)/(180*rows))); // fator INTEIRO (canvas = 180·rows·k)
+  g.style.setProperty('--scan-per', k+'px');                        // PERÍODO = 1 px lógico = k px CSS → alinha à grade da arte (sem dpr = sem drift)
+  g.style.setProperty('--scan-line', (Math.max(1,Math.round(dpr))/dpr)+'px'); } // LINHA = 1 px FÍSICO → nítida, sem borrar (dpr só na espessura da linha, não no período)
 function applyCrt(){ const g=$('#game-region'); if(!g)return;
   ['crt-scan-1','crt-vig-1','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
   if(CRT.scan){ g.classList.add('crt-scan-'+CRT.scan); crtScanVars(); }
@@ -2509,6 +2510,8 @@ let fracNot=(()=>{ const d={v:1,d:0,dec:0,pct:0,mix:0};
   try{ const s=JSON.parse(localStorage.getItem('incl_fracnot')); if(s&&typeof s==='object')for(const k in d)if(k in s)d[k]=s[k]?1:0; }catch(e){}
   if(!Object.values(d).some(x=>x))d.v=1; return d; })();
 const FNOT_LBL={v:'Fracionária vertical',d:'Fracionária diagonal',dec:'Decimal',pct:'Percentual',mix:'Mista'};
+// Rótulo do toggle = a PRÓPRIA notação (exemplo x/y), lado a lado → ocupa menos espaço (José). aria-label mantém a palavra.
+const FNOT_SYM={ v:`<span class="fv"><b>x</b><b>y</b></span>`, d:'x/y', dec:'x,y', pct:'x%', mix:`x<span class="fv"><b>y</b><b>z</b></span>` };
 const FNOT_DESC={ // rodapé (mesmo estilo do menu de pausa): explica cada notação
   v:'Liga a exibição de frações verticais.',
   d:'Liga a exibição de frações na horizontal.',
@@ -3519,7 +3522,7 @@ function buildTitleMenus(){
   const mat=$('#tm-mat'); if(mat)mat.innerHTML=h('Matemática')+['mat1','mat2','mat3','mat4','mat5','mat6'].map(mk).join('')+
     `<button class="title-btn" data-tm-fr="1" type="button">Fração</button>`+back('tm-main')+desc;
   const fr=$('#tm-fr'); if(fr)fr.innerHTML=h('Soma e subtração de frações')+
-    Object.keys(FNOT_LBL).map(k=>`<button class="title-btn tab-num${fracNot[k]?' tab-on':''}" data-fnot="${k}" type="button" aria-pressed="${!!fracNot[k]}">${FNOT_LBL[k]}</button>`).join('')+
+    `<div class="frac-nots" role="group" aria-label="Notação">`+Object.keys(FNOT_LBL).map(k=>`<button class="title-btn tab-num${fracNot[k]?' tab-on':''}" data-fnot="${k}" type="button" aria-pressed="${!!fracNot[k]}" aria-label="${FNOT_LBL[k]}">${FNOT_SYM[k]}</button>`).join('')+`</div>`+
     ['fr2','fr3','fr42','fr5','fr632','fr2a6'].map(mk).join('')+back('tm-mat')+desc;
   const rows=r=>r.map(n=>`<button class="title-btn tab-num${tabSel.includes(n)?' tab-on':''}" data-tab-n="${n}" type="button" aria-pressed="${tabSel.includes(n)}">${n}</button>`).join('');
   const tab=$('#tm-tab'); if(tab)tab.innerHTML=h('Tabuada')+`<div class="game-subtitle">Escolha os números para treinar</div>`+
