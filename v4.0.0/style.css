@@ -48,11 +48,13 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 #tm-fr .tm-title{font-size:.95em;margin:0}
 /* Notações lado a lado (5 símbolos numa linha) → ocupam menos espaço */
 #tm-fr .frac-nots{grid-column:1/-1;display:flex;gap:.25em;justify-content:center}
-#tm-fr .frac-nots .title-btn{flex:1;min-width:0;padding:.25em .15em;font-size:1em}
+/* Toggle de notação: DESATIVADO = fumê + texto branco; ATIVADO = amarelo + texto preto (ambos com borda preta) */
+#tm-fr .frac-nots .title-btn{flex:1;min-width:0;padding:.25em .15em;font-size:1em;background:#4b4b57;color:#fff;box-shadow:none}
+#tm-fr .frac-nots .title-btn.tab-on{background:var(--accent);color:var(--accent-ink)}
 #tm-fr .frac-nots .fv{font-size:.8em}
 .tm-title{color:#fff;font-size:1em;margin:0 0 .1em;text-align:center;text-shadow:1px 1px 0 #0d0d1a} /* título do submenu */
-.title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em}
-.title-btn.ghost{background:transparent;color:#fff;border:2px solid #fff}
+.title-btn{background:var(--accent);color:var(--accent-ink);border:2px solid #0d0d1a;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em} /* contorno PRETO = mesma cor do texto (José) */
+.title-btn.ghost{background:#e8862b;color:#0d0d1a;border:2px solid #0d0d1a} /* Voltar = preenchimento LARANJA */
 /* Seletor VERMELHO fixo (piscar removido a pedido do José). Especificidade via #title-overlay. */
 #title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{outline:4px solid #ff3b30;outline-offset:2px}
 #title-overlay .title-btn.act-fx{animation:titleAct .22s ease}         /* efeito de ATIVAÇÃO (antes de trocar de tela) */
@@ -206,7 +208,7 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 /* Scanlines ALINHADAS: período = 1 pixel LÓGICO do jogo (k px), arredondado p/ pixel FÍSICO (dpr) e
    linha = 1 pixel físico — o JS (layout/applyCrt) calcula --scan-per/--scan-line; sem isso o gradiente
    1px/3px em px CSS caía fora da grade (linhas desiguais em telas com escala do Windows). */
-.game-region.crt-scan-1::after{background:repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0 var(--scan-line,1px), transparent var(--scan-line,1px) var(--scan-per,3px))}
+.game-region.crt-scan-1::after{z-index:500;background:repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0 var(--scan-line,1px), transparent var(--scan-line,1px) var(--scan-per,3px))} /* z-index alto = scanlines POR CIMA de tudo (canvas E menus DOM), pedido do José */
 .game-region.crt-vig-1::before{background:radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,.34) 100%)}
 .game-region.crt-round-0{border-radius:0}   /* tela quadrada */
 .game-region.crt-round-2{border-radius:24px} /* nível 1 (pequeno) = o padrão de 8px, sem classe */
