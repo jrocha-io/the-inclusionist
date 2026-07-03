@@ -175,7 +175,10 @@
 | **BUG RAIZ:** menus do SPLASH presos em `font-size:16px` FIXO e ícones em `--tap:44px` FIXO — só pausa/diálogos usavam `--ui-fs`. Canvas crescia em k inteiro mas a UI ficava igual → proporção UI↔canvas mudava a cada resize (o "esticar"). Corrigido: `#title-overlay{font-size:var(--ui-fs)}` + `--tap=22×k`. TODA a UI escala pelo MESMO k (fonte 8×k = 16/24/32px em k=2/3/4; toque 22×k, piso 44px). Medido: botão 15→30px em k=4 | Diagnóstico do José ("fonte 16 numa resolução maior… quebra o pixel art?") | v4.149.3 | ✅ |
 | **Scanlines dpr-free:** período = **k px CSS** (1 linha/pixel lógico), sem `devicePixelRatio` (era ele que as desalinhava a cada resize → gatilho sensorial). Estáveis em qualquer k | Mal-estar sensorial do José | v4.149.3 | ✅ |
 | Menu Fração cabe no quadro lógico 180px em k=2 (207→124 lógico): 31em + botões menores; título do jogo escondido nos submenus | Regra "nada fora do canvas" no MÍNIMO k=2 | v4.149.3 | ✅ |
-| **PENDENTE (próxima rodada):** jogo de matemática com o MESMO formato do de sílabas (conta no topo no lugar da palavra; matriz 3×3 de 9 números no lugar das sílabas); gráficos podem SUBSTITUIR números na conta e entre as respostas, aleatoriamente | Pedido do José | — | 🔜 |
+| **Jogo de matemática = formato do de sílabas**: conta no topo (no lugar da palavra) + **matriz 3×3 de 9 respostas** (no lugar das sílabas). Gráficos **SUBSTITUEM** números (sorteio por item) na conta E entre as respostas — não aparecem embaixo/em cima. Refatorado p/ `{key,disp}` (key reduzida compara; disp = número OU gráfico). 9 respostas distintas via range 0..4·D (garante 9 até em meios) | Pedido do José | v4.150.0 | ✅ |
+| **Gráfico de fração = a DIVISÃO da atividade, SEM reduzir**: 2/2 = 2 fatias cheias (não círculo cheio); círculo fatiado com bordas pretas + fatias coloridas (não figura sólida). Impróprio >2 inteiros ou d>6 → exibe número | Pedido do José ("fatiasse com bordas… não figuras sólidas") | v4.150.0 | ✅ |
+| Menu de pausa sem botão de nível; toggles de notação amarelo(on)/fumê(off); Voltar laranja; contorno preto nos botões da splash; scanlines z-index 500 (por cima de tudo) | Pedidos explícitos | v4.149.8 | ✅ |
+| UI escala ESCOPADA ao #game-region: texto FORA do canvas fica fixo 16px (barra/debug não crescem mais) | Bug ("debug aumenta junto") | v4.149.7 | ✅ |
 
 ## 6. Arquitetura e plataforma
 

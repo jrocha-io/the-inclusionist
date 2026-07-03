@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.149.8';
+const INCL_VERSION='4.150.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2249,12 +2249,14 @@ function openQuiz(pl,coinIndex,shapeId){ // MATEMÁTICA: gerador POR ATIVIDADE (
     if(op==='−' && n1*(D/d1)<n2*(D/d2)){ const t1=n1,td=d1; n1=n2; d1=d2; n2=t1; d2=td; } // sem resultado negativo
     const N=op==='+'? n1*(D/d1)+n2*(D/d2) : n1*(D/d1)-n2*(D/d2);
     const ligadas=Object.keys(fracNot).filter(k=>fracNot[k]); const not=ligadas[randInt(0,ligadas.length-1)]||'v';
-    const F=(nn,dd)=>fmtFrac(nn,dd,not);
-    const ans=F(N,D), set=[ans]; let gd=0;
-    while(set.length<9&&gd++<400){ const s=F(randInt(0,2*D),D); if(!set.includes(s))set.push(s); }
-    // GRÁFICO (círculo/quadrado da atividade) acompanha CADA operando, junto do número (José: "também mostram")
-    const G=(nn,dd)=>fracGraphic(nn,dd);
-    q={...base,not,prob:`<span class="frac-op">${F(n1,d1)}${G(n1,d1)}</span> ${op} <span class="frac-op">${F(n2,d2)}${G(n2,d2)}</span> = ?`,answer:ans,choices:shuffle(set)};
+    const keyOf=v=>fmtFrac(v,D,'d');          // chave canônica REDUZIDA (compara a resposta), independe da notação
+    // José: "gráficos SUBSTITUEM números" → cada operando/opção exibe GRÁFICO (fatias da atividade) OU número (sorteio)
+    const dispChoice=v=>{ const g=fracGraphic(v,D); return (g&&rnd()<0.5)?g:fmtFrac(v,D,not); };
+    const dispOp=(nn,dd)=>{ const g=fracGraphic(nn,dd); return (g&&rnd()<0.5)?g:fmtFrac(nn,dd,not); };
+    const ansKey=keyOf(N), seen=new Set([ansKey]), vals=[N]; let gd=0; // 9 respostas DISTINTAS (por chave) → matriz 3×3
+    while(vals.length<9&&gd++<400){ const v=randInt(0,4*D), kk=keyOf(v); if(!seen.has(kk)){ seen.add(kk); vals.push(v); } }
+    const choices=shuffle(vals).map(v=>({key:keyOf(v), disp:dispChoice(v)}));
+    q={...base,not,prob:`<span class="frac-op">${dispOp(n1,d1)}</span> ${op} <span class="frac-op">${dispOp(n2,d2)}</span> = ?`,answer:ansKey,choices};
     fala=`Quanto é ${fracSpeak(n1+'/'+d1)} ${op==='+'?'mais':'menos'} ${fracSpeak(n2+'/'+d2)}?`; }
   else { // SOMA E SUBTRAÇÃO 1 (padrão — dá para fazer nos dedos): soma ≤10, minuendo ≤10
     const op=rnd()<0.5?'+':'−'; let a,b,ans;
@@ -2322,11 +2324,14 @@ function openBraille(pl,coinIndex,letter){
 }
 function announceBraille(pl){ const q=pl.quiz; if(!q||q.kind!=='braille')return;
   srAlert(`${quizWho(pl)}${q.word}. `+q.cells.map(c=>`${c.l}: ${c.text}.`).join(' ')+' Pule para coletar.'); }
-function somasubHtml(q){ // genérico: q.prob (texto) + q.dots (bolinhas da Quantidade) + choices como STRINGS
-  const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&String(n)===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
+// choice pode ser STRING (matemática simples) ou {key,disp} (frações: gráfico OU número). key compara; disp exibe.
+function cKey(c){ return (c&&typeof c==='object')?c.key:String(c); }
+function cDisp(c){ return (c&&typeof c==='object')?c.disp:String(c); }
+function somasubHtml(q){ // formato do jogo de sílabas: conta no topo + matriz 3×3 de 9 respostas (números ou gráficos)
+  const choices=q.choices.map((c,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&cKey(c)===q.answer?' reveal':''}" data-i="${i}" type="button">${cDisp(c)}</button>`).join('');
   const dots=q.dots?`<div class="quiz-dots" aria-label="${q.dots} bolinhas">${'●'.repeat(q.dots)}</div>`:'';
   const hint=q.revealed?'Resposta certa em destaque. Pule (L) para seguir.':(q.tries>0?'Quase! Tente de novo.':'Escolha e pule (L) para confirmar.');
-  return `<div class="quiz-box quiz-box--math" role="dialog" aria-modal="true" aria-label="Desafio de matemática"><div class="quiz-prob">${q.prob||''}</div>${dots}<div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`; // sem o nome da forma (confundia — pedido do José)
+  return `<div class="quiz-box quiz-box--math" role="dialog" aria-modal="true" aria-label="Desafio de matemática"><div class="quiz-prob">${q.prob||''}</div>${dots}<div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
 }
 function silabaHtml(q){
   const N=q.options.length;
@@ -2371,7 +2376,7 @@ function quizMove(pl,d){ const q=pl.quiz; if(!q)return;
   const max = (q.kind==='silabas'||q.kind==='alf') ? q.options.length+1 : q.choices.length-1;
   q.sel=Math.max(0,Math.min(max,q.sel+d)); renderQuiz(pl);
   if(q.kind==='silabas'||q.kind==='alf'||q.kind==='pre') quizSpeakSel(pl); // L3: leitura conforme o nível
-  else srSay(speakChoice(q.choices[q.sel])); // matemática: números e FRAÇÕES (qualquer notação) falados por extenso
+  else srSay(speakChoice(cKey(q.choices[q.sel]))); // matemática: fala pela CHAVE (número/fração), mesmo quando exibido como gráfico
 }
 function quizTake(pl,q){ // coleta a figura do quiz (por jogador) e checa vitória
   takeCoin(coins[q.coinIndex]); if(coinSprites[q.coinIndex])coinSprites[q.coinIndex].visible=false;
@@ -2419,7 +2424,7 @@ function quizConfirm(pl){
     }
     return;
   }
-  if(String(q.choices[q.sel])===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); } // matemática também: 3 vitórias = 1 moeda
+  if(cKey(q.choices[q.sel])===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); } // matemática também: 3 vitórias = 1 moeda (compara pela CHAVE, não pela exibição)
   else { q.tries++;
     if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${speakChoice(q.answer)}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
     renderQuiz(pl);
@@ -2539,11 +2544,12 @@ function _sqGrid(k,cols,rows){ const S=40,cw=S/cols,ch=S/rows,seg=[]; // quadrad
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const idx=r*cols+c;
     seg.push(`<rect x="${(c*cw).toFixed(2)}" y="${(r*ch).toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" fill="${idx<k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.2"/>`); }
   return `<svg class="frac-svg" viewBox="0 0 40 40" aria-hidden="true">${seg.join('')}<rect x=".8" y=".8" width="38.4" height="38.4" fill="none" stroke="#0d0d1a" stroke-width="1.6"/></svg>`; }
-function fracGraphic(n,D){ const g=gcd(n,D)||1, N=n/g, d=D/g; if(d<1||d>6)return ''; // gráfico só p/ denominador reduzido 1..6
-  const sq=FRAC_GFX[d], whole=Math.floor(N/d), rem=N-whole*d, u=[];
+function fracGraphic(n,d){ if(d<2||d>6)return ''; // MOSTRA a divisão DA ATIVIDADE (d fatias), SEM reduzir: 2/2 = 2 fatias cheias (não círculo cheio)
+  const whole=Math.floor(n/d); if(whole>2)return ''; // impróprio demais (>2 inteiros) vira muitos círculos → melhor exibir como número
+  const sq=FRAC_GFX[d], rem=n-whole*d, u=[];
   const one=k=>`<span class="frac-shape">${_pieUnit(k,d)}${sq?_sqGrid(k,sq.cols,sq.rows):''}</span>`;
   for(let i=0;i<whole;i++)u.push(one(d)); if(rem>0||whole===0)u.push(one(rem));
-  return `<span class="frac-fig" data-frac="${N}/${d}" role="img" aria-label="${fracSpeak(N+'/'+d)}">${u.join('')}</span>`; }
+  return `<span class="frac-fig" data-frac="${n}/${d}" role="img" aria-label="${fracSpeak(n+'/'+d)}">${u.join('')}</span>`; }
 function fracSpeak(s){ const m=/^(\d+)\/(\d+)$/.exec(String(s)); if(!m)return String(s);
   const n=+m[1],d=+m[2],nm=DEN_NAME[d]||(d+' avos'); return n===1?('um '+nm):(n+' '+nm+'s'); }
 function speakChoice(s){ s=String(s); // fala qualquer NOTAÇÃO: vertical (HTML)→a/b · mista → "N inteiros e a/b" · decimal/percentual literais
