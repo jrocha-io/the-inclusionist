@@ -28,6 +28,12 @@
 
 | Decisão | Fundamento / estudo | Fonte | Status |
 |---|---|---|---|
+| **Menu Tipografia próprio** na pausa (saiu da Sensibilidade visual): caixa branca com o pangrama "Juiz foge e bota fita de cetim na xícara" + 3 grupos (Sem serifa / Serifada / Manuscrita), UMA fonte ativa (radio); cada linha renderizada na própria fonte | Pedido do José 2026-07-02; pangrama pt-BR cobre acentos | commit `450e96f` | ✅ |
+| Catálogo: só fontes **SIL OFL 1.1** embarcadas (16 famílias, woff2 latin, ~530KB, SW cacheia sob demanda). **Learning Curve** (freeware Blue Vinyl, sem OFL clara) e **Kindergarten Pro** (licença em negociação) aparecem DESABILITADAS e não foram embarcadas | Política GPL-clean do repo (fonts.css: "todas OFL") | fonts.css | ✅ · ⚠️ destravar quando as licenças fecharem |
+| Lexend selecionada mantém o **espaçamento BDA** (letter 0.18em / word 0.63em) do mecanismo canônico | British Dyslexia Association style guide | style.css data-fonte | ✅ |
+
+| Decisão | Fundamento / estudo | Fonte | Status |
+|---|---|---|---|
 | Fontes canônicas: **Atkinson Hyperlegible** (padrão), **Andika** (alfabetização), **Lexend** (opcional dislexia/discalculia/TDAH), **Atkinson Hyperlegible Mono** (matemática), **Braille CC0** | Pesquisa própria do José com referências ABNT/DOI + estudo meu convergente | [referencia-tipografica-projeto-v6.md](referencia-tipografica-projeto-v6.md) (canônico) · [ESTUDO-FONTES.md](ESTUDO-FONTES.md) · [PESQUISA-FONTES-CONDICOES-LETRAMENTO.md](PESQUISA-FONTES-CONDICOES-LETRAMENTO.md) | ✅ |
 | OpenDyslexic **fora do cânone** (evidência fraca/negativa), disponível só por escolha explícita, sem alegar eficácia | Estudos de eficácia citados no ESTUDO-FONTES | idem | ✅ |
 | Espaçamento padrão: line ≥1.5×, letter ≥0.12em, word ≥0.16em, paragraph ≥2×; toggle Dislexia = letter 0.18em + word 0.63em | WCAG 2.2 §1.4.12 + Guia da British Dyslexia Association (palavra ≥3,5× o espaço entre letras; letra ≈35% da largura média) | ESTUDO-FONTES.md | ✅ |
