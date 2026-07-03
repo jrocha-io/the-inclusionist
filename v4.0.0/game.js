@@ -862,6 +862,27 @@ const VIZ_FILTER={'sim-deuter':'url(#cvd-deuter)','sim-protan':'url(#cvd-protan)
   'fix-protan':'url(#cvd-fix-protan)','fix-deuter':'url(#cvd-fix-deuter)','fix-tritan':'url(#cvd-fix-tritan)',
   'lv-blur':'blur(2.4px)', 'lv-haze':'contrast(.58) brightness(1.14) blur(.6px)', 'lv-tunnel':'blur(.5px)', 'lv-macular':'', 'lv-diabetic':'blur(.8px)', 'blind':'brightness(0)'};
 const VIZ_CYCLE=VIZ_MODES.map(m=>m.key);
+/* L2: Realce de contraste Linear→Quadrático (PESQUISA-ALTO-CONTRASTE §2.3, decisão do José: slider).
+   Curva de tom POR PIXEL na tela inteira: I' = (1−t)·linear(I) + t·quadS(I), onde
+   linear = α(I−μ)+μ (contrast stretching, α=1.3, μ=0.5) e quadS = curva S por partes (2I² | 1−2(1−I)²).
+   GPU via SVG feComponentTransfer type=table (17 amostras, sRGB — mesma decisão da daltonização),
+   composto com os filtros CVD no CSS filter do canvas. Global (tela toda; por-viewport = adiado). */
+let lqT=(()=>{ const v=parseFloat(localStorage.getItem('incl_lq')); return isFinite(v)?Math.max(0,Math.min(1,v)):0; })();
+function lqCurve(t){ const N=17,a=1.3,out=[]; for(let i=0;i<N;i++){ const x=i/(N-1);
+  const lin=Math.min(1,Math.max(0,a*(x-0.5)+0.5)), quad=x<0.5?2*x*x:1-2*(1-x)*(1-x);
+  out.push(((1-t)*lin+t*quad).toFixed(4)); } return out.join(' '); }
+function ensureLqFilter(){ let f=document.getElementById('lq-enh'); if(f)return f;
+  const NS='http://www.w3.org/2000/svg', svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('width','0'); svg.setAttribute('height','0'); svg.setAttribute('aria-hidden','true'); svg.style.position='absolute';
+  f=document.createElementNS(NS,'filter'); f.id='lq-enh'; f.setAttribute('color-interpolation-filters','sRGB');
+  const ct=document.createElementNS(NS,'feComponentTransfer');
+  ['feFuncR','feFuncG','feFuncB'].forEach(ch=>{ const fn=document.createElementNS(NS,ch); fn.setAttribute('type','table'); fn.setAttribute('tableValues',lqCurve(lqT)); ct.appendChild(fn); });
+  f.appendChild(ct); svg.appendChild(f); document.body.appendChild(svg); return f; }
+function lqFilter(){ if(lqT<=0)return ''; ensureLqFilter(); return 'url(#lq-enh)'; } // garante o nó ANTES do url() (referência solta esconderia o canvas)
+function lqName(t){ return t<=0?'desligado':t<0.34?'linear':t<0.67?'misto':'quadrático'; }
+function setLq(t){ lqT=Math.max(0,Math.min(1,t)); try{localStorage.setItem('incl_lq',String(lqT));}catch(e){}
+  if(lqT>0){ const f=ensureLqFilter(), tv=lqCurve(lqT); f.querySelectorAll('feFuncR,feFuncG,feFuncB').forEach(fn=>fn.setAttribute('tableValues',tv)); }
+  if(app&&app.view){ if(numPlayers<=1)applyVizGlobal(players[0].viz); else app.view.style.filter=lqFilter(); } } // recompõe o CSS filter
 let vizMode=(()=>{ try{ const v=localStorage.getItem('incl_viz'); if(VIZ_CYCLE.includes(v))return v; }catch(e){}
   return (window.matchMedia && matchMedia('(prefers-contrast: more)').matches) ? 'hc-direto' : 'normal'; })(); // prefere-contraste → alto contraste 3:1
 let hcMode = vizMode!=='normal'; // mantém o nome p/ o resto do código (agora = "modo de cor acessível ativo")
@@ -2086,7 +2107,7 @@ function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; play
 function applyVizGlobal(mode){
   const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; mode=m.key;
   vizMode=mode; hcMode=(m.kind==='hcnew'); try{localStorage.setItem('incl_viz',mode);}catch(e){}
-  if(app&&app.view) app.view.style.filter=VIZ_FILTER[mode]||''; // sim. daltonismo/baixa-visão/cegueira = filtro na canvas
+  if(app&&app.view) app.view.style.filter=[VIZ_FILTER[mode]||'',lqFilter()].filter(Boolean).join(' '); // sim. daltonismo/baixa-visão/cegueira + realce L/Q compostos
   camera.filters = (m.kind==='hcnew') ? pixiFilterFor(mode) : null; // solo: alto contraste experimental = filtro GPU na câmera
   worldSprite.texture=worldTexFor(mode);            // alto contraste direto = Renderização Direta · resto=normal
   parallaxLayers.forEach((ts,i)=>{ ts.texture=parallaxTexFor(i,mode); });
@@ -2106,7 +2127,7 @@ function updateVizIndicator(kind){ const el=$('#viz-indicator'); if(!el)return;
   const on=(kind==='blind'||kind==='lowvision'); el.hidden=!on;
   el.classList.toggle('blind',kind==='blind'); el.classList.toggle('low',kind==='lowvision');
   el.setAttribute('aria-label',(kind==='blind'?'Modo cegueira total':'Modo baixa visão')+'. Toque duas vezes para voltar às cores normais.'); }
-function reapplyVizAll(){ _lastSharedViz=null; if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=''); camera.filters=null; document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
+function reapplyVizAll(){ _lastSharedViz=null; if(numPlayers<=1){ applyVizGlobal(players[0].viz); } else { app&&app.view&&(app.view.style.filter=lqFilter()); camera.filters=null; document.body.classList.remove('lowvision-mode','blind-mode'); const ov=$('#viz-overlay'); if(ov)ov.hidden=true; updateVizIndicator('normal'); applyVpFilters(); } } // MP: filtro CSS/overlay/bolinha globais OFF (por viewport agora)
 // Modos que AJUDAM (A12e visual) vs SIMULAÇÕES de empatia (Modo empatia)
 const isSimKind=k=>k==='filter'||k==='lowvision'||k==='blind';
 const VIZ_SIM=VIZ_MODES.filter(m=>isSimKind(m.kind));
@@ -2123,8 +2144,14 @@ function renderVizGroup(listSel,tabsSel,modes){ const el=$(listSel); if(!el)retu
 function renderVisual(){ const el=$('#visual-list'); if(!el)return; if(selVizPlayer>=numPlayers)selVizPlayer=0; // Contraste = 1 select (Desligado/3:1/4,5:1/7:1); o contorno tem os 2 selects próprios (no HTML abaixo)
   const cur=players[selVizPlayer]?players[selVizPlayer].viz:'normal', val=HC_SEQ.includes(cur)?cur:'normal';
   el.innerHTML='<div class="ctrl-row"><span><strong>Alto contraste</strong> — recolore o cenário para destacar o que importa; escolha o nível de contraste.</span>'+
-    '<select id="opt-contrast" aria-label="Nível de alto contraste"><option value="normal">Desligado</option><option value="hc-direto">3:1 (agradável)</option><option value="hc-direto-45">4,5:1</option><option value="hc-direto-7">7:1 (máximo)</option></select></div>';
+    '<select id="opt-contrast" aria-label="Nível de alto contraste"><option value="normal">Desligado</option><option value="hc-direto">3:1 (agradável)</option><option value="hc-direto-45">4,5:1</option><option value="hc-direto-7">7:1 (máximo)</option></select></div>'+
+    '<div class="ctrl-row"><span><strong>Realce de contraste (Linear → Quadrático)</strong> — curva de tom na tela inteira: o começo da faixa estica o contraste (linear), o fim realça sombras e altas-luzes (curva S quadrática). Zero desliga. Vale para todos os jogadores.</span>'+
+    '<span style="display:flex;align-items:center;gap:.4rem"><input type="range" id="opt-lq" min="0" max="100" step="5" style="width:9em" aria-label="Realce de contraste: zero desligado, começo linear, fim quadrático"><strong id="opt-lq-val" aria-hidden="true"></strong></span></div>';
   const s=$('#opt-contrast'); if(s){ s.value=val; s.addEventListener('change',()=>{ setPlayerViz(selVizPlayer,s.value); srSay('Alto contraste: '+HC_LABEL[s.value]+'.'); }); }
+  const lq=$('#opt-lq'), lqv=$('#opt-lq-val');
+  if(lq){ const refl=()=>{ if(lqv)lqv.textContent=lqName(lqT); }; lq.value=String(Math.round(lqT*100)); refl();
+    lq.addEventListener('input',()=>{ setLq(+lq.value/100); refl(); });
+    lq.addEventListener('change',()=>srSay('Realce de contraste: '+lqName(lqT)+'.')); }
   if(typeof reflectOutlines==='function')reflectOutlines(); }
 // Dois contornos configuráveis (1º plano personagem/itens · 2º plano perímetro de plataforma/água/lava).
 function _rebakeDirect(){ // invalida os caches de textura direta (mundo depende de bg; sprites de fg) e re-renderiza
@@ -2466,7 +2493,7 @@ app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); upda
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
 window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
-  JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt};
+  JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;}};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
