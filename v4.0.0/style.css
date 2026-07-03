@@ -22,6 +22,10 @@
 /* Modo DISLEXIA/TDAH → Lexend + espaçamento da British Dyslexia Association
    (palavra ≥ 3,5× letra: letter 0.18em / word 0.63em) */
 :root[data-fonte="dislexia"]{ --font:'Lexend',var(--font-fallback); --ls:0.18em; --ws:0.63em; }
+/* Tipografia: qualquer fonte do catálogo (menu próprio na pausa); --font-custom traz a pilha com fallback */
+:root[data-fonte="custom"]{ --font:var(--font-custom,'Atkinson Hyperlegible'),var(--font-fallback); }
+/* Menu Tipografia: caixa branca de pré-visualização (pangrama), escrita escura */
+.typo-preview{background:#fff;color:#14141f;border:2px solid var(--ink-soft);border-radius:8px;padding:.65rem .9rem;margin:.2rem 0 .6rem;font-size:1.3em;line-height:1.3;text-align:center}
 @media (prefers-contrast: more){
   :root{ --bg:#000; --panel:#000; --ink:#fff; --ink-soft:#fff; --accent:#ffe600; }
 }

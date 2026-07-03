@@ -265,16 +265,20 @@
           <button id="motion-master" class="mode-btn" type="button" aria-pressed="false" aria-label="Parar todas as animações">⏸ Parar todas as animações</button></div>
       </div>
       <div id="motion-list" class="ctrl-list" role="group" aria-label="Animações"></div>
-      <div class="ctrl-list" role="group" aria-label="Tipografia do jogo">
-        <div class="ctrl-row"><label for="opt-fonte"><strong>🔤 Tipografia do jogo</strong></label>
-          <select id="opt-fonte" class="vol" aria-label="Tipografia do jogo">
-            <option value="padrao">Atkinson — legibilidade</option>
-            <option value="alfabetizacao">Andika — alfabetização</option>
-            <option value="dislexia">Lexend — dislexia</option>
-          </select></div>
-      </div>
       <div class="overlay__actions">
         <button id="animation-close" class="mode-btn is-on" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tipografia: menu próprio (a fonte do jogo inteiro) — pré-visualização com pangrama + 3 grupos -->
+  <div id="typo" class="overlay" hidden>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="typo-title">
+      <h2 id="typo-title">Tipografia</h2>
+      <div id="typo-preview" class="typo-preview">Juiz foge e bota fita de cetim na xícara</div>
+      <div id="typo-list" class="ctrl-list" role="group" aria-label="Fontes"></div>
+      <div class="overlay__actions">
+        <button id="typo-close" class="mode-btn is-on" type="button">Fechar</button>
       </div>
     </div>
   </div>

@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.129.3';
+const INCL_VERSION='4.130.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -564,6 +564,7 @@ addEventListener('keydown',(e)=>{
   if(visualOpen && dlgVis('visual')){ if(e.code==='Escape')closeVisual(); return; }
   if(empathyOpen && dlgVis('empathy')){ if(e.code==='Escape')closeEmpathy(); return; }
   if(audioOpen && dlgVis('audio')){ if(e.code==='Escape')closeAudio(); return; }
+  if(typoOpen && dlgVis('typo')){ if(e.code==='Escape')closeTypo(); return; }
   if(dlgVis('touchcfg')){ if(e.code==='Escape'){ const t=$('#touchcfg'); if(t)t.hidden=true; } return; }
   if(dlgVis('padwiz')){ if(e.code==='Escape')closePadWiz(false); return; } // wizard de gamepad: Esc cancela
   // Fim de fase / título: qualquer tecla com função de PULO (de qualquer jogador) ou de PAUSA aciona o
@@ -1297,7 +1298,7 @@ let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 // HUD por jogador em DOM SOBREPOSTO (alta definição, não pixela): moedas (1ª coluna) + poder (2ª coluna), por viewport.
 let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[], vpPause=[], pauseActor=0;
 // Menu de pausa POR TELA (Etapa 2): um por jogador, dentro da .player-screen dele.
-const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'nivel',lbl:'📚 Nível',nivel:true},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
+const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'nivel',lbl:'📚 Nível',nivel:true},{act:'tipo',lbl:'🔤 Tipografia'},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
 // Barra de atalhos de a11y no topo da pausa (por tela). Sons (cego/TTS) só com saída própria; webcam/voz em construção.
 const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo (protan/deutan/tritan)'},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
 let calmMode=0; // 0=normal · 1=calmo (reduz) · 2=silencioso (desliga) — nunca mexe em TTS/modo cego
@@ -2342,7 +2343,7 @@ function fillExplain(card){ if(!card)return;
 }
 function frontOverlay(el){ if(!el)return; el.style.zIndex=String(++_ovZ); const card=el.querySelector('.overlay__card'); if(card)fillExplain(card); }
 (function inCanvasMenus(){ const gr=document.getElementById('game-region'); if(!gr)return;
-  ['audio','movement','options','animation','visual','empathy','touchcfg','help','padwiz'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); }); // NENHUMA tela fora do canvas
+  ['audio','movement','options','animation','visual','empathy','touchcfg','help','padwiz','typo'].forEach(id=>{ const el=document.getElementById(id); if(el)gr.appendChild(el); }); // NENHUMA tela fora do canvas
   // Botões puramente on/off viram TOGGLE (switch) — o texto "Ligado/Desligado" fica oculto (font-size:0).
   ['opt-facil','opt-altmove','opt-hearing','opt-onebtn','opt-wheelchair','opt-modocego','opt-tts','opt-eyes','audio-master','opt-captions','motion-master'].forEach(id=>{ const b=document.getElementById(id); if(b)b.classList.add('switch'); });
 })();
@@ -2372,19 +2373,60 @@ const wheelBtn=$('#opt-wheelchair'); if(wheelBtn)wheelBtn.addEventListener('clic
 loadPlayerA11y(players[0],0); // carrega viz/easy/alternância persistidos do jogador 1 (migra chaves antigas)
 vizReady=true; applyVizGlobal(players[0].viz); // estado inicial (solo)
 
-/* Fonte de leitura (canônicas EdSP): Padrão (Atkinson) | Alfabetização (Andika) | Dislexia/TDAH (Lexend + espaçamento BDA). Persistida. */
-const FONT_MODES=[
-  {id:'padrao',        nome:'Atkinson', uso:'legibilidade'},
-  {id:'alfabetizacao', nome:'Andika',   uso:'alfabetização'},
-  {id:'dislexia',      nome:'Lexend',   uso:'dislexia'},
+/* TIPOGRAFIA — menu próprio na pausa (saiu da Sensibilidade visual, pedido do José 2026-07-02).
+   3 grupos, UMA fonte ativa (radio), pré-visualização com o pangrama "Juiz foge e bota fita de cetim
+   na xícara". Todas as fontes hospedadas são SIL OFL 1.1 (política do fonts.css); as canônicas EdSP
+   mantêm o mecanismo antigo (Lexend preserva o espaçamento BDA via data-fonte="dislexia"). */
+const FONT_GROUPS=[
+  {g:'Sem serifa', items:[
+    {k:'atkinson',   fam:'Atkinson Hyperlegible', fb:'sans', d:'feita pelo Braille Institute para pessoas com baixa visão (padrão do jogo)'},
+    {k:'lexend',     fam:'Lexend',                fb:'sans', d:'feita para reduzir stress visual e atender pessoas disléxicas (ativa o espaçamento extra)'},
+    {k:'quattro',    fam:'iA Writer Quattro',     fb:'sans', d:'criada para diminuir a fadiga visual de quem passa muito tempo na tela'},
+    {k:'andika',     fam:'Andika',                fb:'sans', d:'baseada na Sassoon; fruto de pesquisa sobre como crianças leem e escrevem'},
+    {k:'sourcesans', fam:'Source Sans 3',         fb:'sans'},
+    {k:'inter',      fam:'Inter',                 fb:'sans'},
+    {k:'opensans',   fam:'Open Sans',             fb:'sans'},
+    {k:'lato',       fam:'Lato',                  fb:'sans'} ]},
+  {g:'Serifada', items:[
+    {k:'literata',    fam:'Literata',       fb:'serif'},
+    {k:'sourceserif', fam:'Source Serif 4', fb:'serif'},
+    {k:'newsreader',  fam:'Newsreader',     fb:'serif'} ]},
+  {g:'Manuscrita', items:[
+    {k:'greatvibes', fam:'Great Vibes',         fb:'cursive', d:'caligráfica inglesa'},
+    {k:'pinyon',     fam:'Pinyon Script',       fb:'cursive', d:'caligráfica inglesa'},
+    {k:'ufcook',     fam:'UnifrakturCook',      fb:'cursive', d:'blackletter alemã'},
+    {k:'ufmag',      fam:'UnifrakturMaguntia',  fb:'cursive', d:'blackletter alemã'},
+    {k:'comicneue',  fam:'Comic Neue',          fb:'cursive', d:'bola e bastão (alfabetização)'},
+    {k:'learningcurve', fam:'Learning Curve',   fb:'cursive', d:'cursiva inglesa', off:'licença a confirmar — ainda não embarcada'},
+    {k:'kindergarten',  fam:'Kindergarten Pro', fb:'cursive', d:'cursiva brasileira', off:'licença em negociação'} ]},
 ];
-const FKEY='incl_fonte'; let fonteIdx=0; const fonteBtn=$('#opt-fonte');
-function applyFonte(announce){ const m=FONT_MODES[fonteIdx]; document.documentElement.dataset.fonte=m.id;
-  if(fonteBtn)fonteBtn.value=m.id; // opt-fonte é uma caixa de seleção (Tipografia do jogo)
-  if(announce) srSay('Tipografia '+m.nome+', para '+m.uso+'.'); }
-try{ const i=FONT_MODES.findIndex(m=>m.id===localStorage.getItem(FKEY)); if(i>=0)fonteIdx=i; }catch(e){}
-applyFonte(false);
-if(fonteBtn) fonteBtn.addEventListener('change',()=>{ const i=FONT_MODES.findIndex(m=>m.id===fonteBtn.value); if(i>=0)fonteIdx=i; try{localStorage.setItem(FKEY,FONT_MODES[fonteIdx].id);}catch(e){} applyFonte(true); });
+const FONT_BY_KEY={}; FONT_GROUPS.forEach(g=>g.items.forEach(it=>FONT_BY_KEY[it.k]=it));
+let fontKey=(()=>{ try{ const k=localStorage.getItem('incl_font_k'); if(k&&FONT_BY_KEY[k]&&!FONT_BY_KEY[k].off)return k;
+  const leg=localStorage.getItem('incl_fonte'); if(leg==='alfabetizacao')return 'andika'; if(leg==='dislexia')return 'lexend'; }catch(e){} // migra a escolha antiga
+  return 'atkinson'; })();
+function setGameFont(k,announce){ const it=FONT_BY_KEY[k]; if(!it||it.off)return; fontKey=k;
+  try{ localStorage.setItem('incl_font_k',k); }catch(e){}
+  const root=document.documentElement;
+  if(k==='atkinson'){ root.dataset.fonte='padrao'; root.style.removeProperty('--font-custom'); }
+  else if(k==='andika'){ root.dataset.fonte='alfabetizacao'; root.style.removeProperty('--font-custom'); }
+  else if(k==='lexend'){ root.dataset.fonte='dislexia'; root.style.removeProperty('--font-custom'); } // mantém o espaçamento BDA
+  else { root.dataset.fonte='custom'; root.style.setProperty('--font-custom', `'${it.fam}'${it.fb==='serif'?',Georgia,serif':it.fb==='cursive'?',cursive':''}`); }
+  const pv=$('#typo-preview'); if(pv)pv.style.fontFamily=`'${it.fam}'`;
+  if(announce)srSay('Tipografia: '+it.fam+'.'); }
+function renderTypo(){ const el=$('#typo-list'); if(!el)return;
+  el.innerHTML=FONT_GROUPS.map(g=>`<h3 class="panel-sub">${g.g}</h3>`+g.items.map(it=>{
+    const on=fontKey===it.k, dis=!!it.off, note=it.d?it.d+(dis?' — '+it.off:''):(dis?it.off:'');
+    return `<div class="ctrl-row"><span style="font-family:'${it.fam}'"><strong>${it.fam}</strong>${note?`<br><span class="opt-hint" style="margin:0;font-family:var(--font)">${note}</span>`:''}</span>`+
+      `<button class="mode-btn switch${on?' is-on':''}" data-font="${it.k}" type="button"${dis?' disabled':''} aria-pressed="${on}" aria-label="${it.fam}${note?' — '+note:''}">${on?'❚❚ Ligado':'▶ Desligado'}</button></div>`; }).join('')).join('');
+  el.querySelectorAll('button[data-font]').forEach(b=>b.addEventListener('click',()=>{ setGameFont(b.dataset.font,true); renderTypo(); }));
+  const cur=FONT_BY_KEY[fontKey]; const pv=$('#typo-preview'); if(pv&&cur)pv.style.fontFamily=`'${cur.fam}'`;
+}
+let typoOpen=false;
+function openTypo(){ const ov=$('#typo'); if(!ov)return; renderTypo(); ov.hidden=false; frontOverlay(ov); typoOpen=true;
+  const f=ov.querySelector('button[data-font]:not([disabled])')||ov.querySelector('button'); if(f)f.focus(); }
+function closeTypo(){ const ov=$('#typo'); if(!ov)return; ov.hidden=true; typoOpen=false; menuFocus(sharedDialogOpen()); }
+{ const b=$('#typo-close'); if(b)b.addEventListener('click',closeTypo); }
+setGameFont(fontKey,false);
 
 /* F1: menu de áudio (mixer por categoria) — o botão "Som" abre este menu */
 function reflectAudioMaster(){ const b=$('#audio-master'); if(b){ b.classList.toggle('is-on',soundOn); b.setAttribute('aria-pressed',String(soundOn)); b.textContent=soundOn?'🔊 Ligado':'🔇 Desligado'; } const v=$('#audio-master-vol'); if(v)v.value=Math.round(volume*100); const sb=$('#opt-sound'); if(sb)toggleBtn(sb,soundOn); }
@@ -2662,7 +2704,8 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
-  setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION};
+  setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,
+  setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;}};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
   const e2=document.querySelector('.title-by span'); if(e2)e2.textContent=v; }
@@ -2725,12 +2768,13 @@ function setPhase(p){
 // NAVEGAÇÃO UNIVERSAL de menus: qualquer menu aberto (pausa OU submenu) é navegável por up/down/left/right/
 // sim/não — as MESMAS ações valem para teclado, controle, olhos e fala. sim = confirma/alterna/entra;
 // não = volta ao menu anterior (na raiz, volta ao jogo = Continuar). left/right ajustam select/slider.
-const OVERLAY_CLOSE={ audio:()=>closeAudio(), movement:()=>closeMovement(), options:()=>closeOptions(), animation:()=>closeAnimation(), visual:()=>closeVisual(), empathy:()=>closeEmpathy(), touchcfg:()=>closeTouchCfg(), help:()=>closeHelp() };
+const OVERLAY_CLOSE={ audio:()=>closeAudio(), movement:()=>closeMovement(), options:()=>closeOptions(), animation:()=>closeAnimation(), visual:()=>closeVisual(), empathy:()=>closeEmpathy(), touchcfg:()=>closeTouchCfg(), help:()=>closeHelp(), typo:()=>closeTypo() };
 // Ações do menu de pausa (compartilhadas pelos menus por tela). Ao abrir um submenu de a11y, escopa ao
 // jogador que agiu (pauseActor) — o diálogo abre na aba dele (Etapa 3 remove as abas).
 const pauseActs={ resume:()=>setPhase('playing'),
   letra:()=>{ letraIdx=(letraIdx+1)%LETRA.length; applyLetra(true); },
   nivel:()=>setQuizLevel(quizLevel%5+1,true), // L3: cicla 1..5
+  tipo:()=>openTypo(),
   audio:()=>openAudio(),
   motora:()=>{ selMovPlayer=pauseActor; openMovement(); },
   anim:()=>{ selAnimPlayer=pauseActor; openAnimation(); },
