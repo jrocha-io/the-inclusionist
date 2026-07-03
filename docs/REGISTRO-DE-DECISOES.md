@@ -96,6 +96,13 @@
 | L5 inteiro PROCEDURAL (0 gerações): chuva em rotina (30s bom → loop garoa5/chuva5/garoa5/bom45), vida ambiente (pombos revoam cosmético/gatos/cães/adultos, pool 8 perto da câmera), carros na camada da FRENTE + semáforo verde8/amarelo2/vermelho6 governando-os, deco por zona (calçada/postes/placas/letreiros brilho fixo/caixa d'água/janelas/abandonado sob o darkLayer) | plano-cenario-cidade.md (revisão final: "procedural-first"); WCAG 2.3.1 sem flashes; rm.decor desliga chuva+vida+carros | commits `7729dc4`→`39c2aa1` | ✅ |
 | "Rua" = linha de superfície AO AR LIVRE mais comum na parte baixa (células de darkRegions EXCLUÍDAS — bug pego por leitura de pixel); adultos em silhueta NO PARALLAX ficam com a arte do José (C2 lojas, Aseprite) — os pedestres no plano já cobrem a vida | detecção robusta > coordenada fixa | game.js initTraffic | ✅ |
 
+### 5.2 R-cidade + L6 (temas)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| Modelo do cenário Cidade (José 2026-07-03): interior de prédio; parte mais baixa = FACHADA; a RUA (carros 3×, semáforo 2×, placas de PARE) fica NA FRENTE dela, na base do mundo; árvores/calçada/postes/letreiros só na banda baixa; janelas removidas; céu com nuvens à deriva + pássaros; pombos com peso 3× | Correção de leitura espacial do José | commit `0019350` | ✅ |
+| L6 portado PROCEDURAL: CENARIOS {cidade,campo,noite,cemiterio,floresta} — PNG do tema tem precedência; sem ele, parallax temático + recolor do mundo por luminância (água/lava preservadas); peculiaridades vivas por tema (vagalumes 0,5Hz / névoa / borboletas+grama); trânsito e vida urbana só na Cidade | v3 THEMES + plano L6; WCAG 2.3.1 | commit `cf105eb` | ✅ · arte por tema = José |
+
 ## 6. Arquitetura e plataforma
 
 | Decisão | Fundamento / estudo | Fonte | Status |
