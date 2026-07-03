@@ -89,6 +89,13 @@
 | Reduce-motion: "movimento" = GAG (alternância) e "animação" = WCAG (2.3.3); toggles separados por tipo de animação e por jogador; respiração ≠ gracinhas | Conflito terminológico resolvido pelo José | plano-acessibilidade.md | ✅ |
 | Física: velocidades independentes entre si (sem derivar uma da outra); TUNE ao vivo no ?debug | Preferência registrada do José (CLAUDE.md §2.12) | CLAUDE.md | ✅ |
 
+### 5.1 Cidade viva (L5) — decisões de implementação
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| L5 inteiro PROCEDURAL (0 gerações): chuva em rotina (30s bom → loop garoa5/chuva5/garoa5/bom45), vida ambiente (pombos revoam cosmético/gatos/cães/adultos, pool 8 perto da câmera), carros na camada da FRENTE + semáforo verde8/amarelo2/vermelho6 governando-os, deco por zona (calçada/postes/placas/letreiros brilho fixo/caixa d'água/janelas/abandonado sob o darkLayer) | plano-cenario-cidade.md (revisão final: "procedural-first"); WCAG 2.3.1 sem flashes; rm.decor desliga chuva+vida+carros | commits `7729dc4`→`39c2aa1` | ✅ |
+| "Rua" = linha de superfície AO AR LIVRE mais comum na parte baixa (células de darkRegions EXCLUÍDAS — bug pego por leitura de pixel); adultos em silhueta NO PARALLAX ficam com a arte do José (C2 lojas, Aseprite) — os pedestres no plano já cobrem a vida | detecção robusta > coordenada fixa | game.js initTraffic | ✅ |
+
 ## 6. Arquitetura e plataforma
 
 | Decisão | Fundamento / estudo | Fonte | Status |
