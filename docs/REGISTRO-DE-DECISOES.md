@@ -168,6 +168,15 @@
 | **Estilo por denominador** (CÍRCULO radial sempre; QUADRADO por atividade): 2→ao meio · 3→3 faixas · 4→2×2 · 5→**só círculo** · 6→grade 2×3. Imprópria = ⌊n/d⌋ figuras + resto; denominador reduzido >6 (só fr2a6) → sem figura | Especificação do José | v4.149.2 | ✅ |
 | **Renderização matemática (pesquisa de custo real):** **MathML Core nativo = 0 KB/0 fontes** (Chromium ≥109, nativo desde Chrome 109 jan/2023; leitor de tela lê via MathML AAM); **KaTeX = ~613 KB** total (não ~200), **MathLive ~1 MB** (único p/ a criança ESCREVER), Temml ~180 KB (fallback), jqMath abandonado. Recomendação: MathML nativo p/ exibir (verificar Chromium do parque ≥109) + MathLive lazy só p/ escrever no futuro | Pesquisa dirigida | 2026-07-04 | 🔜 aguarda decisão |
 
+### 5.10 UI escala com o k inteiro (não fixa em 16px) + scanlines dpr-free (2026-07-04, rodada 6)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| **BUG RAIZ:** menus do SPLASH presos em `font-size:16px` FIXO e ícones em `--tap:44px` FIXO — só pausa/diálogos usavam `--ui-fs`. Canvas crescia em k inteiro mas a UI ficava igual → proporção UI↔canvas mudava a cada resize (o "esticar"). Corrigido: `#title-overlay{font-size:var(--ui-fs)}` + `--tap=22×k`. TODA a UI escala pelo MESMO k (fonte 8×k = 16/24/32px em k=2/3/4; toque 22×k, piso 44px). Medido: botão 15→30px em k=4 | Diagnóstico do José ("fonte 16 numa resolução maior… quebra o pixel art?") | v4.149.3 | ✅ |
+| **Scanlines dpr-free:** período = **k px CSS** (1 linha/pixel lógico), sem `devicePixelRatio` (era ele que as desalinhava a cada resize → gatilho sensorial). Estáveis em qualquer k | Mal-estar sensorial do José | v4.149.3 | ✅ |
+| Menu Fração cabe no quadro lógico 180px em k=2 (207→124 lógico): 31em + botões menores; título do jogo escondido nos submenus | Regra "nada fora do canvas" no MÍNIMO k=2 | v4.149.3 | ✅ |
+| **PENDENTE (próxima rodada):** jogo de matemática com o MESMO formato do de sílabas (conta no topo no lugar da palavra; matriz 3×3 de 9 números no lugar das sílabas); gráficos podem SUBSTITUIR números na conta e entre as respostas, aleatoriamente | Pedido do José | — | 🔜 |
+
 ## 6. Arquitetura e plataforma
 
 ## 6. Arquitetura e plataforma

@@ -27,7 +27,7 @@
 /* Menu Tipografia: caixa branca de pré-visualização (pangrama), escrita escura */
 .typo-preview{background:#fff;color:#14141f;border:2px solid var(--ink-soft);border-radius:8px;padding:.65rem .9rem;margin:.2rem 0 .6rem;font-size:1.3em;line-height:1.3;text-align:center}
 /* Tela de título (visual da v3): overlay TRANSPARENTE — a cena (céu/nuvens/grama) vem do canvas */
-#title-overlay{background:transparent}
+#title-overlay{background:transparent;font-size:var(--ui-fs,16px)} /* UI do splash escala com o k inteiro do canvas (igual pausa/diálogos) — NÃO fica fixa em 16px */
 body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:none} /* HUD do jogo não vaza no menu inicial (display: filhos não conseguem re-exibir) */
 .title-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;max-height:96%;}
 .game-title{color:#fff;font-size:2em;line-height:1.2;margin:0;text-align:center;letter-spacing:1px;text-shadow:2px 2px 0 #0d0d1a,-1px -1px 0 #0d0d1a}
@@ -42,6 +42,10 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .title-menu[hidden]{display:none}
 #tm-mat,#tm-fr{display:grid;grid-template-columns:1fr 1fr;gap:.35em;width:22em}   /* muitos itens → 2 colunas (nada fora do canvas) */
 #tm-mat .ghost,#tm-mat .tm-desc,#tm-mat .tm-title,#tm-fr .ghost,#tm-fr .tm-desc,#tm-fr .tm-title{grid-column:1/-1}
+/* Fração: 11 itens → compacto p/ CABER no quadro lógico 180px (k=2). Mais largo = rótulos longos em 2 linhas, não 3. */
+#tm-fr{width:31em;gap:.25em}
+#tm-fr .title-btn{min-height:1.85em;padding:.2em .5em;font-size:.82em;line-height:1.05}
+#tm-fr .tm-title{font-size:.95em;margin:0}
 .tm-title{color:#fff;font-size:1em;margin:0 0 .1em;text-align:center;text-shadow:1px 1px 0 #0d0d1a} /* título do submenu */
 .title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em}
 .title-btn.ghost{background:transparent;color:#fff;border:2px solid #fff}

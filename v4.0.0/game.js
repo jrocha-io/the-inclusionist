@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.149.2';
+const INCL_VERSION='4.149.3';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1751,10 +1751,10 @@ const CRT=(()=>{ const d={scan:1,vig:0,round:1}; // scanline LIGADA por padrão 
       d[k]= v===true?(k==='round'?2:1) : v===false?(k==='round'?1:0) : Math.max(0,Math.min(2,v|0)); } }catch(e){}
   d.scan=d.scan?1:0; d.vig=d.vig?1:0; // scanlines/vinheta são ON/OFF (só cantos tem 3 níveis)
   return d; })();
-function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return; // alinha a scanline ao pixel FÍSICO e ao pixel LÓGICO do jogo
-  const rows=numPlayers<=2?1:2, dpr=window.devicePixelRatio||1;
-  const perDev=Math.max(2,Math.round((g.clientHeight||360)*dpr/(180*rows)));               // período = 1 px LÓGICO, em px físicos INTEIROS
-  g.style.setProperty('--scan-per',(perDev/dpr)+'px'); g.style.setProperty('--scan-line',(Math.max(1,Math.round(dpr))/dpr)+'px'); }
+function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return; // scanline = 1 LINHA por pixel LÓGICO, em px CSS INTEIROS
+  const rows=numPlayers<=2?1:2;
+  const k=Math.max(2,Math.round((g.clientHeight||360)/(180*rows))); // fator INTEIRO (canvas = 180·rows·k). SEM dpr: era ele que desalinhava a cada resize.
+  g.style.setProperty('--scan-per', k+'px'); g.style.setProperty('--scan-line', Math.max(1,Math.round(k/3))+'px'); } // período = k px CSS (1 px lógico); linha ≈ 1/3
 function applyCrt(){ const g=$('#game-region'); if(!g)return;
   ['crt-scan-1','crt-vig-1','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
   if(CRT.scan){ g.classList.add('crt-scan-'+CRT.scan); crtScanVars(); }
@@ -3380,7 +3380,10 @@ function layout(){
   //   base·k − avail ≤ 10·k  ⇒  k ≤ avail/(base−10).
   const k=Math.max(MIN_K, Math.floor(Math.min(availW/(baseW-10), availH/(baseH-10))));
   const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
-  document.documentElement.style.setProperty('--ui-fs', (8*k)+'px'); // k INTEIRO ⇒ fonte-base dos menus sempre inteira
+  // TODA a UI (menus, ícones, alvos de toque) escala pelo MESMO k inteiro do canvas → proporção pixel-art constante.
+  // Base LÓGICA: fonte 8px e toque 22px (a 320×180); × k. Em k=2: fonte 16px, toque 44px (piso WCAG). NUNCA fixo.
+  document.documentElement.style.setProperty('--ui-fs', (8*k)+'px');
+  document.documentElement.style.setProperty('--tap', (22*k)+'px');
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
   if(/[?&]debug=true/.test(location.search))console.info(`[escala] k=${k}× → canvas ${baseW*k}×${baseH*k} (múltiplo INTEIRO de ${baseW}×${baseH}; dpr=${window.devicePixelRatio||1}, ignorado de propósito — ADR-001)`); // José pode confirmar os passos inteiros ao redimensionar
 }
@@ -3498,6 +3501,7 @@ function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==
 let _tabFor='mat5';
 function showTitleMenu(which){ ['tm-main','tm-alf','tm-mat','tm-tab','tm-fr','tm-cen'].forEach(m=>{ const el=$('#'+m); if(el)el.hidden=(m!==which); });
   const lg=$('#title-legend'); if(lg)lg.hidden=(which!=='tm-main'); // RODAPÉ: legenda de controles no menu principal, DESCRIÇÃO nos submenus
+  const tb=$('#title-overlay .title-block'); if(tb)tb.style.display=(which==='tm-main')?'':'none'; // título do jogo só no menu principal (o submenu usa o próprio tm-title; evita encavalar)
   const el=$('#'+which), b=el&&el.querySelector('button'); if(b)b.focus(); }
 function titleButtons(){ const m=['tm-main','tm-alf','tm-mat','tm-tab','tm-fr','tm-cen'].map(id=>$('#'+id)).find(el=>el&&!el.hidden);
   return m?[...m.querySelectorAll('button')]:[]; }
