@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.153.2';
+const INCL_VERSION='4.153.3';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1373,7 +1373,9 @@ function buildElevators(){ elevShafts=[]; if(!wheelchair)return;
   for(const e of WC_ELEVATORS) elevShafts.push({cols:e.cols,xMin:e.cols[0],xMax:e.cols[e.cols.length-1],yTop:e.yTop,yBottom:e.yBottom,kind:e.kind}); // elevadores só-cadeirante (fossos)
 }
 function elevAt(pl){ const l=Math.floor((pl.x-BOX.w/2)/TILE), r=Math.floor((pl.x+BOX.w/2-0.01)/TILE);
-  for(const s of elevShafts){ if(r>=s.xMin&&l<=s.xMax && pl.y>=s.yTop-3 && pl.y<=s.yBottom+3) return s; } return null; }
+  // tolerância na BASE = 1 tile: ao subir pela rampa o jogador pousa uns px DENTRO do tile do trampolim (levemente
+  // abaixo de yBottom); com +TILE ele ainda conta como "no elevador" (senão não ativava — bug reportado pelo José).
+  for(const s of elevShafts){ if(r>=s.xMin&&l<=s.xMax && pl.y>=s.yTop-3 && pl.y<=s.yBottom+TILE) return s; } return null; }
 buildElevators();
 const elevLayer=new PIXI.Graphics(); camera.addChildAt(elevLayer, camera.getChildIndex(worldSprite)+1);
 // Estilo VIDRO PREDIAL (rodoviária/shopping/aeroporto): fosso de vidro translúcido (vê o background),
@@ -2018,7 +2020,8 @@ function stepPlayer(pl,dt){
     pl.vy=0;
     if(wheelchair){ // ELEVADOR: toque ↑/↓ = viaja sozinho até a parada segura (topo/base); andar p/ L/R numa parada sai
       const s=elevAt(pl);
-      if(s){ if(held(pl,'up')&&s.yTop<pl.y-0.5) pl.elevTarget=s.yTop; else if(held(pl,'down')&&s.yBottom>pl.y+0.5) pl.elevTarget=s.yBottom;
+      if(s){ if(pl.elevTarget==null && pl.y>s.yBottom+0.5) pl.y=s.yBottom; // DESAFUNDA: parado, cola no topo (yBottom) — a rampa deixava uns px dentro do tile
+        if(held(pl,'up')&&s.yTop<pl.y-0.5) pl.elevTarget=s.yTop; else if(held(pl,'down')&&s.yBottom>pl.y+0.5) pl.elevTarget=s.yBottom;
         if((held(pl,'left')||held(pl,'right'))){ const col=held(pl,'right')?s.xMax+1:s.xMin-1, row=Math.floor(pl.y/TILE); if(surfTop(col,row)||surfTop(col,row+1)) pl.elevTarget=null; } } // sai p/ o piso ao lado, mesmo 1 tile ABAIXO (trampolim-bloco sobre o chão)
       if(pl.elevTarget!=null){ const dy=pl.elevTarget-pl.y;
         if(Math.abs(dy)<=ELEV_SPEED){ pl.y=pl.elevTarget; pl.vy=0; pl.elevTarget=null; } else pl.vy=Math.sign(dy)*ELEV_SPEED; }
