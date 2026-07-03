@@ -105,6 +105,14 @@
 | Pegadinha v3→PIXI: `(seed>>17)%len` fica negativo (shift COM sinal) — o canvas2d engolia o fillStyle inválido; o PIXI lança "Unable to convert color NaN". Em ports, trocar `>>` por `>>>` em índices de array | Diagnóstico por monkeypatch no beginFill | game.js drawV3Grass | ✅ |
 | R-cidade 2: carros 3× NATIVOS (78×36 detalhados) SEMPRE à frente (boot solo corrigido); HC escurece a frente (setFrontDim 0x4a5058/0,55 — frente é ambiente); adultos = silhuetas 16×32 (3M+3F) nascendo nas colunas abertas da fachada com fade-in | Correções do José 2026-07-03 | commit `f1ee6ed` | ✅ |
 
+### 5.3 Tiles/água da v3 + menu inicial + atividades (2026-07-03)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| Tiles = drawTile da v3 (pedra pontilhada, parede c/ linhas, escada vazada, trampolim magenta, água TRANSLÚCIDA); água FORE com ondas/corais/algas/peixes por cima do player (stepTileFx, fórmulas exatas); lava com tracinhos | Report do José: "tilesets ruins/água pior" | commit `f51f689` | ✅ |
+| Menu inicial = tela da v3 (céu gradiente + nuvens móveis + grama) com Lúdico · Alfabetização (5) · Matemática (11) e seletor 0-10 p/ Tabuada/Divisão; alf = 3 vitórias→1 moeda SEM penalidade; matemática = 1 acerto (decisão: a regra 3-de-1 foi especificada só p/ alfabetização — sobrepor = 1 linha); Braille fala SÓ os pontos; trocar de jogo = todos saem → menu | Espec. completa do José 2026-07-03 | commit `0078c9d` | ✅ |
+| Frações: soma/sub por denominadores, sem resultado negativo, resposta SIMPLIFICADA (mdc) e falada por extenso ("três quartos") | Pedagogia + TTS legível | game.js fracStr/fracSpeak | ✅ |
+
 ## 6. Arquitetura e plataforma
 
 | Decisão | Fundamento / estudo | Fonte | Status |
