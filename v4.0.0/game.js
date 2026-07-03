@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.143.0';
+const INCL_VERSION='4.144.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2325,7 +2325,7 @@ function renderQuiz(pl){
   const q=pl.quiz, ov=quizEl(pl); if(!ov)return; if(!q){ov.hidden=true;return;}
   ov.innerHTML = q.kind==='braille' ? brailleHtml(q) : q.kind==='silabas' ? silabaHtml(q) : q.kind==='pre' ? preHtml(q) : q.kind==='alf' ? alfHtml(q) : somasubHtml(q);
   ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(pl.quiz){pl.quiz.sel=+b.dataset.i; quizConfirm(pl);} }));
-  ov.hidden=false;
+  ov.hidden=false; hideTouchControls(); // quiz aberto = menu na tela → sem controle virtual
 }
 function quizMove(pl,d){ const q=pl.quiz; if(!q)return;
   const max = (q.kind==='silabas'||q.kind==='alf') ? q.options.length+1 : q.choices.length-1;
@@ -3297,6 +3297,7 @@ window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
 /* ===================== E14: shell — título/splash + pausa ===================== */
 function setPhase(p){
   phase=p;
+  if(p!=='playing'&&typeof hideTouchControls==='function')hideTouchControls(); // menu ativo (título/pausa) = sem controle virtual
   // GAG: na pausa, silencia TODO o som do jogo (loops de ambiente/chuva inclusive) — o áudio volta ao retomar.
   if(_masterGain&&audioCtx) try{ _masterGain.gain.setTargetAtTime(p==='playing'?1:0, audioCtx.currentTime, 0.04); }catch(e){}
   const t=$('#title-overlay'), pa=$('#pause-overlay');
@@ -3405,10 +3406,11 @@ function buildTitleMenus(){
   const mk=id=>`<button class="title-btn" data-act-id="${id}" type="button">${ACTIVITIES[id].nome}</button>`;
   const back=(to)=>`<button class="title-btn ghost" data-tm-back="${to}" type="button">Voltar</button>`;
   const desc=`<div class="tm-desc" aria-live="polite"></div>`; // rodapé com a descrição do minigame focado
-  const alf=$('#tm-alf'); if(alf)alf.innerHTML=['alf1','alf2','alf3','alf4','alf5'].map(mk).join('')+back('tm-main')+desc;
-  const mat=$('#tm-mat'); if(mat)mat.innerHTML=['mat1','mat2','mat3','mat4','mat5','mat6','fr2','fr3','fr42','fr5','fr632'].map(mk).join('')+back('tm-main')+desc;
+  const h=t=>`<h3 class="tm-title">${t}</h3>`;                  // título do submenu (pedido do José)
+  const alf=$('#tm-alf'); if(alf)alf.innerHTML=h('Alfabetização')+['alf1','alf2','alf3','alf4','alf5'].map(mk).join('')+back('tm-main')+desc;
+  const mat=$('#tm-mat'); if(mat)mat.innerHTML=h('Matemática')+['mat1','mat2','mat3','mat4','mat5','mat6','fr2','fr3','fr42','fr5','fr632'].map(mk).join('')+back('tm-main')+desc;
   const rows=r=>r.map(n=>`<button class="title-btn tab-num${tabSel.includes(n)?' tab-on':''}" data-tab-n="${n}" type="button" aria-pressed="${tabSel.includes(n)}">${n}</button>`).join('');
-  const tab=$('#tm-tab'); if(tab)tab.innerHTML=`<div class="game-subtitle">Escolha os números para treinar</div>`+
+  const tab=$('#tm-tab'); if(tab)tab.innerHTML=h('Tabuada')+`<div class="game-subtitle">Escolha os números para treinar</div>`+
     `<div class="tab-row">${rows([0,1,2,3,4,5])}</div><div class="tab-row">${rows([6,7,8,9,10])}</div>`+
     `<button class="title-btn" id="tab-play" type="button">Jogar</button>`+back('tm-mat');
 }
@@ -3417,11 +3419,29 @@ function buildTitleMenus(){
 function padKind(){ let kind='kb'; const pads=navigator.getGamepads?navigator.getGamepads():[];
   for(const gp of pads){ if(!gp)continue; kind=(gp.mapping==='standard')?'x':'d'; if(kind==='x')break; }
   return kind; }
-function updateTitleLegend(){ const el=$('#title-legend'); if(!el)return; const k=padKind();
-  const XC={A:'#3fae5a',B:'#e5484d',X:'#5aa2e8',Y:'#e8b93b'};
-  const it=(kb,dn,xl,act)=>{ const key=k==='kb'?`<kbd>${kb}</kbd>`:k==='d'?`<kbd>${dn}</kbd>`:`<kbd style="color:${XC[xl]}">${xl}</kbd>`; return key+' '+act; };
-  el.innerHTML=[it('J','0','A','pular'),it('K','1','B','especial'),it('U','2','X','correr'),it('I','3','Y','trocar'),
-    (k==='kb'?'<kbd>Enter</kbd>':'<kbd>START</kbd>')+' pausa'].join(' · ');
+function updateTitleLegend(){ const el=$('#title-legend'); if(!el)return; // 2 LINHAS, com o que está CONFIGURADO p/ o jogador da tela
+  const chip=(txt,col,word)=>`<span class="lg"><span class="lg-ico"${col?` style="background:${col}"`:''}>${txt}</span>${word?' '+word:''}</span>`;
+  const touch=document.body.classList.contains('touch-mode');
+  let gp=null; const pads=navigator.getGamepads?navigator.getGamepads():[];
+  const p1pad=(players[0]&&players[0].pad>=0)?players[0].pad:-1;
+  for(const g of pads){ if(!g)continue; if(p1pad>=0){ if(g.index===p1pad){gp=g;break;} } else if(!gp)gp=g; }
+  let l1,l2;
+  if(touch){ const set=PAD_DESIGNS.generic; // joystick VIRTUAL: 0/1/2/3 + START
+    l1=chip('✜',null,'movimentar-se')+chip('START',null,'pausa');
+    l2=chip(set['0'][0],set['0'][1],'pular')+chip(set['1'][0],set['1'][1],'especial')+chip(set['2'][0],set['2'][1],'correr')+chip(set['3'][0],set['3'][1],'trocar');
+  } else if(gp){ // joystick FÍSICO: layout do modelo (XInput colorido / DirectInput números) + mapa custom do wizard
+    const layout=gp.mapping==='standard'?padLayoutFromId(gp.id):'generic';
+    const set=PAD_DESIGNS[layout]||PAD_DESIGNS.generic;
+    const custom=gp.mapping!=='standard'?padMapFor(gp.id):null;
+    const bOf=(k,def)=>{ const b=custom&&custom[k]; return (b&&typeof b.b==='number')?String(b.b):def; };
+    const gy=k=>set[k]||[k,'#3a4a6a'];
+    const J=gy(bOf('jump','0')),E=gy(bOf('especial','1')),R=gy(bOf('run','2')),S=gy(bOf('swap','3'));
+    l1=chip('✜',null,'movimentar-se')+chip('START',null,'pausa');
+    l2=chip(J[0],J[1],'pular')+chip(E[0],E[1],'especial')+chip(R[0],R[1],'correr')+chip(S[0],S[1],'trocar');
+  } else { const m=kbFor(0), K=a=>keyName((m[a]||[])[0]||'?'); // TECLADO: teclas configuradas (remap respeitado)
+    l1=chip(`${K('up')} ${K('left')} ${K('down')} ${K('right')}`,null,'movimentar-se')+chip('Enter',null,'pausa');
+    l2=chip(K('jump'),null,'pular')+chip(K('especial'),null,'especial')+chip(K('run'),null,'correr')+chip(K('swap'),null,'trocar'); }
+  el.innerHTML=`<span class="lg-row">${l1}</span><span class="lg-row">${l2}</span>`;
   const w=$('#title-wait'); if(w)w.hidden=numPlayers<=1; } // MP: aviso "Aguarde o Jogador 1"
 addEventListener('gamepadconnected',()=>{ if(phase==='title')updateTitleLegend(); });
 addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegend(); });
@@ -3437,19 +3457,21 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
     const d=(ACTIVITIES[b.dataset.actId]||{}).d||''; const box=b.closest('.title-menu'); const el=box&&box.querySelector('.tm-desc'); if(el)el.textContent=d; });
   ov.addEventListener('click',(e)=>{ const b=e.target.closest('button'); if(!b)return;
     if(b.classList.contains('title-btn')){ b.classList.remove('act-fx'); void b.offsetWidth; b.classList.add('act-fx'); } // efeito de ATIVAÇÃO
-    if(b.dataset.tm==='ludico'){ startActivity('ludico'); return; }
-    if(b.dataset.tm==='alf'){ showTitleMenu('tm-alf'); return; }
-    if(b.dataset.tm==='mat'){ showTitleMenu('tm-mat'); return; }
-    if(b.dataset.tmBack){ showTitleMenu(b.dataset.tmBack); return; }
-    if(b.id==='tab-play'){ if(!tabSel.length){ srAlert('Escolha ao menos um número para treinar.'); return; } startActivity(_tabFor); return; }
-    if(b.dataset.tabN!=null){ const n=+b.dataset.tabN, i=tabSel.indexOf(n);
+    const go=fn=>{ if(ov._busy)return; ov._busy=true; setTimeout(()=>{ ov._busy=false; fn(); },230); }; // a animação toca ANTES de trocar de tela
+    if(b.dataset.tm==='ludico'){ go(()=>startActivity('ludico')); return; }
+    if(b.dataset.tm==='alf'){ go(()=>showTitleMenu('tm-alf')); return; }
+    if(b.dataset.tm==='mat'){ go(()=>showTitleMenu('tm-mat')); return; }
+    if(b.dataset.tmBack){ const to=b.dataset.tmBack; go(()=>showTitleMenu(to)); return; }
+    if(b.id==='tab-play'){ if(!tabSel.length){ srAlert('Escolha ao menos um número para treinar.'); return; } go(()=>startActivity(_tabFor)); return; }
+    if(b.dataset.tabN!=null){ const n=+b.dataset.tabN, i=tabSel.indexOf(n); // toggle: sem troca de tela → imediato
       if(i>=0)tabSel.splice(i,1); else tabSel.push(n);
       try{localStorage.setItem('incl_tabsel',JSON.stringify(tabSel));}catch(e){}
       b.classList.toggle('tab-on',i<0); b.setAttribute('aria-pressed',String(i<0));
       srSay('Número '+n+(i<0?' ligado.':' desligado.')); return; }
     if(b.dataset.actId){ const id=b.dataset.actId;
-      if(ACTIVITIES[id].pick){ _tabFor=id; buildTitleMenus(); showTitleMenu('tm-tab'); srSay(ACTIVITIES[id].nome+': escolha os números.'); }
-      else startActivity(id); } });
+      if(ACTIVITIES[id].pick){ go(()=>{ _tabFor=id; buildTitleMenus(); const t=$('#tm-tab .tm-title'); if(t)t.textContent=ACTIVITIES[id].nome; // título Tabuada/Divisão
+        showTitleMenu('tm-tab'); srSay(ACTIVITIES[id].nome+': escolha os números.'); }); }
+      else go(()=>startActivity(id)); } });
 })();
 (function shellSetup(){
   const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
@@ -3470,7 +3492,8 @@ function setMinimapCorner(touch){ if(!minimap) return;
 // teclado/controle → esconde os botões e devolve o minimapa ao canto inferior esquerdo
 function hideTouchControls(){ const tc=document.querySelector('#touch-controls'); if(tc && !tc.hidden) tc.hidden=true; document.body.classList.remove('touch-mode'); setMinimapCorner(false); }
 // toque/clique → mostra os botões e move o MINIMAPA p/ o canto sup. direito. Em multi-tela, NÃO ativa.
-function showTouchControls(){ if(numPlayers>1 || phase==='paused') return; const tc=document.querySelector('#touch-controls'); if(tc) tc.hidden=false; document.body.classList.add('touch-mode'); setMinimapCorner(true); } // não revela na pausa (o menu é clicável direto)
+function showTouchControls(){ if(numPlayers>1 || phase!=='playing' || players.some(p=>p.quiz)) return; // MENU ativo (splash/pausa/quiz) = sem controle virtual: dá pra tocar direto nos botões da tela
+  const tc=document.querySelector('#touch-controls'); if(tc) tc.hidden=false; document.body.classList.add('touch-mode'); setMinimapCorner(true); }
 (function touchSetup(){
   const tc=$('#touch-controls'); if(!tc)return;
   // alternância por modalidade: toque/clique MOSTRA; teclado/controle OCULTA (hideTouchControls).

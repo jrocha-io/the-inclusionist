@@ -36,27 +36,28 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .game-version{color:#9999b3;font-size:.6em;text-align:right;letter-spacing:1px;margin-top:2px;text-shadow:1px 1px 0 #0d0d1a}
 .game-subtitle{color:#f6f5f0;font-size:.8em;margin:0 0 4px;text-shadow:1px 1px 0 #0d0d1a;text-align:center}
 /* Splash DENTRO do canvas, SEM rolagem (decisão do José): tudo escala com --ui-fs e cabe na tela */
-.title-menu{display:flex;flex-direction:column;gap:.35em;align-items:stretch;padding:2px}
+.title-menu{display:flex;flex-direction:column;gap:.35em;align-items:stretch;padding:2px;width:17em;margin:0 auto} /* LARGURA FIXA (não estica com o rodapé) */
 .title-menu[hidden]{display:none}
-#tm-mat{display:grid;grid-template-columns:1fr 1fr;gap:.35em}          /* 12 itens → 2 colunas */
-#tm-mat .ghost,#tm-mat .tm-desc{grid-column:1/-1}
-.title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em 1em;border-radius:6px;cursor:pointer;min-width:0;min-height:2.3em}
+#tm-mat{display:grid;grid-template-columns:1fr 1fr;gap:.35em;width:26em}   /* 12 itens → 2 colunas */
+#tm-mat .ghost,#tm-mat .tm-desc,#tm-mat .tm-title{grid-column:1/-1}
+.tm-title{color:#fff;font-size:1em;margin:0 0 .1em;text-align:center;text-shadow:1px 1px 0 #0d0d1a} /* título do submenu */
+.title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em}
 .title-btn.ghost{background:transparent;color:#fff;border:2px solid #fff}
-/* Seletor VERMELHO que pisca a 1Hz (WCAG 2.3.1: <3 flashes/s; reduced-motion = fixo).
-   Especificidade com #title-overlay: vence os estilos globais de foco dos overlays. */
-#title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{outline:4px solid #ff3b30;outline-offset:2px;animation:titleSel 1s steps(2,jump-none) infinite}
-@keyframes titleSel{50%{outline-color:rgba(255,59,48,.25)}}
-@media (prefers-reduced-motion: reduce){ #title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{animation:none} }
-#title-overlay .title-btn.act-fx{animation:titleAct .25s ease}         /* efeito de ATIVAÇÃO (aperto) */
-@keyframes titleAct{0%{transform:scale(.94);filter:brightness(1.6)}100%{transform:scale(1)}}
+/* Seletor VERMELHO fixo (piscar removido a pedido do José). Especificidade via #title-overlay. */
+#title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{outline:4px solid #ff3b30;outline-offset:2px}
+#title-overlay .title-btn.act-fx{animation:titleAct .22s ease}         /* efeito de ATIVAÇÃO (antes de trocar de tela) */
+@keyframes titleAct{0%{transform:scale(.92);filter:brightness(1.6)}60%{transform:scale(1.03)}100%{transform:scale(1)}}
 @media (prefers-reduced-motion: reduce){ #title-overlay .title-btn.act-fx{animation:none;filter:brightness(1.4)} }
 .title-btn.tab-on{box-shadow:inset 0 0 0 3px #14141f}
 .tab-row{display:flex;gap:.35em;justify-content:center}
 .tab-row .title-btn{min-width:2.2em;padding:.4em 0;flex:1}
 .tm-desc{color:#f6f5f0;font-size:.75em;text-align:center;min-height:2.4em;margin-top:.2em;text-shadow:1px 1px 0 #0d0d1a} /* rodapé descrevendo o minigame */
-.title-legend{color:#f6f5f0;font-size:.75em;text-align:center;text-shadow:1px 1px 0 #0d0d1a}
-.title-legend kbd{background:rgba(13,13,26,.8);color:#fff;border-radius:4px;padding:.05em .45em;font-weight:800}
-#title-icons{display:flex;gap:.3em;justify-content:center;flex-wrap:wrap}
+/* Legenda de controles: mesmo visual/posição da legenda do menu de pausa (chips), em 2 LINHAS */
+.title-legend{display:flex;flex-direction:column;gap:.25em;align-items:center;margin:.5em 0 .1em;font-size:.82em;color:#c3cfe0}
+.title-legend .lg-row{display:flex;gap:1.1em;justify-content:center;flex-wrap:wrap}
+.title-legend .lg{display:inline-flex;align-items:center;gap:.35em}
+.title-legend .lg-ico{display:inline-flex;align-items:center;justify-content:center;min-width:1.35em;height:1.35em;padding:0 .2em;border-radius:.68em;font-weight:800;font-size:.9em;color:#fff;background:rgba(13,13,26,.85);text-shadow:0 1px 1px rgba(0,0,0,.55)}
+#title-icons{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:.3em;justify-content:center;flex-wrap:wrap} /* 10px do topo da TELA */
 .quiz-dots{font-size:1.3em;letter-spacing:.15em;line-height:1.3;margin:.3rem 0;max-width:12em}
 @media (prefers-contrast: more){
   :root{ --bg:#000; --panel:#000; --ink:#fff; --ink-soft:#fff; --accent:#ffe600; }
