@@ -1,89 +1,77 @@
----
-title: The Inclusionist — tracer bullet ratificador
-type: research-tracer
-status: empirically_ratified
-created: 2026-05-19
-updated: 2026-05-23
----
+# The Inclusionist
 
-# The Inclusionist · tracer bullet
+Jogo educativo de plataforma **acessível-primeiro**, em PixiJS, feito para escolas públicas
+brasileiras. Alfabetização (base psicogenética de Ferreiro & Teberosky) e matemática dentro de
+um platformer que mira **WCAG 2.2 (AAA aspiracional) + Game Accessibility Guidelines (GAG)**:
+alto contraste, simulação/correção de daltonismo, baixa visão, modo cego (navegação sonora),
+narração TTS, modo cadeirante, um-botão, controles remapeáveis (teclado/gamepad/toque em mm reais),
+Libras (VLibras) e tipografia para dislexia. Roda 100% offline como PWA.
 
-Protótipo iterado em **102 versões** (v1.0.0 → v3.1.100) demonstrando empiricamente que a arquitetura **DOM-first semântico + Canvas opcional acessível** mira **WCAG 2.2 (AAA aspiracional) + GAG** (em progresso — **sem alegar "complete"** até o MVP validado) — ratificando a [[../../ADRs/ADR-001-engine-architecture|ADR-001]] do EdSP.
+Licença: **GPL-3.0-or-later**. Mecânicas de plataforma portadas do
+[Clarity, de Adam Brooks (dissimulate)](https://github.com/dissimulate/Clarity) (MIT).
 
-**Base técnica:** mecânicas portadas do [Clarity por Adam Brooks (dissimulate)](https://github.com/dissimulate/Clarity) sob licença MIT.
+## Estrutura do repositório
 
-## Conteúdo desta pasta
+```
+app/            # o jogo (raiz publicável — é o que o Cloudflare Pages serve)
+├─ index.html   #   página única
+├─ js/          #   código (em modularização para ES Modules nativos — docs/plano-modularizacao.md)
+├─ css/         #   estilos
+├─ assets/      #   sprites e cenários (arte GPL-clean)
+├─ vendor/      #   PixiJS (MIT) e fontes (SIL OFL)
+├─ sw.js        #   service worker (offline/PWA)
+└─ manifest.webmanifest
+docs/           # ADRs, planos, pesquisas, registro de decisões (não é publicado)
+tools/          # scripts de dev (não é publicado)
+legacy/         # v3.1.100.html — protótipo histórico (não é publicado)
+```
 
-| Arquivo | O que é |
+## Rodar localmente
+
+Não há passo de build (ES Modules nativos servidos direto). Basta um servidor estático
+apontando para `app/`:
+
+```powershell
+python -m http.server 8190 --directory app
+# abra http://localhost:8190
+```
+
+> É preciso servir por HTTP (não abrir o `index.html` via `file://`), senão o service worker
+> e os ES Modules não carregam.
+
+## Deploy — Cloudflare Pages (plano gratuito)
+
+Site estático, **sem build**. No painel do Cloudflare Pages, conecte este repositório do GitHub e:
+
+| Configuração | Valor |
 |---|---|
-| `v3.1.100.html` | Versão final, com todas as features. Abrir no navegador para experimentar. |
-| `assets/` | Imagens (catálogo de árvores, temas, silhuetas, mapa corrigido, correções) |
-| `README.md` | Este arquivo |
+| Framework preset | **None** |
+| Build command | *(vazio)* |
+| Build output directory | **`app`** |
+| Root directory | *(raiz do repo)* |
 
-## Repositório git completo
+Cada push na `main` publica automaticamente; branches/PRs geram *preview deployments*. O cache é
+controlado por `app/_headers` (sw.js/html sem cache; `vendor/` e `assets/` imutáveis), somado ao
+bump do `CACHE` do service worker a cada versão. HTTPS e subdomínio `*.pages.dev` são gratuitos.
 
-**102 commits + 7 tags semver** capturando toda a evolução foram salvos como repo git em:
+## Acessibilidade — o que o jogo demonstra
 
-```
-outputs/the-inclusionist-tracer.tar.gz
-```
+- **WCAG 2.2 (POUR)** e **GAG** como pilares inegociáveis (ver `docs/PILARES-INEGOCIAVEIS.md`).
+- Operação 100% por teclado via `e.code` (ABNT/QWERTY/alternativos), gamepad e toque; remapeável.
+- Visão: alto contraste, daltonismo (simulação Machado 2009 + correção), baixa visão, modo cego.
+- Áudio como reforço, nunca requisito; narração TTS neural offline; legendas.
+- Motora: cadeirante, um-botão, modo fácil, botões de toque dimensionados em milímetros reais.
+- Surdez: Libras via VLibras (interino/online; motor próprio planejado).
 
-Esse arquivo está no diretório `outputs/` da sessão Claude (`C:\Users\candi\AppData\Roaming\Claude\local-agent-mode-sessions\…\outputs\`). Para usar:
+## Status
 
-```bash
-# 1. Extrair
-tar xzf the-inclusionist-tracer.tar.gz
-cd inclusionist-repo/
+Protótipo (MVP em construção). Ratificações pendentes: Lighthouse mobile, hardware-alvo real
+(tablet/Chromebook de escola), auditoria automatizada (axe-core/Lighthouse/WAVE) e manual
+(NVDA/JAWS/VoiceOver), e teste com crianças (incluindo NEE). **Não se alega conformidade
+"completa" até o MVP validado.**
 
-# 2. Inspecionar histórico
-git log --oneline           # 103 commits (initial + 102 versões)
-git tag                     # 7 tags de marcos
-git checkout v2.3.0-gag    # estado quando GAG foi introduzido
-git diff v3.0.0 v3.1.100   # diff entre marcos
+## Origem
 
-# 3. Subir para GitHub privado quando quiser
-git remote add origin git@github.com:josedev/inclusionist-tracer.git
-git push -u origin main --tags
-```
-
-## Tags / marcos canônicos
-
-| Tag | Significado |
-|---|---|
-| `v1.0.0` | Primeira versão funcional |
-| `v2.0.0` | Segunda major (refactor) |
-| `v2.2.0-aaa` | **Introdução do WCAG 2.2 AAA** |
-| `v2.3.0-gag` | **Introdução do Game Accessibility Guidelines** |
-| `v3.0.0` | Terceira major |
-| `v3.1.0` | Início da série de patches v3.1.x |
-| `v3.1.100` | Versão final atual |
-
-## O que The Inclusionist demonstra empiricamente
-
-- **WCAG 2.2 (POUR)** — Perceptível / Operável / Compreensível / Robusto, todos os 4
-- **Canvas com `role="img"` + `aria-label` + fallback `<p>`** (WCAG 1.1.1)
-- **Operação 100% por teclado** usando `e.code` (WCAG 2.1.1) — funciona em layouts ABNT, QWERTY, alternativos
-- **Controles remapeáveis** (GAG)
-- **Paleta Okabe-Ito opcional** para daltonismo
-- **`prefers-contrast: more` + `prefers-reduced-motion`** respeitados (WCAG 1.4.6, 2.3.1, 2.3.3)
-- **Som como reforço, nunca requisito** (WCAG 1.4.2)
-- **Pixel art preservada** em DOM via `image-rendering: pixelated`
-- **Modo 2 jogadores** com rótulos textuais além de cor
-
-## Ratificações pendentes (5)
-
-Ver [[../../ADRs/ADR-001-engine-architecture#validation|ADR-001 §validation]]:
-
-1. Lighthouse Performance ≥ 90 em emulação Mobile + 3G + CPU 4×
-2. Teste em hardware real (Tablet Positivo Class 11.6", Chromebook escola pública)
-3. Auditoria automatizada (axe-core, Lighthouse, WAVE)
-4. Auditoria manual (NVDA + JAWS + VoiceOver desktop + VoiceOver iOS)
-5. 5 crianças incluindo 1 com NEE relevante (Mom Test)
-
-## Histórico de origem
-
-As 102 versões originais (v1.html → v3.1.100.html) foram desenvolvidas em `72-Collections/AI/The Inclusionist/` ao longo de 2026-05-19 a 2026-05-23. Estão sendo preservadas lá como histórico iterativo. **Quando você quiser limpar:**
-
-- Mover `pixel-art-sem-imagens-v*.html` para `72-Collections/Archive/The-Inclusionist-Iterations/`
-- Manter apenas os marcos como referência rápida visível (v1, v2, v2.2.0-aaa, v2.3.0-gag, v3.0.0, v3.1.0, v3.1.100)
-- O histórico completo já está preservado em git no `the-inclusionist-tracer.tar.gz`
+Antecedido por um *tracer bullet* de 102 versões (v1.0.0 → v3.1.100) que ratificou empiricamente a
+arquitetura acessível; o monólito final está preservado em `legacy/v3.1.100.html`. A v4 é a
+reescrita sobre PixiJS.
