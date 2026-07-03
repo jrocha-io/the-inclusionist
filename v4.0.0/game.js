@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.141.0';
+const INCL_VERSION='4.142.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -589,7 +589,12 @@ addEventListener('keydown',(e)=>{
     const isPause=e.code==='Escape'||e.code==='Enter';
     const winOv=$('#win-overlay');
     if(winOv&&!winOv.hidden){ if(isJump||isPause){ e.preventDefault(); const b=$('#btn-again'); if(b)b.click(); } return; }
-    if(phase==='title'){ if(isJump||isPause){ e.preventDefault(); const b=$('#btn-play'); if(b)b.click(); } return; } }
+    if(phase==='title'){ // menu inicial: setas navegam, PULO/Enter confirma, ESPECIAL/Esc volta
+      const k={ yes:isJump||e.code==='Enter', no:e.code==='Escape'||players.some((p,i)=>actionOf(e.code,i)==='especial'),
+        up:KUP.includes(e.code)||e.code==='ArrowUp', down:KDOWN.includes(e.code)||e.code==='ArrowDown',
+        left:KLEFT.includes(e.code), right:KRIGHT.includes(e.code) };
+      if(k.yes||k.no||k.up||k.down||k.left||k.right){ e.preventDefault(); navTitle(k); }
+      return; } }
   // Lote B: Alt+1/2/3/4 (fileira de números) ativa dinamicamente 1..4 telas (aviso c). Alt fica livre (solo não o usa).
   const anyQuiz=players.some(p=>p.quiz);
   if(e.altKey && !e.ctrlKey && /^Digit[1234]$/.test(e.code) && (phase==='playing'||phase==='paused') && !anyQuiz){
@@ -894,6 +899,23 @@ $('#pixi-mount').appendChild(app.view);
 app.view.setAttribute('aria-hidden','true');
 const camera=new PIXI.Container(); app.stage.addChild(camera);
 weatherLayer=new PIXI.Graphics(); app.stage.addChild(weatherLayer); // CLIMA (chuva/clarão) em tela-espaço, mantido no topo em draw
+/* Tela de título da v3 (drawTitleScene): céu em gradiente + nuvens andando dir→esq + grama pontilhada */
+const titleG=new PIXI.Graphics(); app.stage.addChildAt(titleG, app.stage.getChildIndex(weatherLayer));
+let titleT=0;
+function drawTitleScene(){ const g=titleG; g.clear(); const W=app.screen.width,H=app.screen.height,k=H/LOGICAL_H;
+  const HOR=Math.round(H*0.735);
+  for(let y=0;y<HOR;y++){ const f=y/HOR; // rgb(26→58, 26→76, 58→180) — interpolação exata da v3
+    g.beginFill((Math.round(26+32*f)<<16)|(Math.round(26+50*f)<<8)|Math.round(58+122*f)).drawRect(0,y,W,1).endFill(); }
+  titleT++; const off=rm.parallax?0:Math.floor(titleT/6)%Math.max(1,Math.round(W));
+  const cloud=(cx,cy)=>{ const x=((((cx*k-off)%W)+W)%W)-14*k, s=k;
+    g.beginFill(0xf6f5f0).drawRect(x,cy*s,28*s,6*s).drawRect(x+6*s,(cy-4)*s,16*s,6*s).drawRect(x+2*s,(cy+6)*s,24*s,4*s).endFill(); };
+  cloud(40,30); cloud(180,52); cloud(265,22); cloud(110,72);
+  g.beginFill(0x3f7d20).drawRect(0,HOR,W,H-HOR).endFill();
+  g.beginFill(0x2d5b16);
+  for(let x=0;x<W;x+=3*k)g.drawRect(x,HOR,k,k);
+  for(let x=1*k;x<W;x+=4*k)g.drawRect(x,HOR+3*k,k,k);
+  for(let x=2*k;x<W;x+=5*k)g.drawRect(x,HOR+6*k,k,k);
+  g.endFill(); }
 
 /* ===== Parallax: 3 camadas de FUNDO atrás do tileset (Camada 1 = tileset+personagem).
    Camada 4 (fator 0.10) é a mais distante e "quase não se mexe" — receberá a maior
@@ -2156,13 +2178,43 @@ function draw(){
 
 /* ===================== Soma-Sub: quiz (DOM, acessível) ===================== */
 function quizWho(pl){ return numPlayers>1?('Jogador '+(pl.i+1)+': '):''; } // L3: prefixo nas falas do quiz em MP
-function openQuiz(pl,coinIndex,shapeId){
-  const op=rnd()<0.5?'+':'-'; let a,b,answer;
-  if(op==='+'){a=randInt(0,9);b=randInt(0,10-a);answer=a+b;} else {a=randInt(0,10);b=randInt(0,a);answer=a-b;}
-  const pool=[answer]; while(pool.length<9){const n=randInt(0,10); if(!pool.includes(n))pool.push(n);}
-  pl.quiz={kind:'somasub',coinIndex,shape:shapeId,a,b,op,answer,choices:shuffle(pool),sel:0,tries:0,revealed:false};
-  pl.vx=0;pl.vy=0;
-  srSay(`${quizWho(pl)}${somaSubName(shapeId)}. Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`);
+function _mkChoices(answer,lo,hi){ const set=[String(answer)]; let g=0;
+  while(set.length<9&&g++<400){ const s=String(randInt(lo,hi)); if(!set.includes(s))set.push(s); }
+  return shuffle(set); }
+function openQuiz(pl,coinIndex,shapeId){ // MATEMÁTICA: gerador POR ATIVIDADE (menu inicial); grade de 9
+  const A=ACTIVITY, base={kind:'somasub',coinIndex,shape:shapeId,sel:0,tries:0,revealed:false}; let q,fala;
+  if(A==='mat1'){ const n=randInt(1,9); // QUANTIDADE: bolinhas → número (grade fixa 1..9)
+    q={...base,dots:n,answer:String(n),prob:'Quantas bolinhas?',choices:['1','2','3','4','5','6','7','8','9']};
+    fala='Quantas bolinhas você vê?'; }
+  else if(A==='mat2'){ const a=randInt(0,5),b=randInt(0,5); // SOMA FÁCIL: parcelas 0..5
+    q={...base,prob:`${a} + ${b} = ?`,answer:String(a+b),choices:_mkChoices(a+b,0,10)};
+    fala=`Quanto é ${a} mais ${b}?`; }
+  else if(A==='mat4'){ const op=rnd()<0.5?'+':'−'; let a,b,ans; // SOMA E SUBTRAÇÃO 2: guarda na cabeça + dedos
+    if(op==='+'){a=randInt(0,10);b=randInt(0,10);ans=a+b;} else {a=randInt(0,20);b=randInt(0,Math.min(10,a));ans=a-b;}
+    q={...base,prob:`${a} ${op} ${b} = ?`,answer:String(ans),choices:_mkChoices(ans,0,20)};
+    fala=`Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`; }
+  else if(A==='mat5'||A==='mat6'){ const a=Math.max(A==='mat6'?1:0, tabSel[randInt(0,Math.max(0,tabSel.length-1))]||2), b=randInt(0,10);
+    if(A==='mat5'){ q={...base,prob:`${a} × ${b} = ?`,answer:String(a*b),choices:_mkChoices(a*b,0,Math.max(12,a*10))}; // TABUADA (números escolhidos)
+      fala=`Quanto é ${a} vezes ${b}?`; }
+    else { q={...base,prob:`${a*b} ÷ ${a} = ?`,answer:String(b),choices:_mkChoices(b,0,10)};                            // DIVISÃO (inversa da tabuada)
+      fala=`Quanto é ${a*b} dividido por ${a}?`; } }
+  else if(ACTIVITIES[A]&&ACTIVITIES[A].dens){ const dens=ACTIVITIES[A].dens; // FRAÇÕES (soma/sub por denominadores)
+    const D=dens.reduce((l,d)=>l*d/gcd(l,d),1);
+    let d1=dens[randInt(0,dens.length-1)], d2=dens[randInt(0,dens.length-1)], op=rnd()<0.5?'+':'−';
+    let n1=randInt(1,d1), n2=randInt(1,d2);
+    if(op==='−' && n1*(D/d1)<n2*(D/d2)){ const t1=n1,td=d1; n1=n2; d1=d2; n2=t1; d2=td; } // sem resultado negativo
+    const N=op==='+'? n1*(D/d1)+n2*(D/d2) : n1*(D/d1)-n2*(D/d2);
+    const ans=fracStr(N,D), set=[ans]; let gd=0;
+    while(set.length<9&&gd++<400){ const s=fracStr(randInt(0,2*D),D); if(!set.includes(s))set.push(s); }
+    q={...base,prob:`${n1}/${d1} ${op} ${n2}/${d2} = ?`,answer:ans,choices:shuffle(set)};
+    fala=`Quanto é ${fracSpeak(n1+'/'+d1)} ${op==='+'?'mais':'menos'} ${fracSpeak(n2+'/'+d2)}?`; }
+  else { // SOMA E SUBTRAÇÃO 1 (padrão — dá para fazer nos dedos): soma ≤10, minuendo ≤10
+    const op=rnd()<0.5?'+':'−'; let a,b,ans;
+    if(op==='+'){a=randInt(0,9);b=randInt(0,10-a);ans=a+b;} else {a=randInt(0,10);b=randInt(0,a);ans=a-b;}
+    q={...base,prob:`${a} ${op} ${b} = ?`,answer:String(ans),choices:_mkChoices(ans,0,10)};
+    fala=`${somaSubName(shapeId)}. Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`; }
+  pl.quiz=q; pl.vx=0;pl.vy=0;
+  srSay(quizWho(pl)+fala);
   renderQuiz(pl);
 }
 function pickWord(letter){ const pool=SILABAS_WORDS.filter(w=>w.w[0]===letter);
@@ -2193,7 +2245,7 @@ function openPre(pl,coinIndex,letter){
 function openAlf(pl,coinIndex,letter){
   const item=pickWord(letter);
   const need=[...new Set(item.w.split(''))], extra=[];
-  for(const ch of shuffle('abcdefghijlmnoprstuvz'.split(''))){ if(need.length+extra.length>=10)break; if(!need.includes(ch)&&!extra.includes(ch))extra.push(ch); }
+  for(const ch of shuffle('abcdefghijlmnoprstuvz'.split(''))){ if(need.length+extra.length>=12)break; if(!need.includes(ch)&&!extra.includes(ch))extra.push(ch); } // grade de 12 letras (espec do José)
   pl.quiz={kind:'alf',braille:quizLevel===5,coinIndex,word:item.w,emoji:item.e,
     options:shuffle(need.concat(extra)),boxes:Array(item.w.length).fill(null),sel:0,tries:0,revealed:false};
   pl.vx=0;pl.vy=0;
@@ -2206,10 +2258,10 @@ function quizSpeakSel(pl){ const q=pl.quiz; if(!q)return; // fala o item sob o c
   if(q.sel>=N){ srSay(q.sel===N?'apagar':'ok'); return; }
   const it=q.options[q.sel];
   if(q.kind==='silabas') srSay(q.spell?soletra(it):disp(it));                                    // 2 lê · 3 soletra
-  else if(q.kind==='alf') srSay(q.braille?`${LETTER_NAME[it]||it}: pontos ${brailleText(it)}`:(LETTER_NAME[it]||it)); // 4 nome · 5 cela
+  else if(q.kind==='alf') srSay(q.braille?brailleText(it):(LETTER_NAME[it]||it)); // 4 nome da letra · 5 SÓ os pontos da cela ("a"→"um")
 }
 function placeLetter(pl,ch){ const q=pl.quiz; if(!q)return; const idx=q.boxes.indexOf(null); if(idx<0)return;
-  q.boxes[idx]=ch; sfx('place'); srSay(q.braille?`${LETTER_NAME[ch]||ch}: pontos ${brailleText(ch)}`:(LETTER_NAME[ch]||ch)); renderQuiz(pl); }
+  q.boxes[idx]=ch; sfx('place'); srSay(q.braille?brailleText(ch):(LETTER_NAME[ch]||ch)); renderQuiz(pl); } // braille: só os PONTOS
 function eraseLastLetter(pl){ const q=pl.quiz; if(!q)return; for(let i=q.boxes.length-1;i>=0;i--){ if(q.boxes[i]!==null){ q.boxes[i]=null; break; } } renderQuiz(pl); }
 function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place'); srSay(q.spell?soletra(sy):disp(sy)); renderQuiz(pl); } // nível 3 soletra
 function eraseLastSilaba(pl){ const q=pl.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(pl); }
@@ -2222,11 +2274,11 @@ function openBraille(pl,coinIndex,letter){
 }
 function announceBraille(pl){ const q=pl.quiz; if(!q||q.kind!=='braille')return;
   srAlert(`${quizWho(pl)}${q.word}. `+q.cells.map(c=>`${c.l}: ${c.text}.`).join(' ')+' Pule para coletar.'); }
-function somasubHtml(q){
-  const opTxt=q.op==='+'?'+':'−';
-  const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&n===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
+function somasubHtml(q){ // genérico: q.prob (texto) + q.dots (bolinhas da Quantidade) + choices como STRINGS
+  const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&String(n)===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
+  const dots=q.dots?`<div class="quiz-dots" aria-label="${q.dots} bolinhas">${'●'.repeat(q.dots)}</div>`:'';
   const hint=q.revealed?'Resposta certa em destaque. Pule (L) para seguir.':(q.tries>0?'Quase! Tente de novo.':'Escolha e pule (L) para confirmar.');
-  return `<div class="quiz-box quiz-box--math" role="dialog" aria-modal="true" aria-label="Conta de Soma-Sub"><div class="quiz-shape">${somaSubName(q.shape)}</div><div class="quiz-prob">${q.a} ${opTxt} ${q.b} = ?</div><div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
+  return `<div class="quiz-box quiz-box--math" role="dialog" aria-modal="true" aria-label="Desafio de matemática"><div class="quiz-shape">${somaSubName(q.shape)}</div><div class="quiz-prob">${q.prob||''}</div>${dots}<div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
 }
 function silabaHtml(q){
   const N=q.options.length;
@@ -2271,19 +2323,25 @@ function quizMove(pl,d){ const q=pl.quiz; if(!q)return;
   const max = (q.kind==='silabas'||q.kind==='alf') ? q.options.length+1 : q.choices.length-1;
   q.sel=Math.max(0,Math.min(max,q.sel+d)); renderQuiz(pl);
   if(q.kind==='silabas'||q.kind==='alf'||q.kind==='pre') quizSpeakSel(pl); // L3: leitura conforme o nível
-  else srSay(String(q.choices[q.sel]));
+  else srSay(fracSpeak(q.choices[q.sel])); // matemática: números e FRAÇÕES faladas por extenso
 }
 function quizTake(pl,q){ // coleta a figura do quiz (por jogador) e checa vitória
   takeCoin(coins[q.coinIndex]); if(coinSprites[q.coinIndex])coinSprites[q.coinIndex].visible=false;
   pl.collected++; if(pl===player)collected=pl.collected; updateHud();
   closeQuiz(pl); if(pl.collected>=COIN_TARGET)win(pl); }
+function quizWin(pl,q){ // ALFABETIZAÇÃO: 3 vitórias = 1 moeda (regra do José); demais categorias coletam direto
+  if(actCat()==='alf'){ pl.alfWins=(pl.alfWins||0)+1;
+    if(pl.alfWins<3){ srSay(quizWho(pl)+'Acertou! '+pl.alfWins+' de 3 para ganhar a moeda.'); closeQuiz(pl); return; } // moeda FICA; encostado nela, a próxima pergunta abre sozinha
+    pl.alfWins=0; }
+  quizTake(pl,q); }
 function quizConfirm(pl){
   const q=pl.quiz; if(!q)return;
-  if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(pl); return; }
-  if(q.kind==='braille'){ sfx('coin'); srSay(quizWho(pl)+'Coletado!'); quizTake(pl,q); return; }
+  if(q.revealed){ // SEM PENALIDADE na alfabetização: a moeda fica no lugar (nova pergunta ao tocar); matemática re-sorteia a figura
+    if(actCat()==='alf'){ closeQuiz(pl); } else { respawnFigure(q.coinIndex); closeQuiz(pl); } return; }
+  if(q.kind==='braille'){ sfx('coin'); srSay(quizWho(pl)+'Coletado!'); quizWin(pl,q); return; }
   if(q.kind==='pre'){ // nível 1: acertou a escrita?
     if(q.choices[q.sel]===q.word){
-      sfx('correct'); srSay(`${quizWho(pl)}Acertou! ${disp(q.word)}: ${soletra(q.word)}.`); quizTake(pl,q);
+      sfx('correct'); srSay(`${quizWho(pl)}Acertou! ${disp(q.word)}: ${soletra(q.word)}.`); quizWin(pl,q);
     } else { q.tries++;
       if(q.tries>=2){ q.revealed=true; srAlert(`${quizWho(pl)}A certa é ${disp(q.word)}: ${soletra(q.word)}. Pule para seguir.`); }
       else { sfx('wrong'); srSay('Tente de novo.'); }
@@ -2294,7 +2352,7 @@ function quizConfirm(pl){
     const N=q.options.length;
     if(q.sel<N){ placeLetter(pl,q.options[q.sel]); return; }
     if(q.sel===N){ eraseLastLetter(pl); return; }
-    if(q.boxes.join('')===q.word){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizTake(pl,q); }
+    if(q.boxes.join('')===q.word){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); }
     else { q.tries++;
       if(q.tries>=2){ q.revealed=true; q.boxes=q.word.split(''); srAlert(`${quizWho(pl)}A palavra é ${disp(q.word)}: ${soletra(q.word)}. Pule para seguir.`); }
       else { q.boxes=q.boxes.map(()=>null); sfx('wrong'); srSay('Tente de novo.'); }
@@ -2305,7 +2363,7 @@ function quizConfirm(pl){
     const N=q.options.length;
     if(q.sel<N){ placeSilaba(pl,q.options[q.sel]); return; }
     if(q.sel===N){ eraseLastSilaba(pl); return; }
-    if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizTake(pl,q); }
+    if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); }
     else { q.tries++;
       if(q.tries>=2){ q.revealed=true; q.boxes=q.correct.slice(); srAlert(`${quizWho(pl)}A palavra é ${disp(q.word)}. Pule para seguir.`); }
       else { q.boxes=[null,null]; sfx('wrong'); srSay('Tente de novo.'); }
@@ -2313,9 +2371,9 @@ function quizConfirm(pl){
     }
     return;
   }
-  if(q.choices[q.sel]===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizTake(pl,q); }
+  if(String(q.choices[q.sel])===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizTake(pl,q); } // matemática: 1 acerto = coleta
   else { q.tries++;
-    if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${q.answer}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
+    if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${fracSpeak(q.answer)}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
     renderQuiz(pl);
   }
 }
@@ -2353,6 +2411,39 @@ function restartGame(){
   srSay(numPlayers>1 ? `${numPlayers} jogadores, cada um na sua tela. Corram pelas moedas.` : MODE==='somasub' ? 'Modo Soma-Sub. Toque nas figuras e resolva as contas.' : MODE==='silabas' ? 'Modo Sílabas. Toque nas letras e monte as palavras.' : 'Nova rodada. Colete 10 moedas.');
 }
 $('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').focus(); });
+/* ===================== ATIVIDADES (menu inicial novo) =====================
+   Lúdico · Alfabetização (5 — 3 vitórias = 1 moeda, SEM penalidade no erro) · Matemática (11).
+   Trocar de atividade = todo mundo sai do jogo → volta ao menu inicial. */
+const ACTIVITIES={
+  ludico:{cat:'ludico',nome:'Coletar 10 moedas'},
+  alf1:{cat:'alf',nome:'Descobrindo palavras'}, alf2:{cat:'alf',nome:'Descobrindo sílabas'},
+  alf3:{cat:'alf',nome:'Montando palavras'},   alf4:{cat:'alf',nome:'Escrevendo palavras'},
+  alf5:{cat:'alf',nome:'Escrevendo em Braille'},
+  mat1:{cat:'mat',nome:'Quantidade'}, mat2:{cat:'mat',nome:'Soma fácil'},
+  mat3:{cat:'mat',nome:'Soma e Subtração 1'}, mat4:{cat:'mat',nome:'Soma e Subtração 2'},
+  mat5:{cat:'mat',nome:'Tabuada',pick:true},  mat6:{cat:'mat',nome:'Divisão',pick:true},
+  fr2:{cat:'mat',nome:'Frações: meios',dens:[2]}, fr3:{cat:'mat',nome:'Frações: terços',dens:[3]},
+  fr42:{cat:'mat',nome:'Frações: quartos e meios',dens:[4,2]}, fr5:{cat:'mat',nome:'Frações: quintos',dens:[5]},
+  fr632:{cat:'mat',nome:'Frações: sextos, terços e meios',dens:[6,3,2]},
+};
+const ALF_LEVEL={alf1:1,alf2:2,alf3:3,alf4:4,alf5:5};
+let ACTIVITY=(()=>{ try{ const a=localStorage.getItem('incl_activity'); return ACTIVITIES[a]?a:'ludico'; }catch(e){ return 'ludico'; } })();
+let tabSel=(()=>{ try{ const s=JSON.parse(localStorage.getItem('incl_tabsel')); if(Array.isArray(s)&&s.length)return s.filter(n=>n>=0&&n<=10); }catch(e){} return [2,3,4,5]; })();
+function actCat(){ return (ACTIVITIES[ACTIVITY]||{}).cat||'ludico'; }
+function setActivity(id){ if(!ACTIVITIES[id])id='ludico'; ACTIVITY=id; try{localStorage.setItem('incl_activity',id);}catch(e){}
+  const cat=ACTIVITIES[id].cat;
+  if(cat==='alf')setQuizLevel(ALF_LEVEL[id],false); // reusa os 5 níveis da psicogênese
+  MODE = cat==='alf'?'silabas':cat==='mat'?'somasub':'ludico'; }
+function startActivity(id){ setActivity(id);
+  if(isMobile()){ if(numPlayers>1)setNumPlayers(1);
+    try{ const el=document.documentElement, rf=el.requestFullscreen||el.webkitRequestFullscreen; if(rf)rf.call(el); }catch(e){} }
+  players.forEach(p=>{ p.alfWins=0; });
+  restartGame(); setPhase('playing'); hideTips(); srSay(ACTIVITIES[id].nome+'. Jogo iniciado.'); }
+const gcd=(a,b)=>b?gcd(b,a%b):a;
+function fracStr(n,D){ if(n===0)return '0'; const g=gcd(n,D)||1, a=n/g,d=D/g; return d===1?String(a):a+'/'+d; }
+const DEN_NAME={2:'meio',3:'terço',4:'quarto',5:'quinto',6:'sexto',7:'sétimo',8:'oitavo',9:'nono',10:'décimo',12:'doze avos'};
+function fracSpeak(s){ const m=/^(\d+)\/(\d+)$/.exec(String(s)); if(!m)return String(s);
+  const n=+m[1],d=+m[2],nm=DEN_NAME[d]||(d+' avos'); return n===1?('um '+nm):(n+' '+nm+'s'); }
 const MODE_LABELS={ludico:'🪙 Lúdico',somasub:'🔷 Soma-Sub',silabas:'🔤 Sílabas'};
 const MODES=['ludico','somasub','silabas'];
 function setMode(m){
@@ -2451,7 +2542,8 @@ function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só co
     padCur[gi]=cur; padPrevAct[gi]=cur;
     // Vitória: START/pulo fecham o modal (Jogar de novo)
     const winOv=$('#win-overlay'); if(winOv&&!winOv.hidden){ if(startEdge){ const b=$('#btn-again'); if(b)b.click(); } continue; }
-    if(phase==='title'){ if(startEdge){ const b=$('#btn-play'); if(b)b.click(); } continue; } // splash: START/A = Jogar
+    if(phase==='title'){ const k={yes:edge('jump')||startEdge, no:edge('especial'), up:edge('up'), down:edge('down'), left:edge('left'), right:edge('right')};
+      if(k.yes||k.no||k.up||k.down||k.left||k.right)navTitle(k); continue; } // menu inicial navegável pelo pad
     if(phase==='paused'){ const owner=players.findIndex(p=>p.pad===gi); const pi=owner<0?0:owner;
       if(pauseEdge){ setPhase('playing'); continue; } // START retoma
       const k={yes:edge('jump'), no:edge('especial'), up:edge('up'), down:edge('down'), left:edge('left'), right:edge('right')};
@@ -3121,7 +3213,10 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 }
 
 /* ===================== loop ===================== */
-app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw(); fpsTick();
+app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw();
+  titleG.visible=(phase==='title'); if(titleG.visible)drawTitleScene(); // cena do título da v3 cobre o mundo
+  minimap.visible=!titleG.visible&&numPlayers<=1; document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu
+  fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
 window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
@@ -3136,7 +3231,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   get decorCounts(){ const n=g=>g.geometry&&g.geometry.graphicsData?g.geometry.graphicsData.length:0; return {stars:n(starsG),skyDeco:n(skyDecoG),fog:n(fogG),grass:n(grassG),front:n(themeFxG)}; }};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
-  const e2=document.querySelector('.title-by span'); if(e2)e2.textContent=v; }
+  const e2=document.getElementById('title-ver'); if(e2)e2.textContent=v; }
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
@@ -3198,7 +3293,7 @@ function setPhase(p){
   const pb=$('#btn-pause'); if(pb)pb.setAttribute('aria-pressed',String(p==='paused'));
   if(p==='playing'){ const gr=$('#game-region'); if(gr)gr.focus(); }
   else if(p==='paused'){ if(typeof pauseSelect==='function')pauseSelect(); if(typeof reflectPauseIcons==='function')reflectPauseIcons(); }
-  else if(p==='title'){ const b=$('#btn-play'); if(b)b.focus(); }
+  else if(p==='title'){ const b=$('#tm-main button'); if(b)b.focus(); }
 }
 // NAVEGAÇÃO UNIVERSAL de menus: qualquer menu aberto (pausa OU submenu) é navegável por up/down/left/right/
 // sim/não — as MESMAS ações valem para teclado, controle, olhos e fala. sim = confirma/alterna/entra;
@@ -3271,16 +3366,52 @@ function printMode(){ vpPause.forEach(sp=>sp.hidden=true); // Print: esconde as 
 function releaseKey(pl){ // portador saiu do jogo → a chave volta para a posição inicial (fica disponível de novo)
   if(!pl||!pl.hasKey)return; pl.hasKey=false;
   const key=powerups.find(p=>p.kind==='key'); if(key){ key.taken=false; key.by=[]; if(key.sprite)key.sprite.visible=true; srAlert('A chave voltou para o lugar de origem.'); } }
-function quitGame(){ // Sair: single → volta ao título; MP → a tela DO JOGADOR QUE SAIU fica preta, os outros seguem
-  if(numPlayers<=1){ restartGame(); setPhase('title'); srSay('Jogo abandonado.'); }
-  else { const q=pauseActor||0; releaseKey(players[q]); players[q].quit=true; setPhase('playing'); srSay('Jogador '+(q+1)+' abandonou o jogo.'); } }
+function quitGame(){ // Sair: single → volta ao MENU INICIAL; MP → tela do jogador fica preta; TODOS saindo → menu inicial
+  if(numPlayers<=1){ restartGame(); setPhase('title'); showTitleMenu('tm-main'); srSay('Jogo abandonado. Escolha a próxima atividade.'); }
+  else { const q=pauseActor||0; releaseKey(players[q]); players[q].quit=true;
+    if(players.every(p=>p.quit)){ players.forEach(p=>{p.quit=false;}); restartGame(); setPhase('title'); showTitleMenu('tm-main'); // trocar de jogo = todo mundo sai
+      srSay('Todos saíram. Escolham a próxima atividade.'); return; }
+    setPhase('playing'); srSay('Jogador '+(q+1)+' abandonou o jogo.'); } }
 function togglePause(){ if(phase==='playing')setPhase('paused'); else if(phase==='paused')setPhase('playing'); }
+/* ===== Menu inicial (v3): principal → submenus de atividade → (tabuada/divisão) seletor de números ===== */
+let _tabFor='mat5';
+function showTitleMenu(which){ ['tm-main','tm-alf','tm-mat','tm-tab'].forEach(m=>{ const el=$('#'+m); if(el)el.hidden=(m!==which); });
+  const el=$('#'+which), b=el&&el.querySelector('button'); if(b)b.focus(); }
+function titleButtons(){ const m=['tm-main','tm-alf','tm-mat','tm-tab'].map(id=>$('#'+id)).find(el=>el&&!el.hidden);
+  return m?[...m.querySelectorAll('button')]:[]; }
+function navTitle(k){ const bs=titleButtons(); if(!bs.length)return;
+  let i=bs.indexOf(document.activeElement);
+  if(k.up||k.down||k.left||k.right){ const d=(k.down||k.right)?1:-1; i=i<0?0:(i+d+bs.length)%bs.length; bs[i].focus(); srSay(bs[i].textContent); }
+  else if(k.yes){ (i<0?bs[0]:bs[i]).click(); }
+  else if(k.no){ const back=bs.find(b=>b.dataset.tmBack); if(back)back.click(); } }
+function buildTitleMenus(){
+  const mk=id=>`<button class="title-btn" data-act-id="${id}" type="button">${ACTIVITIES[id].nome}</button>`;
+  const back=(to)=>`<button class="title-btn ghost" data-tm-back="${to}" type="button">Voltar</button>`;
+  const alf=$('#tm-alf'); if(alf)alf.innerHTML=['alf1','alf2','alf3','alf4','alf5'].map(mk).join('')+back('tm-main');
+  const mat=$('#tm-mat'); if(mat)mat.innerHTML=['mat1','mat2','mat3','mat4','mat5','mat6','fr2','fr3','fr42','fr5','fr632'].map(mk).join('')+back('tm-main');
+  const rows=r=>r.map(n=>`<button class="title-btn tab-num${tabSel.includes(n)?' tab-on':''}" data-tab-n="${n}" type="button" aria-pressed="${tabSel.includes(n)}">${n}</button>`).join('');
+  const tab=$('#tm-tab'); if(tab)tab.innerHTML=`<div class="game-subtitle">Escolha os números para treinar</div>`+
+    `<div class="tab-row">${rows([0,1,2,3,4,5])}</div><div class="tab-row">${rows([6,7,8,9,10])}</div>`+
+    `<button class="title-btn" id="tab-play" type="button">Jogar</button>`+back('tm-mat');
+}
+(function titleSetup(){ const ov=$('#title-overlay'); if(!ov)return; buildTitleMenus();
+  ov.addEventListener('click',(e)=>{ const b=e.target.closest('button'); if(!b)return;
+    if(b.dataset.tm==='ludico'){ startActivity('ludico'); return; }
+    if(b.dataset.tm==='alf'){ showTitleMenu('tm-alf'); return; }
+    if(b.dataset.tm==='mat'){ showTitleMenu('tm-mat'); return; }
+    if(b.dataset.tmBack){ showTitleMenu(b.dataset.tmBack); return; }
+    if(b.id==='tab-play'){ if(!tabSel.length){ srAlert('Escolha ao menos um número para treinar.'); return; } startActivity(_tabFor); return; }
+    if(b.dataset.tabN!=null){ const n=+b.dataset.tabN, i=tabSel.indexOf(n);
+      if(i>=0)tabSel.splice(i,1); else tabSel.push(n);
+      try{localStorage.setItem('incl_tabsel',JSON.stringify(tabSel));}catch(e){}
+      b.classList.toggle('tab-on',i<0); b.setAttribute('aria-pressed',String(i<0));
+      srSay('Número '+n+(i<0?' ligado.':' desligado.')); return; }
+    if(b.dataset.actId){ const id=b.dataset.actId;
+      if(ACTIVITIES[id].pick){ _tabFor=id; buildTitleMenus(); showTitleMenu('tm-tab'); srSay(ACTIVITIES[id].nome+': escolha os números.'); }
+      else startActivity(id); } });
+})();
 (function shellSetup(){
   const wire=(id,fn)=>{ const b=$('#'+id); if(b)b.addEventListener('click',fn); };
-  wire('btn-play', ()=>{ // B2: no celular, força 1 jogador e entra em tela cheia (gesto do clique autoriza o fullscreen)
-    if(isMobile()){ if(numPlayers>1)setNumPlayers(1);
-      try{ const el=document.documentElement, rf=el.requestFullscreen||el.webkitRequestFullscreen; if(rf)rf.call(el); }catch(e){} }
-    setPhase('playing'); hideTips(); srSay('Jogo iniciado. Colete 10 moedas.'); });
   wire('btn-pause', togglePause); // (o botão saiu da barra; a fiação fica guardada p/ compat)
   // Barra de topo: ferramentas da direita (modo · nº telas · debug · FPS) só com ?debug=true.
   const tools=$('#topbar-tools'); if(tools){ if(/[?&]debug=true/.test(location.search))tools.hidden=false;

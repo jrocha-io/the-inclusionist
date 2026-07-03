@@ -157,13 +157,22 @@
     </div>
   </div>
 
-  <!-- E14: tela de título / splash (ponto de entrada) -->
+  <!-- Tela de título (visual da v3): a CENA (céu/nuvens/grama) é desenhada no canvas; aqui só o bloco+menus -->
   <div id="title-overlay" class="overlay">
-    <div class="overlay__card title-card" role="dialog" aria-modal="true" aria-labelledby="title-h">
-      <h2 id="title-h" class="title-big">The Inclusionist</h2>
-      <p class="title-by">por Prof. José Rocha · <span>v4</span></p>
-      <p class="opt-hint">Jogo educativo acessível. Colete 10 moedas. Mova com <kbd>A</kbd>/<kbd>D</kbd> ou setas; pule com <kbd>L</kbd> ou Espaço. Pause com <kbd>Esc</kbd>.</p>
-      <button id="btn-play" class="btn btn--primary" type="button">▶ Jogar</button>
+    <div class="title-wrap" role="dialog" aria-modal="true" aria-labelledby="title-h">
+      <div class="title-block">
+        <h2 id="title-h" class="game-title">The Inclusionist</h2>
+        <div class="game-byline">by Prof. José Rocha</div>
+        <div class="game-version" id="title-ver">v4</div>
+      </div>
+      <div class="title-menu" id="tm-main" role="menu" aria-label="Escolha o jogo">
+        <button class="title-btn" data-tm="ludico" type="button">Lúdico</button>
+        <button class="title-btn" data-tm="alf" type="button">Alfabetização</button>
+        <button class="title-btn" data-tm="mat" type="button">Matemática</button>
+      </div>
+      <div class="title-menu" id="tm-alf" role="menu" aria-label="Alfabetização" hidden></div>
+      <div class="title-menu" id="tm-mat" role="menu" aria-label="Matemática" hidden></div>
+      <div class="title-menu" id="tm-tab" role="menu" aria-label="Escolha os números" hidden></div>
     </div>
   </div>
 

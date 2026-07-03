@@ -26,6 +26,24 @@
 :root[data-fonte="custom"]{ --font:var(--font-custom,'Atkinson Hyperlegible'),var(--font-fallback); }
 /* Menu Tipografia: caixa branca de pré-visualização (pangrama), escrita escura */
 .typo-preview{background:#fff;color:#14141f;border:2px solid var(--ink-soft);border-radius:8px;padding:.65rem .9rem;margin:.2rem 0 .6rem;font-size:1.3em;line-height:1.3;text-align:center}
+/* Tela de título (visual da v3): overlay TRANSPARENTE — a cena (céu/nuvens/grama) vem do canvas */
+#title-overlay{background:transparent}
+body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:none} /* HUD do jogo não vaza no menu inicial (display: filhos não conseguem re-exibir) */
+.title-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;max-height:96%;}
+.game-title{color:#fff;font-size:2em;line-height:1.2;margin:0;text-align:center;letter-spacing:1px;text-shadow:2px 2px 0 #0d0d1a,-1px -1px 0 #0d0d1a}
+.title-block{display:inline-block}
+.game-byline{color:#f6f5f0;font-size:.8em;text-align:right;margin-top:2px;text-shadow:1px 1px 0 #0d0d1a}
+.game-version{color:#9999b3;font-size:.6em;text-align:right;letter-spacing:1px;margin-top:2px;text-shadow:1px 1px 0 #0d0d1a}
+.game-subtitle{color:#f6f5f0;font-size:.8em;margin:0 0 4px;text-shadow:1px 1px 0 #0d0d1a;text-align:center}
+.title-menu{display:flex;flex-direction:column;gap:8px;align-items:stretch;overflow-y:auto;padding:4px;max-height:62vh}
+.title-menu[hidden]{display:none}
+.title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:1em;padding:10px 22px;border-radius:6px;cursor:pointer;min-width:230px;min-height:44px}
+.title-btn.ghost{background:transparent;color:#fff;border:2px solid #fff}
+.title-btn:focus-visible{outline:4px solid var(--focus);outline-offset:2px}
+.title-btn.tab-on{box-shadow:inset 0 0 0 3px #14141f}
+.tab-row{display:flex;gap:6px;justify-content:center}
+.tab-row .title-btn{min-width:44px;padding:10px 0;flex:1}
+.quiz-dots{font-size:1.3em;letter-spacing:.15em;line-height:1.3;margin:.3rem 0;max-width:12em}
 @media (prefers-contrast: more){
   :root{ --bg:#000; --panel:#000; --ink:#fff; --ink-soft:#fff; --accent:#ffe600; }
 }
