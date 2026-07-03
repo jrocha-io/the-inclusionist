@@ -113,6 +113,14 @@
 | Menu inicial = tela da v3 (céu gradiente + nuvens móveis + grama) com Lúdico · Alfabetização (5) · Matemática (11) e seletor 0-10 p/ Tabuada/Divisão; alf = 3 vitórias→1 moeda SEM penalidade; matemática = 1 acerto (decisão: a regra 3-de-1 foi especificada só p/ alfabetização — sobrepor = 1 linha); Braille fala SÓ os pontos; trocar de jogo = todos saem → menu | Espec. completa do José 2026-07-03 | commit `0078c9d` | ✅ |
 | Frações: soma/sub por denominadores, sem resultado negativo, resposta SIMPLIFICADA (mdc) e falada por extenso ("três quartos") | Pedagogia + TTS legível | game.js fracStr/fracSpeak | ✅ |
 
+### 5.4 R-splash (2026-07-04)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| **NENHUM menu do jogo fora do canvas** (decisão DEFINITIVA do José) — splash incluso (reparentado ao #game-region); menus longos usam GRADE de colunas, nunca rolagem | Ordem explícita | commit `1d50b09` | ✅ |
+| Regra **3 vitórias = 1 moeda** para TODOS os minigames, sem exceção | Ordem explícita | commit `70b71b5` | ✅ |
+| Splash: rodapé de controles por DISPOSITIVO (teclado letras / DirectInput números / XInput letras coloridas); seletor vermelho piscando a 1Hz (WCAG 2.3.1 ok; reduced-motion=fixo) + efeito de ativação; ícones a11y da pausa no topo; MP = só o J1 escolhe ("Aguarde o Jogador 1"); dicas L/P removidas; corais/peixes na camada das árvores; fauna por altura (gatos/pombos alto, cães junto às árvores); trampolim sólido; árvores fora de trampolim | Feedback consolidado do José | commits `a7f8057`→`1d50b09` | ✅ |
+
 ## 6. Arquitetura e plataforma
 
 | Decisão | Fundamento / estudo | Fonte | Status |
