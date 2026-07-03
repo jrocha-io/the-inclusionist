@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.131.0';
+const INCL_VERSION='4.131.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1312,8 +1312,8 @@ const CRT=(()=>{ const d={scan:1,vig:0,round:1}; // scanline LIGADA por padrão 
   d.scan=d.scan?1:0; d.vig=d.vig?1:0; // scanlines/vinheta são ON/OFF (só cantos tem 3 níveis)
   return d; })();
 function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return; // alinha a scanline ao pixel FÍSICO e ao pixel LÓGICO do jogo
-  const rows=numPlayers<=2?1:2, k=Math.max(2,Math.round((g.clientHeight||360)/(180*rows))); // k = escala inteira atual
-  const dpr=window.devicePixelRatio||1, perDev=Math.max(2,Math.round(k*dpr));               // período em px físicos ≈ 1 px lógico
+  const rows=numPlayers<=2?1:2, dpr=window.devicePixelRatio||1;
+  const perDev=Math.max(2,Math.round((g.clientHeight||360)*dpr/(180*rows)));               // período = 1 px LÓGICO, em px físicos INTEIROS
   g.style.setProperty('--scan-per',(perDev/dpr)+'px'); g.style.setProperty('--scan-line',(Math.max(1,Math.round(dpr))/dpr)+'px'); }
 function applyCrt(){ const g=$('#game-region'); if(!g)return;
   ['crt-scan-1','crt-vig-1','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
@@ -2773,7 +2773,12 @@ function layout(){
   // Piso k=2: CADA viewport tem no mínimo 640×360 (320×180 lógico × 2). Assim 2×2 = 1280×720 cabe num
   // Chromebook do governo (1366×768). Se nesse mínimo não couber, a Etapa 4 vai bloquear aquele nº de telas.
   const MIN_K=2;
-  const k=Math.max(MIN_K,Math.floor(Math.min(availW/(baseW-10), availH/(baseH-10))));
+  // Múltiplo inteiro em PIXELS FÍSICOS (não CSS): com a escala do Windows (dpr 1,25 etc.), k inteiro em px
+  // CSS virava 2,5/3,75… px físicos por pixel de arte — upscale desigual (report do José 2026-07-03).
+  // kDev = múltiplo físico inteiro; o tamanho CSS resultante pode ser fracionário, MAS o físico é exato.
+  const dpr=window.devicePixelRatio||1;
+  const kDev=Math.max(Math.round(MIN_K*dpr), Math.floor(Math.min(availW*dpr/(baseW-10), availH*dpr/(baseH-10))));
+  const k=kDev/dpr;
   const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
   document.documentElement.style.setProperty('--ui-fs', (8*k)+'px'); // fonte-base dos menus: 16px a 640×360 (k=2) e escala com o canvas (8·k)
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda

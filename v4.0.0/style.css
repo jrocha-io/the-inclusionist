@@ -35,7 +35,9 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font)
 .quiz-box--math .quiz-prob,.quiz-box--math .quiz-choice,#hud-coins,#hud-total{font-family:var(--font-math);font-variant-numeric:tabular-nums}
 /* espaçamento de parágrafo ≥2× só em blocos de leitura (não quebra HUD/menus) */
 .overlay__card p + p{margin-top:2em}
-body{display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
+/* A página NUNCA rola (José): altura travada no viewport e overflow escondido — o excedente do canvas
+   (tolerância de 5px lógicos/lado) é cortado pelo .stage-wrap, e os menus rolam DENTRO dos cards. */
+body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
 .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .skip-link{position:absolute;left:8px;top:-60px;background:var(--accent);color:var(--accent-ink);padding:.6em 1em;border-radius:0 0 10px 10px;font-weight:700;z-index:100;transition:top .15s}
 .skip-link:focus{top:0}
