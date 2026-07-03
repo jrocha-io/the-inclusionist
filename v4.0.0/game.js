@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.137.0';
+const INCL_VERSION='4.138.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -889,14 +889,33 @@ const PARALLAX=[
   {key:'far',  factor:0.28, fy:0}, // Camada 3
   {key:'near', factor:0.52, fy:0}, // Camada 2 — mais próxima do tileset (fy=0: parallax horizontal clássico; textura=altura do viewport → sem repetição vertical)
 ];
-function parallaxPlaceholder(i){ // provisório: gradiente + silhuetas p/ enxergar o movimento (trocado pela arte do PixelLab)
+/* L6: temas da v3 portados — PROCEDURAL até a arte do José chegar (PNG do tema, se existir, tem precedência).
+   ramp = recolor do mundo por luminância (água/lava preservadas); flora = peculiaridades vivas do tema. */
+const CENARIOS={
+  cidade:   {nome:'Cidade',                        pals:[['#0a1024','#1b2350'],['#13284a','#22406e'],['#1d3a52','#356a86']], ramp:null,                 flora:'cidade'},
+  campo:    {nome:'Dia no Campo',                  pals:[['#7ec8ff','#cfeaff'],['#a8d8a0','#68b268'],['#5fae5f','#356e35']], ramp:['#2e4d2a','#7ac95e'], flora:'campo'},
+  cemiterio:{nome:'Fim da noite (Cemitério)',      pals:[['#241a38','#c86a4a'],['#3a2a4e','#6a4a6a'],['#2c2444','#4a3a5e']], ramp:['#352b44','#8d74a4'], flora:'cemiterio'},
+  noite:    {nome:'Noite no Campo',                pals:[['#040718','#0e1734'],['#0a1228','#182448'],['#0e1830','#203058']], ramp:['#141c36','#48588c'], flora:'noite'},
+  floresta: {nome:'Floresta',                      pals:[['#9adcae','#d8f2c8'],['#2e6e3e','#1e4e2e'],['#25592f','#153f1f']], ramp:['#1e3a22','#4e8a4e'], flora:'floresta'},
+};
+function parallaxPlaceholder(i,theme){ // gradiente + silhuetas POR TEMA (substituído pela arte quando o PNG existir)
   const w=320,h=LOGICAL_H,cv=makeCanvas(w,h),c=cv.getContext('2d');
-  const pal=[['#0a1024','#1b2350'],['#13284a','#22406e'],['#1d3a52','#356a86']][i];
+  const T=CENARIOS[theme]||CENARIOS.cidade, pal=T.pals[i];
   const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,pal[0]); g.addColorStop(1,pal[1]); c.fillStyle=g; c.fillRect(0,0,w,h);
   c.fillStyle=pal[1];
   for(let x=0;x<w;x+=44+i*14){ const hh=24+((x*7+i*29)%(46+i*22)); c.fillRect(x,h-hh,30+i*6,hh); }
-  c.fillStyle='rgba(255,255,255,.18)'; for(let k=0;k<8;k++){ c.fillRect((k*53+i*17)%w,(k*23+i*11)%(h-40),2,2); } // marcadores
+  if(T.flora==='noite'&&i===0){ c.fillStyle='rgba(255,255,255,.9)'; for(let k=0;k<26;k++)c.fillRect((k*37)%w,(k*23)%(h-60),1,1); } // ESTRELAS
+  else { c.fillStyle='rgba(255,255,255,.18)'; for(let k=0;k<8;k++)c.fillRect((k*53+i*17)%w,(k*23+i*11)%(h-40),2,2); }
   return tex(cv);
+}
+function themeRecolor(cv,ramp){ // mundo recolorido por LUMINÂNCIA (procedural); água/lava mantêm a leitura
+  const c=cv.getContext('2d'), img=c.getImageData(0,0,cv.width,cv.height), d=img.data;
+  const A=hexRgb(ramp[0]), B=hexRgb(ramp[1]);
+  for(let i=0;i<d.length;i+=4){ if(d[i+3]<8)continue; const r=d[i],g=d[i+1],b=d[i+2];
+    if((b>r+40&&b>g+30)||(r>g+60&&r>b+60))continue; // água azul / lava vermelha preservadas
+    const l=(0.299*r+0.587*g+0.114*b)/255;
+    d[i]=A[0]+(B[0]-A[0])*l; d[i+1]=A[1]+(B[1]-A[1])*l; d[i+2]=A[2]+(B[2]-A[2])*l; }
+  c.putImageData(img,0,0); return cv;
 }
 const parallaxLayers=PARALLAX.map((p,i)=>{
   const ts=new PIXI.TilingSprite(parallaxPlaceholder(i),LOGICAL_W,LOGICAL_H);
@@ -914,20 +933,28 @@ function updateParallax(camX,camY){
 }
 /* Tema de cenário: troca as 3 texturas de parallax por assets/cenarios/<tema>/c{4,3,2}.png.
    Sem tema definido → placeholders. Persiste em localStorage. */
-let CENARIO=null;
+let CENARIO=null, _vidaReady=false; // _vidaReady: camadas de vida/tráfego/tema já existem (applyCenarioVida pode rodar)
 function loadTileImages(theme){ return new Promise(res=>{
   const fill=new Image(), surf=new Image(); let n=0, fail=false;
   const done=()=>{ if(fail)return; if(++n===2) res({fill,surface:surf}); };
   fill.onload=done; surf.onload=done; fill.onerror=surf.onerror=()=>{fail=true;res(null);};
   fill.src='assets/cenarios/'+theme+'/tile_fill.png'; surf.src='assets/cenarios/'+theme+'/tile_surface.png';
 }); }
-function setCenario(theme){
+function setCenario(theme){ if(!CENARIOS[theme])theme='cidade';
   CENARIO=theme;
-  parallaxLayers.forEach((ts,i)=>{ const n=[4,3,2][i];
-    const t=PIXI.Texture.from('assets/cenarios/'+theme+'/c'+n+'.png');
-    t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST; parallaxTexNormal[i]=t; if(vizMode==='normal') ts.texture=t; });
-  loadTileImages(theme).then(tiles=>{ worldCanvasNormal=worldCanvas(tiles); worldTexNormal=tex(worldCanvasNormal); _worldTexHC={}; // reconstrói o chão com o tileset do tema; invalida cache HC
+  parallaxLayers.forEach((ts,i)=>{ const n=[4,3,2][i], img=new Image(); // PNG do tema tem precedência; sem ele → placeholder TEMÁTICO
+    img.onload=()=>{ if(CENARIO!==theme)return; const t=PIXI.Texture.from(img); t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST;
+      parallaxTexNormal[i]=t; for(const k in _parallaxTexHC)delete _parallaxTexHC[k]; if(vizMode==='normal') ts.texture=t; };
+    img.onerror=()=>{ if(CENARIO!==theme)return; const t=parallaxPlaceholder(i,theme);
+      parallaxTexNormal[i]=t; for(const k in _parallaxTexHC)delete _parallaxTexHC[k]; if(vizMode==='normal') ts.texture=t; };
+    img.src='assets/cenarios/'+theme+'/c'+n+'.png'; });
+  loadTileImages(theme).then(tiles=>{ if(CENARIO!==theme)return;
+    let cvn=worldCanvas(tiles); const T=CENARIOS[theme];
+    if(!tiles && T.ramp) cvn=themeRecolor(cvn,T.ramp); // sem tileset do tema → recolor procedural
+    worldCanvasNormal=cvn; worldTexNormal=tex(cvn); _worldTexHC={};
     if(vizReady) reapplyVizAll(); else if(worldSprite) worldSprite.texture=worldTexNormal; });
+  document.querySelectorAll('.pm-cen').forEach(x=>{ x.textContent='🏙 Cenário: '+CENARIOS[theme].nome; });
+  if(_vidaReady) applyCenarioVida(); // liga/desliga carros/deco da cidade e semeia as peculiaridades do tema
   if(vizReady) reapplyVizAll(); // reaplica o cenário recolorido (só após o init montar tudo)
   try{ localStorage.setItem('incl_cenario',theme); }catch(e){}
 }
@@ -1326,6 +1353,7 @@ function spawnCreature(force){ if(creatures.length>=10)return false;
   const tx=Math.floor(pl.x/TILE)+(rnd()<0.5?-1:1)*(Math.floor(LOGICAL_W/TILE/2)+2+randInt(0,5));
   if(tx<1||tx>=WORLD_W-1)return false;
   const K=LIFE_KINDS[[0,0,0,1,2,3][randInt(0,5)]]; // pombos com peso 3× ("cadê os pombos no chão?")
+  if(K.street&&CENARIO!=='cidade')return false; // adultos/cães são vida URBANA; campo/floresta ficam com bichos + borboletas
   const ty=lifeSurfaceAt(tx); if(ty<0)return false;
   if(K.street && ty*TILE<WORLD_PX_H*0.55)return false; // adultos/cães só na RUA (parte baixa)
   const s=new PIXI.Sprite(LIFE_TEX[K.tex][0]); s.anchor.set(0.5,1); s.alpha=K.alpha; lifeLayer.addChild(s);
@@ -1379,7 +1407,7 @@ function spawnCar(){ if(cars.length>=3)return false; const dir=rnd()<0.5?1:-1;
   const s=new PIXI.Sprite(CAR_TEX[randInt(0,CAR_TEX.length-1)]); s.anchor.set(0.5,1); s.scale.set(dir*3,3); // 3× altura e largura (pedido)
   s.y=STREET_Y; const x=dir>0?-90:WORLD_PX_W+90; s.x=x; carLayer.addChild(s);
   cars.push({s,x,dir,vx:dir*1.4}); return true; }
-function stepTraffic(dt){
+function stepTraffic(dt){ if(CENARIO!=='cidade')return; // L6: trânsito é peculiaridade da Cidade
   SEM.t+=dt; const cyc=(SEM.t/60)%16, st=cyc<8?'green':cyc<10?'yellow':'red';
   if(st!==SEM.state){ SEM.state=st; drawSemaforo(); }
   if(rm.decor){ if(cars.length){ cars.forEach(c=>{ carLayer.removeChild(c.s); c.s.destroy(); }); cars=[]; } return; } // semáforo (sinalização) fica; carros (movimento) saem
@@ -1445,6 +1473,34 @@ function stepSky(dt){ if(rm.decor){ if(birds.length){ birds.forEach(b=>{skyLayer
     birds.push({s,dir,f:0,t:0}); }
   for(let i=birds.length-1;i>=0;i--){ const b=birds[i]; b.s.x+=b.dir*0.7*dt; b.t+=dt; if(b.t>=8){ b.t=0; b.f=1-b.f; b.s.texture=BIRD_TEX[b.f]; }
     if(b.s.x<-16||b.s.x>WORLD_PX_W+16){ skyLayer.removeChild(b.s); b.s.destroy(); birds.splice(i,1); } } }
+/* ===================== L6: PECULIARIDADES VIVAS por tema (procedural) =====================
+   noite: vagalumes (pulso ~0,5Hz — WCAG 2.3.1 ok) · cemitério: névoa à deriva · campo/floresta:
+   borboletas + banda de GRAMA nos topos. themeFxG fica À FRENTE do player (como o decor-front da v3). */
+const themeStaticG=new PIXI.Graphics(); lifeLayer.addChildAt(themeStaticG,0); // grama/musgo (estático, atrás dos bichos)
+const themeFxG=new PIXI.Graphics(); // à frente: junto do carLayer (re-erguido em ensureSprites via carLayer? não — adiciona ao camera aqui)
+camera.addChild(themeFxG);
+let themeFx=[];
+function seedThemeFx(){ themeFx=[]; themeFxG.clear(); themeStaticG.clear();
+  const f=(CENARIOS[CENARIO]||{}).flora;
+  if(f==='noite'){ for(let i=0;i<24;i++)themeFx.push({k:'vaga',x:rnd()*WORLD_PX_W,y:WORLD_PX_H*0.45+rnd()*WORLD_PX_H*0.5,ph:rnd()*6.28}); }
+  if(f==='cemiterio'){ for(let i=0;i<5;i++)themeFx.push({k:'nevoa',x:rnd()*WORLD_PX_W,y:WORLD_PX_H-40-i*70,w:90+rnd()*120}); }
+  if(f==='campo'||f==='floresta'){ for(let i=0;i<10;i++){ const tx=2+randInt(0,WORLD_W-5), ty=lifeSurfaceAt(tx); if(ty>0)themeFx.push({k:'borbo',x:tx*TILE+8,y:ty*TILE-10,ph:rnd()*6.28}); } }
+  if(f==='campo'||f==='floresta'||f==='cemiterio'){ const col=f==='campo'?0x58b04a:f==='floresta'?0x2e7a3e:0x6a5a80; // grama/musgo no topo do piso
+    for(let tx=1;tx<WORLD_W-1;tx++){ const ty=lifeSurfaceAt(tx); if(ty>0)themeStaticG.beginFill(col,0.95).drawRect(tx*TILE,ty*TILE,TILE,2).endFill(); } }
+}
+function stepThemeFx(dt){ if(rm.decor||!themeFx.length){ themeFxG.clear(); return; }
+  const t=fxClock, g=themeFxG; g.clear();
+  for(const p of themeFx){
+    if(p.k==='vaga'){ const x=p.x+Math.sin(t*0.01+p.ph)*8, y=p.y+Math.cos(t*0.013+p.ph)*5, glow=0.5+0.3*Math.sin(t*0.05+p.ph);
+      g.beginFill(0xd8ff9a,glow*0.85).drawRect(x,y,2,2).endFill(); g.beginFill(0xd8ff9a,glow*0.2).drawRect(x-2,y-2,6,6).endFill(); }
+    else if(p.k==='nevoa'){ p.x+=0.05*dt; if(p.x>WORLD_PX_W+80)p.x=-p.w; g.beginFill(0xcfd8ea,0.13).drawRect(p.x,p.y,p.w,18).endFill(); }
+    else if(p.k==='borbo'){ const x=p.x+Math.sin(t*0.02+p.ph)*10, y=p.y+Math.sin(t*0.045+p.ph)*6, wing=Math.sin(t*0.3+p.ph)>0;
+      g.beginFill(0xffb0d0,0.95).drawRect(x,y,2,2).endFill(); if(wing)g.beginFill(0xff7ab0,0.9).drawRect(x-2,y-1,2,2).drawRect(x+2,y-1,2,2).endFill(); } } }
+function applyCenarioVida(){ const city=CENARIO==='cidade';
+  carLayer.visible=city; cityDecoG.visible=city; // carros/semáforo/placas + deco urbana SÓ na Cidade
+  if(!city&&cars.length){ cars.forEach(c=>{ carLayer.removeChild(c.s); c.s.destroy(); }); cars=[]; }
+  seedThemeFx(); }
+_vidaReady=true; applyCenarioVida(); // estado inicial (CENARIO já veio do setCenario do boot)
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
@@ -1505,7 +1561,7 @@ let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
 // HUD por jogador em DOM SOBREPOSTO (alta definição, não pixela): moedas (1ª coluna) + poder (2ª coluna), por viewport.
 let gameHudEl=null, vpHudDom=[], vpQuitDom=[], vpScreens=[], vpPause=[], pauseActor=0;
 // Menu de pausa POR TELA (Etapa 2): um por jogador, dentro da .player-screen dele.
-const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'nivel',lbl:'📚 Nível',nivel:true},{act:'tipo',lbl:'🔤 Tipografia'},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
+const PM_BTNS=[ {act:'resume',lbl:'▶ Continuar'},{act:'letra',lbl:'🔠 ABC',letra:true},{act:'nivel',lbl:'📚 Nível',nivel:true},{act:'tipo',lbl:'🔤 Tipografia'},{act:'cenario',lbl:'🏙 Cenário',cen:true},{act:'audio',lbl:'🦻 Acessibilidade auditiva'},{act:'motora',lbl:'♿ Acessibilidade motora'},{act:'anim',lbl:'🎞 Sensibilidade visual'},{act:'visual',lbl:'🎨 Acessibilidade visual'},{act:'empatia',lbl:'🫂 Modo empatia'},{act:'ajuda',lbl:'❓ Ajuda'},{act:'print',lbl:'📷 Print (ver a tela)'},{act:'quit',lbl:'🚪 Sair do jogo'} ];
 // Barra de atalhos de a11y no topo da pausa (por tela). Sons (cego/TTS) só com saída própria; webcam/voz em construção.
 const PAUSE_ICONS=[ {k:'blind',e:'🦯',n:'Modo cego (navegação sonora)'},{k:'tts',e:'🗨️',n:'Narração por voz (TTS)'},{k:'tea',e:'🧩',n:'Modo TEA (calmo / silencioso)'},{k:'altmove',e:'🦾',n:'Teclas de alternância'},{k:'contrast',e:'🌗',n:'Alto contraste'},{k:'cvd',e:'🚥',n:'Correção de daltonismo (protan/deutan/tritan)'},{k:'face',e:'🧑',n:'Webcam — rosto',soon:true},{k:'eyes',e:'👀',n:'Webcam — olhos',soon:true},{k:'voice',e:'👄',n:'Comando de voz',soon:true} ];
 let calmMode=0; // 0=normal · 1=calmo (reduz) · 2=silencioso (desliga) — nunca mexe em TTS/modo cego
@@ -1514,7 +1570,7 @@ function buildScreenPause(i){ const sp=document.createElement('div'); sp.classNa
   sp.innerHTML='<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'">'+
     '<div class="pause-icons" role="group" aria-label="Atalhos de acessibilidade">'+icons+'</div><p class="pause-icons-cap" aria-live="polite"></p>'+
     '<h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
-    PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+(b.nivel?' pm-nivel':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+(b.nivel?('📚 Nível '+quizLevel+' · '+QL_NAME[quizLevel]):b.lbl)+'</button>').join('')+
+    PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+(b.nivel?' pm-nivel':'')+(b.cen?' pm-cen':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+(b.nivel?('📚 Nível '+quizLevel+' · '+QL_NAME[quizLevel]):b.cen?('🏙 Cenário: '+((CENARIOS[CENARIO]||{}).nome||'Cidade')):b.lbl)+'</button>').join('')+
     '</div><p class="pause-legend" aria-hidden="true"></p></div>';
   sp.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(b){ pauseActor=i; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); return; }
     const ib=e.target.closest('.pi-btn'); if(ib){ pauseActor=i; iconAct(ib.dataset.pi,i); reflectPauseIcons(); const cp=sp.querySelector('.pause-icons-cap'); if(cp)cp.textContent=ib.getAttribute('aria-label')||''; } });
@@ -1872,6 +1928,7 @@ function update(dt){
   stepLife(dt); // L5: vida ambiente (pombos/gatos/cães/adultos) — cosmética, atrás do player
   stepTraffic(dt); // L5: carros (frente, na rua da base) + semáforo
   stepSky(dt); // L5: nuvens + pássaros no céu
+  stepThemeFx(dt); // L6: vagalumes/névoa/borboletas do tema
   if(ended)return;
   players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
   for(const pl of players) stepPlayer(pl,dt);
@@ -2919,7 +2976,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
   spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,STREET_Y,
-  get clouds(){return clouds;},get birds(){return birds;},stepSky};
+  get clouds(){return clouds;},get birds(){return birds;},stepSky,CENARIOS,get themeFx(){return themeFx;},stepThemeFx};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
   const e2=document.querySelector('.title-by span'); if(e2)e2.textContent=v; }
@@ -2996,6 +3053,7 @@ const pauseActs={ resume:()=>setPhase('playing'),
   letra:()=>{ letraIdx=(letraIdx+1)%LETRA.length; applyLetra(true); },
   nivel:()=>setQuizLevel(quizLevel%5+1,true), // L3: cicla 1..5
   tipo:()=>openTypo(),
+  cenario:()=>{ const ks=Object.keys(CENARIOS); const nx=ks[(ks.indexOf(CENARIO)+1)%ks.length]; setCenario(nx); srSay('Cenário: '+CENARIOS[nx].nome+'.'); }, // L6: cicla os 5 temas
   audio:()=>openAudio(),
   motora:()=>{ selMovPlayer=pauseActor; openMovement(); },
   anim:()=>{ selAnimPlayer=pauseActor; openAnimation(); },
