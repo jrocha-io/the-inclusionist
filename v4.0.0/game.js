@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.151.0';
+const INCL_VERSION='4.151.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1304,8 +1304,9 @@ function buildRamps(){ rampLayer.clear(); rampLayer.visible=wheelchair; if(!whee
       rampLayer.lineStyle(2,STRIPE); rampLayer.moveTo(X,yL-1); rampLayer.lineTo(X+TILE,yD-1); rampLayer.lineStyle(0);
     }
   }
-  // cadeirante: LAVA (9) e TRAMPOLIM (5) viram chão — cada um coberto por um bloco de concreto (o vidro do elevador fica por cima)
-  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ const t=tileAt(x,y); if(t!==9&&t!==5)continue; const X=x*TILE,Y=y*TILE;
+  // cadeirante: LAVA (9) vira CHÃO seguro (bloco de concreto). O TRAMPOLIM (5) NÃO é coberto — ele É a base do
+  // elevador (José): a rampa leva o jogador do chão até o trampolim, e o trampolim sobe/desce (cabine de vidro por cima).
+  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){ if(tileAt(x,y)!==9)continue; const X=x*TILE,Y=y*TILE;
     rampLayer.beginFill(0x6f7481); rampLayer.drawRect(X,Y,TILE,TILE); rampLayer.endFill();
     rampLayer.beginFill(0x8a8f9c); rampLayer.drawRect(X,Y,TILE,2); rampLayer.endFill();               // topo claro
     rampLayer.lineStyle(1,0x4a4e59); rampLayer.drawRect(X+0.5,Y+0.5,TILE-1,TILE-1); rampLayer.lineStyle(0); // borda
