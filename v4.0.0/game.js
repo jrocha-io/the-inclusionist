@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.142.0';
+const INCL_VERSION='4.142.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -260,9 +260,9 @@ function worldCanvas(tiles){           // canvas NORMAL (tileset do tema ou TILE
     else if(t===4){ c.fillStyle='#777';                                                        // escada VAZADA: trilhos + degraus
       c.fillRect(X+3,Y,2,TILE); c.fillRect(X+11,Y,2,TILE);
       c.fillRect(X+3,Y+2,10,2); c.fillRect(X+3,Y+8,10,2); c.fillRect(X+3,Y+14,10,2); }
-    else if(t===5){ c.fillStyle='#555'; c.fillRect(X,Y+10,TILE,6);                             // trampolim magenta
-      c.fillStyle='#E373FA'; c.fillRect(X+1,Y+2,TILE-2,9);
-      c.fillStyle='#fff'; c.fillRect(X+2,Y+4,TILE-4,1); }
+    else if(t===5){ c.fillStyle='#E373FA'; c.fillRect(X,Y,TILE,TILE);                          // trampolim SÓLIDO (pedido: bloco inteiro, não o 3-partes da v3)
+      c.fillStyle='#fff'; c.fillRect(X+1,Y+2,TILE-2,1);
+      c.fillStyle='#9a3fb0'; c.fillRect(X,Y+TILE-2,TILE,2); }
     else if(t===3){ c.fillStyle='rgba(121,220,242,0.4)'; c.fillRect(X,Y,TILE,TILE); }          // água translúcida (sem listras!)
     else if(t===9){ c.fillStyle='#C93232'; c.fillRect(X,Y,TILE,TILE); }                        // lava (tracinhos animados no stepTileFx)
     else { c.fillStyle=TILE_COLOR[t]||'#202'; c.fillRect(X,Y,TILE,TILE); }
@@ -1192,7 +1192,7 @@ const decoSprites=[];
 (function placeTrees(){ let last=-99; // R-cidade: árvores SÓ na parte mais baixa (por onde o personagem anda)
   for(let tx=2;tx<WORLD_W-2;tx++){
     for(let ty=WORLD_H-9;ty<WORLD_H-1;ty++){
-      if(tileAt(tx,ty)===1 && solidAt(tx,ty+1) && tileAt(tx,ty-1)===1){
+      if(tileAt(tx,ty)===1 && solidAt(tx,ty+1) && tileAt(tx,ty+1)!==5 && tileAt(tx,ty-1)===1){ // NUNCA em cima de trampolim
         if(tx-last>=5){ const s=new PIXI.Sprite(treeTexNormal); s.anchor.set(0.5,1); s.x=tx*TILE+TILE/2; s.y=(ty+1)*TILE; decoLayer.addChild(s); decoSprites.push(s); last=tx; }
         break;
       }
@@ -1424,10 +1424,15 @@ function spawnCreature(force){ if(creatures.length>=10)return false;
   const K=LIFE_KINDS[[0,0,0,1,2,3][randInt(0,5)]]; // pombos com peso 3× ("cadê os pombos no chão?")
   if(K.street&&CENARIO!=='cidade')return false; // adultos/cães são vida URBANA; campo/floresta ficam com bichos + borboletas
   let tx,ty,fade=0;
-  if(K.street){ const open=streetCols().filter(([cx])=>Math.abs(cx-ptx)<=22); if(!open.length)return false;
-    [tx,ty]=open[randInt(0,open.length-1)]; fade=30; } // rua: coluna aberta da fachada (pode ser visível → nasce em FADE-IN)
+  if(K.street){ // cães e adultos: banda baixa; CÃO de preferência perto de uma ÁRVORE (pedido do José)
+    if(K.k==='cao'&&decoSprites.length&&rnd()<0.8){ const tr=decoSprites[randInt(0,decoSprites.length-1)];
+      tx=Math.floor(tr.x/TILE)+(rnd()<0.5?-1:1)*randInt(1,3); if(tx<1||tx>=WORLD_W-1)return false;
+      ty=lifeSurfaceLowAt(tx); if(ty<0)return false; fade=30; }
+    else { const open=streetCols().filter(([cx])=>Math.abs(cx-ptx)<=22); if(!open.length)return false;
+      [tx,ty]=open[randInt(0,open.length-1)]; fade=30; } } // rua: coluna aberta da fachada (pode ser visível → FADE-IN)
   else { tx=ptx+(rnd()<0.5?-1:1)*(Math.floor(LOGICAL_W/TILE/2)+2+randInt(0,5));
-    if(tx<1||tx>=WORLD_W-1)return false; ty=lifeSurfaceAt(tx); if(ty<0)return false; }
+    if(tx<1||tx>=WORLD_W-1)return false; ty=lifeSurfaceAt(tx); if(ty<0)return false;
+    if(CENARIO==='cidade' && ty*TILE>=WORLD_PX_H*0.55)return false; } // cidade: gatos e pombos SÓ nas partes ALTAS
   const tex2 = K.k==='adulto' ? ADULT_TEX[randInt(0,ADULT_TEX.length-1)] : LIFE_TEX[K.tex]; // adulto sorteia 1 dos 6 formatos
   const s=new PIXI.Sprite(tex2[0]); s.anchor.set(0.5,1); s.alpha=fade?0:K.alpha; lifeLayer.addChild(s);
   creatures.push({K,tex2,s,fade,x:tx*TILE+8,y:ty*TILE,dir:rnd()<0.5?-1:1,animT:0,f:0,state:'walk',stateT:0,vy:0});
@@ -1647,7 +1652,7 @@ function applyCenarioVida(){ const city=CENARIO==='cidade';
 _vidaReady=true; applyCenarioVida(); // estado inicial (CENARIO já veio do setCenario do boot)
 /* ===================== Tiles vivos da v3 (água FORE + lava) — drawTile animado, fiel ===================== */
 const lavaFxG=new PIXI.Graphics(); lifeLayer.addChildAt(lavaFxG,0);   // tracinhos da lava (ATRÁS do player, como o map-back)
-const waterFxG=new PIXI.Graphics(); camera.addChild(waterFxG);        // água era FORE na v3: ondas/corais/algas/peixes POR CIMA do player
+const waterFxG=new PIXI.Graphics(); decoLayer.addChild(waterFxG);     // corais/algas/peixes no BACKGROUND (camada das árvores — pedido do José; ficam atrás de player E carros)
 function stepTileFx(){ lavaFxG.clear(); waterFxG.clear();
   if(DIRECT_CFG[vizMode]||rm.decor) return; // HC repinta o mundo (color-blocking); viewDecor off na v3 = só a base estática
   const t=fxClock, seen=new Set();
@@ -1677,7 +1682,7 @@ function stepTileFx(){ lavaFxG.clear(); waterFxG.clear();
 }
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
-camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); camera.addChild(waterFxG); // FRENTE do player TAMBÉM no boot solo; ordem v3: decor-front < névoa < ÁGUA (map-fore); o fxG nasce logo abaixo, já por cima
+camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); // FRENTE do player TAMBÉM no boot solo; a água/corais ficou no decoLayer (fundo)
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
    Cada efeito respeita o Movimento Reduzido do jogador: partículas→rm.particles, cintilar→rm.items,
    tremor de tela→rm.parallax (movimento de câmera), squash→rmWalk (personagem). Hit-stop é PAUSA, não movimento. */
@@ -1729,7 +1734,7 @@ applyCrt();
 let allPSprites=[playerSprite];
 function ensureSprites(){
   for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
-  camera.addChild(fxG); camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); camera.addChild(waterFxG); // re-adicionar = mover ao topo (partículas, CARROS, decor-front, névoa e ÁGUA-fore à frente dos players)
+  camera.addChild(fxG); camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); // re-adicionar = mover ao topo (partículas, CARROS, decor-front e névoa à frente dos players)
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
