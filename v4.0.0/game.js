@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.135.0';
+const INCL_VERSION='4.136.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1319,7 +1319,8 @@ const LIFE_KINDS=[
   {k:'adulto',tex:'adulto',spd:0.25, alpha:0.65, street:true}, // recuado (silhueta translúcida, bem atrás)
 ];
 let creatures=[], _lifeSpawnT=0;
-function lifeSurfaceAt(tx){ for(let ty=3;ty<WORLD_H-1;ty++){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9) return ty; } return -1; }
+function inDark(tx,ty){ for(const r of darkRegions){ if(r.set.has(tx+','+ty))return true; } return false; } // célula de área secreta?
+function lifeSurfaceAt(tx){ for(let ty=3;ty<WORLD_H-1;ty++){ if(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty)!==9&&!inDark(tx,ty-1)) return ty; } return -1; } // superfície AO AR LIVRE (fora das secretas)
 function spawnCreature(force){ if(creatures.length>=8)return false;
   const pl=players[randInt(0,Math.max(0,numPlayers-1))]||players[0];
   const tx=Math.floor(pl.x/TILE)+(rnd()<0.5?-1:1)*(Math.floor(LOGICAL_W/TILE/2)+2+randInt(0,5));
@@ -1387,6 +1388,47 @@ function stepTraffic(dt){ if(STREET_TY<0)return;
     c.x+=c.vx*dt; c.s.x=Math.round(c.x);
     if(c.x<-40||c.x>WORLD_PX_W+40){ c.s.destroy(); carLayer.removeChild(c.s); cars.splice(i,1); } } }
 initTraffic();
+/* ===================== L5: DECORAÇÃO POR ZONA (procedural, desenhada UMA vez) =====================
+   Rua: calçada+meio-fio, postes com brilho ESTÁVEL, placas (PARE/faixa), letreiros nas fachadas.
+   Caixa d'água: paredes de tanque + linha d'água. Interior de prédio (alto): janelas.
+   Secretas (darkRegions): entulho/viga/pichação — desenhados ABAIXO do darkLayer (só aparecem revelados). */
+const cityDecoG=new PIXI.Graphics(); lifeLayer.addChildAt(cityDecoG,0); // atrás dos bichos, à frente do mundo
+const abandonG=new PIXI.Graphics(); camera.addChildAt(abandonG, camera.getChildIndex(darkLayer)); // SOB a escuridão
+function buildCityDeco(){ const g=cityDecoG; g.clear(); const a=abandonG; a.clear();
+  const surf=(tx)=>lifeSurfaceAt(tx);
+  // ---- RUA: calçada + meio-fio + postes + placas + letreiros
+  if(STREET_TY>0){ const y=STREET_TY*TILE;
+    for(let tx=1;tx<WORLD_W-1;tx++){ if(surf(tx)!==STREET_TY)continue; const X=tx*TILE;
+      g.beginFill(0x9aa0ad,0.9).drawRect(X,y,TILE,2).endFill();            // calçada clara
+      g.beginFill(0x565e70,1).drawRect(X,y+2,TILE,1).endFill();            // meio-fio
+      if(tx%11===4){ g.beginFill(0x3a4152).drawRect(X+7,y-30,2,30).endFill(); g.beginFill(0x3a4152).drawRect(X+7,y-30,8,2).endFill(); // poste + braço
+        g.beginFill(0xffe9a8,1).drawRect(X+13,y-29,3,3).endFill(); g.beginFill(0xffe9a8,0.18).drawRect(X+9,y-31,11,8).endFill(); }   // lâmpada + halo FIXO
+      if(tx%14===9){ g.beginFill(0x8a919f).drawRect(X+7,y-14,1,14).endFill();                                                        // placa: haste
+        if(tx%28===9){ g.beginFill(0xd23a2e).drawRect(X+4,y-21,7,7).endFill(); g.beginFill(0xffffff).drawRect(X+5,y-18,5,1).endFill(); } // PARE
+        else { g.beginFill(0x2e6fc8).drawRect(X+4,y-21,7,7).endFill(); for(let s=0;s<3;s++)g.beginFill(0xffffff).drawRect(X+5,y-20+s*2,5,1).endFill(); } } // faixa
+      if(tx%9===2 && solidAt(tx,STREET_TY-3)){ const c=[0x37c9a0,0xff8c5a,0x64b0ff,0xffd23f][tx%4];                                  // letreiro na fachada
+        g.beginFill(0x141824).drawRect(X+2,y-3.5*TILE,12,6).endFill(); g.beginFill(c,1).drawRect(X+3,y-3.5*TILE+1,10,4).endFill();
+        g.beginFill(c,0.15).drawRect(X,y-3.5*TILE-2,16,10).endFill(); } }                                                            // brilho estável (sem piscar)
+  }
+  // ---- CAIXA D'ÁGUA: paredes metálicas nas bordas do corpo d'água + linha d'água no topo
+  let wx0=1e9,wx1=-1,wy0=1e9,wy1=-1;
+  for(let ty=0;ty<WORLD_H;ty++)for(let tx=0;tx<WORLD_W;tx++){ if(tileAt(tx,ty)===3){ wx0=Math.min(wx0,tx);wx1=Math.max(wx1,tx);wy0=Math.min(wy0,ty);wy1=Math.max(wy1,ty); } }
+  if(wx1>=0){ const X0=wx0*TILE,X1=(wx1+1)*TILE,Y0=wy0*TILE,Y1=(wy1+1)*TILE;
+    g.beginFill(0x6a7486,0.85).drawRect(X0-3,Y0-6,3,Y1-Y0+6).drawRect(X1,Y0-6,3,Y1-Y0+6).endFill(); // paredes do tanque
+    for(let ry=Y0;ry<Y1;ry+=12){ g.beginFill(0x49515f).drawRect(X0-3,ry,3,2).drawRect(X1,ry,3,2).endFill(); } // rebites
+    g.beginFill(0xbfe6ff,0.5).drawRect(X0,Y0,X1-X0,1.5).endFill(); }                                  // linha d'água
+  // ---- INTERIOR DE PRÉDIO (parte alta): janelas esparsas nos fundos visíveis (tile 1)
+  for(let ty=2;ty<Math.floor(WORLD_H*0.45);ty++)for(let tx=1;tx<WORLD_W-1;tx++){
+    if(tileAt(tx,ty)!==1||((tx*7+ty*13)%11)!==0)continue; const X=tx*TILE,Y=ty*TILE;
+    g.beginFill(0x1b2233,0.85).drawRect(X+3,Y+2,10,12).endFill(); g.beginFill(0x394a6a,0.9).drawRect(X+4,Y+3,8,4).endFill();
+    g.beginFill(0x2b3a55,0.9).drawRect(X+4,Y+8,8,5).endFill(); g.beginFill(0x141824).drawRect(X+7,Y+2,1,12).endFill(); }
+  // ---- ABANDONADO (darkRegions): entulho, viga e pichação — sob a escuridão
+  for(const reg of darkRegions){ for(const key of reg.set){ const [tx,ty]=key.split(',').map(Number); const X=tx*TILE,Y=ty*TILE, h=(tx*13+ty*7)%10;
+    if(solidAt(tx,ty+1)&&h<3){ a.beginFill(0x555b66).drawRect(X+2,Y+TILE-5,7,5).endFill(); a.beginFill(0x434955).drawRect(X+7,Y+TILE-3,6,3).endFill(); } // entulho
+    else if(h===4){ a.beginFill(0x6b4e2e,0.9).drawRect(X,Y+3,TILE,3).endFill(); }                                                                          // viga exposta
+    else if(h===7){ const c=[0xc94fd6,0x4fd67a,0xd6c94f][tx%3]; a.beginFill(c,0.55).drawRect(X+3,Y+6,9,2).drawRect(X+5,Y+9,6,2).endFill(); } } }          // pichação
+}
+buildCityDeco();
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
