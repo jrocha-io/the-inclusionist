@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.149.5';
+const INCL_VERSION='4.149.6';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1751,11 +1751,11 @@ const CRT=(()=>{ const d={scan:1,vig:0,round:1}; // scanline LIGADA por padrão 
       d[k]= v===true?(k==='round'?2:1) : v===false?(k==='round'?1:0) : Math.max(0,Math.min(2,v|0)); } }catch(e){}
   d.scan=d.scan?1:0; d.vig=d.vig?1:0; // scanlines/vinheta são ON/OFF (só cantos tem 3 níveis)
   return d; })();
-function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return;
+function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return; // scanline = 1 linha por pixel de ARTE, ancorada em px REAIS
   const rows=numPlayers<=2?1:2, dpr=window.devicePixelRatio||1;
-  const k=Math.max(2,Math.round((g.clientHeight||360)/(180*rows))); // fator INTEIRO (canvas = 180·rows·k)
-  g.style.setProperty('--scan-per', k+'px');                        // PERÍODO = 1 px lógico = k px CSS → alinha à grade da arte (sem dpr = sem drift)
-  g.style.setProperty('--scan-line', (Math.max(1,Math.round(dpr))/dpr)+'px'); } // LINHA = 1 px FÍSICO → nítida, sem borrar (dpr só na espessura da linha, não no período)
+  const perDev=Math.max(2,Math.round((g.clientHeight||360)*dpr/(180*rows))); // kDev = pixels REAIS por linha de arte (INTEIRO) → espaçamento REGULAR
+  g.style.setProperty('--scan-per',(perDev/dpr)+'px');                        // período = kDev px reais (1 linha de arte)
+  g.style.setProperty('--scan-line',(Math.max(1,Math.round(dpr))/dpr)+'px'); } // linha = 1 px REAL
 function applyCrt(){ const g=$('#game-region'); if(!g)return;
   ['crt-scan-1','crt-vig-1','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
   if(CRT.scan){ g.classList.add('crt-scan-'+CRT.scan); crtScanVars(); }
@@ -3375,20 +3375,22 @@ function layout(){
   // Piso k=2: CADA viewport tem no mínimo 640×360 (320×180 lógico × 2). Assim 2×2 = 1280×720 cabe num
   // Chromebook do governo (1366×768). Se nesse mínimo não couber, a Etapa 4 vai bloquear aquele nº de telas.
   const MIN_K=2;
-  // ADR-001 — ESCALA = MÚLTIPLO INTEIRO de 320×180 (o k é 2,3,4,5…). dpr NÃO entra na conta: HUD, SVGs de
-  // fração e texto vivem no DOM sobreposto (alta definição, + acessível), então o CANVAS só precisa ser um
-  // upscale inteiro do pixel art. Misturar dpr (tentando pixel físico "perfeito") produzia k CSS fracionário
-  // (4,8× etc.) = arte fora da escala inteira → REGRESSÃO reportada pelo José. NUNCA voltar a pôr dpr aqui.
-  // Cresce em passos inteiros conforme cabe, tolerando ≤5px lógicos de corte por lado (pedido do José):
-  //   base·k − avail ≤ 10·k  ⇒  k ≤ avail/(base−10).
-  const k=Math.max(MIN_K, Math.floor(Math.min(availW/(baseW-10), availH/(baseH-10))));
+  // ADR-001 (CORRIGIDO 2026-07-04): ESCALA travada em PIXELS REAIS INTEIROS. Cada pixel de arte = kDev pixels
+  // FÍSICOS (inteiro) → scanlines SEMPRE regulares e arte uniforme em QUALQUER dpr. O tamanho CSS resultante
+  // (baseW·kDev/dpr) pode ser fracionário, mas isso é abstração do navegador — os pixels REAIS desenhados são
+  // múltiplo inteiro EXATO de 320×180. (A regra "sem dpr" da v4.147.2 estava errada: dava inteiro em CSS, mas em
+  // telas dpr≠1 os pixels reais saíam irregulares → scanlines desalinhadas. José escolheu inteiro-REAL.)
+  // Tolera ≤5px lógicos de corte por lado (o −10). base·kDev − avail·dpr ≤ 10·kDev ⇒ kDev ≤ avail·dpr/(base−10).
+  const dpr=window.devicePixelRatio||1;
+  const kDev=Math.max(Math.round(MIN_K*dpr), Math.floor(Math.min(availW*dpr/(baseW-10), availH*dpr/(baseH-10))));
+  const k=kDev/dpr; // fator LÓGICO/CSS (kDev = fator em pixels REAIS, inteiro)
   const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
   // TODA a UI (menus, ícones, alvos de toque) escala pelo MESMO k inteiro do canvas → proporção pixel-art constante.
   // Base LÓGICA: fonte 8px e toque 22px (a 320×180); × k. Em k=2: fonte 16px, toque 44px (piso WCAG). NUNCA fixo.
   document.documentElement.style.setProperty('--ui-fs', (8*k)+'px');
   document.documentElement.style.setProperty('--tap', (22*k)+'px');
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
-  if(/[?&]debug=true/.test(location.search))console.info(`[escala] k=${k}× → canvas ${baseW*k}×${baseH*k} (múltiplo INTEIRO de ${baseW}×${baseH}; dpr=${window.devicePixelRatio||1}, ignorado de propósito — ADR-001)`); // José pode confirmar os passos inteiros ao redimensionar
+  if(/[?&]debug=true/.test(location.search))console.info(`[escala] kDev=${kDev}× px REAIS (canvas físico ${baseW*kDev}×${baseH*kDev} = múltiplo INTEIRO de ${baseW}×${baseH}); CSS ${Math.round(baseW*k)}×${Math.round(baseH*k)} (k=${k.toFixed(3)}, dpr=${dpr})`); // José confirma: os PIXELS REAIS são múltiplo inteiro
 }
 function vlTick(){ const o=vlibrasOpen(); _vlOpen=o; if(o!==librasOpen){ librasOpen=o; layout();
   if(o)vlibrasSay('Tradução em Libras ligada.'); } }

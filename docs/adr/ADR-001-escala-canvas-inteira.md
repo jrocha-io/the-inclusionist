@@ -1,31 +1,33 @@
-# ADR-001 — Escala do canvas em múltiplos INTEIROS de 320×180 (sem `dpr`)
+# ADR-001 — Escala do canvas travada em PIXELS REAIS inteiros
 
-- **Status:** aceito (2026-07-04)
-- **Contexto de origem:** regressão reportada pelo José — "por que a tela voltou a escalar do jeito errado, prejudicando o trabalho todo? E por que corta em cima/embaixo quando há espaço?". Já é a **segunda vez** que esse erro aparece; por isso vira ADR.
+- **Status:** aceito (2026-07-04) — **CORRIGE** a versão anterior deste ADR (que estava errada; ver "Histórico").
+- **Contexto:** regressão reportada pelo José em várias rodadas — "o canvas estica em números reais / as scanlines ficam com espaçamento irregular". Diagnóstico final confirmado com ele: o que importa é o inteiro em **pixels reais da tela**, não em pixels CSS.
 
 ## Decisão
 
-O canvas do jogo é **pixel art de resolução base 320×180** e só pode ser exibido em **múltiplos inteiros** dessa base:
+O canvas é **pixel art 320×180 lógico por tela**. A escala é travada em **múltiplos INTEIROS de pixels REAIS (físicos) da tela**, não em pixels CSS:
 
-- Fator de escala `k ∈ {2, 3, 4, 5, …}` — **mínimo `k=2`** (640×360).
-- `k = max(2, floor( min( availW/(baseW−10), availH/(baseH−10) ) ))`, onde `baseW=320·colunas`, `baseH=180·linhas` da grade de telas.
-- O `−10` implementa a **tolerância pedida pelo José**: aceita-se perder **até 5px lógicos por lado** (`5·k` físicos) se isso permitir subir um degrau inteiro de escala. É intencional e desejado — sem ela, o canvas cairia para um `k` menor e sobraria muito espaço vazio.
+- `kDev` = fator em **pixels físicos**, INTEIRO. `kDev = max(round(2·dpr), floor(min(availW·dpr/(baseW−10), availH·dpr/(baseH−10))))`.
+- Tamanho do canvas em CSS = `baseW·kDev/dpr` × `baseH·kDev/dpr`. **Em pixels REAIS = `baseW·kDev` × `baseH·kDev`** → múltiplo inteiro exato de 320×180.
+- `k = kDev/dpr` é o fator lógico/CSS (pode ser fracionário quando dpr≠1 — **isso é irrelevante**, é abstração do navegador).
+- O `−10` mantém a tolerância de ≤5px lógicos de corte por lado (pedido do José).
 
-### O que NÃO fazer (a armadilha)
+**Por quê:** só quando cada pixel de arte ocupa um número **inteiro** de pixels reais é que (a) a arte fica com pixels uniformes e (b) as **scanlines ficam com espaçamento regular**. Travar em inteiro-CSS NÃO garante isso: numa tela a 125% (dpr 1,25), um canvas 3× em CSS = 3,75 px reais por pixel de arte → pixels/scanlines irregulares.
 
-**`window.devicePixelRatio` (dpr) NÃO entra na fórmula da escala do canvas.** A tentativa de usar dpr para obter "pixel físico perfeito" (`kDev = floor(avail·dpr/(base−10))`, `k = kDev/dpr`) produz um `k` **fracionário** em CSS (ex.: `4,8×` sob dpr 1,25) — ou seja, arte **fora da escala inteira**, exatamente o defeito reclamado. Isso foi introduzido em ~2026-07-03 e revertido aqui.
+## A UI DOM escala junto (não é fixa)
 
-## Por que dpr é irrelevante para o canvas
+HUD, menus, ícones, texto e SVGs vivem no DOM sobreposto (vetorial, alta definição). MAS o **tamanho** deles escala pelo mesmo fator: `--ui-fs = 8·k`, `--tap = 22·k` (setados no `layout()`), e `#title-overlay{font-size:var(--ui-fs)}`. Assim a proporção UI↔canvas é constante em qualquer escala. (Fonte vetorial em px fracionário é nítida — o "borrado" que eu temia não existe.)
 
-Porque a **UI de alta definição vive no DOM sobreposto**, não no canvas:
+## Scanlines
 
-- **HUD, texto, SVGs de fração, menus** → DOM (nítidos em qualquer dpr, e mais acessíveis — leitor de tela, zoom do SO, etc.).
-- **Canvas** → só o mundo em pixel art, que *quer* ser um upscale inteiro e nearest-neighbor (`image-rendering: pixelated`). Um `k` inteiro garante blocos de pixel uniformes; o compositor do navegador cuida do passo final de dpr sem borrar (pixelated).
+`crtScanVars()`: período = `kDev` px reais (1 linha por pixel de arte), linha = 1 px real. Ancoradas em pixels físicos → espaçamento **regular** em qualquer dpr. NÃO usar período em px CSS inteiro (desalinha quando dpr≠1).
 
-Logo, separar responsabilidades (pixel art no canvas ×  alta definição no DOM) elimina a necessidade de dpr na escala — e evita o `k` fracionário.
+## Histórico (o erro a não repetir)
+
+A **1ª versão deste ADR (v4.147.2)** dizia "NUNCA pôr dpr na fórmula; travar em inteiro-CSS". **Isso estava errado.** Veio de eu interpretar mal a reação do José ao rótulo "4,8×" (o número CSS) — quando na verdade os pixels reais desenhados por aquele cálculo `kDev` eram o múltiplo inteiro que ele queria. Removi a solução certa e passei rodadas "consertando" o problema errado (borrado) enquanto o real (espaçamento irregular por escala não-inteira em pixels reais) seguia. Lição: **o alvo é o pixel REAL da tela; o número CSS é ruído.**
 
 ## Consequências
 
-- `--ui-fs = 8·k` é sempre inteiro (k inteiro) → sem fonte de menu borrada.
-- Em telas onde a base × k não cabe exato, ocorre corte ≤5px lógicos/lado **por design** (tolerância). Para **nunca** cortar (canvas um degrau menor quando não couber justo), basta remover o `−10` da fórmula — decisão do José, 1 linha.
-- Código: `layout()` em `v4.0.0/game.js`. Comentário no ponto do código referencia este ADR e proíbe reintroduzir dpr.
+- Scanlines regulares e arte uniforme em qualquer dpr.
+- Em telas onde base·kDev não cabe exato, corte ≤5px lógicos/lado por design (tolerância). Para nunca cortar, remover o `−10`.
+- Código: `layout()` e `crtScanVars()` em `v4.0.0/game.js`.
