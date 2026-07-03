@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.129.0';
+const INCL_VERSION='4.129.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1271,9 +1271,10 @@ function drawFx(){ fxG.clear(); for(const p of particles){ const f=p.life/p.max;
 const CRT=(()=>{ const d={scan:0,vig:0,round:1};
   try{ const s=JSON.parse(localStorage.getItem('incl_crt')); if(s&&typeof s==='object') for(const k in d) if(k in s){ const v=s[k];
     d[k]= v===true?(k==='round'?2:1) : v===false?(k==='round'?1:0) : Math.max(0,Math.min(2,v|0)); } }catch(e){}
+  d.scan=d.scan?1:0; d.vig=d.vig?1:0; // scanlines/vinheta são ON/OFF (só cantos tem 3 níveis — pedido do José)
   return d; })();
 function applyCrt(){ const g=$('#game-region'); if(!g)return;
-  ['crt-scan-1','crt-scan-2','crt-vig-1','crt-vig-2','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
+  ['crt-scan-1','crt-vig-1','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
   if(CRT.scan)g.classList.add('crt-scan-'+CRT.scan); if(CRT.vig)g.classList.add('crt-vig-'+CRT.vig);
   if(CRT.round!==1)g.classList.add('crt-round-'+CRT.round); // 1 = visual padrão (8px), sem classe
   try{ localStorage.setItem('incl_crt',JSON.stringify(CRT)); }catch(e){} }
@@ -2581,9 +2582,12 @@ function renderMotion(){ const el=$('#motion-list'); if(!el)return; if(selAnimPl
   const charRows=RM_CHAR.map(c=>row(c.lbl, p&&p[c.prop], 'data-rmc="'+c.prop+'"', false)).join('');
   const sceneRows=RM_KEYS.map(k=>row(RM_LABEL[k], rm[k], 'data-rm="'+k+'"', RM_SOON.has(k))).join('');
   const CRT_LBL={scan:'Scanlines',vig:'Vinheta',round:'Cantos arredondados'};
-  const crtRow=k=>`<div class="ctrl-row"><span>${CRT_LBL[k]}</span><select class="vol" data-crt="${k}" aria-label="${CRT_LBL[k]}"><option value="0"${CRT[k]===0?' selected':''}>Desligado</option><option value="1"${CRT[k]===1?' selected':''}>Pequeno</option><option value="2"${CRT[k]===2?' selected':''}>Grande</option></select></div>`;
+  // Scanlines/Vinheta = TOGGLE on/off; Cantos = 3 níveis (desligado=quadrado · pequeno=padrão · grande=24px)
+  const crtTgl=k=>{ const on=!!CRT[k]; return `<div class="ctrl-row"><span>${CRT_LBL[k]}</span><button class="mode-btn switch${on?' is-on':''}" data-crt-tgl="${k}" type="button" aria-pressed="${on}" aria-label="${CRT_LBL[k]}: ${on?'ligado':'desligado'}">${on?'❚❚ Ligado':'▶ Desligado'}</button></div>`; };
+  const crtRound=`<div class="ctrl-row"><span>${CRT_LBL.round}</span><select class="vol" data-crt="round" aria-label="${CRT_LBL.round}"><option value="0"${CRT.round===0?' selected':''}>Desligado (quadrado)</option><option value="1"${CRT.round===1?' selected':''}>Pequeno</option><option value="2"${CRT.round===2?' selected':''}>Grande</option></select></div>`;
   el.innerHTML=`<h3 class="panel-sub">Personagem${numPlayers>1?' · Jogador '+(selAnimPlayer+1):''} <span class="panel-sub__tag">por jogador</span></h3>`+charRows+`<h3 class="panel-sub">Cena <span class="panel-sub__tag">todos os jogadores</span></h3>`+sceneRows+
-    `<h3 class="panel-sub">Estética CRT <span class="panel-sub__tag">todos os jogadores</span></h3>`+['scan','vig','round'].map(crtRow).join('');
+    `<h3 class="panel-sub">Estética CRT <span class="panel-sub__tag">todos os jogadores</span></h3>`+crtTgl('scan')+crtTgl('vig')+crtRound;
+  el.querySelectorAll('button[data-crt-tgl]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.crtTgl; CRT[k]=CRT[k]?0:1; applyCrt(); renderMotion(); srSay(CRT_LBL[k]+(CRT[k]?' ligada.':' desligada.')); }));
   el.querySelectorAll('select[data-crt]').forEach(s=>s.addEventListener('change',()=>{ CRT[s.dataset.crt]=+s.value; applyCrt(); srSay(CRT_LBL[s.dataset.crt]+': '+['desligado','pequeno','grande'][+s.value]+'.'); }));
   el.querySelectorAll('button[data-rmc]').forEach(b=>b.addEventListener('click',()=>{ const pr=b.dataset.rmc, pl=players[selAnimPlayer]; pl[pr]=!pl[pr]; try{localStorage.setItem('incl_'+pr+'_p'+selAnimPlayer,pl[pr]?'1':'0');}catch(e){} renderMotion(); }));
   el.querySelectorAll('button[data-rm]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.rm; rm[k]=!rm[k]; saveRM(); renderMotion(); updateMotionMaster(); srSay(RM_LABEL[k]+(rm[k]?' congelado.':' animado.')); }));
