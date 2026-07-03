@@ -68,7 +68,9 @@
 
 | Decisão | Fundamento / estudo | Fonte | Status |
 |---|---|---|---|
-| **Quiz em 5 níveis** pela psicogênese da língua escrita (pré-silábico → silábico s/ valor → c/ valor → alfabético → escritor; +variante braille que soletra a cela) | Espec. completa do José 2026-07-02 (PLANO-EXECUCAO.md) — base: Ferreiro & Teberosky | PLANO-EXECUCAO.md | 🔨 **L3** · ⚠️ referências formais a citar no estudo |
+| **Quiz em 5 níveis** pela psicogênese da língua escrita: 1 pré-silábico (escolher a escrita certa entre 3, sistema soletra; distratores malformados = troca de vogal/inversão de par, nunca palavra real) · 2 silábico (monta por sílabas, sistema lê) · 3 silábico-alfabético (idem, sistema soletra) · 4 escritor (grade de letras, sistema fala o nome) · 5 escritor cego (grade de letras, sistema dita a cela braille). Ciclo no botão "📚 Nível" da pausa, persistido, padrão nível 2 | Espec. completa do José 2026-07-02 — base: Ferreiro & Teberosky | PLANO-EXECUCAO.md; commits `856c44b` | ✅ · ⚠️ referências formais a citar no estudo (§9.6) |
+| **Quiz POR JOGADOR no MP**: cada jogador abre o SEU quiz na tela dele (DOM por .player-screen); teclado roteia pela tecla do dono, gamepad pelo pad do dono; a partida dos demais segue; Esc/Alt+N bloqueiam com qualquer quiz aberto | GAG (multiplayer equitativo); itens já eram por dono (Lote C) | commit `45b5b66` | ✅ |
+| "⠿ Braille" saiu do ciclo do botão ABC: o ditado passivo acompanha o Modo cego (a11y) e a ESCRITA braille é o nível 5 | Evita 2 fontes de verdade p/ braille | game.js | ✅ |
 | **Itens individuais por jogador** (cor do dono, posições aleatórias, alheio esmaecido; só o EFEITO da chave é compartilhado) | "Impedir que um jogador atrapalhe o amigo" + "um encontra o item do outro e ajuda" | commit `b06b8fe` | ✅ |
 | Braille: sistema **soletra os PONTOS da cela** (pt-BR, grau 1) | Espec. do José; alfabetização braille | game.js BRAILLE | ✅ (nível 5 do quiz consolida) |
 | Reduce-motion: "movimento" = GAG (alternância) e "animação" = WCAG (2.3.3); toggles separados por tipo de animação e por jogador; respiração ≠ gracinhas | Conflito terminológico resolvido pelo José | plano-acessibilidade.md | ✅ |
