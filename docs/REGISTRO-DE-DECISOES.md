@@ -70,6 +70,13 @@
 | Música: **MIDI ou procedural, nada de ogg/mp3** | Peso no hardware-alvo + GPL-clean | decisão José | 🔨 estudo em **L8** |
 | Pausa GAG: silencia TODO o som e congela chuva/animações | GAG (Pause/Stop/Hide) + WCAG 2.2.2 | setPhase | ✅ |
 
+### 4.1 TTS neural (F5/L4)
+
+| Decisão | Fundamento / estudo | Fonte | Status |
+|---|---|---|---|
+| Piper pt-BR (faber-medium) via `@mintplex-labs/piper-tts-web` 1.0.4: lazy-CDN (D1), OPFS cacheia o onnx (60,3MB) → 2ª sessão offline; fila de 1 fala (a última vale); fallback Web Speech automático | plano-tts-fase-f5.md (D1–D4); API reconfirmada no fonte da lib antes de codar | commit `814fb5d` | ✅ medido: 1º uso 9,2s · síntese > tempo real · 2ª sessão 1,3s |
+| Kokoro/Kitten SEM pt-BR → só builds i18n (D4); eSpeak NG embutido = fase posterior; medição do TTS no hardware-alvo = bloqueada até liberar o Positivo | idem | plano-tts-fase-f5.md | ⏸ |
+
 ## 5. Pedagogia e jogo
 
 | Decisão | Fundamento / estudo | Fonte | Status |
