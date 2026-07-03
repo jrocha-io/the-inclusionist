@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.146.0';
+const INCL_VERSION='4.147.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -565,6 +565,7 @@ assignControls();
 // Conflito: uma tecla não pode ser de dois jogadores no MESMO modo. Retorna o índice do outro dono, ou -1.
 function keyUsedByOther(code, mapRef){ for(let i=0;i<numPlayers;i++){ const m=kbFor(i); if(m===mapRef)continue; for(const a in m){ if(m[a]&&m[a].indexOf(code)>=0)return i; } } return -1; }
 addEventListener('keydown',(e)=>{
+  _idleT=0; if(attract){ stopAttract(); e.preventDefault(); return; } // qualquer tecla encerra a demo
   if(captureAction){ // remap: a próxima tecla vira o novo controle (do jogador selecionado)
     if(e.code==='Escape'){ captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return; }
     const m=captureMapRef||controls; const other=keyUsedByOther(e.code, m);
@@ -921,6 +922,32 @@ function drawTitleScene(){ const g=titleG; g.clear(); const W=app.screen.width,H
   for(let x=1*k;x<W;x+=4*k)g.drawRect(x,HOR+3*k,k,k);
   for(let x=2*k;x<W;x+=5*k)g.drawRect(x,HOR+6*k,k,k);
   g.endFill(); }
+/* ===================== ATTRACT MODE: 30s parado no título → demo de 30s =====================
+   Prefere uma GRAVAÇÃO do cenário (?record=1 grava 30s do P1 em localStorage incl_attract_<cen>,
+   180 amostras a 6Hz — dá para fazer as 4 e guardar); sem gravação, um ROBÔ joga (anda/pula/inverte).
+   QUALQUER tecla/clique/botão de controle encerra e volta ao menu. */
+let _idleT=0, attract=null, _recArr=null, _recT=0;
+const RECORDING=/[?&]record=1/.test(location.search);
+function attractRecFor(cen){ try{ const s=localStorage.getItem('incl_attract_'+cen); const a=JSON.parse(s); return Array.isArray(a)&&a.length>10?a:null; }catch(e){ return null; } }
+function startAttract(){ const ks=Object.keys(CENARIOS), cen=ks[randInt(0,ks.length-1)];
+  setCenario(cen); setActivity('ludico'); restartGame();
+  attract={t:0, rec:attractRecFor(cen), bot:{dir:1,jt:60,wall:0}, cen};
+  const ov=$('#title-overlay'); if(ov)ov.hidden=true; setPhase('playing');
+  const gr=$('#game-region');
+  if(!$('#attract-banner')){ if(gr)gr.insertAdjacentHTML('beforeend','<div id="attract-banner" class="game-subtitle" style="position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:70;background:rgba(13,13,26,.8);padding:.2em .9em;border-radius:6px">DEMO — aperte qualquer botão</div>'); }
+  else $('#attract-banner').hidden=false;
+  srSay('Demonstração.'); }
+function stopAttract(){ if(!attract)return; const K=kbFor(0); [(K.right||[])[0],(K.left||[])[0]].forEach(c=>{ if(c)keys.delete(c); });
+  attract=null; const b=$('#attract-banner'); if(b)b.hidden=true; _idleT=0;
+  const ov=$('#title-overlay'); if(ov)ov.hidden=false; restartGame(); setPhase('title'); }
+function stepAttract(dt){ if(!attract)return; attract.t+=dt; const p=players[0];
+  if(attract.t>=1800){ stopAttract(); return; } // 30s
+  if(attract.rec){ const fr=attract.rec, idx=Math.min(fr.length-1, Math.floor(attract.t/1800*fr.length)); // replay cinemático
+    const s=fr[idx]; p.x=s[0]; p.y=s[1]; p.facing=s[2]||1; p.vx=0; p.vy=0; p.onGround=true; }
+  else { const b=attract.bot, K=kbFor(0), R=(K.right||[])[0], L=(K.left||[])[0]; // robô
+    keys.add(b.dir>0?R:L); keys.delete(b.dir>0?L:R);
+    if((b.jt-=dt)<=0){ p.jumpEdge=true; b.jt=40+randInt(0,90); }
+    if(Math.abs(p.vx)<0.05 && p.onGround && b.wall++>8){ b.wall=0; b.dir*=-1; } else if(Math.abs(p.vx)>=0.05) b.wall=0; } }
 
 /* ===== Parallax: 3 camadas de FUNDO atrás do tileset (Camada 1 = tileset+personagem).
    Camada 4 (fator 0.10) é a mais distante e "quase não se mexe" — receberá a maior
@@ -2110,6 +2137,10 @@ function update(dt){
   if(phase!=='playing')return; // E14: congelado no título e na pausa
   if(hitstopT>0){ hitstopT=Math.max(0,hitstopT-dt); return; } // JUICE: hit-stop congela o mundo por alguns ticks
   stepFx(dt); // partículas + decaimento de tremor/squash (roda até no fim de jogo → confete da vitória anima)
+  if(attract)stepAttract(dt); // attract: robô/replay dirige o P1 (ANTES da física)
+  if(RECORDING&&!attract&&phase==='playing'){ _recT++; if(_recT%10===0){ (_recArr=_recArr||[]).push([Math.round(players[0].x),Math.round(players[0].y),players[0].facing]);
+    if(_recArr.length>=180){ try{ localStorage.setItem('incl_attract_'+CENARIO,JSON.stringify(_recArr)); }catch(e){}
+      srAlert('Demo de 30 segundos gravada para '+((CENARIOS[CENARIO]||{}).nome||CENARIO)+'.'); _recArr=null; _recT=0; } } }
   stepLife(dt); // L5: vida ambiente (pombos/gatos/cães/adultos) — cosmética, atrás do player
   stepTraffic(dt); // L5: carros (frente, na rua da base) + semáforo
   stepSky(dt); // L5: nuvens + pássaros no céu
@@ -2569,6 +2600,7 @@ function padActions(gp){
     jump:b(0), run:b(2)||b(5)||b(7), swap:b(3), especial:b(1), _start:b(0)||b(9), _pause:b(9) }; }
 function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só com ele
   const pads=navigator.getGamepads?navigator.getGamepads():[]; if(!pads)return;
+  if(attract){ for(const gp of pads){ if(gp&&gp.buttons.some(b=>b&&b.pressed)){ stopAttract(); return; } } return; } // botão de pad encerra a demo
   for(const gp of pads){ if(!gp)continue; const gi=gp.index;
     // L1: controle fora do padrão (DirectInput) SEM mapa salvo apertou algo → pausa geral + wizard direto
     if(gp.mapping!=='standard' && !padMapFor(gp.id) && gp.buttons.some(b=>b&&b.pressed)){
@@ -3262,6 +3294,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 /* ===================== loop ===================== */
 app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw();
   titleG.visible=(phase==='title'); if(titleG.visible)drawTitleScene(); // cena do título da v3 cobre o mundo
+  if(titleG.visible){ if(++_idleT>1800 && !attract)startAttract(); } else if(!attract)_idleT=0; // attract após 30s parado no menu
   minimap.visible=!titleG.visible&&numPlayers<=1; document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu
   fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
@@ -3271,6 +3304,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
   setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,get quiz(){return players[0].quiz;},INCL_VERSION,
   setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
+  startAttract,stopAttract,get attract(){return attract;},set idleT(v){_idleT=v;},
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
   spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,STREET_Y,
@@ -3553,7 +3587,7 @@ function showTouchControls(){ if(numPlayers>1 || phase!=='playing' || players.so
   const tc=$('#touch-controls'); if(!tc)return;
   // alternância por modalidade: toque/clique MOSTRA; teclado/controle OCULTA (hideTouchControls).
   if(/[?&]touch=1/.test(location.search)){ showTouchControls(); }
-  addEventListener('pointerdown',()=>{ showTouchControls(); }, true); // qualquer toque/clique revela
+  addEventListener('pointerdown',()=>{ _idleT=0; if(attract){ stopAttract(); return; } showTouchControls(); }, true); // toque revela (e encerra a demo)
   addEventListener('touchstart',()=>{ showTouchControls(); }, {capture:true,passive:true});
   const codeFor=(act)=>(controls[act]&&controls[act][0])||null; // mapeia p/ a 1ª tecla de P1 (remapeável)
   const press=(act)=>{ const c=codeFor(act); if(!c)return; if(!keys.has(c)){ keys.add(c);
