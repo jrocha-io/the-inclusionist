@@ -48,12 +48,12 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 #tm-fr .tm-title{font-size:.95em;margin:0}
 /* Notações lado a lado (5 símbolos numa linha) → ocupam menos espaço */
 #tm-fr .frac-nots{grid-column:1/-1;display:flex;gap:.25em;justify-content:center}
-/* Toggle de notação: DESATIVADO = fumê + texto branco; ATIVADO = amarelo + texto preto (ambos com borda preta) */
-#tm-fr .frac-nots .title-btn{flex:1;min-width:0;padding:.25em .15em;font-size:1em;background:#4b4b57;color:#fff;box-shadow:none}
-#tm-fr .frac-nots .title-btn.tab-on{background:var(--accent);color:var(--accent-ink)}
+/* Toggle de notação: DESATIVADO = azul-escuro + borda BRANCA + texto branco; ATIVADO = amarelo + borda preta + texto preto */
+#tm-fr .frac-nots .title-btn{flex:1;min-width:0;padding:.25em .15em;font-size:1em;background:#16233f;color:#fff;border-color:#fff;box-shadow:none}
+#tm-fr .frac-nots .title-btn.tab-on{background:var(--accent);color:var(--accent-ink);border-color:#0d0d1a}
 #tm-fr .frac-nots .fv{font-size:.8em}
 .tm-title{color:#fff;font-size:1em;margin:0 0 .1em;text-align:center;text-shadow:1px 1px 0 #0d0d1a} /* título do submenu */
-.title-btn{background:var(--accent);color:var(--accent-ink);border:2px solid #0d0d1a;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em} /* contorno PRETO = mesma cor do texto (José) */
+.title-btn{background:var(--accent);color:var(--accent-ink);border:3px solid #0d0d1a;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em} /* contorno PRETO grosso (3px) = mesma cor do texto (José) */
 .title-btn.ghost{background:#e8862b;color:#0d0d1a;border:2px solid #0d0d1a} /* Voltar = preenchimento LARANJA */
 /* Seletor VERMELHO fixo (piscar removido a pedido do José). Especificidade via #title-overlay. */
 #title-overlay .title-btn:focus-visible,#title-overlay .title-btn:focus{outline:4px solid #ff3b30;outline-offset:2px}
@@ -239,7 +239,14 @@ main{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;padding:
 
 /* desafio Soma-Sub (overlay sobre o canvas) */
 .quiz{position:absolute;inset:0;z-index:12;display:grid;place-items:center;background:rgba(0,0,0,.55)}
-.quiz-box{background:#14141f;color:var(--ink);border:3px solid var(--accent);border-radius:12px;padding:1rem 1.1rem;max-width:90%;text-align:center}
+.quiz-box{position:relative;background:#14141f;color:var(--ink);border:3px solid var(--accent);border-radius:12px;padding:1rem 1.1rem;max-width:90%;text-align:center}
+/* 3 luzes de progresso (canto sup. direito): apagada = cinza; acesa = amarela com luz acesa em volta */
+.quiz-wins{position:absolute;top:.5rem;right:.6rem;display:flex;gap:.4rem}
+.qw-dot{width:.95rem;height:.95rem;border-radius:50%;background:#3a4152;border:2px solid #0d0d1a}
+.qw-dot.on{background:var(--accent);border-color:#8a6d00;box-shadow:0 0 .55rem .12rem var(--accent)} /* iluminação em volta (luz acesa) */
+.quiz-wins.celebrate .qw-dot.on{animation:qwPop .6s ease}
+@keyframes qwPop{0%{transform:scale(1)}45%{transform:scale(1.4);box-shadow:0 0 .9rem .3rem var(--accent)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){ .quiz-wins.celebrate .qw-dot.on{animation:none} }
 .quiz-shape{color:var(--accent);font-weight:800;text-transform:capitalize}
 .quiz-prob{font-size:1.6rem;font-weight:800;margin:.4rem 0 .8rem}
 .quiz-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem}

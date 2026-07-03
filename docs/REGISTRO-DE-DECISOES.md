@@ -177,7 +177,11 @@
 | Menu Fração cabe no quadro lógico 180px em k=2 (207→124 lógico): 31em + botões menores; título do jogo escondido nos submenus | Regra "nada fora do canvas" no MÍNIMO k=2 | v4.149.3 | ✅ |
 | **Jogo de matemática = formato do de sílabas**: conta no topo (no lugar da palavra) + **matriz 3×3 de 9 respostas** (no lugar das sílabas). Gráficos **SUBSTITUEM** números (sorteio por item) na conta E entre as respostas — não aparecem embaixo/em cima. Refatorado p/ `{key,disp}` (key reduzida compara; disp = número OU gráfico). 9 respostas distintas via range 0..4·D (garante 9 até em meios) | Pedido do José | v4.150.0 | ✅ |
 | **Gráfico de fração = a DIVISÃO da atividade, SEM reduzir**: 2/2 = 2 fatias cheias (não círculo cheio); círculo fatiado com bordas pretas + fatias coloridas (não figura sólida). Impróprio >2 inteiros ou d>6 → exibe número | Pedido do José ("fatiasse com bordas… não figuras sólidas") | v4.150.0 | ✅ |
-| Menu de pausa sem botão de nível; toggles de notação amarelo(on)/fumê(off); Voltar laranja; contorno preto nos botões da splash; scanlines z-index 500 (por cima de tudo) | Pedidos explícitos | v4.149.8 | ✅ |
+| Menu de pausa sem botão de nível; Voltar laranja; scanlines z-index 500 (por cima de tudo) | Pedidos explícitos | v4.149.8 | ✅ |
+| Toggles de notação: ATIVO=amarelo+borda preta+texto preto; INATIVO=azul-escuro+borda BRANCA+texto branco. Contorno dos botões da splash = **3px** (mais grosso) | Pedidos explícitos | v4.151.0 | ✅ |
+| **Tabuada = toggles 0-10** ligam contas onde o nº esteja no multiplicando OU multiplicador (ambos 0-10, sem 11×11). **Divisão = toggles 0-10** ligam contas onde o nº esteja no divisor OU quociente (divisor ≥1, quociente 0-10, divisões inteiras). O nº ligado entra em qualquer posição | Pedidos explícitos | v4.151.0 | ✅ |
+| **UM gráfico = UMA forma** por célula (círculo OU quadrado, sorteado), só p/ fração PRÓPRIA (1..d); zero/impróprio/d>6 → número. Antes punha 2/4/6 figuras (impróprias) numa célula | Correção do José ("um gráfico substitui um número") | v4.151.0 | ✅ |
+| **3 luzes de progresso** (canto sup. dir. do desafio): apagada=cinza, acesa=amarela com brilho. Na 3ª vitória: 3ª luz acende + animação SUAVE (pulso) + som tipo enigma-resolvido do Zelda OoT (senoide doce, volume baixo). NUNCA agressivo (nada de Duolingo). Respeita prefers-reduced-motion | Pedido explícito | v4.151.0 | ✅ |
 | UI escala ESCOPADA ao #game-region: texto FORA do canvas fica fixo 16px (barra/debug não crescem mais) | Bug ("debug aumenta junto") | v4.149.7 | ✅ |
 
 ## 6. Arquitetura e plataforma

@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.150.0';
+const INCL_VERSION='4.151.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -896,6 +896,8 @@ function firework(when){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC()
   [0,0.04,0.09,0.15,0.22].forEach((dt,i)=>{ const po=ac.createOscillator(),pg=ac.createGain(),tt=t+0.36+dt; po.type='square'; po.frequency.setValueAtTime(180+((i*131)%520),tt); // estouro/crepitar
     pg.gain.setValueAtTime(0.18*volume,tt); pg.gain.exponentialRampToValueAtTime(0.0001,tt+0.09); po.connect(pg).connect(out); po.start(tt); po.stop(tt+0.11); }); }catch(e){} }
 function playVictory(){ [[523,0],[659,0.12],[784,0.24],[1047,0.36],[988,0.52],[1319,0.64]].forEach(([f,w])=>tone(f,0.16,'square',w,0.22)); [0.2,0.8,1.35,1.9].forEach(w=>firework(w)); }
+// Enigma resolvido (Zelda OoT): frase ascendente DOCE em onda senoidal, volume baixo — NUNCA agressiva (José: nada de Duolingo)
+function playPuzzleSolved(){ [[659,0],[784,0.13],[988,0.26],[1319,0.42]].forEach(([f,w])=>tone(f,0.32,'sine',w,0.12)); tone(1047,0.6,'sine',0.42,0.07); } // E5 G5 B5 E6 + C6 de fundo
 
 /* ===================== Pixi ===================== */
 PIXI.settings.ROUND_PIXELS=true;
@@ -2237,11 +2239,19 @@ function openQuiz(pl,coinIndex,shapeId){ // MATEMÁTICA: gerador POR ATIVIDADE (
     if(op==='+'){a=randInt(0,10);b=randInt(0,10);ans=a+b;} else {a=randInt(0,20);b=randInt(0,Math.min(10,a));ans=a-b;}
     q={...base,prob:`${a} ${op} ${b} = ?`,answer:String(ans),choices:_mkChoices(ans,0,20)};
     fala=`Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`; }
-  else if(A==='mat5'||A==='mat6'){ const a=Math.max(A==='mat6'?1:0, tabSel[randInt(0,Math.max(0,tabSel.length-1))]||2), b=randInt(0,10);
-    if(A==='mat5'){ q={...base,prob:`${a} × ${b} = ?`,answer:String(a*b),choices:_mkChoices(a*b,0,Math.max(12,a*10))}; // TABUADA (números escolhidos)
+  else if(A==='mat5'||A==='mat6'){ const on = tabSel.length ? tabSel[randInt(0,tabSel.length-1)] : 2; // número LIGADO (entra em qualquer posição)
+    if(A==='mat5'){ // TABUADA: multiplicando E multiplicador de 0..10; o nº ligado pode ser qualquer um dos dois
+      const other=randInt(0,10); let a,b; if(rnd()<0.5){a=on;b=other;}else{a=other;b=on;}
+      q={...base,prob:`${a} × ${b} = ?`,answer:String(a*b),choices:_mkChoices(a*b,0,100)};
       fala=`Quanto é ${a} vezes ${b}?`; }
-    else { q={...base,prob:`${a*b} ÷ ${a} = ?`,answer:String(b),choices:_mkChoices(b,0,10)};                            // DIVISÃO (inversa da tabuada)
-      fala=`Quanto é ${a*b} dividido por ${a}?`; } }
+    else { // DIVISÃO inteira: divisor E quociente de 0..10 (divisor ≥1, sem ÷0); o nº ligado pode ser qualquer um dos dois
+      const other=randInt(0,10); let divisor,quo;
+      if(on===0){ quo=0; divisor=randInt(1,10); }                         // 0 só pode ser QUOCIENTE (0 ÷ divisor = 0)
+      else if(rnd()<0.5){ quo=on; divisor=Math.max(1,other); }            // ligado = quociente
+      else { divisor=on; quo=other; }                                     // ligado = divisor
+      const dividend=divisor*quo;
+      q={...base,prob:`${dividend} ÷ ${divisor} = ?`,answer:String(quo),choices:_mkChoices(quo,0,10)};
+      fala=`Quanto é ${dividend} dividido por ${divisor}?`; } }
   else if(ACTIVITIES[A]&&ACTIVITIES[A].dens){ const dens=ACTIVITIES[A].dens; // FRAÇÕES (soma/sub; NOTAÇÃO sorteada entre as ligadas)
     const D=dens.reduce((l,d)=>l*d/gcd(l,d),1);
     let d1=dens[randInt(0,dens.length-1)], d2=dens[randInt(0,dens.length-1)], op=rnd()<0.5?'+':'−';
@@ -2369,6 +2379,8 @@ function quizEl(pl){ if(numPlayers<=1) return $('#quiz');
 function renderQuiz(pl){
   const q=pl.quiz, ov=quizEl(pl); if(!ov)return; if(!q){ov.hidden=true;return;}
   ov.innerHTML = q.kind==='braille' ? brailleHtml(q) : q.kind==='silabas' ? silabaHtml(q) : q.kind==='pre' ? preHtml(q) : q.kind==='alf' ? alfHtml(q) : somasubHtml(q);
+  const box=ov.querySelector('.quiz-box'); if(box){ const n=Math.min(3,pl.alfWins||0); // 3 luzes de progresso (canto sup. dir.): acesa = amarela com brilho
+    box.insertAdjacentHTML('afterbegin','<div class="quiz-wins" aria-label="'+n+' de 3 acertos para a moeda">'+[0,1,2].map(i=>'<span class="qw-dot'+(i<n?' on':'')+'"></span>').join('')+'</div>'); }
   ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(pl.quiz){pl.quiz.sel=+b.dataset.i; quizConfirm(pl);} }));
   ov.hidden=false; hideTouchControls(); // quiz aberto = menu na tela → sem controle virtual
 }
@@ -2385,10 +2397,15 @@ function quizTake(pl,q){ // coleta a figura do quiz (por jogador) e checa vitór
 function quizWin(pl,q){ // 3 VITÓRIAS = 1 MOEDA em TODOS os minigames, sem exceção (regra do José 2026-07-04)
   pl.alfWins=(pl.alfWins||0)+1;
   if(pl.alfWins<3){ srSay(quizWho(pl)+'Acertou! '+pl.alfWins+' de 3 para ganhar a moeda.'); closeQuiz(pl); return; } // moeda FICA; encostado nela, a próxima pergunta abre sozinha
-  pl.alfWins=0;
-  quizTake(pl,q); }
+  // 3ª VITÓRIA: acende a 3ª luz + comemoração SUAVE (som tipo enigma-resolvido do Zelda), depois pega a moeda
+  q.celebrating=true;
+  const ov=quizEl(pl), dots=ov&&ov.querySelector('.quiz-wins');
+  if(dots){ dots.querySelectorAll('.qw-dot').forEach(d=>d.classList.add('on')); dots.classList.add('celebrate'); }
+  playPuzzleSolved(); if(typeof burstSparkle==='function')burstSparkle(pl.x, pl.y-16, 0xffe08a, 10); // faíscas gentis
+  srSay(quizWho(pl)+'Muito bem! Você ganhou a moeda!');
+  setTimeout(()=>{ pl.alfWins=0; quizTake(pl,q); }, 900); } // deixa a 3ª luz + animação aparecerem antes de fechar
 function quizConfirm(pl){
-  const q=pl.quiz; if(!q)return;
+  const q=pl.quiz; if(!q||q.celebrating)return; // durante a comemoração da 3ª luz, ignora entrada
   if(q.revealed){ // SEM PENALIDADE na alfabetização: a moeda fica no lugar (nova pergunta ao tocar); matemática re-sorteia a figura
     if(actCat()==='alf'){ closeQuiz(pl); } else { respawnFigure(q.coinIndex); closeQuiz(pl); } return; }
   if(q.kind==='braille'){ sfx('coin'); srSay(quizWho(pl)+'Coletado!'); quizWin(pl,q); return; }
@@ -2544,12 +2561,11 @@ function _sqGrid(k,cols,rows){ const S=40,cw=S/cols,ch=S/rows,seg=[]; // quadrad
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const idx=r*cols+c;
     seg.push(`<rect x="${(c*cw).toFixed(2)}" y="${(r*ch).toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" fill="${idx<k?'var(--frac-fill)':'#fff'}" stroke="#0d0d1a" stroke-width="1.2"/>`); }
   return `<svg class="frac-svg" viewBox="0 0 40 40" aria-hidden="true">${seg.join('')}<rect x=".8" y=".8" width="38.4" height="38.4" fill="none" stroke="#0d0d1a" stroke-width="1.6"/></svg>`; }
-function fracGraphic(n,d){ if(d<2||d>6)return ''; // MOSTRA a divisão DA ATIVIDADE (d fatias), SEM reduzir: 2/2 = 2 fatias cheias (não círculo cheio)
-  const whole=Math.floor(n/d); if(whole>2)return ''; // impróprio demais (>2 inteiros) vira muitos círculos → melhor exibir como número
-  const sq=FRAC_GFX[d], rem=n-whole*d, u=[];
-  const one=k=>`<span class="frac-shape">${_pieUnit(k,d)}${sq?_sqGrid(k,sq.cols,sq.rows):''}</span>`;
-  for(let i=0;i<whole;i++)u.push(one(d)); if(rem>0||whole===0)u.push(one(rem));
-  return `<span class="frac-fig" data-frac="${n}/${d}" role="img" aria-label="${fracSpeak(n+'/'+d)}">${u.join('')}</span>`; }
+function fracGraphic(n,d,shape){ if(d<2||d>6||n<1||n>d)return ''; // UM gráfico = UMA forma p/ fração PRÓPRIA (1..d); zero/impróprio → número
+  const sq=FRAC_GFX[d]; // círculo (radial) OU quadrado (grade da atividade), UM só — sorteado se não vier definido
+  const useSq = shape==='square' || (shape==null && sq && rnd()<0.5);
+  const svg = (useSq&&sq) ? _sqGrid(n,sq.cols,sq.rows) : _pieUnit(n,d); // fatiado com bordas pretas, fatias coloridas (não sólido)
+  return `<span class="frac-fig" data-frac="${n}/${d}" role="img" aria-label="${fracSpeak(n+'/'+d)}">${svg}</span>`; }
 function fracSpeak(s){ const m=/^(\d+)\/(\d+)$/.exec(String(s)); if(!m)return String(s);
   const n=+m[1],d=+m[2],nm=DEN_NAME[d]||(d+' avos'); return n===1?('um '+nm):(n+' '+nm+'s'); }
 function speakChoice(s){ s=String(s); // fala qualquer NOTAÇÃO: vertical (HTML)→a/b · mista → "N inteiros e a/b" · decimal/percentual literais
