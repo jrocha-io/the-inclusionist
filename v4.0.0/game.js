@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.128.0';
+const INCL_VERSION='4.129.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -567,18 +567,26 @@ addEventListener('keydown',(e)=>{
   if(dlgVis('touchcfg')){ if(e.code==='Escape'){ const t=$('#touchcfg'); if(t)t.hidden=true; } return; }
   if(dlgVis('padwiz')){ if(e.code==='Escape')closePadWiz(false); return; } // wizard de gamepad: Esc cancela
   // Lote B: Alt+1/2/3/4 (fileira de números) ativa dinamicamente 1..4 telas (aviso c). Alt fica livre (solo não o usa).
-  if(e.altKey && !e.ctrlKey && /^Digit[1234]$/.test(e.code) && (phase==='playing'||phase==='paused') && !player.quiz){
+  const anyQuiz=players.some(p=>p.quiz);
+  if(e.altKey && !e.ctrlKey && /^Digit[1234]$/.test(e.code) && (phase==='playing'||phase==='paused') && !anyQuiz){
     e.preventDefault(); activateScreens(+e.code.slice(5)); return; }
-  if(!player.quiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
-  if(player.quiz){ // navegação do quiz por teclado
-    if(player.quiz.kind==='braille'){
-      if(KUP.includes(e.code))announceBraille(); else if(KJUMP.includes(e.code))quizConfirm();
+  if(!anyQuiz && (e.code==='Escape'||e.code==='Enter') && (phase==='playing'||phase==='paused')){ togglePause(); e.preventDefault(); return; } // E14: Esc ou Enter central (NumpadEnter não pausa)
+  if(anyQuiz){ // L3: navegação do quiz POR JOGADOR — a tecla age no quiz do DONO dela (genéricas → P1)
+    const qpi=whichPlayer(e.code);
+    const qpl = qpi>=0 ? (players[qpi]&&players[qpi].quiz?players[qpi]:null) : (player.quiz?player:null);
+    if(qpl){
+      const act=qpi>=0?actionOf(e.code,qpl.i):null;
+      const L=act?act==='left':KLEFT.includes(e.code), R=act?act==='right':KRIGHT.includes(e.code),
+            U=act?act==='up':KUP.includes(e.code), D=act?act==='down':KDOWN.includes(e.code),
+            J=act?act==='jump':KJUMP.includes(e.code);
+      if(qpl.quiz.kind==='braille'){
+        if(U)announceBraille(qpl); else if(J)quizConfirm(qpl);
+        if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
+      }
+      if(L)quizMove(qpl,-1); else if(R)quizMove(qpl,1); else if(U)quizMove(qpl,-3); else if(D)quizMove(qpl,3); else if(J)quizConfirm(qpl);
       if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
     }
-    if(KLEFT.includes(e.code))quizMove(-1); else if(KRIGHT.includes(e.code))quizMove(1);
-    else if(KUP.includes(e.code))quizMove(-3); else if(KDOWN.includes(e.code))quizMove(3);
-    else if(KJUMP.includes(e.code))quizConfirm();
-    if(GAME_KEYS.includes(e.code))e.preventDefault(); return;
+    // tecla de um jogador SEM quiz cai no jogo normal (a partida dele continua)
   }
   // Fácil (solo): atalhos de acessibilidade — Ctrl=Especial, Shift=Trocar poder (sem usar Win/Alt/AltGr)
   const easyKey = players[0].easy && numPlayers<=1 && (e.code==='ControlLeft'||e.code==='ControlRight'||e.code==='ShiftLeft'||e.code==='ShiftRight');
@@ -1575,8 +1583,8 @@ function stepPlayer(pl,dt){
   coins.forEach((cn,i)=>{ if(cn.taken||cn.owner!==pl.i)return; // Lote C: só coleta os itens da SUA cor
     const big=(MODE!=='ludico'); const sz=big?15:9, ox=big?3:0;
     if(box.x<cn.x+sz-ox&&box.x+box.w>cn.x-ox&&box.y<cn.y+sz-ox&&box.y+box.h>cn.y-ox){
-      if(MODE==='somasub'&&cn.shape){ if(pl===player&&!player.quiz) openQuiz(i,cn.shape); }
-      else if(MODE==='silabas'&&cn.letter){ if(pl===player&&!player.quiz) openSilabas(i,cn.letter); }
+      if(MODE==='somasub'&&cn.shape){ if(!pl.quiz) openQuiz(pl,i,cn.shape); }       // L3: quiz POR JOGADOR (MP incluso)
+      else if(MODE==='silabas'&&cn.letter){ if(!pl.quiz) openSilabas(pl,i,cn.letter); }
       else { takeCoin(cn); coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin'); // some p/ todas as telas (item tem 1 dono)
         burstSparkle(cn.x+5,cn.y+5,ownerColors?(PCOLOR[cn.owner]||0xffd23f):0xffd23f,8); // JUICE: brilho na cor do dono (segue a opção)
         updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); narrate(msg); }
@@ -1717,51 +1725,52 @@ function draw(){
 }
 
 /* ===================== Soma-Sub: quiz (DOM, acessível) ===================== */
-function openQuiz(coinIndex,shapeId){
+function quizWho(pl){ return numPlayers>1?('Jogador '+(pl.i+1)+': '):''; } // L3: prefixo nas falas do quiz em MP
+function openQuiz(pl,coinIndex,shapeId){
   const op=rnd()<0.5?'+':'-'; let a,b,answer;
   if(op==='+'){a=randInt(0,9);b=randInt(0,10-a);answer=a+b;} else {a=randInt(0,10);b=randInt(0,a);answer=a-b;}
   const pool=[answer]; while(pool.length<9){const n=randInt(0,10); if(!pool.includes(n))pool.push(n);}
-  player.quiz={kind:'somasub',coinIndex,shape:shapeId,a,b,op,answer,choices:shuffle(pool),sel:0,tries:0,revealed:false};
-  player.vx=0;player.vy=0;
-  srSay(`${somaSubName(shapeId)}. Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`);
-  renderQuiz();
+  pl.quiz={kind:'somasub',coinIndex,shape:shapeId,a,b,op,answer,choices:shuffle(pool),sel:0,tries:0,revealed:false};
+  pl.vx=0;pl.vy=0;
+  srSay(`${quizWho(pl)}${somaSubName(shapeId)}. Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`);
+  renderQuiz(pl);
 }
 function pickWord(letter){ const pool=SILABAS_WORDS.filter(w=>w.w[0]===letter);
   return pool.length?pool[randInt(0,pool.length-1)]:SILABAS_WORDS[randInt(0,SILABAS_WORDS.length-1)]; }
-function openSilabas(coinIndex,letter){ // L3: despacha pelo NÍVEL (1..5); modo cego mantém o ditado passivo (a11y)
-  const cego = blindMode || modoCego || (VIZ_BY_KEY[(player&&player.viz)||'']||{}).kind==='blind';
-  if(cego){ openBraille(coinIndex,letter); return; } // E8: ditado de Braille
-  if(quizLevel===1){ openPre(coinIndex,letter); return; }
-  if(quizLevel>=4){ openAlf(coinIndex,letter); return; }
+function openSilabas(pl,coinIndex,letter){ // L3: despacha pelo NÍVEL (1..5); modo cego mantém o ditado passivo (a11y)
+  const cego = blindMode || modoCego || (VIZ_BY_KEY[(pl&&pl.viz)||'']||{}).kind==='blind';
+  if(cego){ openBraille(pl,coinIndex,letter); return; } // E8: ditado de Braille
+  if(quizLevel===1){ openPre(pl,coinIndex,letter); return; }
+  if(quizLevel>=4){ openAlf(pl,coinIndex,letter); return; }
   const item=pickWord(letter);
   const correct=item.s.slice(), distract=[];
   for(const sy of shuffle(SILABA_POOL)){ if(distract.length>=7)break; if(!correct.includes(sy)&&!distract.includes(sy))distract.push(sy); }
-  player.quiz={kind:'silabas',spell:quizLevel===3,coinIndex,letter,word:item.w,emoji:item.e,correct,options:shuffle(correct.concat(distract)),boxes:[null,null],sel:0,tries:0,revealed:false};
-  player.vx=0;player.vy=0;
-  srSay(`Letra ${disp(letter)}. Monte a palavra: ${item.w}.`);
-  renderQuiz();
+  pl.quiz={kind:'silabas',spell:quizLevel===3,coinIndex,letter,word:item.w,emoji:item.e,correct,options:shuffle(correct.concat(distract)),boxes:[null,null],sel:0,tries:0,revealed:false};
+  pl.vx=0;pl.vy=0;
+  srSay(`${quizWho(pl)}Letra ${disp(letter)}. Monte a palavra: ${item.w}.`);
+  renderQuiz(pl);
 }
 // Nível 1 — pré-silábico: qual das 3 escritas é a certa? O jogo SOLETRA a opção sob o cursor.
-function openPre(coinIndex,letter){
+function openPre(pl,coinIndex,letter){
   const item=pickWord(letter);
   const opts=[item.w]; while(opts.length<3){ const m=malform(item.w); if(!opts.includes(m))opts.push(m); }
-  player.quiz={kind:'pre',coinIndex,word:item.w,emoji:item.e,choices:shuffle(opts),sel:0,tries:0,revealed:false};
-  player.vx=0;player.vy=0;
-  srSay(`${item.w}. Qual é a escrita certa? O jogo soletra cada opção.`);
-  renderQuiz(); quizSpeakSel();
+  pl.quiz={kind:'pre',coinIndex,word:item.w,emoji:item.e,choices:shuffle(opts),sel:0,tries:0,revealed:false};
+  pl.vx=0;pl.vy=0;
+  srSay(`${quizWho(pl)}${item.w}. Qual é a escrita certa? O jogo soletra cada opção.`);
+  renderQuiz(pl); quizSpeakSel(pl);
 }
 // Níveis 4/5 — escritor: montar a palavra LETRA a letra numa grade; 5 dita a cela Braille de cada letra.
-function openAlf(coinIndex,letter){
+function openAlf(pl,coinIndex,letter){
   const item=pickWord(letter);
   const need=[...new Set(item.w.split(''))], extra=[];
   for(const ch of shuffle('abcdefghijlmnoprstuvz'.split(''))){ if(need.length+extra.length>=10)break; if(!need.includes(ch)&&!extra.includes(ch))extra.push(ch); }
-  player.quiz={kind:'alf',braille:quizLevel===5,coinIndex,word:item.w,emoji:item.e,
+  pl.quiz={kind:'alf',braille:quizLevel===5,coinIndex,word:item.w,emoji:item.e,
     options:shuffle(need.concat(extra)),boxes:Array(item.w.length).fill(null),sel:0,tries:0,revealed:false};
-  player.vx=0;player.vy=0;
-  srSay(`Escreva a palavra: ${item.w}. ${item.w.length} letras.`);
-  renderQuiz(); quizSpeakSel();
+  pl.vx=0;pl.vy=0;
+  srSay(`${quizWho(pl)}Escreva a palavra: ${item.w}. ${item.w.length} letras.`);
+  renderQuiz(pl); quizSpeakSel(pl);
 }
-function quizSpeakSel(){ const q=player.quiz; if(!q)return; // fala o item sob o cursor CONFORME O NÍVEL
+function quizSpeakSel(pl){ const q=pl.quiz; if(!q)return; // fala o item sob o cursor CONFORME O NÍVEL
   if(q.kind==='pre'){ srSay(soletra(q.choices[q.sel])); return; }
   const N=q.options?q.options.length:0;
   if(q.sel>=N){ srSay(q.sel===N?'apagar':'ok'); return; }
@@ -1769,21 +1778,20 @@ function quizSpeakSel(){ const q=player.quiz; if(!q)return; // fala o item sob o
   if(q.kind==='silabas') srSay(q.spell?soletra(it):disp(it));                                    // 2 lê · 3 soletra
   else if(q.kind==='alf') srSay(q.braille?`${LETTER_NAME[it]||it}: pontos ${brailleText(it)}`:(LETTER_NAME[it]||it)); // 4 nome · 5 cela
 }
-function placeLetter(ch){ const q=player.quiz; if(!q)return; const idx=q.boxes.indexOf(null); if(idx<0)return;
-  q.boxes[idx]=ch; sfx('place'); srSay(q.braille?`${LETTER_NAME[ch]||ch}: pontos ${brailleText(ch)}`:(LETTER_NAME[ch]||ch)); renderQuiz(); }
-function eraseLastLetter(){ const q=player.quiz; if(!q)return; for(let i=q.boxes.length-1;i>=0;i--){ if(q.boxes[i]!==null){ q.boxes[i]=null; break; } } renderQuiz(); }
-function placeSilaba(sy){ const q=player.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place'); srSay(q.spell?soletra(sy):disp(sy)); renderQuiz(); } // nível 3 soletra
-function eraseLastSilaba(){ const q=player.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(); }
+function placeLetter(pl,ch){ const q=pl.quiz; if(!q)return; const idx=q.boxes.indexOf(null); if(idx<0)return;
+  q.boxes[idx]=ch; sfx('place'); srSay(q.braille?`${LETTER_NAME[ch]||ch}: pontos ${brailleText(ch)}`:(LETTER_NAME[ch]||ch)); renderQuiz(pl); }
+function eraseLastLetter(pl){ const q=pl.quiz; if(!q)return; for(let i=q.boxes.length-1;i>=0;i--){ if(q.boxes[i]!==null){ q.boxes[i]=null; break; } } renderQuiz(pl); }
+function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place'); srSay(q.spell?soletra(sy):disp(sy)); renderQuiz(pl); } // nível 3 soletra
+function eraseLastSilaba(pl){ const q=pl.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(pl); }
 // E8: ditado de Braille (modo pessoa cega) — dita os pontos da cela por letra
-function openBraille(coinIndex,letter){
-  const pool=SILABAS_WORDS.filter(w=>w.w[0]===letter);
-  const item=pool.length?pool[randInt(0,pool.length-1)]:SILABAS_WORDS[randInt(0,SILABAS_WORDS.length-1)];
+function openBraille(pl,coinIndex,letter){
+  const item=pickWord(letter);
   const cells=item.w.split('').map(ch=>({l:ch,dots:BRAILLE[ch]||[],text:brailleText(ch)}));
-  player.quiz={kind:'braille',coinIndex,letter,word:item.w,emoji:item.e,cells,revealed:false};
-  player.vx=0;player.vy=0; renderQuiz(); announceBraille();
+  pl.quiz={kind:'braille',coinIndex,letter,word:item.w,emoji:item.e,cells,revealed:false};
+  pl.vx=0;pl.vy=0; renderQuiz(pl); announceBraille(pl);
 }
-function announceBraille(){ const q=player.quiz; if(!q||q.kind!=='braille')return;
-  srAlert(`${q.word}. `+q.cells.map(c=>`${c.l}: ${c.text}.`).join(' ')+' Pule para coletar.'); }
+function announceBraille(pl){ const q=pl.quiz; if(!q||q.kind!=='braille')return;
+  srAlert(`${quizWho(pl)}${q.word}. `+q.cells.map(c=>`${c.l}: ${c.text}.`).join(' ')+' Pule para coletar.'); }
 function somasubHtml(q){
   const opTxt=q.op==='+'?'+':'−';
   const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&n===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
@@ -1818,70 +1826,70 @@ function brailleHtml(q){
   }).join('');
   return `<div class="quiz-box" role="dialog" aria-modal="true" aria-label="Braille da palavra ${q.word}"><div class="quiz-emoji" aria-hidden="true">${q.emoji}</div><div class="quiz-letter">palavra: ${disp(q.word)}</div><div class="bcells">${cells}</div><div class="quiz-hint">Ouça os pontos. Pule (L) para coletar. (Cima repete)</div></div>`;
 }
-function renderQuiz(){
-  const q=player.quiz, ov=$('#quiz'); if(!ov)return; if(!q){ov.hidden=true;return;}
+// L3: overlay do quiz POR JOGADOR — solo usa o #quiz global; MP cria um .quiz dentro da tela do jogador
+function quizEl(pl){ if(numPlayers<=1) return $('#quiz');
+  const scr=vpScreens[pl.i]; if(!scr) return $('#quiz');
+  let q=scr.querySelector(':scope > .quiz'); if(!q){ q=document.createElement('div'); q.className='quiz'; q.hidden=true; scr.appendChild(q); }
+  return q; }
+function renderQuiz(pl){
+  const q=pl.quiz, ov=quizEl(pl); if(!ov)return; if(!q){ov.hidden=true;return;}
   ov.innerHTML = q.kind==='braille' ? brailleHtml(q) : q.kind==='silabas' ? silabaHtml(q) : q.kind==='pre' ? preHtml(q) : q.kind==='alf' ? alfHtml(q) : somasubHtml(q);
-  ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(player.quiz){player.quiz.sel=+b.dataset.i; quizConfirm();} }));
+  ov.querySelectorAll('.quiz-choice').forEach(b=>b.addEventListener('click',()=>{ if(pl.quiz){pl.quiz.sel=+b.dataset.i; quizConfirm(pl);} }));
   ov.hidden=false;
 }
-function quizMove(d){ const q=player.quiz; if(!q)return;
+function quizMove(pl,d){ const q=pl.quiz; if(!q)return;
   const max = (q.kind==='silabas'||q.kind==='alf') ? q.options.length+1 : q.choices.length-1;
-  q.sel=Math.max(0,Math.min(max,q.sel+d)); renderQuiz();
-  if(q.kind==='silabas'||q.kind==='alf'||q.kind==='pre') quizSpeakSel(); // L3: leitura conforme o nível
+  q.sel=Math.max(0,Math.min(max,q.sel+d)); renderQuiz(pl);
+  if(q.kind==='silabas'||q.kind==='alf'||q.kind==='pre') quizSpeakSel(pl); // L3: leitura conforme o nível
   else srSay(String(q.choices[q.sel]));
 }
-function quizConfirm(){
-  const q=player.quiz; if(!q)return;
-  if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(); return; }
-  if(q.kind==='braille'){ takeCoin(coins[q.coinIndex]); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
-    sfx('coin'); srSay('Coletado!'); closeQuiz(); if(collected>=COIN_TARGET)win(); return; }
+function quizTake(pl,q){ // coleta a figura do quiz (por jogador) e checa vitória
+  takeCoin(coins[q.coinIndex]); if(coinSprites[q.coinIndex])coinSprites[q.coinIndex].visible=false;
+  pl.collected++; if(pl===player)collected=pl.collected; updateHud();
+  closeQuiz(pl); if(pl.collected>=COIN_TARGET)win(pl); }
+function quizConfirm(pl){
+  const q=pl.quiz; if(!q)return;
+  if(q.revealed){ respawnFigure(q.coinIndex); closeQuiz(pl); return; }
+  if(q.kind==='braille'){ sfx('coin'); srSay(quizWho(pl)+'Coletado!'); quizTake(pl,q); return; }
   if(q.kind==='pre'){ // nível 1: acertou a escrita?
     if(q.choices[q.sel]===q.word){
-      takeCoin(coins[q.coinIndex]); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
-      sfx('correct'); srSay(`Acertou! ${disp(q.word)}: ${soletra(q.word)}.`); closeQuiz(); if(collected>=COIN_TARGET)win();
+      sfx('correct'); srSay(`${quizWho(pl)}Acertou! ${disp(q.word)}: ${soletra(q.word)}.`); quizTake(pl,q);
     } else { q.tries++;
-      if(q.tries>=2){ q.revealed=true; srAlert(`A certa é ${disp(q.word)}: ${soletra(q.word)}. Pule para seguir.`); }
+      if(q.tries>=2){ q.revealed=true; srAlert(`${quizWho(pl)}A certa é ${disp(q.word)}: ${soletra(q.word)}. Pule para seguir.`); }
       else { sfx('wrong'); srSay('Tente de novo.'); }
-      renderQuiz(); }
+      renderQuiz(pl); }
     return;
   }
   if(q.kind==='alf'){ // níveis 4/5: montou a palavra inteira?
     const N=q.options.length;
-    if(q.sel<N){ placeLetter(q.options[q.sel]); return; }
-    if(q.sel===N){ eraseLastLetter(); return; }
-    if(q.boxes.join('')===q.word){
-      takeCoin(coins[q.coinIndex]); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
-      sfx('correct'); srSay('Acertou!'); closeQuiz(); if(collected>=COIN_TARGET)win();
-    } else { q.tries++;
-      if(q.tries>=2){ q.revealed=true; q.boxes=q.word.split(''); srAlert(`A palavra é ${disp(q.word)}: ${soletra(q.word)}. Pule para seguir.`); }
+    if(q.sel<N){ placeLetter(pl,q.options[q.sel]); return; }
+    if(q.sel===N){ eraseLastLetter(pl); return; }
+    if(q.boxes.join('')===q.word){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizTake(pl,q); }
+    else { q.tries++;
+      if(q.tries>=2){ q.revealed=true; q.boxes=q.word.split(''); srAlert(`${quizWho(pl)}A palavra é ${disp(q.word)}: ${soletra(q.word)}. Pule para seguir.`); }
       else { q.boxes=q.boxes.map(()=>null); sfx('wrong'); srSay('Tente de novo.'); }
-      renderQuiz(); }
+      renderQuiz(pl); }
     return;
   }
   if(q.kind==='silabas'){
     const N=q.options.length;
-    if(q.sel<N){ placeSilaba(q.options[q.sel]); return; }
-    if(q.sel===N){ eraseLastSilaba(); return; }
-    if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){
-      takeCoin(coins[q.coinIndex]); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
-      sfx('correct'); srSay('Acertou!'); closeQuiz(); if(collected>=COIN_TARGET)win();
-    } else { q.tries++;
-      if(q.tries>=2){ q.revealed=true; q.boxes=q.correct.slice(); srAlert(`A palavra é ${disp(q.word)}. Pule para seguir.`); }
+    if(q.sel<N){ placeSilaba(pl,q.options[q.sel]); return; }
+    if(q.sel===N){ eraseLastSilaba(pl); return; }
+    if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizTake(pl,q); }
+    else { q.tries++;
+      if(q.tries>=2){ q.revealed=true; q.boxes=q.correct.slice(); srAlert(`${quizWho(pl)}A palavra é ${disp(q.word)}. Pule para seguir.`); }
       else { q.boxes=[null,null]; sfx('wrong'); srSay('Tente de novo.'); }
-      renderQuiz();
+      renderQuiz(pl);
     }
     return;
   }
-  if(q.choices[q.sel]===q.answer){
-    takeCoin(coins[q.coinIndex]); coinSprites[q.coinIndex].visible=false; player.collected++; collected=player.collected;
-    sfx('correct'); srSay('Acertou!'); closeQuiz();
-    if(collected>=COIN_TARGET)win();
-  } else { q.tries++;
-    if(q.tries>=2){q.revealed=true; srAlert(`A resposta é ${q.answer}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
-    renderQuiz();
+  if(q.choices[q.sel]===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizTake(pl,q); }
+  else { q.tries++;
+    if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${q.answer}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
+    renderQuiz(pl);
   }
 }
-function closeQuiz(){ player.quiz=null; const ov=$('#quiz'); if(ov)ov.hidden=true; }
+function closeQuiz(pl){ pl.quiz=null; const ov=quizEl(pl); if(ov)ov.hidden=true; }
 function respawnFigure(i){
   const occ=new Set(); coins.forEach((c,j)=>{ if(j!==i)occ.add(c.x+','+c.y); });
   for(const cand of shuffle(findCoinCandidates())){ const x=cand.tx*TILE+3,y=cand.ty*TILE+3;
@@ -1900,7 +1908,7 @@ function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); 
   $('#win-msg').textContent=`${who}Coletou as ${COIN_TARGET} moedas.`;
   $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); narrate(`${who}Venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
 function restartGame(){
-  closeQuiz();
+  players.forEach(p=>closeQuiz(p)); // L3: quiz é por jogador
   coins=pickCoins(COIN_TARGET);
   rebuildCoins();
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
@@ -1917,7 +1925,7 @@ $('#btn-again').addEventListener('click',()=>{ restartGame(); $('#game-region').
 const MODE_LABELS={ludico:'🪙 Lúdico',somasub:'🔷 Soma-Sub',silabas:'🔤 Sílabas'};
 const MODES=['ludico','somasub','silabas'];
 function setMode(m){
-  MODE=m; // modos liberados em qualquer nº de telas (quiz por jogador é tarefa à parte)
+  MODE=m; // modos liberados em qualquer nº de telas (L3: quiz abre POR JOGADOR, na tela de quem tocou)
   const b=$('#opt-mode'); if(b){ b.textContent=MODE_LABELS[m]; b.setAttribute('aria-label','Modo: '+MODE_LABELS[m]+'. Toque para trocar.'); }
   restartGame(); $('#game-region').focus();
 }
@@ -2027,6 +2035,12 @@ function pollPads(){ if(padWiz)return; // durante o wizard, os pads falam só co
       else if(players[owner].quit){ if(startEdge) respawnPlayer(owner); } // tela abandonada → recomeça SÓ ela
       else { const p=players[owner];
         if(pauseEdge){ setPhase('paused'); pauseActor=owner; continue; }  // START pausa (todos pausam; cada tela navega a sua)
+        if(p.quiz){ // L3: o pad navega o quiz do PRÓPRIO jogador (o jogo dos outros segue)
+          if(p.quiz.kind==='braille'){ if(edge('up'))announceBraille(p); else if(edge('jump'))quizConfirm(p); continue; }
+          if(edge('left'))quizMove(p,-1); else if(edge('right'))quizMove(p,1);
+          else if(edge('up'))quizMove(p,-3); else if(edge('down'))quizMove(p,3);
+          else if(edge('jump'))quizConfirm(p);
+          continue; }
         if(edge('jump'))p.jumpEdge=true;
         if(edge('run')&&!p.easy)p.runEdge=true;
         if(edge('left'))p.leftEdge=true;
@@ -2136,7 +2150,7 @@ function applyLetra(announce){ const s=LETRA[letraIdx]; letterCase=s.caso; blind
   const b=$('#opt-letra'); if(b){ b.textContent=s.lbl; b.classList.toggle('is-on',letraIdx>0); b.setAttribute('aria-pressed',String(letraIdx>0)); }
   document.querySelectorAll('.pm-letra').forEach(x=>{ x.textContent=s.lbl; }); // ABC nos menus de pausa por tela
   if(typeof rebuildCoins==='function' && MODE==='silabas') rebuildCoins();
-  if(player&&player.quiz) renderQuiz();
+  players.forEach(p=>{ if(p.quiz)renderQuiz(p); }); // L3: re-renderiza o quiz de quem estiver num
   if(announce) srSay(s.say);
 }
 const optLetraBtn=$('#opt-letra'); if(optLetraBtn)optLetraBtn.addEventListener('click',()=>{ letraIdx=(letraIdx+1)%LETRA.length; applyLetra(true); });
