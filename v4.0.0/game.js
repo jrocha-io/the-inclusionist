@@ -1203,6 +1203,14 @@ function stepFx(dt){ fxClock+=dt;
     p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; } }
 function drawFx(){ fxG.clear(); for(const p of particles){ const f=p.life/p.max;
   fxG.beginFill(p.color, 0.9*easeOut3(f)); fxG.drawRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size); fxG.endFill(); } }
+/* L2: CRT (scanlines/vinheta/cantos) — estética opcional só em CSS (classes no #game-region); padrão DESLIGADO */
+const CRT=(()=>{ const d={scan:false,vig:false,round:false};
+  try{ const s=JSON.parse(localStorage.getItem('incl_crt')); if(s&&typeof s==='object') for(const k in d) if(k in s) d[k]=!!s[k]; }catch(e){}
+  return d; })();
+function applyCrt(){ const g=$('#game-region'); if(!g)return;
+  g.classList.toggle('crt-scan',CRT.scan); g.classList.toggle('crt-vig',CRT.vig); g.classList.toggle('crt-round',CRT.round);
+  try{ localStorage.setItem('incl_crt',JSON.stringify(CRT)); }catch(e){} }
+applyCrt();
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
 let allPSprites=[playerSprite];
 function ensureSprites(){
@@ -2458,7 +2466,7 @@ app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); upda
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
 window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
-  JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;}};
+  JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt};
 srSay('Jogo carregado. Colete 10 moedas. Suba escadas com W/S, nade segurando pulo na água.');
 
 /* dicas de início: somem ao pular ou após 8s */
@@ -2704,6 +2712,10 @@ function showTouchControls(){ if(numPlayers>1 || phase==='paused') return; const
     {label:'⏱️ Hit-stop (impacto)',          chk:()=>JUICE.hitstop, set:v=>{JUICE.hitstop=v;saveJuice();}},
     {label:'📳 Tremor de tela',              chk:()=>JUICE.shake,   set:v=>{JUICE.shake=v;saveJuice();}},
     {label:'🌟 Cintilar dos itens',          chk:()=>JUICE.shimmer, set:v=>{JUICE.shimmer=v;saveJuice();}},
+    {h:'CRT (estética, CSS) — padrão desligado'},
+    {label:'📺 Scanlines',          chk:()=>CRT.scan,  set:v=>{CRT.scan=v;applyCrt();}},
+    {label:'🌘 Vinheta',            chk:()=>CRT.vig,   set:v=>{CRT.vig=v;applyCrt();}},
+    {label:'⬭ Cantos arredondados', chk:()=>CRT.round, set:v=>{CRT.round=v;applyCrt();}},
   ];
   const p=document.createElement('div'); p.id='debug-panel'; p.hidden=true; p.setAttribute('role','group'); p.setAttribute('aria-label','Painel de depuração'); // começa oculto; abre pelo botão 🐞 Debug
   p.style.cssText='position:fixed;top:8px;right:8px;z-index:200;background:rgba(11,16,32,.97);color:#fff;border:2px solid #ffd23f;border-radius:8px;padding:.6rem .7rem;font:13px/1.4 system-ui,sans-serif;max-width:270px;max-height:86vh;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.5)';
