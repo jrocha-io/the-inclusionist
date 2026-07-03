@@ -130,6 +130,15 @@
 | Fração com menu próprio + 5 NOTAÇÕES toggleáveis (vertical HTML/CSS puro, diagonal, decimal vírgula-BR, percentual, mista); questão sorteia entre as ligadas; fala cobre todas. **MathJax rejeitado** (pesado p/ Positivo/offline) — recomendação: KaTeX self-host p/ notação avançada + SVG inline p/ pizzas/barras (p5.js = engine inteira p/ um arco); a vertical atual é zero-dependência | Pergunta do José sobre MathJax/p5 | commit `8cd1d97` | ✅ · KaTeX/SVG aguardam aval |
 | Attract mode: 30s ocioso no menu → demo de 30s (gravação `?record=1` por cenário em localStorage; fallback robô); qualquer entrada encerra | Pedido explícito | commit `d53f7e2` | ✅ · gravar as 4 demos = pendente |
 
+### 5.6 Gestalt do splash (2026-07-04, correção)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| Splash em 3 ZONAS Gestalt: a11y no CABEÇALHO (1 fileira, `nowrap`), menu amarelo centrado no ESPAÇO DE TRABALHO (`position:absolute;inset:0`), legenda no RODAPÉ (`bottom:8px`); botões estreitos (13em; mat 22em); seletor de jogadores = UM botão visual (3 segmentos colados, raio só nas pontas) | Bronca do José: "a11y no cabeçalho, menu no espaço de trabalho, legenda no rodapé"; princípio de proximidade | v4.147.1 | ✅ |
+| Quiz de matemática SEM o nome da forma geométrica coletada (HTML e fala) — criava confusão | Pedido explícito | v4.147.1 | ✅ |
+| Escala do canvas AUDITADA com números: física EXATA (kDev=5 em 1366×768\@dpr1.25); o "corte em cima/embaixo" de 3px/lado está DENTRO da tolerância de 5px lógicos×k da regra original (o `-10` na fórmula); a percepção de "errado" vinha de `--ui-fs` fracionário (25,6px) borrando os menus → agora `Math.round(8·k)`. Remover o corte de vez = tirar o `-10` (1 linha, canvas 1 degrau menor) | Item 4 da bronca; medição no preview | v4.147.1 | ✅ · sem-corte aguarda decisão |
+| PROCESSO: mudar APENAS o que foi pedido — nada de "aproveitar e ajustar" itens vizinhos | Bronca do José ("peço um ponto e você muda vários") | conversa 2026-07-04 | 🔒 regra permanente |
+
 ## 6. Arquitetura e plataforma
 
 | Decisão | Fundamento / estudo | Fonte | Status |

@@ -2,7 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.147.0';
+const INCL_VERSION='4.147.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2255,7 +2255,7 @@ function openQuiz(pl,coinIndex,shapeId){ // MATEMÁTICA: gerador POR ATIVIDADE (
     const op=rnd()<0.5?'+':'−'; let a,b,ans;
     if(op==='+'){a=randInt(0,9);b=randInt(0,10-a);ans=a+b;} else {a=randInt(0,10);b=randInt(0,a);ans=a-b;}
     q={...base,prob:`${a} ${op} ${b} = ?`,answer:String(ans),choices:_mkChoices(ans,0,10)};
-    fala=`${somaSubName(shapeId)}. Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`; }
+    fala=`Quanto é ${a} ${op==='+'?'mais':'menos'} ${b}?`; } // sem o nome da forma
   pl.quiz=q; pl.vx=0;pl.vy=0;
   srSay(quizWho(pl)+fala);
   renderQuiz(pl);
@@ -2321,7 +2321,7 @@ function somasubHtml(q){ // genérico: q.prob (texto) + q.dots (bolinhas da Quan
   const choices=q.choices.map((n,i)=>`<button class="quiz-choice${i===q.sel?' sel':''}${q.revealed&&String(n)===q.answer?' reveal':''}" data-i="${i}" type="button">${n}</button>`).join('');
   const dots=q.dots?`<div class="quiz-dots" aria-label="${q.dots} bolinhas">${'●'.repeat(q.dots)}</div>`:'';
   const hint=q.revealed?'Resposta certa em destaque. Pule (L) para seguir.':(q.tries>0?'Quase! Tente de novo.':'Escolha e pule (L) para confirmar.');
-  return `<div class="quiz-box quiz-box--math" role="dialog" aria-modal="true" aria-label="Desafio de matemática"><div class="quiz-shape">${somaSubName(q.shape)}</div><div class="quiz-prob">${q.prob||''}</div>${dots}<div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`;
+  return `<div class="quiz-box quiz-box--math" role="dialog" aria-modal="true" aria-label="Desafio de matemática"><div class="quiz-prob">${q.prob||''}</div>${dots}<div class="quiz-grid">${choices}</div><div class="quiz-hint">${hint}</div></div>`; // sem o nome da forma (confundia — pedido do José)
 }
 function silabaHtml(q){
   const N=q.options.length;
@@ -3347,7 +3347,7 @@ function layout(){
   const kDev=Math.max(Math.round(MIN_K*dpr), Math.floor(Math.min(availW*dpr/(baseW-10), availH*dpr/(baseH-10))));
   const k=kDev/dpr;
   const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px'; gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px'); } // fonte do HUD escala com a tela (alta definição)
-  document.documentElement.style.setProperty('--ui-fs', (8*k)+'px'); // fonte-base dos menus: 16px a 640×360 (k=2) e escala com o canvas (8·k)
+  document.documentElement.style.setProperty('--ui-fs', Math.round(8*k)+'px'); // fonte-base dos menus INTEIRA (k CSS fracionário sob dpr≠1 borrava o texto)
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
 }
 function vlTick(){ const o=vlibrasOpen(); _vlOpen=o; if(o!==librasOpen){ librasOpen=o; layout();

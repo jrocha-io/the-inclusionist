@@ -35,10 +35,12 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .game-byline{color:#f6f5f0;font-size:.8em;text-align:right;margin-top:2px;text-shadow:1px 1px 0 #0d0d1a}
 .game-version{color:#9999b3;font-size:.6em;text-align:right;letter-spacing:1px;margin-top:2px;text-shadow:1px 1px 0 #0d0d1a}
 .game-subtitle{color:#f6f5f0;font-size:.8em;margin:0 0 4px;text-shadow:1px 1px 0 #0d0d1a;text-align:center}
-/* Splash DENTRO do canvas, SEM rolagem (decisão do José): tudo escala com --ui-fs e cabe na tela */
-.title-menu{display:flex;flex-direction:column;gap:.35em;align-items:stretch;padding:2px;width:17em;margin:0 auto} /* LARGURA FIXA (não estica com o rodapé) */
+/* Splash DENTRO do canvas, SEM rolagem. GESTALT (José): a11y no CABEÇALHO · menu no ESPAÇO DE TRABALHO · legenda no RODAPÉ */
+.title-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;max-height:none}
+.title-legend{position:absolute;left:0;right:0;bottom:8px}                 /* RODAPÉ, como a legenda da pausa */
+.title-menu{display:flex;flex-direction:column;gap:.35em;align-items:stretch;padding:2px;width:13em;margin:0 auto} /* largura fixa ENXUTA */
 .title-menu[hidden]{display:none}
-#tm-mat{display:grid;grid-template-columns:1fr 1fr;gap:.35em;width:26em}   /* 12 itens → 2 colunas */
+#tm-mat{display:grid;grid-template-columns:1fr 1fr;gap:.35em;width:22em}   /* 12 itens → 2 colunas */
 #tm-mat .ghost,#tm-mat .tm-desc,#tm-mat .tm-title{grid-column:1/-1}
 .tm-title{color:#fff;font-size:1em;margin:0 0 .1em;text-align:center;text-shadow:1px 1px 0 #0d0d1a} /* título do submenu */
 .title-btn{background:var(--accent);color:var(--accent-ink);border:0;font-family:inherit;font-weight:bold;font-size:.95em;padding:.4em .6em;border-radius:6px;cursor:pointer;min-width:0;width:100%;min-height:2.3em}
@@ -57,7 +59,13 @@ body.at-title #game-hud,body.at-title .start-tips,body.at-title .hud{display:non
 .title-legend .lg-row{display:flex;gap:1.1em;justify-content:center;flex-wrap:wrap}
 .title-legend .lg{display:inline-flex;align-items:center;gap:.35em}
 .title-legend .lg-ico{display:inline-flex;align-items:center;justify-content:center;min-width:1.35em;height:1.35em;padding:0 .2em;border-radius:.68em;font-weight:800;font-size:.9em;color:#fff;background:rgba(13,13,26,.85);text-shadow:0 1px 1px rgba(0,0,0,.55)}
-#title-icons{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:.3em;justify-content:center;flex-wrap:wrap} /* 10px do topo da TELA */
+#title-icons{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:.3em;justify-content:center;flex-wrap:nowrap;white-space:nowrap} /* CABEÇALHO: 10px do topo, UMA fileira */
+/* Seletor de jogadores = aparência de UM botão (3 segmentos colados) */
+#tm-players{gap:0}
+#tm-players .title-btn{border-radius:0;flex:0 0 auto;min-width:2em;padding:.4em .5em}
+#tm-players .title-btn:first-child{border-radius:6px 0 0 6px}
+#tm-players .title-btn:last-child{border-radius:0 6px 6px 0}
+#tm-players #np-label{flex:1;border-left:2px solid rgba(13,13,26,.35);border-right:2px solid rgba(13,13,26,.35);cursor:default}
 /* Fração VERTICAL: pilha número/traço/número em HTML puro (zero dependência; KaTeX/SVG ficam p/ aprovação) */
 .fv{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.05;margin:0 .1em}
 .fv b{font-weight:800;padding:0 .25em}
