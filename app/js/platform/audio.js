@@ -53,6 +53,20 @@ export function tonePan(freq, dur, cat, pan, vol, type, pc) { if (!soundOn || vo
   let node = g; if (pan != null && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); node = p; }
   o.connect(g); node.connect(pc ? pc.out : (catNode(cat) || audioOut() || ac.destination)); o.start(t); o.stop(t + dur + 0.02); } catch (e) {} }
 
+// ===== Synth de RUÍDO (passos por material, bengala). noiseBuffer cacheia por-contexto (suporta AC por jogador). =====
+export let _footCount = 0; // contador de passos/pancadas (estatística de a11y; o __incl do game.js lê via getter)
+export function noiseBuffer(ac) { if (ac._noiseBuf && ac._noiseBuf.length === ((ac.sampleRate * 0.2) | 0)) return ac._noiseBuf; const n = (ac.sampleRate * 0.2) | 0, b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; return ac._noiseBuf = b; }
+// timbre por material: filtro (f) + frequência (hz) + duração (d) + volume (v)
+const FOOT = { grama:{f:'highpass',hz:2000,d:0.09,v:0.10}, piso:{f:'bandpass',hz:1200,d:0.06,v:0.15}, pedra:{f:'highpass',hz:1600,d:0.05,v:0.19},
+  areia:{f:'lowpass',hz:650,d:0.13,v:0.10}, madeira:{f:'bandpass',hz:480,d:0.08,v:0.15}, ferro:{f:'bandpass',hz:2600,d:0.12,v:0.16}, parede:{f:'highpass',hz:3200,d:0.10,v:0.08},
+  terra:{f:'lowpass',hz:520,d:0.11,v:0.12}, agua:{f:'lowpass',hz:330,d:0.15,v:0.13} };
+export function noiseHit(mat, pan, pc) { if (!soundOn || volume <= 0) return; const ac = pc ? pc.ac : ensureAC(); if (!ac) return; const f = FOOT[mat] || FOOT.piso; try {
+  const src = ac.createBufferSource(); src.buffer = noiseBuffer(ac); const bq = ac.createBiquadFilter(); bq.type = f.f; bq.frequency.value = f.hz; bq.Q.value = 1.2;
+  const g = ac.createGain(), t = ac.currentTime; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.02, f.v * volume), t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + f.d);
+  let node = g; if (pan != null && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); node = p; }
+  src.connect(bq).connect(g); node.connect(pc ? pc.out : (catNode('interact') || audioOut() || ac.destination)); src.start(t); src.stop(t + f.d + 0.03); _footCount++;
+} catch (e) {} }
+
 // Efeitos sonoros básicos: frequência (f), duração (d), timbre (t) e legenda (cap, para captions/aria-live).
 export const SFX = {
   jump:{f:520,d:0.12,t:'square',cap:'🔊 Pulo'},

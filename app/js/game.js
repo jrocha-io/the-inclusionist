@@ -12,9 +12,9 @@ import { AUDIO_CATS } from './platform/audio-mixer.js'; // Fase 2: categorias do
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
-import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, catNode, setCatGain, tone, tonePan } from './platform/audio.js'; // Fase 2: base + nó mestre + mixer + sínteses de oscilador
+import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, catNode, setCatGain, tone, tonePan, noiseBuffer, noiseHit, _footCount } from './platform/audio.js'; // Fase 2: base + mestre + mixer + sínteses (oscilador + ruído)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.11';
+const INCL_VERSION='4.164.12';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -608,23 +608,14 @@ function setHearingLoss(on){ setHearingLossGraph(on); store.setBool('incl_hearin
 // AUDIO_CATS (categorias) + carga/persistência + default TTS-off extraídos p/ platform/audio-mixer.js (Fase 2).
 // audioCat + catNode + setCatGain (mixer por categoria) extraídos p/ platform/audio.js (Fase 2).
 // ===== F2: efeitos de interação com o ambiente (passos por superfície, portas, escada) — ruído filtrado sintetizado =====
-let _noiseBuf=null, _footCount=0;
-function noiseBuffer(ac){ if(ac._noiseBuf&&ac._noiseBuf.length===((ac.sampleRate*0.2)|0))return ac._noiseBuf; const n=(ac.sampleRate*0.2)|0,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0); for(let i=0;i<n;i++)d[i]=Math.random()*2-1; return ac._noiseBuf=b; } // cache por-contexto (suporta AudioContext por jogador)
+// noiseBuffer + FOOT + noiseHit + _footCount (synth de ruído) extraídos p/ platform/audio.js (Fase 2). _noiseBuf era var morta.
 // ÁUDIO POR DISPOSITIVO (por jogador): um AudioContext por jogador, roteado com setSinkId ao dispositivo escolhido.
 // Só p/ as PISTAS por jogador (bengala/sonar/guarda/guia/nado). Sem dispositivo próprio → usa o contexto global.
 function playerCtx(pl){ if(!pl || !pl.audioSink) return null;
   try{ if(!pl._ac){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return null; pl._ac=new AC(); pl._acOut=pl._ac.createGain(); pl._acOut.connect(pl._ac.destination); if(pl._ac.setSinkId)pl._ac.setSinkId(pl.audioSink).catch(()=>{}); }
     if(pl._ac.state==='suspended')pl._ac.resume(); return {ac:pl._ac, out:pl._acOut}; }catch(e){ return null; } }
 // timbre por material: filtro + frequência + duração + volume (grama macia, piso seco, pedra brilhante, areia abafada, madeira grave, ferro metálico)
-const FOOT={ grama:{f:'highpass',hz:2000,d:0.09,v:0.10}, piso:{f:'bandpass',hz:1200,d:0.06,v:0.15}, pedra:{f:'highpass',hz:1600,d:0.05,v:0.19},
-  areia:{f:'lowpass',hz:650,d:0.13,v:0.10}, madeira:{f:'bandpass',hz:480,d:0.08,v:0.15}, ferro:{f:'bandpass',hz:2600,d:0.12,v:0.16}, parede:{f:'highpass',hz:3200,d:0.10,v:0.08},
-  terra:{f:'lowpass',hz:520,d:0.11,v:0.12}, agua:{f:'lowpass',hz:330,d:0.15,v:0.13} }; // bengala (cego): terra abafada, água molhada
-function noiseHit(mat,pan,pc){ if(!soundOn||volume<=0)return; const ac=pc?pc.ac:ensureAC(); if(!ac)return; const f=FOOT[mat]||FOOT.piso; try{
-  const src=ac.createBufferSource(); src.buffer=noiseBuffer(ac); const bq=ac.createBiquadFilter(); bq.type=f.f; bq.frequency.value=f.hz; bq.Q.value=1.2;
-  const g=ac.createGain(),t=ac.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,f.v*volume),t+0.006); g.gain.exponentialRampToValueAtTime(0.0001,t+f.d);
-  let node=g; if(pan!=null&&ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,pan)); g.connect(p); node=p; } // F3 usará o pan; F2 passa pan=0
-  src.connect(bq).connect(g); node.connect(pc?pc.out:(catNode('interact')||audioOut()||ac.destination)); src.start(t); src.stop(t+f.d+0.03); _footCount++; // pc = dispositivo do jogador
-}catch(e){} }
+// FOOT + noiseHit extraídos p/ platform/audio.js (Fase 2).
 // material sob os pés (cenário Cidade = concreto → 'piso'; futuros cenários mapeiam grama/areia/pedra)
 function surfaceUnder(pl){ const t=tileAt(Math.floor(pl.x/TILE),Math.floor((pl.y+1)/TILE)); if(t!==2&&t!==6&&t!==5)return null; return CENARIO==='cidade'?'piso':'pedra'; }
 // BENGALA (modo cego / amaurose): bate À FRENTE e o som diz o material adiante (ou vazio).
