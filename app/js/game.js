@@ -3,7 +3,7 @@
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
-const INCL_VERSION='4.160.0';
+const INCL_VERSION='4.161.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1812,8 +1812,8 @@ function buildScreenPause(i){ const sp=document.createElement('div'); sp.classNa
   const icons=PAUSE_ICONS.map(ic=>'<button class="pi-btn'+(ic.soon?' pi-soon':'')+'" type="button" data-pi="'+ic.k+'" aria-label="'+ic.n+(ic.soon?' (em construção)':'')+'">'+ic.e+'</button>').join('');
   sp.innerHTML='<div class="pause-card" role="dialog" aria-modal="true" aria-label="Menu de pausa do jogador '+(i+1)+'">'+
     '<div class="pause-icons" role="group" aria-label="Atalhos de acessibilidade">'+icons+'</div><p class="pause-icons-cap" aria-live="polite"></p>'+
-    '<h2>Pausado'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
-    PM_BTNS.map(b=>'<button class="pm-btn'+(b.letra?' pm-letra':'')+(b.nivel?' pm-nivel':'')+'" role="menuitem" type="button" data-act="'+b.act+'">'+(b.nivel?('📚 Nível '+quizLevel+' · '+QL_NAME[quizLevel]):b.lbl)+'</button>').join('')+
+    '<h2><span data-i18n="pause.title">'+i18n.t('pause.title')+'</span>'+(numPlayers>1?' · Jogador '+(i+1):'')+'</h2><div class="pause-menu" role="menu">'+
+    PM_BTNS.map(b=>{ const dyn=b.letra||b.nivel; const lbl=b.nivel?('📚 Nível '+quizLevel+' · '+QL_NAME[quizLevel]):(dyn?b.lbl:i18n.t('pause.'+b.act)); return '<button class="pm-btn'+(b.letra?' pm-letra':'')+(b.nivel?' pm-nivel':'')+'" role="menuitem" type="button" data-act="'+b.act+'"'+(dyn?'':(' data-i18n="pause.'+b.act+'"'))+'>'+lbl+'</button>'; }).join('')+
     '</div><p class="pause-legend" aria-hidden="true"></p></div>';
   sp.addEventListener('click',(e)=>{ const b=e.target.closest('.pm-btn'); if(b){ pauseActor=i; const act=b.dataset.act; if(pauseActs[act])pauseActs[act](); return; }
     const ib=e.target.closest('.pi-btn'); if(ib){ pauseActor=i; iconAct(ib.dataset.pi,i); reflectPauseIcons(); const cp=sp.querySelector('.pause-icons-cap'); if(cp)cp.textContent=ib.getAttribute('aria-label')||''; } });
