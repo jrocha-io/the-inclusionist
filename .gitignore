@@ -7,6 +7,9 @@ incl.js
 
 # Dependências / build
 node_modules/
+dist/
+.vite/
+*.tsbuildinfo
 
 # Sistema operacional
 .DS_Store

@@ -409,7 +409,9 @@
        se um load pegar módulos de cache desatualizado e o game.js falhar no `import` (tela branca), este
        script ainda roda, registra/atualiza o SW (que rebusca o shell inteiro com cache:'reload') e o
        PRÓXIMO load se autocura. Antes ficava no fim do game.js → nunca rodava quando o boot quebrava. -->
-  <script>if('serviceWorker' in navigator) addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });</script>
+  <!-- SW DESLIGADO durante a migração TS+Vite (docs/plano-typescript-vite.md) — evita conflito com o Vite dev;
+       o offline volta no Estágio 1 via vite-plugin-pwa (precache por content-hash, sem bump manual). -->
+  <!-- <script>if('serviceWorker' in navigator) addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });</script> -->
 
   <script src="vendor/pixi.min.js"></script>
   <!-- game.js é ES Module (type=module) — habilita `import` na modularização incremental (docs/plano-modularizacao.md).
