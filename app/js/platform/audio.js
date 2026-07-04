@@ -16,6 +16,23 @@ export function ensureAC() {
   return audioCtx;
 }
 
+// ===== Nó MESTRE: master gain → (filtro de perda auditiva opcional) → destino. =====
+export let hearingLoss = false;
+let _masterGain = null, _hlChain = null;
+export function audioOut() { const ac = ensureAC(); if (!ac) return null; if (!_masterGain) { _masterGain = ac.createGain(); wireMaster(); } return _masterGain; }
+function buildHearingChain(ac) {
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; lp.Q.value = 0.7; // agudos primeiro
+  const sp = ac.createScriptProcessor(512, 1, 1); const TH = 0.06, RED = 0.12; // frame < limiar → ×0.12 (contrário de aparelho auditivo)
+  sp.onaudioprocess = (e) => { const inp = e.inputBuffer.getChannelData(0), out = e.outputBuffer.getChannelData(0); let s = 0; for (let i = 0; i < inp.length; i++) s += inp[i] * inp[i]; const g = Math.sqrt(s / inp.length) < TH ? RED : 1; for (let i = 0; i < inp.length; i++) out[i] = inp[i] * g; };
+  lp.connect(sp); sp.connect(ac.destination); return { input: lp };
+}
+function wireMaster() { const ac = audioCtx; if (!ac || !_masterGain) return; try { _masterGain.disconnect(); } catch (e) {}
+  if (hearingLoss) { if (!_hlChain) _hlChain = buildHearingChain(ac); _masterGain.connect(_hlChain.input); } else _masterGain.connect(ac.destination); }
+// Empatia de perda auditiva: liga/desliga o filtro no nó mestre. A persistência + srSay ficam no game.js.
+export function setHearingLossGraph(on) { hearingLoss = on; if (audioCtx) { audioOut(); wireMaster(); } }
+// Mute mestre (pausa/título silenciam tudo; volta ao jogar). Só age se o nó mestre já existe (não o cria à toa).
+export function setMasterMuted(muted) { if (!_masterGain || !audioCtx) return; try { _masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.04); } catch (e) {} }
+
 // Efeitos sonoros básicos: frequência (f), duração (d), timbre (t) e legenda (cap, para captions/aria-live).
 export const SFX = {
   jump:{f:520,d:0.12,t:'square',cap:'🔊 Pulo'},

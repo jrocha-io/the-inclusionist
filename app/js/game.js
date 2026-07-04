@@ -12,9 +12,9 @@ import { AUDIO_CATS, loadAudioCat, saveAudioCat } from './platform/audio-mixer.j
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
-import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume } from './platform/audio.js'; // Fase 2: base do áudio (AudioContext + SFX + som mestre)
+import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted } from './platform/audio.js'; // Fase 2: base do áudio + nó mestre
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.8';
+const INCL_VERSION='4.164.9';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -601,15 +601,8 @@ function sfx(name){
 // ensureAC() (ciclo do AudioContext) extraído p/ platform/audio.js (Fase 2).
 // Modo empatia — perda auditiva: passa-baixas (perda de agudos) + EXPANSÃO DESCENDENTE (frames fracos abafados → dificulta a fala).
 // Todos os sons passam por um nó mestre; a cadeia é religada quando o modo liga/desliga.
-let hearingLoss=false, _masterGain=null, _hlChain=null;
-function audioOut(){ const ac=ensureAC(); if(!ac)return null; if(!_masterGain){ _masterGain=ac.createGain(); wireMaster(); } return _masterGain; }
-function buildHearingChain(ac){ const lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400; lp.Q.value=0.7; // agudos primeiro
-  const sp=ac.createScriptProcessor(512,1,1); const TH=0.06, RED=0.12;   // energia do frame < limiar → ×0.12 (contrário de aparelho auditivo)
-  sp.onaudioprocess=(e)=>{ const inp=e.inputBuffer.getChannelData(0), out=e.outputBuffer.getChannelData(0); let s=0; for(let i=0;i<inp.length;i++)s+=inp[i]*inp[i]; const g=Math.sqrt(s/inp.length)<TH?RED:1; for(let i=0;i<inp.length;i++)out[i]=inp[i]*g; };
-  lp.connect(sp); sp.connect(ac.destination); return {input:lp}; }
-function wireMaster(){ const ac=audioCtx; if(!ac||!_masterGain)return; try{_masterGain.disconnect();}catch(e){}
-  if(hearingLoss){ if(!_hlChain)_hlChain=buildHearingChain(ac); _masterGain.connect(_hlChain.input); } else _masterGain.connect(ac.destination); }
-function setHearingLoss(on){ hearingLoss=on; try{localStorage.setItem('incl_hearingloss',on?'1':'0');}catch(e){} if(audioCtx){ audioOut(); wireMaster(); }
+// Nó mestre (hearingLoss/audioOut/buildHearingChain/wireMaster) extraído p/ platform/audio.js (Fase 2).
+function setHearingLoss(on){ setHearingLossGraph(on); store.setBool('incl_hearingloss',on); // grafo em platform/audio.js; persistência via store
   srSay('Simulação de perda auditiva '+(on?'ligada: sons fracos ficam abafados e os agudos são cortados; falas ficam difíceis de entender.':'desligada.')); }
 // ===== F1: barramento de áudio por CATEGORIA (cada uma: liga/desliga + volume). Pendura no nó mestre. =====
 // AUDIO_CATS (categorias) + carga/persistência + default TTS-off extraídos p/ platform/audio-mixer.js (Fase 2).
@@ -2904,7 +2897,7 @@ const visualClose=$('#visual-close'); if(visualClose)visualClose.addEventListene
 const empathyBtn=$('#opt-empathy'); if(empathyBtn)empathyBtn.addEventListener('click',openEmpathy);
 const empathyClose=$('#empathy-close'); if(empathyClose)empathyClose.addEventListener('click',closeEmpathy);
 const hearingBtn=$('#opt-hearing'); if(hearingBtn)hearingBtn.addEventListener('click',()=>{ setHearingLoss(!hearingLoss); renderEmpathy(); reflectVizButtons(); });
-try{ if(localStorage.getItem('incl_hearingloss')==='1'){ hearingLoss=true; } }catch(e){}
+if(store.getBool('incl_hearingloss')) setHearingLossGraph(true); // hearingLoss vive em platform/audio.js
 // Empatia motora: um-botão e cadeirante
 function reflectMotorEmpathy(){ const a=$('#opt-onebtn'); if(a){ a.classList.toggle('is-on',oneButton); a.setAttribute('aria-pressed',String(oneButton)); a.textContent=oneButton?'❚❚ Ligado':'▶ Desligado'; }
   const b=$('#opt-wheelchair'); if(b){ b.classList.toggle('is-on',wheelchair); b.setAttribute('aria-pressed',String(wheelchair)); b.textContent=wheelchair?'❚❚ Ligado':'▶ Desligado'; } reflectVizButtons(); }
@@ -3302,7 +3295,7 @@ function setPhase(p){
   setPhaseValue(p); // core/state.js: só o valor + evento; a reação de UI abaixo fica aqui
   if(p!=='playing'&&typeof hideTouchControls==='function')hideTouchControls(); // menu ativo (título/pausa) = sem controle virtual
   // GAG: na pausa, silencia TODO o som do jogo (loops de ambiente/chuva inclusive) — o áudio volta ao retomar.
-  if(_masterGain&&audioCtx) try{ _masterGain.gain.setTargetAtTime(p==='playing'?1:0, audioCtx.currentTime, 0.04); }catch(e){}
+  setMasterMuted(p!=='playing'); // nó mestre em platform/audio.js: silencia na pausa/título
   const t=$('#title-overlay'), pa=$('#pause-overlay');
   if(t)t.hidden = p!=='title';
   if(pa)pa.hidden = true; // pausa GLOBAL aposentada (Etapa 2): agora é uma por tela (vpPause)
