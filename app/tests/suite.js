@@ -60,9 +60,9 @@ it('props: coinCanvas 11x11', () => { const c = P.coinCanvas(); eq(c.width, 11);
 it('props: treeCanvas 30x52', () => { const c = P.treeCanvas(); eq(c.width, 30); eq(c.height, 52); });
 it('props: powerupCanvas — 7 tipos, 12x12', () => { ['superjump', 'ultrajump', 'turbo', 'fly', 'wallcling', 'key', 'runcane'].forEach((k) => { const c = P.powerupCanvas(k); eq(c.width, 12, k); eq(c.height, 12, k); }); });
 
-// ---- render/sprites ----
-it('sprites: TEX_WALK = 8 texturas', () => { eq(SP.TEX_WALK.length, 8); assert(SP.TEX_WALK.every((t) => t && 'baseTexture' in t)); });
-it('sprites: FLAVORS = 3 gracinhas c/ seq+tex', () => { eq(SP.FLAVORS.length, 3); assert(SP.FLAVORS.every((f) => Array.isArray(f.seq) && Array.isArray(f.tex))); });
+// ---- render/sprites (contrato PURO: import não faz I/O; texturas só em initCharacterSprites) ----
+it('sprites: SPRITE_MANIFEST contagens (andar 8, correr 4, idle 4)', () => { eq(SP.SPRITE_MANIFEST.andar, 8); eq(SP.SPRITE_MANIFEST.correr, 4); eq(SP.SPRITE_MANIFEST.idle, 4); });
+it('sprites: FLAVORS = 3 gracinhas c/ seq (puro) + import puro (TEX_WALK vazio)', () => { eq(SP.FLAVORS.length, 3); assert(SP.FLAVORS.every((f) => Array.isArray(f.seq))); eq(SP.TEX_WALK.length, 0); });
 
 // ---- render/sprite-fx ----
 it('sprite-fx: spriteToCanvas 16x32', () => { const c = FX.spriteToCanvas(['SS']); eq(c.width, 16); eq(c.height, 32); });

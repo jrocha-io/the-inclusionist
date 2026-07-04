@@ -5,7 +5,6 @@
 import { describe, it, expect } from 'vitest';
 import * as CV from '../app/js/render/canvas.js';
 import * as P from '../app/js/render/props.js';
-import * as SP from '../app/js/render/sprites.js';
 import * as FX from '../app/js/render/sprite-fx.js';
 import * as ST from '../app/js/platform/storage.js';
 
@@ -43,17 +42,6 @@ describe('render/props — arte procedural', () => {
   it('[Boundary/Error] powerupCanvas de tipo desconhecido ainda devolve 12×12 (fallback)', () => {
     const c = P.powerupCanvas('__nao_existe__');
     expect([c.width, c.height]).toEqual([12, 12]);
-  });
-});
-
-describe('render/sprites — texturas do personagem', () => {
-  it('[Interface] TEX_WALK = 8 texturas válidas', () => {
-    expect(SP.TEX_WALK.length).toBe(8);
-    expect(SP.TEX_WALK.every((t) => t && 'baseTexture' in t)).toBe(true);
-  });
-  it('[Interface] FLAVORS = 3 gracinhas, cada uma com seq[] e tex[]', () => {
-    expect(SP.FLAVORS.length).toBe(3);
-    expect(SP.FLAVORS.every((f) => Array.isArray(f.seq) && Array.isArray(f.tex))).toBe(true);
   });
 });
 

@@ -6,6 +6,7 @@ import * as C from '../app/js/core/constants.js';
 import * as T from '../app/js/core/tiles.js';
 import * as W from '../app/js/core/world.js';
 import * as S from '../app/js/input/state.js';
+import * as SPR from '../app/js/render/sprites.js';
 
 describe('core/constants', () => {
   it('[Right] valores afinados do José (TUNE/ANIM/TILE)', () => {
@@ -102,5 +103,22 @@ describe('input/state — held(pl, act)', () => {
     S.padCur[0] = { jump: true }; // existe, mas não é o pad dele
     expect(S.held(pl, 'jump')).toBe(false);
     delete S.padCur[0];
+  });
+});
+
+describe('render/sprites — contrato PURO (import não faz I/O)', () => {
+  it('[Interface] SPRITE_MANIFEST traz as contagens de quadros por animação', () => {
+    expect(SPR.SPRITE_MANIFEST.idle).toBe(4);
+    expect(SPR.SPRITE_MANIFEST.andar).toBe(8);
+    expect(SPR.SPRITE_MANIFEST.correr).toBe(4);
+    expect(SPR.SPRITE_MANIFEST.parede).toBe(4);
+  });
+  it('[Interface] FLAVORS = 3 gracinhas com seq[] e hold (dados puros)', () => {
+    expect(SPR.FLAVORS.length).toBe(3);
+    expect(SPR.FLAVORS.every((f) => Array.isArray(f.seq) && typeof f.hold === 'number')).toBe(true);
+  });
+  it('[Zero] import é PURO: TEX_WALK vazio até initCharacterSprites() (não chamamos → sem I/O)', () => {
+    expect(SPR.TEX_WALK).toEqual([]);
+    expect(typeof SPR.initCharacterSprites).toBe('function');
   });
 });
