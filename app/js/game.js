@@ -4,8 +4,9 @@
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
+import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.161.5';
+const INCL_VERSION='4.162.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -15,11 +16,11 @@ const INCL_VERSION='4.161.5';
 // Constantes puras extraídas para core/constants.js (modularização Fase B).
 import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, TILE_TYPES, TILE_COLOR } from './core/constants.js';
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
-let oneButton=(()=>{try{return localStorage.getItem('incl_onebtn')==='1';}catch(e){return false;}})();
-let wheelchair=(()=>{try{return localStorage.getItem('incl_wheelchair')==='1';}catch(e){return false;}})();
+let oneButton=store.getBool('incl_onebtn');
+let wheelchair=store.getBool('incl_wheelchair');
 // Modo cego (A12e auditiva): SÓ as ajudas de áudio (bengala + sonar + guarda + narração), sem tela preta. Empatia cegueira liga por padrão.
-let modoCego=(()=>{try{return localStorage.getItem('incl_modocego')==='1';}catch(e){return false;}})();
-let caneBlockDiv=(()=>{try{return +localStorage.getItem('incl_cane_div')||1;}catch(e){return 1;}})(); // 1 = 1 batida/bloco; 2 = 1 batida/meio bloco (por DISTÂNCIA pisada)
+let modoCego=store.getBool('incl_modocego');
+let caneBlockDiv=store.getNum('incl_cane_div',1)||1; // 1 = 1 batida/bloco; 2 = 1 batida/meio bloco (por DISTÂNCIA pisada)
 const caneBlockPx=()=>TILE/caneBlockDiv;
 const isSolidType = (t) => ((wheelchair && (t===9||t===5)) || (modoCego && t===9)) ? true : !!(TILE_TYPES[t] && TILE_TYPES[t].solid); // cadeirante: lava(9)+trampolim(5) viram chão; modo CEGO: lava(9) vira chão (remove o perigo — José)
 // TILE_COLOR agora vem de core/constants.js (importado acima).
@@ -2837,7 +2838,7 @@ function renderVpOverlay(i,mode){ const m=VIZ_BY_KEY[mode]; if(!m||m.kind!=='low
 function updateVpDots(){ for(let i=0;i<vpDots.length;i++){ const g=vpDots[i], m=VIZ_BY_KEY[players[i]&&players[i].viz]; if(!g)continue;
   const on=m&&(m.kind==='blind'||m.kind==='lowvision'); g.visible=!!on; if(on){ g.clear(); g.lineStyle(1,0x000000,.6); g.beginFill(m.kind==='blind'?0xffffff:0x36d36a); g.drawCircle(0,0,5); g.endFill(); } } }
 function applyVpFilters(){ for(let i=0;i<numPlayers;i++){ if(vpSpr[i])vpSpr[i].filters=pixiFilterFor(players[i].viz); } }
-function setModoCego(on){ if(modoCego===on)return; modoCego=on; try{localStorage.setItem('incl_modocego',on?'1':'0');}catch(e){} if(typeof setupExtras==='function')setupExtras(); if(typeof reflectModoCego==='function')reflectModoCego(); srSay('Modo cego '+(on?'ligado: bengala e pistas de áudio ativas. O 1º item de poder vira a bengala de corrida.':'desligado.')); }
+function setModoCego(on){ if(modoCego===on)return; modoCego=on; store.setBool('incl_modocego',on); if(typeof setupExtras==='function')setupExtras(); if(typeof reflectModoCego==='function')reflectModoCego(); srSay('Modo cego '+(on?'ligado: bengala e pistas de áudio ativas. O 1º item de poder vira a bengala de corrida.':'desligado.')); }
 function setPlayerViz(i,mode){ const m=VIZ_BY_KEY[mode]||VIZ_BY_KEY.normal; players[i].viz=m.key; try{localStorage.setItem('incl_viz_p'+i,m.key);}catch(e){} _lastSharedViz=null;
   if(m.kind==='blind') setModoCego(true); // empatia cegueira total liga o modo cego (áudio) por padrão
   if(numPlayers<=1 && i===0){ applyVizGlobal(m.key); } else { applyVpFilters(); updateVpDots(); }
@@ -2963,8 +2964,8 @@ try{ if(localStorage.getItem('incl_hearingloss')==='1'){ hearingLoss=true; } }ca
 // Empatia motora: um-botão e cadeirante
 function reflectMotorEmpathy(){ const a=$('#opt-onebtn'); if(a){ a.classList.toggle('is-on',oneButton); a.setAttribute('aria-pressed',String(oneButton)); a.textContent=oneButton?'❚❚ Ligado':'▶ Desligado'; }
   const b=$('#opt-wheelchair'); if(b){ b.classList.toggle('is-on',wheelchair); b.setAttribute('aria-pressed',String(wheelchair)); b.textContent=wheelchair?'❚❚ Ligado':'▶ Desligado'; } reflectVizButtons(); }
-function setOneButton(on){ oneButton=on; try{localStorage.setItem('incl_onebtn',on?'1':'0');}catch(e){} reflectMotorEmpathy(); srSay('Um botão por vez '+(on?'ligado: só uma tecla/botão de cada vez.':'desligado.')); }
-function setWheelchair(on){ wheelchair=on; try{localStorage.setItem('incl_wheelchair',on?'1':'0');}catch(e){}
+function setOneButton(on){ oneButton=on; store.setBool('incl_onebtn',on); reflectMotorEmpathy(); srSay('Um botão por vez '+(on?'ligado: só uma tecla/botão de cada vez.':'desligado.')); }
+function setWheelchair(on){ wheelchair=on; store.setBool('incl_wheelchair',on);
   players.forEach(p=>{ if(on && p.activePower!=='fly' && p.activePower!=='turbo') p.activePower='off'; if(on) p.owned=p.owned.filter(k=>k==='fly'||k==='turbo'); showPower(p); });
   setupExtras(); rebuildCoins(); buildWcGeom(); buildRamps(); buildElevators(); reflectMotorEmpathy(); // só voo/super-corrida; moedas no chão; escada/trampolim viram elevador; rampas+pontes; lava vira chão
   srSay('Modo cadeirante '+(on?'ligado: sem pulo; rampas e elevadores no lugar de degraus e escada; moedas no chão; só voo e super-corrida.':'desligado.')); }
@@ -3061,7 +3062,7 @@ function populateTTSVoices(){ const sel=$('#tts-voice'); if(!sel)return; let voi
   list.forEach(v=>{ const o=document.createElement('option'); o.value=v.name; o.textContent=v.name+' ('+v.lang+')'; sel.appendChild(o); });
   const saved=(()=>{try{return localStorage.getItem('incl_tts_voice');}catch(e){return null;}})(); const pick=list.find(v=>v.name===saved)||list[0]; sel.value=pick.name; _ttsVoiceObj=pick; }
 const mcBtn=$('#opt-modocego'); if(mcBtn)mcBtn.addEventListener('click',()=>{ setModoCego(!modoCego); reflectModoCego(); });
-const caneDivSel=$('#cane-div'); if(caneDivSel){ caneDivSel.value=String(caneBlockDiv); caneDivSel.addEventListener('change',()=>{ caneBlockDiv=+caneDivSel.value||1; try{localStorage.setItem('incl_cane_div',String(caneBlockDiv));}catch(e){} srSay('Bengala: '+(caneBlockDiv===2?'uma batida a cada meio bloco pisado.':'uma batida por bloco pisado.')); }); }
+const caneDivSel=$('#cane-div'); if(caneDivSel){ caneDivSel.value=String(caneBlockDiv); caneDivSel.addEventListener('change',()=>{ caneBlockDiv=+caneDivSel.value||1; store.set('incl_cane_div',String(caneBlockDiv)); srSay('Bengala: '+(caneBlockDiv===2?'uma batida a cada meio bloco pisado.':'uma batida por bloco pisado.')); }); }
 // Botões abreviados: hover/foco DESCOMPACTA o número em letras (o "12" vira as 12 letras contando p/ baixo), suave;
 // recomprime ao sair. Genérico: varre a barra (.mode-btn) E o menu de pausa (.pm-btn) casando A12e/S11e.
 const ABBR_MID={ 'A12e':'cessibilidad', 'S11e':'ensibilidad' }; // token → letras ocultas (Acessibilidade / Sensibilidade)
