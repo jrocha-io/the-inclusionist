@@ -9,6 +9,7 @@ import * as S from '../app/js/input/state.js';
 import * as SPR from '../app/js/render/sprites.js';
 import * as AUDIO from '../app/js/platform/audio.js';
 import { AUDIO_CATS } from '../app/js/platform/audio-mixer.js';
+import * as RNG from '../app/js/core/rng.js';
 
 describe('core/constants', () => {
   it('[Right] valores afinados do José (TUNE/ANIM/TILE)', () => {
@@ -115,6 +116,30 @@ describe('platform/audio — mixer (import PURO, init explícito; dívida paga F
     expect(AUDIO.audioCat.tts.on).toBe(false);
     expect(AUDIO.audioCat.music.on).toBe(true);
     expect(AUDIO.audioCat.ambient.on).toBe(true);
+  });
+});
+
+describe('core/rng — LCG semeado (determinístico)', () => {
+  it('[Right/reprodutibilidade] mesma semente → mesma sequência', () => {
+    RNG.reseed(20260601);
+    const a = [RNG.rnd(), RNG.rnd(), RNG.rnd()];
+    RNG.reseed(20260601);
+    expect([RNG.rnd(), RNG.rnd(), RNG.rnd()]).toEqual(a);
+  });
+  it('[Range] rnd() sempre em [0, 1)', () => {
+    RNG.reseed(1);
+    for (let i = 0; i < 100; i++) { const v = RNG.rnd(); expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThan(1); }
+  });
+  it('[Boundary] randInt(5,5)===5; randInt(1,6) sempre em [1,6]', () => {
+    expect(RNG.randInt(5, 5)).toBe(5);
+    RNG.reseed(42);
+    for (let i = 0; i < 200; i++) { const v = RNG.randInt(1, 6); expect(v).toBeGreaterThanOrEqual(1); expect(v).toBeLessThanOrEqual(6); }
+  });
+  it('[Zero/One] shuffle([])=[] e shuffle([x])=[x]; [Many] preserva o multiset', () => {
+    expect(RNG.shuffle([])).toEqual([]);
+    expect(RNG.shuffle([7])).toEqual([7]);
+    const src = [1, 2, 3, 4, 5];
+    expect(RNG.shuffle(src).slice().sort((a, b) => a - b)).toEqual(src);
   });
 });
 

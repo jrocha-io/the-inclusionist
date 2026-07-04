@@ -31,6 +31,7 @@ const INCL_VERSION='4.164.23';
 /* ===================== constantes ===================== */
 // Constantes puras extraídas para core/constants.js (modularização Fase B).
 import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, ANIM, TILE_TYPES, TILE_COLOR } from './core/constants.js';
+import { rnd, randInt, shuffle } from './core/rng.js'; // Fase 2.26: RNG semeado (Tier 1)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -242,11 +243,7 @@ function findCoinCandidates(){
   }
   return cand;
 }
-// RNG semeado p/ reprodutibilidade (testes estáveis); o jogo final pode randomizar.
-let _seed=20260601;
-const rnd=()=>(_seed=(_seed*1103515245+12345)&0x7fffffff)/0x7fffffff;
-const randInt=(lo,hi)=>lo+Math.floor(rnd()*(hi-lo+1));
-const shuffle=(arr)=>{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=(rnd()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
+// RNG semeado (rnd/randInt/shuffle/_seed) migrado p/ core/rng.js (Fase 2.26 / Tier 1)
 // modos de jogo
 let MODE='ludico'; // 'ludico' | 'somasub' (silabas vem na E7)
 const SOMASUB_SHAPES=[
