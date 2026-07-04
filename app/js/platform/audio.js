@@ -2,6 +2,13 @@
 // platform/audio.js — base do áudio: ciclo do AudioContext (ensureAC) + definições de SFX (dados). Módulo-folha.
 // O grafo (master/mixer), soundOn/volume e as sínteses (tone/noiseHit/tonePan/sfx) ainda ficam no game.js —
 // migram numa rodada dedicada (injeção de dependência). audioCtx é binding vivo; só ensureAC o (re)cria. (Fase 2)
+// Som mestre: liga/desliga + volume (0..1). Sessão-only (sem persistência). Bindings vivos: as sínteses
+// (tone/noiseHit/…) e a narração leem soundOn/volume; o botão/slider mestre do game.js escreve pelos setters.
+export let soundOn = true;
+export function setSoundOn(v) { soundOn = v; }
+export let volume = 0.6;
+export function setVolume(v) { volume = v; }
+
 export let audioCtx = null;
 export function ensureAC() {
   if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); }

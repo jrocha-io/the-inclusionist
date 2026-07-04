@@ -12,9 +12,9 @@ import { AUDIO_CATS, loadAudioCat, saveAudioCat } from './platform/audio-mixer.j
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
-import { audioCtx, ensureAC, SFX } from './platform/audio.js'; // Fase 2: base do áudio (AudioContext + SFX)
+import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume } from './platform/audio.js'; // Fase 2: base do áudio (AudioContext + SFX + som mestre)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.7';
+const INCL_VERSION='4.164.8';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -558,7 +558,7 @@ const srAlert=(t)=>{const el=$('#sr-alert');el.textContent='';requestAnimationFr
 
 /* ===== E9: áudio (WebAudio) + legendas (C1) + assistência (C2) ===== */
 // SFX (definições de som) extraído p/ platform/audio.js (Fase 2).
-let soundOn=true, captionsOn=true, volume=0.6, capTimer=null; // audioCtx vem de platform/audio.js (Fase 2)
+let captionsOn=true, capTimer=null; // soundOn/volume/audioCtx vêm de platform/audio.js (Fase 2)
 const anyEasy=()=>players.some(p=>p.easy); // efeitos de MUNDO do Fácil (moedas no chão) ligam se QUALQUER jogador usa Fácil
 const isGameKeyCode=(c)=>GAME_KEYS.includes(c)||players.some(p=>p.ctrl&&Object.values(p.ctrl).some(a=>a.includes(c)));
 // Modo Fácil (deficiência motora): gravidade ×2/3, pulo ×8/7, andar ×0.7, sem perigos, sem correr,
@@ -3104,8 +3104,8 @@ function stopEyeControl(){ try{ if(window.webgazer)window.webgazer.end(); }catch
 function loadWebGazer(cb){ if(window.webgazer){cb&&cb();return;} const s=document.createElement('script'); s.src='https://webgazer.cs.brown.edu/webgazer.js'; s.async=true; s.onload=()=>cb&&cb(); s.onerror=()=>srAlert('Não foi possível carregar o WebGazer (precisa de internet no 1º uso).'); document.head.appendChild(s); }
 const eyesBtn=$('#opt-eyes'); if(eyesBtn)eyesBtn.addEventListener('click',()=>{ eyeMode=!eyeMode; toggleBtn(eyesBtn,eyeMode); eyesBtn.textContent=eyeMode?'❚❚ Ligado':'▶ Desligado';
   if(eyeMode){ loadWebGazer(startEyeControl); srSay('Jogar com os olhos: carregando a webcam (permita o acesso).'); } else { stopEyeControl(); srSay('Jogar com os olhos desligado.'); } });
-const audioMasterBtn=$('#audio-master'); if(audioMasterBtn)audioMasterBtn.addEventListener('click',()=>{ soundOn=!soundOn; reflectAudioMaster(); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
-const audioMasterVol=$('#audio-master-vol'); if(audioMasterVol)audioMasterVol.addEventListener('input',()=>{ volume=(+audioMasterVol.value)/100; if(volume>0&&!soundOn){ soundOn=true; reflectAudioMaster(); } });
+const audioMasterBtn=$('#audio-master'); if(audioMasterBtn)audioMasterBtn.addEventListener('click',()=>{ setSoundOn(!soundOn); reflectAudioMaster(); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
+const audioMasterVol=$('#audio-master-vol'); if(audioMasterVol)audioMasterVol.addEventListener('input',()=>{ setVolume((+audioMasterVol.value)/100); if(volume>0&&!soundOn){ setSoundOn(true); reflectAudioMaster(); } });
 const audioCloseBtn=$('#audio-close'); if(audioCloseBtn)audioCloseBtn.addEventListener('click',closeAudio);
 reflectAudioMaster();
 
