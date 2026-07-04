@@ -27,6 +27,18 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 | `ui/debug-panel.js` 🟡 | `buildDebugPanel` (painel `?debug` de afinação: TUNE/ANIM/JUICE/CRT) | 3499+ | TUNE, JUICE |
 | `ui/layout.js` 🟡 | `layout`/`fpsTick` + `configureRender` (escala inteira 320×180, VLibras ao lado, FPS) | 1626, 3113, 3160 | PIXI, DOM |
 
+> **Recalibração (durante a execução, 2026-07-04):** ao abrir o código, o Tier 1 tem mais acoplamento que os
+> rótulos sugeriam. Correções:
+> - **FEITO:** `core/rng.js` (2.26) e **`ui/dom.js`** (`$`/`$$`, 2.27) — util-base novo, não estava na lista; `$`
+>   é usado 219× e destrava os outros. Ordem: **utilitários primeiro**.
+> - **`vlibras` + `layout` + `crt` são um CLUSTER interdependente** (não leaves): `vlTick`→`layout`, `layout`→
+>   `crtScanVars` + lê `librasOpen`/`numPlayers`, `crt` lê `$`/`numPlayers` + localStorage no import. Extrair
+>   juntos ou com injeção de dependência clara — provavelmente Tier 2, não Tier 1.
+> - **`a11y-sr`** (`srSay`/`srAlert`, 111/37×) depende de `$` (✅) + `vlibrasSay` → sai DEPOIS do `vlibras`.
+> - **`webcam`** depende de `$` + `srSay` + `eyeMode` + `keys` (input) → médio, não leaf puro.
+> - Próxima ordem realista: `vlibras` (fala+estado) → `a11y-sr` → `minimap` → `attract` → `webcam` →
+>   `debug-panel` → (cluster `crt`+`layout` movido p/ Tier 2).
+
 ### TIER 2 — Subsistemas coesos / médio acoplamento
 | Módulo | O que vai | game.js (linhas ref.) | Dep |
 |---|---|---|---|
