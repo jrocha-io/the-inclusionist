@@ -16,9 +16,9 @@ import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioO
 import { gameSay } from './platform/speech.js';
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
-import { coinCanvas, coinTexture, treeCanvas, treeTexture } from './render/props.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
+import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.18';
+const INCL_VERSION='4.164.19';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -1024,23 +1024,7 @@ const decoSprites=[];
   }
 })();
 /* ===================== E12: power-ups + chave/portão ===================== */
-function powerupCanvas(kind){
-  const cv=makeCanvas(12,12),c=cv.getContext('2d');
-  const COL={superjump:'#7fdcff',ultrajump:'#b388ff',turbo:'#34e29b',fly:'#c8a2ff',wallcling:'#ff9a4d',key:'#ffd23f',runcane:'#eaeaea'};
-  const col=COL[kind]||'#7fdcff', BG='#04121a';
-  c.fillStyle=BG; c.fillRect(1,0,10,12); c.fillRect(0,1,12,10);   // fundo escuro, cantos cortados (pixel-rounded, sem AA)
-  c.fillStyle=col;
-  const triU=(cx,topY,baseW,H)=>{ for(let i=0;i<H;i++){ const w=Math.max(1,Math.round(baseW*(i+1)/H)); c.fillRect(cx-(w>>1), topY+i, w,1);} }; // triângulo ↑ nítido
-  const triR=(lx,cy,baseH,W)=>{ for(let i=0;i<W;i++){ const h=Math.max(1,Math.round(baseH*(W-i)/W)); c.fillRect(lx+i, cy-(h>>1), 1,h);} };       // chevron → nítido
-  if(kind==='superjump'){ triU(6,1,8,4); triU(6,6,8,4); }                                  // ▲▲ super-pulo
-  else if(kind==='ultrajump'){ triU(6,1,9,4); c.fillRect(5,5,2,6); }                        // ↑ ultra-pulo (cabeça + haste)
-  else if(kind==='turbo'){ triR(2,6,9,4); triR(6,6,9,4); }                                  // » super-corrida
-  else if(kind==='fly'){ triR(1,5,9,6); c.fillStyle=BG; c.fillRect(4,6,1,1); c.fillRect(6,6,1,1); } // asa = voo (com nervuras)
-  else if(kind==='wallcling'){ pixDisc(c,6,6,4,col); pixDisc(c,6,6,1.6,BG); }               // ventosa
-  else if(kind==='runcane'){ for(let i=0;i<6;i++)c.fillRect(3+i,2+i,2,1); pixDisc(c,9,10,1.9,col); pixDisc(c,9,10,0.8,BG); c.fillStyle='#d23b3b'; c.fillRect(7,6,2,1); } // bengala de corrida: haste diagonal + roda + faixa vermelha
-  else { pixDisc(c,4,6,3,col); pixDisc(c,4,6,1.3,BG); c.fillStyle=col; c.fillRect(6,5,5,2); c.fillRect(9,7,1,1); c.fillRect(10,7,1,2); } // ⚷ chave (anel + haste + dentes)
-  return cv;
-}
+// powerupCanvas migrado p/ render/props.js (Fase 2.20)
 const PUP_CANVAS={}, PUP_TEX={};
 ['superjump','ultrajump','turbo','fly','wallcling','key','runcane'].forEach(k=>{ PUP_CANVAS[k]=powerupCanvas(k); PUP_TEX[k]=tex(PUP_CANVAS[k]); });
 const _pupTexHC={}; // {mode:{kind:tex}} — power-up com contorno (alto contraste direto)
