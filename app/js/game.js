@@ -8,8 +8,9 @@ import * as store from './platform/storage.js'; // Fase 2: camada de persistênc
 import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue, vizMode, initVizMode, setVizModeValue, coins, setCoins, players } from './core/state.js'; // Fase 2: estado (as 8 mega-variáveis)
 import { startLoop } from './core/loop.js'; // Fase 2: driver do loop (docs/plano-engine.md)
 import { loadKB, saveKB, resetKB } from './input/keyboard.js'; // Fase 2: config de teclado (subsistema input)
+import { AUDIO_CATS, loadAudioCat, saveAudioCat } from './platform/audio-mixer.js'; // Fase 2: mixer de áudio (categorias + persistência)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.2';
+const INCL_VERSION='4.164.3';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -619,19 +620,11 @@ function wireMaster(){ const ac=audioCtx; if(!ac||!_masterGain)return; try{_mast
 function setHearingLoss(on){ hearingLoss=on; try{localStorage.setItem('incl_hearingloss',on?'1':'0');}catch(e){} if(audioCtx){ audioOut(); wireMaster(); }
   srSay('Simulação de perda auditiva '+(on?'ligada: sons fracos ficam abafados e os agudos são cortados; falas ficam difíceis de entender.':'desligada.')); }
 // ===== F1: barramento de áudio por CATEGORIA (cada uma: liga/desliga + volume). Pendura no nó mestre. =====
-const AUDIO_CATS=[
-  {k:'music',   lbl:'Música'}, {k:'ambient', lbl:'Sons ambiente (água, rua, trânsito, folhas, chuva)'},
-  {k:'interact',lbl:'Efeitos de interação (passos, portas, escada)'}, {k:'earcons', lbl:'Earcons (pulo, moeda, dano…)'},
-  {k:'other',   lbl:'Outros efeitos'}, {k:'tts', lbl:'Narração (TTS)'}, {k:'sonar', lbl:'Sonar'},
-  {k:'guard',   lbl:'Guarda de beirada'}, {k:'guide', lbl:'Pista / guia auditivo'},
-];
-// TTS geral (narrate()) nasce DESLIGADO: útil p/ cegos e alguns em alfabetização, mas voz (robótica) irrita/
-// sobrecarrega pessoas com TEA — quem precisa liga no menu. As demais categorias nascem ligadas. (O TTS do
-// letramento é o gameSay(), independente disto e sempre ativo.) localStorage sobrepõe se o usuário já escolheu.
-const audioCat={}; AUDIO_CATS.forEach(c=>{ let on=(c.k!=='tts'),vol=0.8; try{ const s=localStorage.getItem('incl_audiocat_'+c.k); if(s){ const o=JSON.parse(s); on=!!o.on; vol=+o.vol; } }catch(e){} audioCat[c.k]={on,vol}; });
+// AUDIO_CATS (categorias) + carga/persistência + default TTS-off extraídos p/ platform/audio-mixer.js (Fase 2).
+const audioCat=loadAudioCat();
 const _catNodes={};
 function catNode(cat){ const ac=ensureAC(); if(!ac)return null; const out=audioOut(); if(!_catNodes[cat]){ const g=ac.createGain(); g.gain.value=audioCat[cat].on?audioCat[cat].vol:0; g.connect(out); _catNodes[cat]=g; } return _catNodes[cat]; }
-function setCatGain(cat){ const g=_catNodes[cat]; if(g&&audioCtx)g.gain.setTargetAtTime(audioCat[cat].on?audioCat[cat].vol:0, audioCtx.currentTime, 0.02); try{localStorage.setItem('incl_audiocat_'+cat,JSON.stringify(audioCat[cat]));}catch(e){} }
+function setCatGain(cat){ const g=_catNodes[cat]; if(g&&audioCtx)g.gain.setTargetAtTime(audioCat[cat].on?audioCat[cat].vol:0, audioCtx.currentTime, 0.02); saveAudioCat(cat, audioCat[cat]); }
 // ===== F2: efeitos de interação com o ambiente (passos por superfície, portas, escada) — ruído filtrado sintetizado =====
 let _noiseBuf=null, _footCount=0;
 function noiseBuffer(ac){ if(ac._noiseBuf&&ac._noiseBuf.length===((ac.sampleRate*0.2)|0))return ac._noiseBuf; const n=(ac.sampleRate*0.2)|0,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0); for(let i=0;i<n;i++)d[i]=Math.random()*2-1; return ac._noiseBuf=b; } // cache por-contexto (suporta AudioContext por jogador)
