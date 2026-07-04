@@ -3,7 +3,7 @@
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
-const INCL_VERSION='4.159.0';
+const INCL_VERSION='4.159.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -748,7 +748,10 @@ const AUDIO_CATS=[
   {k:'other',   lbl:'Outros efeitos'}, {k:'tts', lbl:'Narração (TTS)'}, {k:'sonar', lbl:'Sonar'},
   {k:'guard',   lbl:'Guarda de beirada'}, {k:'guide', lbl:'Pista / guia auditivo'},
 ];
-const audioCat={}; AUDIO_CATS.forEach(c=>{ let on=true,vol=0.8; try{ const s=localStorage.getItem('incl_audiocat_'+c.k); if(s){ const o=JSON.parse(s); on=!!o.on; vol=+o.vol; } }catch(e){} audioCat[c.k]={on,vol}; });
+// TTS geral (narrate()) nasce DESLIGADO: útil p/ cegos e alguns em alfabetização, mas voz (robótica) irrita/
+// sobrecarrega pessoas com TEA — quem precisa liga no menu. As demais categorias nascem ligadas. (O TTS do
+// letramento é o gameSay(), independente disto e sempre ativo.) localStorage sobrepõe se o usuário já escolheu.
+const audioCat={}; AUDIO_CATS.forEach(c=>{ let on=(c.k!=='tts'),vol=0.8; try{ const s=localStorage.getItem('incl_audiocat_'+c.k); if(s){ const o=JSON.parse(s); on=!!o.on; vol=+o.vol; } }catch(e){} audioCat[c.k]={on,vol}; });
 const _catNodes={};
 function catNode(cat){ const ac=ensureAC(); if(!ac)return null; const out=audioOut(); if(!_catNodes[cat]){ const g=ac.createGain(); g.gain.value=audioCat[cat].on?audioCat[cat].vol:0; g.connect(out); _catNodes[cat]=g; } return _catNodes[cat]; }
 function setCatGain(cat){ const g=_catNodes[cat]; if(g&&audioCtx)g.gain.setTargetAtTime(audioCat[cat].on?audioCat[cat].vol:0, audioCtx.currentTime, 0.02); try{localStorage.setItem('incl_audiocat_'+cat,JSON.stringify(audioCat[cat]));}catch(e){} }
