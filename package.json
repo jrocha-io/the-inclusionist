@@ -5,6 +5,9 @@
   "type": "module",
   "description": "The Inclusionist — jogo educativo a11y-first (PixiJS). Toolchain: Vite (dev/build) + TypeScript (migração incremental, docs/plano-typescript-vite.md) + Vitest. Deploy = dist/ no Cloudflare Pages.",
   "license": "GPL-3.0-or-later",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
