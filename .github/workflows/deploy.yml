@@ -1,0 +1,50 @@
+# Build & Deploy — Cloudflare Pages via GitHub Actions.
+# A cada push na main: instala → roda os testes (GATE: deploy só se passarem) → build → deploy do dist/.
+# Assim código quebrado NÃO vai pro ar (vantagem sobre a integração Git nativa do Cloudflare, que só builda).
+#
+# SETUP ÚNICO do José (ver docs/plano-typescript-vite.md):
+#   1. Cloudflare → My Profile → API Tokens → criar token com permissão "Cloudflare Pages: Edit".
+#   2. Pegar o Account ID (dashboard do Cloudflare, lateral direita de qualquer domínio/Workers).
+#   3. GitHub repo → Settings → Secrets and variables → Actions → New secret:
+#        CLOUDFLARE_API_TOKEN  = o token do passo 1
+#        CLOUDFLARE_ACCOUNT_ID = o id do passo 2
+#   4. Criar o projeto Pages UMA vez (Direct Upload, NÃO conectado ao Git p/ o Actions ser o único a deployar):
+#        npx wrangler pages project create the-inclusionist --production-branch=main
+#   5. Push → o Actions faz o resto. (Se o projeto Pages estiver conectado ao Git, desative o auto-build p/ não
+#      deployar em dobro.)
+name: build-deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar Chromium (Playwright, p/ os testes de render)
+        run: npx playwright install --with-deps chromium
+
+      - name: Testes (GATE — node + browser)
+        run: npm test
+
+      - name: Build (vite → dist/)
+        run: npm run build
+
+      - name: Deploy no Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=the-inclusionist --branch=main
