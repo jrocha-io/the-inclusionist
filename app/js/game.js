@@ -12,6 +12,7 @@ import { AUDIO_CATS } from './platform/audio-mixer.js'; // Fase 2: categorias do
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
+import { keys, padCur, padPrevAct, padPrevStart, PAD_DEAD, held } from './input/state.js'; // Fase 2.22: estado de input + held
 import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, catNode, setCatGain, tone, tonePan, noiseBuffer, noiseHit, _footCount } from './platform/audio.js'; // Fase 2: base + mestre + mixer + sínteses (oscilador + ruído)
 import { gameSay } from './platform/speech.js';
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE } from './render/sprites.js';
@@ -19,7 +20,7 @@ import { makeCanvas, tex, pixDisc } from './render/canvas.js';
 import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
 import { outlineCanvas, spriteToCanvas } from './render/sprite-fx.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.20';
+const INCL_VERSION='4.164.21';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -401,9 +402,9 @@ function takePu(pu,pi){ if(pu.kind==='key'){ pu.taken=true; return; } if(!pu.by)
 // 'phase' agora vem de core/state.js (Fase 2, mega-variável 1). Leitura = binding vivo; escrita só via setPhase().
 
 /* ===================== input ===================== */
-const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
+let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
 // Gamepad (B3/L1): estado por controle. padCur[gi]=ações seguradas neste frame; associação pad↔jogador vive em p.pad.
-const padCur={}, padPrevAct={}, padPrevStart={}; const PAD_DEAD=0.5; // zona morta = primeira METADE do curso (ergonomia — José 2026-07-02)
+// padCur/padPrevAct/padPrevStart + PAD_DEAD movidos p/ input/state.js (Fase 2.22)  // // zona morta = primeira METADE do curso (ergonomia — José 2026-07-02)
 // Config de teclado extraída p/ input/keyboard.js (Fase 2): esquemas, defaults, loadKB/saveKB/resetKB.
 let KB=loadKB();
 // saveKB agora vem de input/keyboard.js (recebe o KB como argumento)
@@ -500,7 +501,7 @@ addEventListener('keydown',(e)=>{
 addEventListener('keyup',(e)=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 const anyOf=(arr)=>arr.some(k=>keys.has(k));
-const held=(pl,act)=>pl.ctrl[act].some(k=>keys.has(k)) || (pl.pad>=0 && padCur[pl.pad] && !!padCur[pl.pad][act]); // teclado OU gamepad do jogador
+// held(pl,act) movido p/ input/state.js (Fase 2.22) // teclado OU gamepad do jogador
 
 /* ===================== a11y ===================== */
 /* VLibras: com o painel ABERTO, as narrações do jogo vão para o intérprete. O plugin traduz o TEXTO do
