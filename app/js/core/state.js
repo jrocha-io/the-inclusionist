@@ -32,3 +32,10 @@ export function setCenarioValue(theme) { cenario = theme; store.set('incl_cenari
 //     (objeto do game.js) fica no setActivity() do game.js — aqui só o valor cru + persistência + evento. ---
 export let activity = store.get('incl_activity', 'ludico');
 export function setActivityValue(id) { activity = id; store.set('incl_activity', id); emit('activity', id); }
+
+// --- vizMode: modo visual/cor ativo (persistido em incl_viz). A validação (VIZ_CYCLE) e o default por
+//     prefers-contrast ficam no game.js. initVizMode NÃO persiste (o default de mídia deve seguir o SO a cada
+//     boot; persistir travaria o rastreio de prefers-contrast). Mudanças do usuário usam setVizModeValue. ---
+export let vizMode = 'normal';
+export function initVizMode(mode) { vizMode = mode; }
+export function setVizModeValue(mode) { vizMode = mode; store.set('incl_viz', mode); emit('vizMode', mode); }
