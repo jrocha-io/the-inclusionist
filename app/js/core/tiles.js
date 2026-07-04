@@ -22,6 +22,13 @@ export const TYPE_GLYPH = {
   14: 'C', // power-up ventosa (cling)
 };
 
+// tipo → nome legível (UI e editor de mapa). Uma verdade só.
+export const TILE_NAME = {
+  0: 'ar escuro/secreto', 1: 'ar', 2: 'pedra', 3: 'água', 4: 'escada', 5: 'trampolim', 6: 'parede',
+  7: 'super-pulo', 8: 'voo', 9: 'lava/perigo', 10: 'portão', 11: 'chave', 12: 'super-corrida',
+  13: 'ultra-pulo', 14: 'ventosa',
+};
+
 // glifo → tipo (inverso). Construído do TYPE_GLYPH para não divergir.
 export const GLYPH_TYPE = Object.fromEntries(Object.entries(TYPE_GLYPH).map(([t, g]) => [g, +t]));
 

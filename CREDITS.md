@@ -4,8 +4,10 @@ O código de **The Inclusionist** é GPL-3.0-or-later. Partes de terceiros abaix
 
 ## Clarity — Adam Brooks (dissimulate) — MIT
 
-As **mecânicas de plataforma** e o **layout do nível** (`app/assets/levels/clarity.map.txt`, batizado em
-homenagem) derivam do projeto **Clarity**, de Adam Brooks (dissimulate), sob licença **MIT**.
+As **mecânicas de plataforma** partiram do projeto **Clarity**, de Adam Brooks (dissimulate), sob licença
+**MIT**. O **mapa** (`app/assets/levels/clarity.map.txt`, batizado em homenagem) foi **fortemente adaptado** do
+nível do Clarity — com modificações cirúrgicas de layout e mudança de significado de vários tiles — não é uma
+cópia, mas uma obra derivada. A atribuição abaixo cobre a porção de origem.
 
 - Código: https://github.com/dissimulate/Clarity
 - Jogável: https://codepen.io/dissimulate/pen/AGYEby
