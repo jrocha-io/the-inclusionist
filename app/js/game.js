@@ -16,9 +16,10 @@ import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioO
 import { gameSay } from './platform/speech.js';
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
-import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
+import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
+import { outlineCanvas, spriteToCanvas } from './render/sprite-fx.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.19';
+const INCL_VERSION='4.164.20';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -127,28 +128,13 @@ const PLAYER_HURT = [
   '....BBB..BBB....','....BBB..BBB....','....BBB..BBB....','....BBB..BBB....',
   '....BBB..BBB....','....BBB..BBB....','...KKKK..KKKK...','...KKKK..KKKK...',
 ];
-// Paleta UNIFICADA (E15) — luz de cima-esquerda, contorno escuro. H cabelo · S pele · D pele-sombra
-// · K contorno/olho · W branco · R camisa · T camisa-sombra · B calça · P calça-sombra.
-const APP = { H:'#403020', S:'#c08070', D:'#9a5f50', K:'#1a1420', W:'#e8eef0', R:'#3090d0', T:'#2566a0', B:'#303050', P:'#20203a' };
+// (paleta APP movida p/ render/sprite-fx.js na Fase 2.21)
 
 /* ===================== canvas → textura ===================== */
 // makeCanvas/tex/pixDisc migrados p/ render/canvas.js (Fase 2.18).
 
-/* ===== Contorno ESCURO único (usado pelo 1º plano do alto contraste) =====
-   Preserva a arte: só adiciona um contorno escuro atrás do elemento. Sem anel claro (cortava o personagem
-   nos vãos). O contorno é desenhado ATRÁS e a arte por cima → só aparece nas bordas externas. */
-const OUTLINE_DARK='#0a0a08'; // contorno escuro (José refará o gráfico visando 3:1 depois)
-function _silhouette(src,color){ const cv=makeCanvas(src.width,src.height),c=cv.getContext('2d'); c.drawImage(src,0,0); c.globalCompositeOperation='source-in'; c.fillStyle=color; c.fillRect(0,0,cv.width,cv.height); return cv; }
-function outlineCanvas(src,thick){ const cv=makeCanvas(src.width,src.height),c=cv.getContext('2d');
-  const dark=_silhouette(src,OUTLINE_DARK), r=thick>=2?2:1;
-  for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){ if(!dx&&!dy)continue; c.drawImage(dark,dx,dy); } // anel escuro
-  c.drawImage(src,0,0); return cv; }                                                                  // arte por cima → sem corte interno
-function spriteToCanvas(art){
-  const cv=makeCanvas(16,32),c=cv.getContext('2d');
-  for(let y=0;y<32;y++){const row=art[y];if(!row)continue;
-    for(let x=0;x<16;x++){const ch=row[x];if(ch==='.'||!ch)continue;c.fillStyle=APP[ch]||'#f0f';c.fillRect(x,y,1,1);}}
-  return cv;
-}
+// outlineCanvas/spriteToCanvas (+ _silhouette/OUTLINE_DARK/APP) migrados p/ render/sprite-fx.js (Fase 2.21)
+
 const isGroundType=(t)=>t===2||t===6; // chão/plataforma genéricos → recebem o tileset do tema
 function worldCanvas(tiles){           // canvas NORMAL (tileset do tema ou TILE_COLOR + sombreamento)
   const cv=makeCanvas(WORLD_PX_W,WORLD_PX_H),c=cv.getContext('2d');
