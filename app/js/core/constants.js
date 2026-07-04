@@ -12,6 +12,11 @@ export const TUNE = {
 };
 export const JUMP_BASE = TUNE.jumpVel * Math.sqrt(8 / 5); // ~4.43 (altura confortável)
 
+// E15: cadência de animação (ticks por quadro) — regulável ao vivo no painel ?debug=true. Como TUNE, é objeto
+// mutável (o debug ajusta propriedades) mas NUNCA reatribuído → import const funciona. andar 6; correr 8 (~8fps,
+// pedido do José); idle 20; swim 24; cling 10; escada 8; flavor ~6s.
+export const ANIM = { walkHold: 6, runHold: 8, idleHold: 20, swimHold: 24, clingHold: 10, climbHold: 8, flavorDelay: 360 };
+
 /* TILE_TYPES (fiel ao v3.1.100; subset usado no Lúdico) */
 export const TILE_TYPES = {
   0:{solid:false}, 1:{solid:false}, 2:{solid:true,bounce:0.28}, 3:{solid:false,water:true,jump:true},
