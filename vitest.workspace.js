@@ -16,6 +16,10 @@ export default [
       name: 'browser',
       include: ['tests/**/*.browser.test.js'],
       setupFiles: ['./vitest.setup.browser.js'],
+      // sprites.js cria ~38 texturas de PNGs que dão 404 no runner → o PIXI rejeita promessas de load que
+      // ninguém trata. Testes de render são estruturais (síncronos), não dependem dos pixels; ignoramos essas
+      // rejeições ESPERADAS (o setup também dá preventDefault). Ver docs/plano-testes.md.
+      dangerouslyIgnoreUnhandledErrors: true,
       browser: {
         enabled: true,
         provider: 'playwright',
