@@ -5,9 +5,9 @@
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
-import { phase, setPhaseValue, quizLevel, setQuizLevelValue } from './core/state.js'; // Fase 2: estado (phase, quizLevel)
+import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue } from './core/state.js'; // Fase 2: estado (phase, quizLevel, numPlayers)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.163.1';
+const INCL_VERSION='4.163.2';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -419,7 +419,7 @@ function wrapConvex(pl,N,mv,preX,preY){ const T=TILE,hw=BOX.w/2,bh=BOX.h;
   pl.x=preX; pl.y=preY; pl.vx=0; pl.vy=0;        // sem como contornar → fica colado na quina
 }
 let players=[makePlayer(0)]; let player=players[0];
-let numPlayers=1;
+// 'numPlayers' agora vem de core/state.js (Fase 2, mega-variável 3). Escrita via setNumPlayers()/joinPlayer.
 let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
 // Itens INDIVIDUAIS por jogador (multiplayer em telas separadas): cada moeda/letra/forma é coletada
 // independentemente por cada jogador. Só a CHAVE é compartilhada (ver powerups). taken = espelho do P1 (solo).
@@ -2542,7 +2542,7 @@ function setNumPlayers(n){
   n=Math.max(1,Math.min(4,n|0));
   if(n>players.length){ for(let i=players.length;i<n;i++){ const p=makePlayer(i); loadPlayerA11y(p,i); players.push(p); } }
   else if(n<players.length){ players.length=n; }
-  player=players[0]; numPlayers=n;
+  player=players[0]; setNumPlayersValue(n);
   assignControls(); ensureSprites(); // p.pad é PRESERVADO no objeto do jogador (associação direta, sem lista posicional)
   const TEL=['👤 1 tela','👥 2 telas','👨‍👧 3 telas','👨‍👩‍👧‍👦 4 telas'];
   const tb=$('#opt-telas'); if(tb){ tb.textContent=TEL[n-1]; tb.setAttribute('aria-label','Telas: '+n+'. Toque para trocar.'); }
@@ -2584,7 +2584,7 @@ function joinPlayer(padIdx){
   if(isMobile()){ srAlert('No celular o jogo roda em uma tela só.'); return false; }
   if(numPlayers>=4){ srAlert('Já são 4 jogadores.'); return false; }
   if(!fitsN(numPlayers+1)){ srAlert('Não cabe mais uma tela nesta janela — cada tela precisa de ao menos 640×360.'); return false; }
-  const i=players.length, p=makePlayer(i); loadPlayerA11y(p,i); if(padIdx!=null)p.pad=padIdx; players.push(p); numPlayers=players.length;
+  const i=players.length, p=makePlayer(i); loadPlayerA11y(p,i); if(padIdx!=null)p.pad=padIdx; players.push(p); setNumPlayersValue(players.length);
   assignControls(); ensureSprites(); hideTouchControls(); // teclado migra p/ o esquema N jogadores; toque sai (ambíguo em MP)
   configureRender(); if(typeof reapplyVizAll==='function')reapplyVizAll(); layout();
   resetPlayerState(p,i); addCoinsForOwner(i); // itens PRÓPRIOS dão spawn; os dos outros ficam intactos

@@ -18,3 +18,7 @@ export function setPhaseValue(p) { phase = p; emit('phase', p); }
 // --- quizLevel: 1..5 (nível do quiz de alfabetização; persistido em incl_quizlevel) ---
 export let quizLevel = (() => { const v = store.getNum('incl_quizlevel', 2); return v >= 1 && v <= 5 ? v : 2; })();
 export function setQuizLevelValue(n) { quizLevel = Math.max(1, Math.min(5, n | 0)); store.set('incl_quizlevel', String(quizLevel)); emit('quizLevel', quizLevel); }
+
+// --- numPlayers: 1..4 (nº de telas/jogadores; não persistido) ---
+export let numPlayers = 1;
+export function setNumPlayersValue(n) { numPlayers = n; emit('numPlayers', n); }
