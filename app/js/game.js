@@ -2,7 +2,8 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
-const INCL_VERSION='4.158.0';
+import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
+const INCL_VERSION='4.159.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -3705,6 +3706,7 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
     const db=$('#btn-debug'); if(db)db.addEventListener('click',()=>{ const p=$('#debug-panel'); if(p){ p.hidden=!p.hidden; db.setAttribute('aria-pressed',String(!p.hidden)); } }); } // abre/fecha o painel de afinação
   // Menu de pausa: agora é POR TELA (buildScreenPause + pauseActs no escopo do módulo). Nada aqui.
   setPhase('title'); // estado inicial: tela de título
+  i18n.initI18n(); // aplica as traduções data-i18n (docs/plano-i18n.md)
 })();
 
 /* ===================== E13: controles de toque (mobile) ===================== */

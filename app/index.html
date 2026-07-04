@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body data-theme="cave">
-  <a class="skip-link" href="#game-region">Pular para o jogo</a>
+  <a class="skip-link" href="#game-region" data-i18n="skip.toGame">Pular para o jogo</a>
 
   <!-- Filtros de SIMULAÇÃO de daltonismo (aplicados na <canvas> via CSS filter:url(#...)). Auditoria + demo. -->
   <svg aria-hidden="true" focusable="false" width="0" height="0" style="position:absolute">
@@ -165,9 +165,9 @@
       <p class="game-subtitle" id="title-wait" hidden>Aguarde o Jogador 1 escolher o jogo</p>
       <div class="title-menu" id="tm-main" role="menu" aria-label="Escolha o jogo">
         <button class="title-btn" id="np-btn" type="button" aria-live="polite" aria-label="Número de jogadores: 1. Clique à esquerda para menos, à direita para mais.">◀ Nº de jogadores: <span id="np-n">1</span> ▶</button>
-        <button class="title-btn" data-tm="ludico" type="button">Lúdico</button>
-        <button class="title-btn" data-tm="alf" type="button">Alfabetização</button>
-        <button class="title-btn" data-tm="mat" type="button">Matemática</button>
+        <button class="title-btn" data-tm="ludico" type="button" data-i18n="menu.ludico">Lúdico</button>
+        <button class="title-btn" data-tm="alf" type="button" data-i18n="menu.alfabetizacao">Alfabetização</button>
+        <button class="title-btn" data-tm="mat" type="button" data-i18n="menu.matematica">Matemática</button>
       </div>
       <div class="title-menu" id="tm-alf" role="menu" aria-label="Alfabetização" hidden></div>
       <div class="title-menu" id="tm-mat" role="menu" aria-label="Matemática" hidden></div>
