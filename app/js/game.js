@@ -7,8 +7,9 @@ import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em 
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
 import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue, vizMode, initVizMode, setVizModeValue, coins, setCoins, players } from './core/state.js'; // Fase 2: estado (as 8 mega-variáveis)
 import { startLoop } from './core/loop.js'; // Fase 2: driver do loop (docs/plano-engine.md)
+import { loadKB, saveKB, resetKB } from './input/keyboard.js'; // Fase 2: config de teclado (subsistema input)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.1';
+const INCL_VERSION='4.164.2';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -434,31 +435,9 @@ function takePu(pu,pi){ if(pu.kind==='key'){ pu.taken=true; return; } if(!pu.by)
 const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
 // Gamepad (B3/L1): estado por controle. padCur[gi]=ações seguradas neste frame; associação pad↔jogador vive em p.pad.
 const padCur={}, padPrevAct={}, padPrevStart={}; const PAD_DEAD=0.5; // zona morta = primeira METADE do curso (ergonomia — José 2026-07-02)
-const CKEY='inclusionist.kbcontrols.v3'; // esquemas de teclado por contagem de jogadores, editáveis + persistidos
-// 8 ações: up,left,down,right,run(=corre/interage),jump,swap(troca poder),especial
-// 4 esquemas base p/ 3–4 jogadores (E3: modos 3 e 4 têm esquemas SEPARADOS, p3 e p4, editáveis por jogador)
-const KB_SCHEMES4=[
-  { left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'], run:['KeyZ'],jump:['KeyX'],swap:['KeyC'],especial:['KeyV'] },
-  { left:['KeyJ'],right:['KeyL'],up:['KeyI'],down:['KeyK'], run:['KeyM'],jump:['Comma'],swap:['Period'],especial:['Semicolon','Slash'] },
-  { left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'], run:['Home'],jump:['End'],swap:['PageUp'],especial:['PageDown'] },
-  { left:['Numpad4'],right:['Numpad6'],up:['Numpad8'],down:['Numpad5'], run:['Numpad2'],jump:['Numpad0'],swap:['Numpad3'],especial:['NumpadDecimal'] },
-];
-const KB_DEFAULTS={
-  // 1 jogador: WASD + setas; pulo J/Espaço; UJIK como na mão pequena do DOS. Sem Alt/AltGr/Ctrl/Shift (uso do SO; e Ctrl/Shift ficam pro modo Fácil).
-  solo:{ left:['KeyA','ArrowLeft'], right:['KeyD','ArrowRight'], up:['KeyW','ArrowUp'], down:['KeyS','ArrowDown'],
-         run:['KeyU'], jump:['KeyJ','Space'], swap:['KeyI'], especial:['KeyK'] },
-  p2:[ { left:['KeyA'],right:['KeyD'],up:['KeyW'],down:['KeyS'], run:['KeyU'],jump:['KeyJ'],swap:['KeyI'],especial:['KeyK'] },
-       { left:['ArrowLeft'],right:['ArrowRight'],up:['ArrowUp'],down:['ArrowDown'], run:['Numpad8'],jump:['Numpad5'],swap:['Numpad9'],especial:['Numpad6'] } ],
-  p3: JSON.parse(JSON.stringify(KB_SCHEMES4.slice(0,3))), // modo 3 jogadores (independente do 4)
-  p4: JSON.parse(JSON.stringify(KB_SCHEMES4)),            // modo 4 jogadores
-};
-function loadKB(){ try{ const s=JSON.parse(localStorage.getItem(CKEY)); if(s){ const d=JSON.parse(JSON.stringify(KB_DEFAULTS));
-  if(s.solo)Object.assign(d.solo,s.solo);
-  if(Array.isArray(s.p34)){ s.p34.forEach((m,i)=>{ if(m){ if(d.p4[i])Object.assign(d.p4[i],m); if(i<3&&d.p3[i])Object.assign(d.p3[i],m); } }); } // migra dado antigo (p34) p/ p3+p4
-  ['p2','p3','p4'].forEach(g=>{ if(Array.isArray(s[g]))s[g].forEach((m,i)=>{ if(d[g][i]&&m)Object.assign(d[g][i],m); }); }); return d; } }catch(e){}
-  return JSON.parse(JSON.stringify(KB_DEFAULTS)); }
+// Config de teclado extraída p/ input/keyboard.js (Fase 2): esquemas, defaults, loadKB/saveKB/resetKB.
 let KB=loadKB();
-function saveKB(){ try{localStorage.setItem(CKEY,JSON.stringify(KB));}catch(e){} }
+// saveKB agora vem de input/keyboard.js (recebe o KB como argumento)
 function kbFor(i){ if(numPlayers<=1)return KB.solo; if(numPlayers<=2)return KB.p2[i]||KB.p2[0]; if(numPlayers<=3)return KB.p3[i]||KB.p3[0]; return KB.p4[i]||KB.p4[0]; } // esquema do jogador i (modo 3 e 4 separados)
 let controls=KB.solo; // alias do P1 (navegação do quiz + GAME_KEYS)
 let KJUMP=controls.jump, KLEFT=controls.left, KRIGHT=controls.right, KUP=controls.up, KDOWN=controls.down, KRUN=controls.run;
@@ -481,7 +460,7 @@ addEventListener('keydown',(e)=>{
     if(e.code==='Escape'){ captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return; }
     const m=captureMapRef||controls; const other=keyUsedByOther(e.code, m);
     if(other>=0){ srAlert('Essa tecla já é do Jogador '+(other+1)+'. Escolha outra, ou Esc para cancelar.'); e.preventDefault(); return; } // não associa: segue capturando
-    m[captureAction]=[e.code]; saveKB(); applyControls(); assignControls();
+    m[captureAction]=[e.code]; saveKB(KB); applyControls(); assignControls();
     captureAction=null; captureMapRef=null; if(typeof renderControls==='function')renderControls(); e.preventDefault(); return;
   }
   // Diálogo aberto: só bloqueia o jogo se o elemento estiver DE FATO visível (flag preso não trava mais o teclado).
@@ -3294,7 +3273,7 @@ const motionMaster=$('#motion-master'); if(motionMaster)motionMaster.addEventLis
   renderMotion(); srSay(v?'Todas as animações paradas.':'Todas as animações retomadas.'); });
 function reflectMotionBtn(){ const b=$('#opt-animation'); if(b)b.classList.toggle('is-on',RM_KEYS.some(k=>rm[k])); } // realça o botão Animação quando há redução ativa
 reflectMotionBtn(); // estado inicial (ex.: prefers-reduced-motion liga por padrão)
-const ctrlReset=$('#ctrl-reset'); if(ctrlReset)ctrlReset.addEventListener('click',()=>{ try{localStorage.removeItem(CKEY);}catch(e){} KB=JSON.parse(JSON.stringify(KB_DEFAULTS)); applyControls(); assignControls(); renderControls(); srSay('Controles restaurados ao padrão.'); });
+const ctrlReset=$('#ctrl-reset'); if(ctrlReset)ctrlReset.addEventListener('click',()=>{ KB=resetKB(); applyControls(); assignControls(); renderControls(); srSay('Controles restaurados ao padrão.'); });
 
 /* ===================== FPS ===================== */
 let fpsAccum=0,fpsFrames=0,fpsMin=Infinity,fpsWarm=0;
