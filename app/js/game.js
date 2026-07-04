@@ -17,7 +17,7 @@ import { gameSay } from './platform/speech.js';
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.16';
+const INCL_VERSION='4.164.17';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -3600,4 +3600,5 @@ function showTouchControls(){ if(numPlayers>1 || phase!=='playing' || players.so
 })();
 
 /* ===================== PWA ===================== */
-if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+// Registro do SW movido p/ script clássico inline no index.html (resiliência: roda mesmo se este módulo
+// falhar no import por cache desatualizado, permitindo autocura no próximo load). (Fase 2.19)

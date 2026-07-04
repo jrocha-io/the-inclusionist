@@ -405,6 +405,12 @@
 
   <noscript><p style="padding:1rem">Este jogo precisa de JavaScript ativado.</p></noscript>
 
+  <!-- Registro do Service Worker em script CLÁSSICO (fora do ES Module game.js) — CRÍTICO p/ resiliência:
+       se um load pegar módulos de cache desatualizado e o game.js falhar no `import` (tela branca), este
+       script ainda roda, registra/atualiza o SW (que rebusca o shell inteiro com cache:'reload') e o
+       PRÓXIMO load se autocura. Antes ficava no fim do game.js → nunca rodava quando o boot quebrava. -->
+  <script>if('serviceWorker' in navigator) addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });</script>
+
   <script src="vendor/pixi.min.js"></script>
   <!-- game.js é ES Module (type=module) — habilita `import` na modularização incremental (docs/plano-modularizacao.md).
        PIXI continua global do vendor acima; módulos leem globais normalmente. Módulo é `defer` por natureza:
