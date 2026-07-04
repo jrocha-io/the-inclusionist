@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'; // (não de 'vite': é o vitest/config que tipa o campo `test`)
 import { VitePWA } from 'vite-plugin-pwa';
+import { playwright } from '@vitest/browser-playwright'; // Vitest 4: provider virou factory de pacote próprio
 
 // Migração TS+Vite (docs/plano-typescript-vite.md). root=app/ (index.html) p/ dev/build.
 // PWA (Estágio 1): o vite-plugin-pwa gera o SW (Workbox) e o manifest — aposenta o sw.js artesanal e o bump
@@ -60,7 +61,7 @@ export default defineConfig({
           setupFiles: ['./vitest.setup.browser.js'],
           browser: {
             enabled: true,
-            provider: 'playwright',
+            provider: playwright(),
             headless: true,
             instances: [{ browser: 'chromium' }],
           },

@@ -21,6 +21,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@vitest/browser": "^4.0.0",
+    "@vitest/browser-playwright": "^4.0.0",
     "pixi.js": "7.4.2",
     "playwright": "^1.49.0",
     "typescript": "^5.7.0",
