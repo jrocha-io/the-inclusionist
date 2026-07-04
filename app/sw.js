@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Service worker — cache do app-shell para rodar 100% offline (PWA).
-const CACHE = 'inclusionist-v4.163.6'; // = versão do jogo (bump A CADA commit invalida o cache antigo)
+const CACHE = 'inclusionist-v4.164.0'; // = versão do jogo (bump A CADA commit invalida o cache antigo)
 const SHELL = [
   './', 'index.html', 'js/game.js', 'css/style.css',
   // i18n: módulo + idiomas pré-cacheados p/ trocar de idioma offline (docs/plano-i18n.md)

@@ -44,3 +44,8 @@ export function setVizModeValue(mode) { vizMode = mode; store.set('incl_viz', mo
 //     (pickCoins/filter no game.js) — reatribuição via setCoins() (binding importado não pode ser reatribuído). ---
 export let coins = [];
 export function setCoins(arr) { coins = arr; emit('coins', arr); }
+
+// --- players[]: jogadores (1..4). NUNCA reatribuído (só mutado in-place: push/splice/length/players[i]) → não
+//     precisa de setter; o game.js muta a referência importada. O array inicial (makePlayer) é populado no boot
+//     pelo game.js (makePlayer é função de lá). A variável irmã `player` (= players[0]) fica local no game.js. ---
+export let players = [];
