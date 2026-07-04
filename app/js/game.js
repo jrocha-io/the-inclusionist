@@ -6,8 +6,9 @@ import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
 import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue, vizMode, initVizMode, setVizModeValue, coins, setCoins, players } from './core/state.js'; // Fase 2: estado (as 8 mega-variáveis)
+import { startLoop } from './core/loop.js'; // Fase 2: driver do loop (docs/plano-engine.md)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.0';
+const INCL_VERSION='4.164.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -3304,7 +3305,7 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 }
 
 /* ===================== loop ===================== */
-app.ticker.add(()=>{ const dt=Math.min(app.ticker.deltaTime,2); pollPads(); update(dt); draw();
+startLoop(app.ticker, (dt)=>{ pollPads(); update(dt); draw();
   titleG.visible=(phase==='title'); if(titleG.visible)drawTitleScene(); // cena do título da v3 cobre o mundo
   if(titleG.visible){ if(++_idleT>3600 && !attract)startAttract(); } else if(!attract)_idleT=0; // attract após 60s parado no menu (José)
   minimap.visible=!titleG.visible&&numPlayers<=1; document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu

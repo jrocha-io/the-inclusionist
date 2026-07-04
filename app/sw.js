@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Service worker — cache do app-shell para rodar 100% offline (PWA).
-const CACHE = 'inclusionist-v4.164.0'; // = versão do jogo (bump A CADA commit invalida o cache antigo)
+const CACHE = 'inclusionist-v4.164.1'; // = versão do jogo (bump A CADA commit invalida o cache antigo)
 const SHELL = [
   './', 'index.html', 'js/game.js', 'css/style.css',
   // i18n: módulo + idiomas pré-cacheados p/ trocar de idioma offline (docs/plano-i18n.md)
   'js/core/i18n.js', 'js/i18n/pt.js', 'js/i18n/en.js', 'js/i18n/es.js',
   'js/core/constants.js', 'js/core/world.js', 'js/core/tiles.js', // constantes + mundo + legend/parser (Fase B)
   'assets/levels/clarity.map.txt', // nível em texto-glifo (Fase 1.2) — offline
-  'js/platform/storage.js', 'js/core/state.js', // persistência + estado (Fase 2)
+  'js/platform/storage.js', 'js/core/state.js', 'js/core/loop.js', // persistência + estado + loop (Fase 2)
   'manifest.webmanifest', 'icon.svg', 'vendor/pixi.min.js',
   // tipografia: fonts.css + Atkinson padrão (Andika/Lexend cacheiam sob demanda como os sprites)
   'vendor/fonts.css', 'vendor/fonts/atkinson-400.woff2', 'vendor/fonts/atkinson-700.woff2',
