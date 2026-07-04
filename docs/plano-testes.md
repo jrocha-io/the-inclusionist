@@ -13,9 +13,8 @@ do José) — dois caminhos independentes pegam mais coisa:
 | **Grafo estático** | IA (script Python) | todo `import {..}` casa com um `export`? Imune a cache. |
 | **Boot real** | IA (preview) | `canvasCount≥1` + `window.__incl` — o jogo inteiro sobe? Ver [[feedback-verify-game-actually-boots]]. |
 | **Vitest** | **José** (`npx vitest`) | unidade real: node (lógica) + Chromium/Playwright (render). CI-ready. |
-| **Harness de navegador** | IA (preview) | `app/tests/` — mesmos módulos, checagem rápida a cada extração. |
 
-Vitest (José) e harness (IA) testam os mesmos módulos por caminhos diferentes — a redundância é o ponto.
+**Harness de navegador APOSENTADO (2026-07-04, Estágio 0b da migração TS+Vite):** o `app/tests/` foi removido — pós-Vite ficava awkward de servir e a dupla-manutenção não compensava. O **Vitest (José) é o caminho único** de teste; a verificação da IA por extração vira **grafo + boot** (servindo o `dist/` buildado) + pré-validação ad-hoc das expectativas no preview.
 
 ## 2. Os dois padrões
 
@@ -69,7 +68,7 @@ npm run test:browser            # só o render (Chromium)
 ```
 > Observação honesta: **eu (IA) não rodo Node neste ambiente** — escrevo os testes e a config, mas quem executa o
 > Vitest é você. A config de *browser mode* pode variar com a versão do Vitest instalada; se algo reclamar,
-> me mande a saída que eu ajusto. Enquanto isso, eu mantenho a verificação por grafo + boot + harness a cada rodada.
+> me mande a saída que eu ajusto. Enquanto isso, eu mantenho a verificação por grafo + boot (dist/) a cada rodada.
 
 ## 5. Cobertura e roadmap
 - **Coberto (módulos-folha já extraídos):** constants, tiles, world, input/state (node); canvas, props, sprites,
@@ -80,7 +79,8 @@ npm run test:browser            # só o render (Chromium)
 - **CI (futuro):** GitHub Actions rodando `npx vitest run` no push — trava regressões. Fica para depois de a
   suíte amadurecer.
 
-## 6. O harness de navegador (`app/tests/`) — o check da IA
-Página `app/tests/index.html` + `suite.js`: roda os mesmos testes no navegador do preview, que EU disparo a cada
-extração (rápido, zero instalação). Não substitui o Vitest — é a metade "IA" da redundância de análise. Dev-only
-(fora do SHELL do `sw.js`).
+## 6. (Aposentado) Harness de navegador
+O `app/tests/` (index.html + suite.js) foi REMOVIDO no Estágio 0b da migração TS+Vite (2026-07-04). Motivo: pós-
+Vite ele ficava awkward de servir e a dupla-manutenção com o Vitest não compensava (o Vitest cobre o mesmo). O
+caminho de teste passa a ser SÓ o Vitest; a IA verifica cada extração por grafo (Python) + boot no `dist/`
+buildado + pré-validação das expectativas no preview.
