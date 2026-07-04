@@ -1,0 +1,31 @@
+# CI — testes + build check. SÓ verifica (NÃO deploya; o deploy é o Cloudflare Pages nativo, git-connected).
+# Roda em todo push na main E em Pull Requests → sinal verde/vermelho no commit/PR. Não precisa de secrets.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Chromium (Playwright, p/ os testes de render)
+        run: npx playwright install --with-deps chromium
+
+      - name: Testes (Vitest — node + browser)
+        run: npm test
+
+      - name: Build não pode quebrar (vite build → dist/)
+        run: npm run build
