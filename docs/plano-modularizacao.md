@@ -158,3 +158,18 @@ alto contraste, quiz, alfabetização). Atualizar ADR. → 1 commit + ADR.
 
 Aprovar o alvo (§3) e a ordem incremental (§4). Sugiro **intercalar**: fazer a modularização em blocos e,
 entre blocos, voltar às features de alfabetização — assim a reforma não trava o roadmap pedagógico.
+
+## 8. Testes por extração (decisão do José, 2026-07-04)
+
+Cada extração de módulo (Fase 2.x) **acrescenta os testes do contrato do módulo** em `app/tests/suite.js` — não
+se deixa para o fim. Razão: o momento da extração é quando o contrato está mais claro (teste mais barato) e dá
+rede de segurança para as extrações grandes e acopladas que vêm depois.
+
+- **Harness:** `app/tests/` roda no NAVEGADOR (ambiente real PIXI/canvas/localStorage) — sem Node/bundler, que
+  não temos aqui. `suite.js` exporta `runAll()`; `index.html` mostra verde/vermelho e expõe `window.__testResults`
+  (dirigível via preview). **Dev-only:** não entra no SHELL do `sw.js` nem é linkado pelo jogo → mexer só em
+  testes **não** exige bump de versão.
+- **Verificação de cada extração** = (a) grafo de imports×exports consistente (script Python, imune a cache) +
+  (b) boot real no preview (canvasCount≥1 + `__incl`) + (c) testes do módulo verdes. Ver [[feedback-verify-game-actually-boots]].
+- **Cobertura inicial (Fase 2.23):** 23 testes dos 9 módulos-folha já extraídos (constants, tiles, world,
+  input/state, canvas, props, sprites, sprite-fx, storage). O harness já pegou um palpite errado (AIR=1, não 0).
