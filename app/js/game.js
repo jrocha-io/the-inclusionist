@@ -11,8 +11,9 @@ import { loadKB, saveKB, resetKB } from './input/keyboard.js'; // Fase 2: config
 import { AUDIO_CATS, loadAudioCat, saveAudioCat } from './platform/audio-mixer.js'; // Fase 2: mixer de áudio (categorias + persistência)
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
+import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.5';
+const INCL_VERSION='4.164.6';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -3031,10 +3032,7 @@ function renderAudioSinks(){ const el=$('#audio-sinks'); if(!el)return; el.inner
     row.appendChild(lbl); row.appendChild(sel); el.appendChild(row); } }
 const audioDetectBtn=$('#audio-detect'); if(audioDetectBtn)audioDetectBtn.addEventListener('click',detectAudioDevices);
 // DESIGN DOS BOTÕES na tela por controle (Gamepad API: 0=baixo/pulo·sim, 1=direita/especial·não, 2=esquerda/interação, 3=cima/troca-poder)
-const PAD_DESIGNS={ generic:{'0':['0','#3a4a6a'],'1':['1','#3a4a6a'],'2':['2','#3a4a6a'],'3':['3','#3a4a6a']},
-  microsoft:{'0':['A','#2fae4e'],'1':['B','#d23b3b'],'2':['X','#2f6fd2'],'3':['Y','#d9a400']},
-  sony:{'0':['✕','#4f8fd0'],'1':['○','#d23b3b'],'2':['□','#d76fae'],'3':['△','#2fae7e']},
-  nintendo:{'0':['B','#d9a400'],'1':['A','#d23b3b'],'2':['Y','#2fae4e'],'3':['X','#2f6fd2']} };
+// PAD_DESIGNS extraído p/ input/devices.js (Fase 2).
 let padDesign=store.get('incl_paddesign','generic'); // padrão Windows = Genérico (números)
 // Sim/Não nos menus: SÓ Sony e Nintendo invertem os botões 0↔1 (confirmar = ○/A à direita, cultural).
 // Xbox/Genérico: sim = botão 0 (A verde / "0"), não = botão 1 (B vermelho / "1").
@@ -3097,10 +3095,10 @@ const padDirSel=$('#pad-dir'); if(padDirSel){ padDirSel.value=padDir; padDirSel.
 const padPresetChild=$('#pad-preset-child'); if(padPresetChild)padPresetChild.addEventListener('click',()=>{ setPadMm({btn:12,gap:2.5,stick:16.5,travel:4,dpad:11.5}); srSay('Controles no tamanho de mão de criança (6 a 12 anos).'); });
 const padPresetAdult=$('#pad-preset-adult'); if(padPresetAdult)padPresetAdult.addEventListener('click',()=>{ setPadMm({btn:14,gap:4.5,stick:20,travel:5.5,dpad:14}); srSay('Controles no tamanho de mão de adulto.'); });
 // REMAPEAR a FUNÇÃO de cada botão de toque (9 posições → ação). Lido ao vivo pelos handlers de toque.
-const TOUCH_ACT_LABELS={ left:'Andar à esquerda', right:'Andar à direita', up:'Subir / escada', down:'Descer / escada', jump:'Pular', run:'Correr / interagir', especial:'Especial', swap:'Trocar poder', pause:'Pausar (START)' };
+// TOUCH_ACT_LABELS extraído p/ input/devices.js (Fase 2).
 const TOUCH_ACTS=['left','right','up','down','jump','run','especial','swap','pause'];
 const TOUCH_SLOTS=[ {k:'up',lbl:'Direcional ↑ (cima)'},{k:'down',lbl:'Direcional ↓ (baixo)'},{k:'left',lbl:'Direcional ← (esquerda)'},{k:'right',lbl:'Direcional → (direita)'},{k:'start',lbl:'START (enter)'},{k:'b0',lbl:'Botão 0 (baixo)'},{k:'b1',lbl:'Botão 1 (direita)'},{k:'b2',lbl:'Botão 2 (esquerda)'},{k:'b3',lbl:'Botão 3 (cima)'} ];
-const TOUCH_DEFAULT={ up:'up',down:'down',left:'left',right:'right',start:'pause',b0:'jump',b1:'especial',b2:'run',b3:'swap' };
+// TOUCH_DEFAULT extraído p/ input/devices.js (Fase 2).
 let touchMap=(()=>{ const s=store.getJSON('incl_touchmap',null); return Object.assign({},TOUCH_DEFAULT, s&&typeof s==='object'?s:{}); })();
 function renderTouchMap(){ const el=$('#touchmap-list'); if(!el)return;
   el.innerHTML=TOUCH_SLOTS.map(s=>`<div class="ctrl-row"><label for="tm-${s.k}">${s.lbl}</label><select id="tm-${s.k}" class="vol" data-slot="${s.k}">${TOUCH_ACTS.map(a=>`<option value="${a}"${touchMap[s.k]===a?' selected':''}>${TOUCH_ACT_LABELS[a]}</option>`).join('')}</select></div>`).join('');
