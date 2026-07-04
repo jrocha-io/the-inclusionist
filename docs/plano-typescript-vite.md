@@ -15,7 +15,7 @@ payload menor; `vite-plugin-pwa` gera o SW offline). Ver [[project-inclusionist]
 
 ## Estágios
 
-### Estágio 0 — Vite serve o jogo atual (dev), SEM mudar código
+### Estágio 0 — Vite serve o jogo atual (dev) ✅ FEITO
 Objetivo: provar que o toolchain roda com o mínimo de mudança (PIXI segue global do vendor; nada de TS ainda).
 - `package.json`: devDeps `vite` + `typescript`; scripts `dev`/`build`/`preview`. Vitest alinhado ao major do Vite.
 - `vite.config.ts`: `root: 'app'` (onde está o index.html). Em DEV o Vite serve TUDO sob `app/` (js/css/assets/
@@ -24,22 +24,22 @@ Objetivo: provar que o toolchain roda com o mínimo de mudança (PIXI segue glob
 - O SW artesanal é **desligado no dev** (evita conflito com o Vite) — volta como plugin no Estágio 1.
 - **José valida:** `npm install` → `npm run dev` → o jogo abre em `localhost:5173` igual a hoje.
 
-### Estágio 0b — `vite build` gera `dist/`
+### Estágio 0b — `vite build` gera `dist/` ✅ FEITO
 - Configurar cópia dos estáticos runtime (`assets/`, `vendor/`, `manifest`, `icon`, `_headers`) para o build —
   mover para `app/public/` (o Vite copia `public/*` para `dist/` na mesma URL). index.html quase intacto.
 - **José valida:** `npm run build` → `npm run preview` serve o `dist/` funcionando.
 
-### Estágio 1 — PWA pelo `vite-plugin-pwa`
+### Estágio 1 — PWA pelo `vite-plugin-pwa` ✅ FEITO (SW Workbox ativo, offline verificado 2026-07-04)
 - Substitui o `sw.js` artesanal + o ritual de bump `INCL_VERSION`: o plugin gera o SW com precache por
   **content-hash** (cache invalida sozinho). Estratégia offline preservada (precache do shell + assets).
 - Remove `app/sw.js` e o registro inline; o plugin injeta o registro.
 - **José valida:** build + `preview`, testar offline (DevTools → Offline) + atualização.
 
-### Estágio 2 — Vitest alinhado ao Vite
+### Estágio 2 — Vitest alinhado ao Vite ✅ FEITO (Vitest 3.2.6, test.projects, 46 testes verdes)
 - Bump `vitest`/`@vitest/browser` ao major compatível com o Vite instalado. Os dois projects (node/browser) e os
   testes atuais seguem; só a versão/ço​nfig ajusta. **José valida:** `npx vitest run` verde.
 
-### Estágio 3 — Converter para `.ts` (incremental) + PIXI via npm
+### Estágio 3 — Converter para `.ts` (incremental) + PIXI via npm ⬅ PRÓXIMO
 - Renomear módulos `.js`→`.ts` e tipar, começando pelos **folha puros** (constants, tiles, rng, state, storage,
   input/state, sprites-manifest…). Apertar `tsconfig` aos poucos (`strict` por flag).
 - Trocar o `PIXI` global por `import * as PIXI from 'pixi.js'` (dep real, tree-shakeável, tipada) — módulo a
