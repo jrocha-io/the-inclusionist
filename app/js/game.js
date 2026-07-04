@@ -12,9 +12,9 @@ import { AUDIO_CATS } from './platform/audio-mixer.js'; // Fase 2: categorias do
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
-import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, catNode, setCatGain } from './platform/audio.js'; // Fase 2: base + nó mestre + mixer
+import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, catNode, setCatGain, tone, tonePan } from './platform/audio.js'; // Fase 2: base + nó mestre + mixer + sínteses de oscilador
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.10';
+const INCL_VERSION='4.164.11';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -664,11 +664,7 @@ function doorSound(mat){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(
   o.connect(g).connect(catNode('interact')||audioOut()||ac.destination); o.start(t); o.stop(t+0.4); noiseHit(mat==='ferro'?'ferro':'madeira'); }catch(e){} }
 // ===== F3: espacialização (pan pela direção, tom pela distância) + sonar + guarda de beirada =====
 function panFor(wx,pl){ return Math.max(-1,Math.min(1,(wx-pl.x)/(LOGICAL_W*0.55))); } // esquerda −1 … direita +1
-function tonePan(freq,dur,cat,pan,vol,type,pc){ if(!soundOn||volume<=0)return; const ac=pc?pc.ac:ensureAC(); if(!ac)return; try{
-  const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime; o.type=type||'sine'; o.frequency.value=freq;
-  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.2)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  let node=g; if(pan!=null&&ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,pan)); g.connect(p); node=p; }
-  o.connect(g); node.connect(pc?pc.out:(catNode(cat)||audioOut()||ac.destination)); o.start(t); o.stop(t+dur+0.02); }catch(e){} } // pc = dispositivo do jogador
+// tonePan (synth de oscilador com pan) extraído p/ platform/audio.js (Fase 2).
 function needsAudioCues(pl){ if(modoCego)return true; const m=VIZ_BY_KEY[pl.viz]; return !!(m&&(m.kind==='blind'||m.kind==='lowvision')); } // guarda/guia só quando a visão está comprometida ou no modo cego
 let _sonarCount=0;
 function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){ if(cn.taken||cn.owner!==pl.i)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
@@ -762,9 +758,7 @@ function ptbrVoice(){ try{ const vs=(window.speechSynthesis&&window.speechSynthe
   return vs.find(v=>/pt[-_]?br/i.test(v.lang)) || vs.find(v=>/pt/i.test(v.lang)&&/bras|brazil/i.test(v.name)) || vs.find(v=>/pt/i.test(v.lang)&&!/pt[-_]?pt/i.test(v.lang)) || null; }catch(e){ return null; } }
 function gameSay(text){ if(!text||!soundOn)return; try{ const ss=window.speechSynthesis; if(!ss)return; ss.cancel();
   const u=new SpeechSynthesisUtterance(text); u.lang='pt-BR'; const v=ptbrVoice(); if(v)u.voice=v; u.volume=Math.min(1,volume*1.4); ss.speak(u); }catch(e){} } // FORÇA pt-BR (não usa a voz do mixer, que pode ser pt-PT)
-function tone(freq,dur,type,when,vol){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+(when||0);
-  o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(0.02,(vol||0.22)*volume),t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  o.connect(g).connect(catNode('earcons')||audioOut()||ac.destination); o.start(t); o.stop(t+dur+0.02); }catch(e){} }
+// tone (synth de oscilador básico) extraído p/ platform/audio.js (Fase 2).
 function firework(when){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const t=ac.currentTime+(when||0);
   const o=ac.createOscillator(),g=ac.createGain(); o.type='sine'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(1200,t+0.35); // assobio subindo
   const out=catNode('earcons')||audioOut()||ac.destination;

@@ -42,6 +42,17 @@ const _catNodes = {};
 export function catNode(cat) { const ac = ensureAC(); if (!ac) return null; const out = audioOut(); if (!_catNodes[cat]) { const g = ac.createGain(); g.gain.value = audioCat[cat].on ? audioCat[cat].vol : 0; g.connect(out); _catNodes[cat] = g; } return _catNodes[cat]; }
 export function setCatGain(cat) { const g = _catNodes[cat]; if (g && audioCtx) g.gain.setTargetAtTime(audioCat[cat].on ? audioCat[cat].vol : 0, audioCtx.currentTime, 0.02); saveAudioCat(cat, audioCat[cat]); }
 
+// ===== Sínteses de oscilador (earcons/melodias). Leem soundOn/volume; roteiam pelo mixer→mestre. =====
+// pc = contexto de áudio por-jogador (opcional; o game.js o passa p/ rotear a pista ao dispositivo do jogador).
+export function tone(freq, dur, type, when, vol) { if (!soundOn || volume <= 0) return; try { const ac = ensureAC(); if (!ac) return; const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + (when || 0);
+  o.type = type || 'square'; o.frequency.setValueAtTime(freq, t); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.02, (vol || 0.22) * volume), t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(catNode('earcons') || audioOut() || ac.destination); o.start(t); o.stop(t + dur + 0.02); } catch (e) {} }
+export function tonePan(freq, dur, cat, pan, vol, type, pc) { if (!soundOn || volume <= 0) return; const ac = pc ? pc.ac : ensureAC(); if (!ac) return; try {
+  const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime; o.type = type || 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.02, (vol || 0.2) * volume), t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  let node = g; if (pan != null && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); node = p; }
+  o.connect(g); node.connect(pc ? pc.out : (catNode(cat) || audioOut() || ac.destination)); o.start(t); o.stop(t + dur + 0.02); } catch (e) {} }
+
 // Efeitos sonoros básicos: frequência (f), duração (d), timbre (t) e legenda (cap, para captions/aria-live).
 export const SFX = {
   jump:{f:520,d:0.12,t:'square',cap:'🔊 Pulo'},
