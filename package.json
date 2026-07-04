@@ -1,0 +1,20 @@
+{
+  "name": "the-inclusionist-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Testes de unidade (DEV-ONLY) do The Inclusionist — Vitest (node p/ lógica + Chromium/Playwright p/ render). NÃO faz parte do jogo, que é build-less; o deploy do Cloudflare é a pasta app/. Ver docs/plano-testes.md.",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:node": "vitest run --project node",
+    "test:browser": "vitest run --project browser"
+  },
+  "devDependencies": {
+    "@vitest/browser": "^2.1.8",
+    "pixi.js": "7.4.2",
+    "playwright": "^1.49.0",
+    "vitest": "^2.1.8"
+  }
+}
