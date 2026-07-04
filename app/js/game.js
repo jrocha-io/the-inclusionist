@@ -5,9 +5,9 @@
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
-import { phase, setPhaseValue } from './core/state.js'; // Fase 2: estado (mega-variável 1: phase)
+import { phase, setPhaseValue, quizLevel, setQuizLevelValue } from './core/state.js'; // Fase 2: estado (phase, quizLevel)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.163.0';
+const INCL_VERSION='4.163.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -297,7 +297,7 @@ const WORD_INITIALS=[...new Set(SILABAS_WORDS.map(w=>w.w[0]))];
    3 silábico-alfabético — montar por SÍLABAS; o jogo SOLETRA as letras da sílaba.
    4 escritor (alfabético) — montar por LETRAS numa grade; o jogo fala o NOME da letra.
    5 escritor cego — montar por LETRAS; o jogo dita a CELA BRAILLE de cada letra. */
-let quizLevel=(()=>{ try{ const v=+(localStorage.getItem('incl_quizlevel')||2); return v>=1&&v<=5?v:2; }catch(e){ return 2; } })(); // try/catch: localStorage lança em file:// (Firefox etc.) e derrubava o boot inteiro
+// 'quizLevel' agora vem de core/state.js (Fase 2, mega-variável 2). Leitura = binding vivo; escrita via setQuizLevel().
 const QL_NAME={1:'pré-silábico',2:'silábico',3:'silábico-alfabético',4:'escritor',5:'escritor cego'};
 const LETTER_NAME={a:'á',b:'bê',c:'cê',d:'dê',e:'é',f:'éfe',g:'gê',h:'agá',i:'i',j:'jota',k:'cá',l:'éle',m:'ême',n:'êne',o:'ó',p:'pê',q:'quê',r:'érre',s:'ésse',t:'tê',u:'u',v:'vê',w:'dáblio',x:'xis',y:'ípsilon',z:'zê'};
 const soletra=w=>String(w).split('').map(c=>LETTER_NAME[c]||c).join(', ');
@@ -2755,7 +2755,7 @@ const LETRA=[ // L3: Braille saiu do ciclo — o ditado passivo agora segue o Mo
   {lbl:'🔡 abc',     caso:'lower', blind:false, say:'Letras minúsculas.'},
 ];
 // L3: nível do quiz de alfabetização (1..5), persistido; rótulo vivo nos menus de pausa
-function setQuizLevel(n,announce){ quizLevel=Math.max(1,Math.min(5,n|0)); try{localStorage.setItem('incl_quizlevel',String(quizLevel));}catch(e){}
+function setQuizLevel(n,announce){ setQuizLevelValue(n); // core/state.js: clampa 1..5, persiste e emite; a reflexão de UI fica aqui
   document.querySelectorAll('.pm-nivel').forEach(x=>{ x.textContent='📚 Nível '+quizLevel+' · '+QL_NAME[quizLevel]; });
   if(announce) srSay('Nível '+quizLevel+': '+QL_NAME[quizLevel]+'.'); }
 let letraIdx=0;
