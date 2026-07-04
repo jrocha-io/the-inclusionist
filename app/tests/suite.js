@@ -36,6 +36,10 @@ it('tiles: glifo desconhecido → AIR (= tipo do ".", ar iluminado)', () => { co
 // ---- core/world ----
 it('world: dims preservadas', () => { const w = W.buildWorldFromText('...\n...'); eq(w.length, 2); eq(w[0].length, 3); });
 it('world: pedra (2) preservada', () => { const g = T.TYPE_GLYPH[2]; const w = W.buildWorldFromText(g + '\n' + g); eq(w[0][0], 2); });
+it('world: passagem de 1 tile ALARGADA (teto pedra→ar, a11y)', () => { eq(JSON.stringify(W.buildWorldFromText('#\n.\n#')), JSON.stringify([[1], [1], [2]])); });
+it('world: passagem de 2 tiles NÃO alargada', () => { eq(W.buildWorldFromText('#\n.\n.\n#')[0][0], 2); });
+it('world: power-up injetado (super-corrida=12 em x13,y8)', () => { const big = Array.from({ length: 9 }, () => '.'.repeat(14)).join('\n'); eq(W.buildWorldFromText(big)[8][13], 12); });
+it('tiles: registro 0..14 consistente (TILE_TYPES/TILE_COLOR/TYPE_GLYPH/TILE_NAME)', () => { for (let t = 0; t <= 14; t++) assert(C.TILE_TYPES[t] !== undefined && C.TILE_COLOR[t] !== undefined && T.TYPE_GLYPH[t] !== undefined && T.TILE_NAME[t] !== undefined, 'tipo ' + t); });
 
 // ---- input/state ----
 it('input/state: held por teclado', () => {

@@ -74,6 +74,28 @@ describe('core/world — buildWorldFromText', () => {
     const g = T.TYPE_GLYPH[2];
     expect(W.buildWorldFromText(g + '\n' + g)[0][0]).toBe(2);
   });
+  it('[Right/a11y] passagem de 1 tile é ALARGADA (teto de pedra vira ar p/ o jogador caber)', () => {
+    // '#' teto · '.' ar sobre chão · '#' chão → o teto (pedra=2) é convertido em ar(1); jogador tem 2 tiles.
+    expect(W.buildWorldFromText('#\n.\n#')).toEqual([[1], [1], [2]]);
+  });
+  it('[Boundary/a11y] passagem já com 2 tiles NÃO é alterada (não alarga à toa)', () => {
+    expect(W.buildWorldFromText('#\n.\n.\n#')[0][0]).toBe(2); // teto de pedra preservado
+  });
+  it('[Right] power-up injetado no mapa (super-corrida=12 em x13,y8)', () => {
+    const big = Array.from({ length: 9 }, () => '.'.repeat(14)).join('\n');
+    expect(W.buildWorldFromText(big)[8][13]).toBe(12);
+  });
+});
+
+describe('registro de tiles — consistência cross-módulo (smell: 4 objetos em 2 módulos)', () => {
+  it('[Cross-check] todo tipo 0..14 existe em TILE_TYPES, TILE_COLOR (constants) e TYPE_GLYPH, TILE_NAME (tiles)', () => {
+    for (let t = 0; t <= 14; t++) {
+      expect(C.TILE_TYPES[t], `TILE_TYPES[${t}]`).toBeDefined();
+      expect(C.TILE_COLOR[t], `TILE_COLOR[${t}]`).toBeDefined();
+      expect(T.TYPE_GLYPH[t], `TYPE_GLYPH[${t}]`).toBeDefined();
+      expect(T.TILE_NAME[t], `TILE_NAME[${t}]`).toBeDefined();
+    }
+  });
 });
 
 describe('input/state — held(pl, act)', () => {
