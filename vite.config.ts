@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config'; // (não de 'vite': é o vitest/config que tipa o campo `test`)
 import { VitePWA } from 'vite-plugin-pwa';
 
 // Migração TS+Vite (docs/plano-typescript-vite.md). root=app/ (index.html) p/ dev/build.
