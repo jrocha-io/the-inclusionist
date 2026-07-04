@@ -1,5 +1,7 @@
 # The Inclusionist
 
+[![CI](https://github.com/jrocha-io/the-inclusionist/actions/workflows/ci.yml/badge.svg)](https://github.com/jrocha-io/the-inclusionist/actions/workflows/ci.yml)
+
 Jogo educativo de plataforma **acessível-primeiro**, em PixiJS, feito para escolas públicas
 brasileiras. Alfabetização (base psicogenética de Ferreiro & Teberosky) e matemática dentro de
 um platformer que mira **WCAG 2.2 (AAA aspiracional) + Game Accessibility Guidelines (GAG)**:
@@ -13,46 +15,47 @@ Licença: **GPL-3.0-or-later**. Mecânicas de plataforma portadas do
 ## Estrutura do repositório
 
 ```
-app/            # o jogo (raiz publicável — é o que o Cloudflare Pages serve)
-├─ index.html   #   página única
-├─ js/          #   código (em modularização para ES Modules nativos — docs/plano-modularizacao.md)
+app/            # fonte do jogo (Vite root)
+├─ index.html   #   entrada (Vite)
+├─ js/          #   código — ES Modules, em modularização + migração p/ TypeScript
 ├─ css/         #   estilos
-├─ assets/      #   sprites e cenários (arte GPL-clean)
-├─ vendor/      #   PixiJS (MIT) e fontes (SIL OFL)
-├─ sw.js        #   service worker (offline/PWA)
-└─ manifest.webmanifest
-docs/           # ADRs, planos, pesquisas, registro de decisões (não é publicado)
-tools/          # scripts de dev (não é publicado)
-legacy/         # v3.1.100.html — protótipo histórico (não é publicado)
+└─ public/      #   estáticos servidos como estão → copiados p/ dist/ no build
+   ├─ assets/   #     sprites e cenários (arte GPL-clean)
+   ├─ vendor/   #     PixiJS (MIT) e fontes (SIL OFL)
+   └─ manifest.webmanifest · icon.svg · _headers
+dist/           # saída do build (git-ignored) — é o que o Cloudflare Pages publica
+tests/          # testes Vitest (node + browser) — não publicado
+vite.config.ts · tsconfig.json · package.json    # toolchain (Vite + TypeScript + Vitest)
+docs/ · tools/ · legacy/    # planos/ADRs · scripts de dev · protótipo histórico (não publicados)
 ```
 
 ## Rodar localmente
 
-Não há passo de build (ES Modules nativos servidos direto). Basta um servidor estático
-apontando para `app/`:
+Toolchain **Vite + TypeScript** (migração incremental — `docs/plano-typescript-vite.md`):
 
 ```powershell
-python -m http.server 8190 --directory app
-# abra http://localhost:8190
+npm install
+npm run dev        # servidor de dev com HMR (Vite) → http://localhost:5173
+npm run build      # build de produção → dist/
+npm run preview    # serve o dist/ buildado
+npm test           # testes Vitest (node + browser via Playwright); npm run test:node = só a lógica
 ```
 
-> É preciso servir por HTTP (não abrir o `index.html` via `file://`), senão o service worker
-> e os ES Modules não carregam.
+## CI/CD
 
-## Deploy — Cloudflare Pages (plano gratuito)
+- **CI** — GitHub Actions (`.github/workflows/ci.yml`): a cada push/PR roda os testes Vitest
+  (node + browser) + o build check. Sinal 🟢/🔴 no commit/PR; não deploya.
+- **CD** — Cloudflare Pages (plano gratuito), conectado a este repo. A cada push na `main`:
 
-Site estático, **sem build**. No painel do Cloudflare Pages, conecte este repositório do GitHub e:
+  | Configuração | Valor |
+  |---|---|
+  | Framework preset | **None** |
+  | Build command | **`npm run test:node && npm run build`** — testes de lógica barram publicação quebrada |
+  | Build output directory | **`dist`** |
+  | Root directory | *(raiz do repo)* |
 
-| Configuração | Valor |
-|---|---|
-| Framework preset | **None** |
-| Build command | *(vazio)* |
-| Build output directory | **`app`** |
-| Root directory | *(raiz do repo)* |
-
-Cada push na `main` publica automaticamente; branches/PRs geram *preview deployments*. O cache é
-controlado por `app/_headers` (sw.js/html sem cache; `vendor/` e `assets/` imutáveis), somado ao
-bump do `CACHE` do service worker a cada versão. HTTPS e subdomínio `*.pages.dev` são gratuitos.
+  Publica em `*.pages.dev` (HTTPS grátis); branches/PRs geram *preview deployments*. O cache imutável
+  dos assets hasheados do Vite + o `dist/_headers` cuidam da borda.
 
 ## Acessibilidade — o que o jogo demonstra
 
