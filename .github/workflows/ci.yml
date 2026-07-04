@@ -21,6 +21,9 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Type-check (tsc --noEmit)
+        run: npm run typecheck
+
       - name: Chromium (Playwright, p/ os testes de render)
         run: npx playwright install --with-deps chromium
 
