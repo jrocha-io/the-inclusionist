@@ -158,7 +158,7 @@
 | Menu Fração: título "Soma e subtração de frações"; toggles SEM ✔ (estado só pelo realce `tab-on`); decimal SEMPRE 1 casa (`0,5`/`0,3`/`1,0`); 6ª atividade `fr2a6` (dens [2,3,4,5,6] "de meio a sextos", D=lcm=60 → pizza cai na diagonal quando d>6); atividades renomeadas p/ "Soma e subtração com …"; descrição no RODAPÉ do canvas (não colada aos botões, `position:absolute;bottom:10px`) e legenda de controles esconde nos submenus | Pedidos explícitos | v4.149.0 | ✅ · pizza/quadrado mantidos (não estavam na lista dele desta vez — confirmar se quer fora) |
 | Toggle TEA (autismo) reflete no SPLASH: 1=redução→branco (`.pi-calm`), 2=desligamento completo→amarelo (`.pi-on`), 0=off. Bug era `reflectPauseIcons` só atualizar os ícones da PAUSA (`vpPause`), nunca os do `#title-icons` → novo `reflectTitleIcons` (lógica extraída p/ `reflectIconBtn`) | Pedido explícito ("não funciona da forma correta") | v4.149.0 | ✅ |
 | **Escala AUDITADA de novo:** medido no preview k=2/3/4 em 640/960/1280 (passos INTEIROS exatos, aspect 1,7778); a fórmula não tem `dpr`. A "esticada" reportada = build antigo em cache (o `kDev/dpr` saltava em 0,8× CSS, parecia contínuo). Ação: pedir hard-reload + conferir versão no splash | Item reaberto pelo José | v4.147.2 (já correto) | ✅ código · ⚠️ cache do cliente |
-| **Modularização (game.js → ES Modules nativos, sem build):** decidido fazer DEPOIS da estabilização, como marco próprio com plano + verificação módulo a módulo (não no meio dos testes). Bundler descartado (contra runtime enxuto/offline) | Pergunta do José ("reavalie") | conversa 2026-07-04 | ⏸ agendado pós-polimento |
+| **Modularização (game.js → ES Modules nativos, sem build):** decidido fazer DEPOIS da estabilização, como marco próprio com plano + verificação módulo a módulo (não no meio dos testes). Bundler descartado (contra runtime enxuto/offline) | Pergunta do José ("reavalie") | conversa 2026-07-04 | 🔄 modularização EM CURSO · "bundler descartado" REVERTIDO em §5.11 (TS+Vite adotado 2026-07-04) |
 
 ### 5.9 Gráficos de fração NÃO são opção + renderização matemática (2026-07-04, rodada 5)
 
@@ -183,6 +183,13 @@
 | **UM gráfico = UMA forma** por célula (círculo OU quadrado, sorteado), só p/ fração PRÓPRIA (1..d); zero/impróprio/d>6 → número. Antes punha 2/4/6 figuras (impróprias) numa célula | Correção do José ("um gráfico substitui um número") | v4.151.0 | ✅ |
 | **3 luzes de progresso** (canto sup. dir. do desafio): apagada=cinza, acesa=amarela com brilho. Na 3ª vitória: 3ª luz acende + animação SUAVE (pulso) + som tipo enigma-resolvido do Zelda OoT (senoide doce, volume baixo). NUNCA agressivo (nada de Duolingo). Respeita prefers-reduced-motion | Pedido explícito | v4.151.0 | ✅ |
 | UI escala ESCOPADA ao #game-region: texto FORA do canvas fica fixo 16px (barra/debug não crescem mais) | Bug ("debug aumenta junto") | v4.149.7 | ✅ |
+
+### 5.11 Toolchain: adotar TypeScript + Vite — SUPERSEDE "sem build" (2026-07-04, rodada 7)
+
+| Decisão | Fundamento | Fonte | Status |
+|---|---|---|---|
+| **REVERSÃO de "bundler descartado" (§5.8):** migrar de "ESM cru sem build" para **TypeScript + Vite (com build)**, incremental por estágios (`plano-typescript-vite.md`). As preferências "sem bundler / sem build step / servir ESM cru" foram tidas quando o objetivo era um jogo DIFERENTE (HTML único, v3); hoje o projeto tem 24 módulos + Vitest e a modularização expõe bugs de tipo que o `tsc` pegaria. Os **pilares inegociáveis** (PWA offline, runtime enxuto, hardware de escola) são PRESERVADOS/melhorados: `vite build` dá bundle/minify/tree-shake (payload menor no Positivo) e `vite-plugin-pwa` gera o SW offline por content-hash (aposenta o `sw.js` artesanal + o bump manual de `INCL_VERSION`). Deploy CF Pages: `build` + `dist/` | Pergunta do José ("que tal TS + Vite 8?") + "as preferências eram de um objetivo diferente" | conversa 2026-07-04; Estágio 0 = `d675b9c` | ✅ decidido · migração em curso |
+| **"sem build / sem bundler" DEIXA de ser pilar/preferência.** As menções em `plano-mestre` (§pilares), `plano-modularizacao`, `plano-testes`, `plano-reorganizacao-deploy`, `plano-i18n`, `plano-editor-mapa`, `plano-tiled-aseprite` ficam HISTÓRICAS — superadas por este registro e por `plano-typescript-vite.md`. (`@pixi/tilemap` etc., antes descartados por "assumem bundler", voltam a ser opção.) | Diretriz do José ("verificar novamente as preferências") | 2026-07-04 | ✅ |
 
 ## 6. Arquitetura e plataforma
 

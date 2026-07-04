@@ -8,7 +8,8 @@ de pronto. Nada entra fora de ordem "porque apareceu" — mudança de ordem é d
 - **Incremental, sem mudar comportamento:** cada passo = 1 commit atômico, verificado no Preview, jogo idêntico.
 - **Não fazer trabalho que uma decisão fundacional invalide** (por isso formato/engine antes de features).
 - **Localizar junto (i18n):** todo módulo de UI extraído já sai com `t()`/`data-i18n` (ver `plano-i18n.md` §4.2).
-- **Pilares:** sem build, offline/PWA, enxuto, a11y-first, GPL-clean. Commits pt-BR + trailer; bump versão + SW.
+- **Pilares:** offline/PWA, enxuto, a11y-first, GPL-clean. Commits pt-BR + trailer. (~~sem build~~ SUPERADO: TS+Vite
+  adotado 2026-07-04 — `plano-typescript-vite.md` / Registro §5.11; o bump manual de versão será aposentado pelo PWA plugin.)
 
 ## Estado atual (feito)
 - **Reorg → `app/`** (raiz publicável) + config Cloudflare — Fase A ✅ (`plano-reorganizacao-deploy.md`).
