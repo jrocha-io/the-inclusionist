@@ -5,9 +5,9 @@
 # SETUP ÚNICO do José (ver docs/plano-typescript-vite.md):
 #   1. Cloudflare → My Profile → API Tokens → criar token com permissão "Cloudflare Pages: Edit".
 #   2. Pegar o Account ID (dashboard do Cloudflare, lateral direita de qualquer domínio/Workers).
-#   3. GitHub repo → Settings → Secrets and variables → Actions → New secret:
-#        CLOUDFLARE_API_TOKEN  = o token do passo 1
-#        CLOUDFLARE_ACCOUNT_ID = o id do passo 2
+#   3. GitHub repo → Settings → Secrets and variables → Actions:
+#        aba "Secrets"   → New repository secret:   CLOUDFLARE_API_TOKEN  = o token do passo 1
+#        aba "Variables" → New repository variable:  CLOUDFLARE_ACCOUNT_ID = o id do passo 2
 #   4. Criar o projeto Pages UMA vez (Direct Upload, NÃO conectado ao Git p/ o Actions ser o único a deployar):
 #        npx wrangler pages project create the-inclusionist --production-branch=main
 #   5. Push → o Actions faz o resto. (Se o projeto Pages estiver conectado ao Git, desative o auto-build p/ não
@@ -46,5 +46,5 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=the-inclusionist --branch=main
