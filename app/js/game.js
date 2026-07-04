@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
-// PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
+// PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. INCL_VERSION agora é DISPLAY (bump em mudança relevante); o cache é por content-hash do vite-plugin-pwa (Estágio 1) — sem sw.js/bump manual.
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
@@ -23,7 +23,7 @@ import { outlineCanvas, spriteToCanvas } from './render/sprite-fx.js'; // Fase 2
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
 initCharacterSprites(); // cria as texturas do personagem no boot — o import de sprites.js é PURO (sem I/O). Fase 2.24
 initAudioMixer();        // carrega o estado do mixer no boot — o import de audio.js é PURO (não lê localStorage). Fase 2.25
-const INCL_VERSION='4.164.24';
+const INCL_VERSION='4.164.25';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -3549,5 +3549,4 @@ function showTouchControls(){ if(numPlayers>1 || phase!=='playing' || players.so
 })();
 
 /* ===================== PWA ===================== */
-// Registro do SW movido p/ script clássico inline no index.html (resiliência: roda mesmo se este módulo
-// falhar no import por cache desatualizado, permitindo autocura no próximo load). (Fase 2.19)
+// PWA/SW agora gerados pelo vite-plugin-pwa (Estágio 1); registro injetado no build. Ver vite.config.ts.
