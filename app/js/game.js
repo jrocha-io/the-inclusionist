@@ -13,8 +13,9 @@ import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.j
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
 import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, catNode, setCatGain, tone, tonePan, noiseBuffer, noiseHit, _footCount } from './platform/audio.js'; // Fase 2: base + mestre + mixer + sínteses (oscilador + ruído)
+import { gameSay } from './platform/speech.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.12';
+const INCL_VERSION='4.164.13';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -745,10 +746,7 @@ function narrate(text){ if(!soundOn||!audioCat.tts.on||!text)return; _narrateCou
 // Fala de JOGO essencial (nome da palavra/sílaba/letra/fonema nos desafios de alfabetização): SEMPRE toca, mesmo com
 // o toggle 'Narração (TTS)' DESLIGADO — via voz nativa do navegador, fora do mixer (José 2026-07-04). Respeita o volume mestre.
 // Escolhe uma voz pt-BR (Brasil), evitando pt-PT (José: sílabas soavam "estranhas / pt-pt?"). Não cacheia — getVoices é barato e carrega assíncrono.
-function ptbrVoice(){ try{ const vs=(window.speechSynthesis&&window.speechSynthesis.getVoices())||[]; if(!vs.length)return null;
-  return vs.find(v=>/pt[-_]?br/i.test(v.lang)) || vs.find(v=>/pt/i.test(v.lang)&&/bras|brazil/i.test(v.name)) || vs.find(v=>/pt/i.test(v.lang)&&!/pt[-_]?pt/i.test(v.lang)) || null; }catch(e){ return null; } }
-function gameSay(text){ if(!text||!soundOn)return; try{ const ss=window.speechSynthesis; if(!ss)return; ss.cancel();
-  const u=new SpeechSynthesisUtterance(text); u.lang='pt-BR'; const v=ptbrVoice(); if(v)u.voice=v; u.volume=Math.min(1,volume*1.4); ss.speak(u); }catch(e){} } // FORÇA pt-BR (não usa a voz do mixer, que pode ser pt-PT)
+// ptbrVoice + gameSay (voz do letramento) extraídos p/ platform/speech.js (Fase 2).
 // tone (synth de oscilador básico) extraído p/ platform/audio.js (Fase 2).
 function firework(when){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const t=ac.currentTime+(when||0);
   const o=ac.createOscillator(),g=ac.createGain(); o.type='sine'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(1200,t+0.35); // assobio subindo
