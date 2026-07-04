@@ -3,29 +3,15 @@
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. Bump por commit: AQUI + sw.js (CACHE).
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
-const INCL_VERSION='4.161.0';
+const INCL_VERSION='4.161.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
 'use strict';
 
 /* ===================== constantes ===================== */
-const LOGICAL_W = 320, LOGICAL_H = 180, TILE = 16;
-const COIN_TARGET = 10;
-const TUNE = {
-  jumpVel: 3.5, waterJump: 3.5, waterJumpRun: 4, waterStrokeFrames: 30,
-  trampBase: 5, trampMax: 8, gravity: 0.15, hWalk: 2, hRun: 3, climbSpeed: 1.5,
-  maxFall: 7, waterMaxFall: 3, hTurbo: 4.5, ultraJumpVel: 10, // E12: power-ups (valores do José)
-};
-const JUMP_BASE = TUNE.jumpVel * Math.sqrt(8 / 5); // ~4.43 (altura confortável)
-
-/* TILE_TYPES (fiel ao v3.1.100; subset usado no Lúdico) */
-const TILE_TYPES = {
-  0:{solid:false}, 1:{solid:false}, 2:{solid:true,bounce:0.28}, 3:{solid:false,water:true,jump:true},
-  4:{solid:false,ladder:true}, 5:{solid:true,bounce:1.1,tramp:true}, 6:{solid:true,bounce:0},
-  7:{solid:false}, 8:{solid:false}, 9:{solid:false,hazard:true}, 10:{solid:true,gate:true},
-  11:{solid:false,key:true}, 12:{solid:false}, 13:{solid:false}, 14:{solid:false},
-};
+// Constantes puras extraídas para core/constants.js (modularização Fase B).
+import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, TILE_TYPES, TILE_COLOR } from './core/constants.js';
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=(()=>{try{return localStorage.getItem('incl_onebtn')==='1';}catch(e){return false;}})();
 let wheelchair=(()=>{try{return localStorage.getItem('incl_wheelchair')==='1';}catch(e){return false;}})();
@@ -34,10 +20,7 @@ let modoCego=(()=>{try{return localStorage.getItem('incl_modocego')==='1';}catch
 let caneBlockDiv=(()=>{try{return +localStorage.getItem('incl_cane_div')||1;}catch(e){return 1;}})(); // 1 = 1 batida/bloco; 2 = 1 batida/meio bloco (por DISTÂNCIA pisada)
 const caneBlockPx=()=>TILE/caneBlockDiv;
 const isSolidType = (t) => ((wheelchair && (t===9||t===5)) || (modoCego && t===9)) ? true : !!(TILE_TYPES[t] && TILE_TYPES[t].solid); // cadeirante: lava(9)+trampolim(5) viram chão; modo CEGO: lava(9) vira chão (remove o perigo — José)
-const TILE_COLOR = {
-  0:'#0a0a14',1:'#241f38',2:'#6b6480',3:'#2f6fae',4:'#8a5a2b',5:'#34e29b',6:'#3a3a46',
-  7:'#7fdcff',8:'#ffd23f',9:'#ff5b3a',10:'#9a8a6f',11:'#ffe06a',12:'#3a86ff',13:'#8a5cff',14:'#ff6fae',
-};
+// TILE_COLOR agora vem de core/constants.js (importado acima).
 
 /* ===================== mundo (CLARITY_MAP portado) ===================== */
 const CLARITY_MAP = [
