@@ -19,6 +19,7 @@
     "test:browser": "vitest run --project browser"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "@vitest/browser": "^3.0.0",
     "pixi.js": "7.4.2",
     "playwright": "^1.49.0",

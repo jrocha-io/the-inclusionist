@@ -1,17 +1,17 @@
 {
   "//": "Migração TS+Vite — Estágio 0 (docs/plano-typescript-vite.md). FROUXO de propósito: allowJs deixa .js e .ts",
-  "//2": "coexistirem; checkJs:false não type-checa os .js ainda; strict:false evita 1000 erros no dia 1. Apertamos",
-  "//3": "por flag conforme converto módulo a módulo (Estágio 3). noEmit: o Vite emite; o tsc só faz type-check.",
+  "//2": "coexistirem; checkJs:false ainda NÃO checa os .js. strict:true a partir do Estágio 3 (só os .ts são",
+  "//3": "checados). Aperto mais flags conforme converto módulo a módulo. noEmit: o Vite emite; o tsc só checa.",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "allowJs": true,
     "checkJs": false,
     "noEmit": true,
-    "strict": false,
+    "strict": true,
     "skipLibCheck": true,
     "isolatedModules": true,
     "resolveJsonModule": true

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Constantes puras (imutáveis) do jogo — módulo-folha, ZERO dependências (modularização Fase B).
+// Constantes puras (imutáveis) do jogo — módulo-folha, ZERO deps. TypeScript (Estágio 3): tipos inferidos dos literais.
 // TUNE é objeto mutável (o painel de debug ajusta propriedades), mas NUNCA reatribuído → o import const
 // funciona (mutar propriedade é ok; reatribuir é que quebraria). Ver docs/plano-modularizacao.md.
 
