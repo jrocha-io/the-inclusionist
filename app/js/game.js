@@ -12,8 +12,9 @@ import { AUDIO_CATS, loadAudioCat, saveAudioCat } from './platform/audio-mixer.j
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
+import { audioCtx, ensureAC, SFX } from './platform/audio.js'; // Fase 2: base do áudio (AudioContext + SFX)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.6';
+const INCL_VERSION='4.164.7';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -556,19 +557,8 @@ const srSay=(t)=>{const el=$('#sr-status');el.textContent='';requestAnimationFra
 const srAlert=(t)=>{const el=$('#sr-alert');el.textContent='';requestAnimationFrame(()=>el.textContent=t); vlibrasSay(t);};
 
 /* ===== E9: áudio (WebAudio) + legendas (C1) + assistência (C2) ===== */
-const SFX={
-  jump:{f:520,d:0.12,t:'square',cap:'🔊 Pulo'},
-  coin:{f:880,d:0.14,t:'triangle',cap:'🔊 Coletou'},
-  hurt:{f:120,d:0.25,t:'sawtooth',cap:'🔊 Ai! Dano'},
-  win:{f:700,d:0.5,t:'triangle',cap:'🔊 Vitória!'},
-  place:{f:640,d:0.08,t:'sine',cap:''},
-  correct:{f:990,d:0.18,t:'triangle',cap:'🔊 Acertou!'},
-  wrong:{f:180,d:0.15,t:'square',cap:'🔊 Tente de novo'},
-  power:{f:760,d:0.18,t:'triangle',cap:'🔊 Power-up!'},
-  key:{f:990,d:0.16,t:'sine',cap:'🔊 Chave'},
-  gate:{f:300,d:0.30,t:'sawtooth',cap:'🔊 Portão abriu'},
-};
-let audioCtx=null, soundOn=true, captionsOn=true, volume=0.6, capTimer=null;
+// SFX (definições de som) extraído p/ platform/audio.js (Fase 2).
+let soundOn=true, captionsOn=true, volume=0.6, capTimer=null; // audioCtx vem de platform/audio.js (Fase 2)
 const anyEasy=()=>players.some(p=>p.easy); // efeitos de MUNDO do Fácil (moedas no chão) ligam se QUALQUER jogador usa Fácil
 const isGameKeyCode=(c)=>GAME_KEYS.includes(c)||players.some(p=>p.ctrl&&Object.values(p.ctrl).some(a=>a.includes(c)));
 // Modo Fácil (deficiência motora): gravidade ×2/3, pulo ×8/7, andar ×0.7, sem perigos, sem correr,
@@ -598,8 +588,7 @@ function sfx(name){
   if(captionsOn && c.cap) showCaption(c.cap);   // legenda (visual + aria-live via role=status)
   if(!soundOn || volume<=0) return;
   try{
-    if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC)audioCtx=new AC(); }
-    if(!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
+    if(!ensureAC()) return; // audioCtx via platform/audio.js
     const o=audioCtx.createOscillator(), g=audioCtx.createGain();
     o.type=c.t; o.frequency.value=c.f; g.gain.value=0.0001; o.connect(g).connect(catNode('earcons')||audioOut()||audioCtx.destination);
     const t=audioCtx.currentTime;
@@ -609,7 +598,7 @@ function sfx(name){
   }catch(e){}
 }
 // ===== Vitória: jingle 8-bit ascendente + fogos de artifício (assobio subindo → estouro/crepitar) =====
-function ensureAC(){ if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC)audioCtx=new AC(); } if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume(); return audioCtx; }
+// ensureAC() (ciclo do AudioContext) extraído p/ platform/audio.js (Fase 2).
 // Modo empatia — perda auditiva: passa-baixas (perda de agudos) + EXPANSÃO DESCENDENTE (frames fracos abafados → dificulta a fala).
 // Todos os sons passam por um nó mestre; a cadeia é religada quando o modo liga/desliga.
 let hearingLoss=false, _masterGain=null, _hlChain=null;
