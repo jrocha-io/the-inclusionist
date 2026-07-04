@@ -66,7 +66,8 @@
       role="application"
       aria-roledescription="jogo de plataforma"
       aria-label="Área de jogo. Mova com A e D ou setas; pule com L ou Espaço; suba e desça escadas (e nade na água) com W e S ou setas; corra com P ou Shift. Colete 10 moedas."
-      aria-describedby="game-instructions">
+      aria-describedby="game-instructions"
+      data-i18n-aria="a11y.gameRegion">
       <div id="pixi-mount" class="pixi-mount"></div>
       <!-- HUD por jogador (DOM sobreposto, alta definição): moedas + poder, por viewport -->
       <div id="game-hud" aria-hidden="true"></div>
@@ -126,7 +127,7 @@
      </div>
     </div>
 
-    <p id="game-instructions" class="sr-only">
+    <p id="game-instructions" class="sr-only" data-i18n="game.instructions">
       Mova o personagem pela caverna e colete 10 moedas. Sem limite de tempo.
       Controles: A e D ou setas movem; L ou Espaço pulam; W e S (ou setas cima/baixo) sobem/descem escadas e nadam; P ou Shift correm.
     </p>
@@ -147,9 +148,9 @@
 
   <div id="win-overlay" class="overlay" hidden>
     <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="win-title">
-      <h2 id="win-title">🎉 Você coletou as 10 moedas!</h2>
+      <h2 id="win-title" data-i18n="win.title">🎉 Você coletou as 10 moedas!</h2>
       <p id="win-msg"></p>
-      <button id="btn-again" type="button" class="btn btn--primary">Jogar de novo</button>
+      <button id="btn-again" type="button" class="btn btn--primary" data-i18n="win.again">Jogar de novo</button>
     </div>
   </div>
 
@@ -159,10 +160,10 @@
       <div class="pause-icons" id="title-icons" role="group" aria-label="Atalhos de acessibilidade"></div>
       <div class="title-block">
         <h2 id="title-h" class="game-title">The Inclusionist</h2>
-        <div class="game-byline">by Prof. José Rocha</div>
+        <div class="game-byline" data-i18n="title.byline">by Prof. José Rocha</div>
         <div class="game-version" id="title-ver">v4</div>
       </div>
-      <p class="game-subtitle" id="title-wait" hidden>Aguarde o Jogador 1 escolher o jogo</p>
+      <p class="game-subtitle" id="title-wait" hidden data-i18n="title.wait">Aguarde o Jogador 1 escolher o jogo</p>
       <div class="title-menu" id="tm-main" role="menu" aria-label="Escolha o jogo">
         <button class="title-btn" id="np-btn" type="button" aria-live="polite" aria-label="Número de jogadores: 1. Clique à esquerda para menos, à direita para mais.">◀ Nº de jogadores: <span id="np-n">1</span> ▶</button>
         <button class="title-btn" data-tm="ludico" type="button" data-i18n="menu.ludico">Lúdico</button>
