@@ -7,6 +7,8 @@ import * as T from '../app/js/core/tiles.js';
 import * as W from '../app/js/core/world.js';
 import * as S from '../app/js/input/state.js';
 import * as SPR from '../app/js/render/sprites.js';
+import * as AUDIO from '../app/js/platform/audio.js';
+import { AUDIO_CATS } from '../app/js/platform/audio-mixer.js';
 
 describe('core/constants', () => {
   it('[Right] valores afinados do José (TUNE/ANIM/TILE)', () => {
@@ -95,6 +97,24 @@ describe('registro de tiles — consistência cross-módulo (smell: 4 objetos em
       expect(T.TYPE_GLYPH[t], `TYPE_GLYPH[${t}]`).toBeDefined();
       expect(T.TILE_NAME[t], `TILE_NAME[${t}]`).toBeDefined();
     }
+  });
+});
+
+describe('platform/audio — mixer (import PURO, init explícito; dívida paga Fase 2.25)', () => {
+  // [Zero] roda ANTES de qualquer init (é o 1º teste do bloco e nada mais chama initAudioMixer):
+  it('[Zero] import não carrega o mixer — audioCat === null até initAudioMixer() (sem I/O no import)', () => {
+    expect(AUDIO.audioCat).toBe(null);
+    expect(typeof AUDIO.initAudioMixer).toBe('function');
+  });
+  it('[Interface] após init, audioCat tem exatamente as 9 categorias do AUDIO_CATS', () => {
+    AUDIO.initAudioMixer();
+    expect(Object.keys(AUDIO.audioCat).sort()).toEqual(AUDIO_CATS.map((c) => c.k).sort());
+  });
+  it('[Right/a11y] TTS geral nasce DESLIGADO (TEA-safe) e as demais LIGADAS', () => {
+    AUDIO.initAudioMixer(); // idempotente
+    expect(AUDIO.audioCat.tts.on).toBe(false);
+    expect(AUDIO.audioCat.music.on).toBe(true);
+    expect(AUDIO.audioCat.ambient.on).toBe(true);
   });
 });
 

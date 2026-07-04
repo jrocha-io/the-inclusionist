@@ -12,6 +12,7 @@ import * as P from '../js/render/props.js';
 import * as SP from '../js/render/sprites.js';
 import * as FX from '../js/render/sprite-fx.js';
 import * as ST from '../js/platform/storage.js';
+import * as AUDIO from '../js/platform/audio.js';
 
 const TESTS = [];
 const it = (name, fn) => TESTS.push({ name, fn });
@@ -75,6 +76,10 @@ it('sprite-fx: outlineCanvas mantém a largura', () => { const s = FX.spriteToCa
 // ---- platform/storage ----
 it('storage: set/get/remove', () => { ST.set('__t_a', 'abc'); eq(ST.get('__t_a'), 'abc'); ST.remove('__t_a'); eq(ST.get('__t_a', null), null); });
 it('storage: bool e num', () => { ST.setBool('__t_b', true); assert(ST.getBool('__t_b') === true); ST.set('__t_n', '3.5'); eq(ST.getNum('__t_n'), 3.5); ST.remove('__t_b'); ST.remove('__t_n'); });
+
+// ---- platform/audio (mixer: import PURO, init explícito — dívida paga Fase 2.25) ----
+it('audio: import puro — audioCat null até initAudioMixer()', () => { eq(AUDIO.audioCat, null); assert(typeof AUDIO.initAudioMixer === 'function'); });
+it('audio: após init, audioCat tem as 9 categorias', () => { AUDIO.initAudioMixer(); eq(Object.keys(AUDIO.audioCat).length, 9); });
 
 export function runAll() {
   const results = TESTS.map((t) => { try { t.fn(); return { name: t.name, ok: true }; } catch (e) { return { name: t.name, ok: false, err: e.message }; } });

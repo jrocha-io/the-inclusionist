@@ -36,8 +36,12 @@ export function setHearingLossGraph(on) { hearingLoss = on; if (audioCtx) { audi
 export function setMasterMuted(muted) { if (!_masterGain || !audioCtx) return; try { _masterGain.gain.setTargetAtTime(muted ? 0 : 1, audioCtx.currentTime, 0.04); } catch (e) {} }
 
 // ===== Mixer por categoria: cada categoria tem seu gain (liga/desliga + volume), pendurado no nó mestre. =====
-// audioCat é a fonte viva do estado do mixer (mutada pela UI/calmMode no game.js — objeto, nunca reatribuído).
-export const audioCat = loadAudioCat();
+// audioCat é a fonte viva do estado do mixer (mutada pela UI/calmMode no game.js — objeto, nunca reatribuído
+// APÓS init). NULL até initAudioMixer(): o import fica PURO (não lê localStorage). initAudioMixer é chamado no
+// boot do game.js — todos os leitores de audioCat (mixer/ambiente/narração) rodam depois. (Fase 2.25)
+export let audioCat = null;
+// Carrega o estado do mixer (defaults do audio-mixer.js + o que estiver salvo). I/O EXPLÍCITO, idempotente.
+export function initAudioMixer() { if (!audioCat) audioCat = loadAudioCat(); }
 const _catNodes = {};
 export function catNode(cat) { const ac = ensureAC(); if (!ac) return null; const out = audioOut(); if (!_catNodes[cat]) { const g = ac.createGain(); g.gain.value = audioCat[cat].on ? audioCat[cat].vol : 0; g.connect(out); _catNodes[cat] = g; } return _catNodes[cat]; }
 export function setCatGain(cat) { const g = _catNodes[cat]; if (g && audioCtx) g.gain.setTargetAtTime(audioCat[cat].on ? audioCat[cat].vol : 0, audioCtx.currentTime, 0.02); saveAudioCat(cat, audioCat[cat]); }

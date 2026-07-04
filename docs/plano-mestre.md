@@ -108,8 +108,7 @@ Itens de acabamento visual que dependem de tocar funções de render ainda no `g
   decor de tela `if(d.includes('nuvens'))` (amanhecer/campo, ~game.js:1449–1450). Ver [[project-inclusionist]].
 
 ### Dívida técnica menor (auditoria de smells 2026-07-04)
-- **`platform/audio.js`: efeito colateral no import** — `export const audioCat = loadAudioCat();` LÊ localStorage no
-  momento do import (mesma categoria do smell de `sprites.js`, porém BRANDO: síncrono, try/catch, sem rejeição
-  async). Fazer `audioCat` carregar de forma preguiçosa/explícita (ex.: `initAudioMixer()`) quando o subsistema de
-  áudio for mais modularizado — hoje `audioCat` é objeto vivo lido em vários lugares, então o custo do refactor
-  supera o ganho. Um teste "importar audio.js não toca localStorage" pegaria isso.
+- ~~**`platform/audio.js`: efeito colateral no import** (`audioCat = loadAudioCat()`)~~ — **PAGA (Fase 2.25,
+  v4.164.23).** `audioCat` agora nasce `null`; o import é PURO; `initAudioMixer()` (I/O explícito, idempotente) é
+  chamado no boot do game.js. Testado no projeto `node` (import puro: audioCat null até init; 9 categorias após;
+  invariante **TTS-off por padrão** TEA-safe agora coberto) + harness. Todos os leitores de `audioCat` rodam após o boot.
