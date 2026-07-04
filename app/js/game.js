@@ -10,6 +10,7 @@ import { startLoop } from './core/loop.js'; // Fase 2: driver do loop (docs/plan
 import { loadKB, saveKB, resetKB } from './input/keyboard.js'; // Fase 2: config de teclado (subsistema input)
 import { AUDIO_CATS } from './platform/audio-mixer.js'; // Fase 2: categorias do mixer (dados); audioCat/catNode/setCatGain vêm de audio.js
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
+import { $ } from './ui/dom.js'; // Fase 2.27: atalho de querySelector (Tier 1)
 import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes.js'; // Fase 2: modos visuais de a11y (dados)
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
 import { keys, padCur, padPrevAct, padPrevStart, PAD_DEAD, held } from './input/state.js'; // Fase 2.22: estado de input + held
@@ -22,7 +23,7 @@ import { outlineCanvas, spriteToCanvas } from './render/sprite-fx.js'; // Fase 2
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
 initCharacterSprites(); // cria as texturas do personagem no boot — o import de sprites.js é PURO (sem I/O). Fase 2.24
 initAudioMixer();        // carrega o estado do mixer no boot — o import de audio.js é PURO (não lê localStorage). Fase 2.25
-const INCL_VERSION='4.164.23';
+const INCL_VERSION='4.164.24';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -319,7 +320,7 @@ function pickCoins(n){
 }
 
 /* ===================== estado ===================== */
-const $=(s)=>document.querySelector(s);
+// $ (querySelector) migrado p/ ui/dom.js (Fase 2.27 / Tier 1)
 const SPAWN_X=2*TILE, SPAWN_Y=24*TILE;
 const BOX={w:10,h:30};
 // E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).

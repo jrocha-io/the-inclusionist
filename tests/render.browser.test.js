@@ -7,6 +7,14 @@ import * as CV from '../app/js/render/canvas.js';
 import * as P from '../app/js/render/props.js';
 import * as FX from '../app/js/render/sprite-fx.js';
 import * as ST from '../app/js/platform/storage.js';
+import * as DOM from '../app/js/ui/dom.js';
+
+describe('ui/dom — atalhos de seleção', () => {
+  it('[Right] $ delega ao querySelector; $$ devolve Array', () => {
+    expect(DOM.$('body')).toBe(document.body);
+    expect(Array.isArray(DOM.$$('div'))).toBe(true);
+  });
+});
 
 describe('render/canvas — primitivas', () => {
   it('[Right] makeCanvas dimensiona o offscreen', () => {

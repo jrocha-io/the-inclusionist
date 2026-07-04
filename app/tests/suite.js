@@ -14,6 +14,7 @@ import * as FX from '../js/render/sprite-fx.js';
 import * as ST from '../js/platform/storage.js';
 import * as AUDIO from '../js/platform/audio.js';
 import * as RNG from '../js/core/rng.js';
+import * as DOM from '../js/ui/dom.js';
 
 const TESTS = [];
 const it = (name, fn) => TESTS.push({ name, fn });
@@ -85,6 +86,7 @@ it('audio: após init, audioCat tem as 9 categorias', () => { AUDIO.initAudioMix
 // ---- core/rng (LCG semeado, determinístico) ----
 it('rng: mesma semente → mesma sequência', () => { RNG.reseed(20260601); const a = JSON.stringify([RNG.rnd(), RNG.rnd()]); RNG.reseed(20260601); eq(JSON.stringify([RNG.rnd(), RNG.rnd()]), a); });
 it('rng: randInt(1,6) em [1,6] e shuffle preserva multiset', () => { RNG.reseed(9); for (let i = 0; i < 50; i++) { const v = RNG.randInt(1, 6); assert(v >= 1 && v <= 6, 'randInt'); } eq(JSON.stringify(RNG.shuffle([1, 2, 3]).slice().sort()), JSON.stringify([1, 2, 3])); });
+it('dom: $ delega ao querySelector', () => { eq(DOM.$('body'), document.body); assert(Array.isArray(DOM.$$('div'))); });
 
 export function runAll() {
   const results = TESTS.map((t) => { try { t.fn(); return { name: t.name, ok: true }; } catch (e) { return { name: t.name, ok: false, err: e.message }; } });
