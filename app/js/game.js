@@ -5,7 +5,7 @@
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.161.3';
+const INCL_VERSION='4.161.4';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -25,9 +25,10 @@ const isSolidType = (t) => ((wheelchair && (t===9||t===5)) || (modoCego && t===9
 // TILE_COLOR agora vem de core/constants.js (importado acima).
 
 /* ===================== mundo ===================== */
-// CLARITY_MAP + construtor buildWorld extraídos para core/world.js (modularização Fase B).
-import { buildWorld } from './core/world.js';
-const WORLD = buildWorld();
+// Mundo carregado do texto-glifo assets/levels/clarity.map.txt (Fase 1.2). Construtor em core/world.js.
+import { buildWorldFromText } from './core/world.js';
+// top-level await: game.js é módulo → o corpo abaixo só roda após o mapa carregar (pré-cacheado no SW).
+const WORLD = buildWorldFromText(await (await fetch('assets/levels/clarity.map.txt')).text());
 const WORLD_W = WORLD[0].length, WORLD_H = WORLD.length;
 const WORLD_PX_W = WORLD_W*TILE, WORLD_PX_H = WORLD_H*TILE;
 const tileAt=(tx,ty)=>(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H)?2:WORLD[ty][tx];
