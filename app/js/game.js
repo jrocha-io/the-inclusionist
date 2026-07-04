@@ -15,9 +15,10 @@ import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js
 import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, catNode, setCatGain, tone, tonePan, noiseBuffer, noiseHit, _footCount } from './platform/audio.js'; // Fase 2: base + mestre + mixer + sínteses (oscilador + ruído)
 import { gameSay } from './platform/speech.js';
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE } from './render/sprites.js';
-import { makeCanvas, tex, pixDisc } from './render/canvas.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
+import { makeCanvas, tex, pixDisc } from './render/canvas.js';
+import { coinCanvas, coinTexture, treeCanvas, treeTexture } from './render/props.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.17';
+const INCL_VERSION='4.164.18';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -238,30 +239,7 @@ function directSpriteTexture(srcTex,mode){ if(hcOutlineFg<=0) return srcTex; con
     const o=outlineCanvas(s,th); cv.width=o.width;cv.height=o.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(o,0,0); dst.update(); };
   if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
 // Alto contraste (re-adicionado): recolore cada tile pela PALETA do grupo (gradient-map por matiz, mantém claro-escuro).
-function coinCanvas(){
-  const cv=makeCanvas(11,11),c=cv.getContext('2d');
-  pixDisc(c,5,5,5,'#ffd23f','#7a5400');           // disco dourado + contorno
-  c.fillStyle='#fff3b0'; c.fillRect(3,2,2,1); c.fillRect(2,3,1,2);  // brilho (canto sup-esq)
-  c.fillStyle='#e0a82a'; c.fillRect(7,7,2,1); c.fillRect(8,6,1,2);  // sombra (inf-dir)
-  return cv;
-}
-function coinTexture(){ return tex(coinCanvas()); }
-function treeCanvas(){ // árvore urbana caprichada (R-cidade): tronco sombreado c/ raízes + copa em 3 tons + luz de borda
-  const cv=makeCanvas(30,52),c=cv.getContext('2d');
-  c.fillStyle='#241a0e'; c.fillRect(12,28,7,22); c.fillRect(9,47,13,3);   // contorno tronco + raízes
-  c.fillStyle='#5c4033'; c.fillRect(13,28,5,21);                          // tronco
-  c.fillStyle='#7a5a48'; c.fillRect(13,28,2,21);                          // luz do tronco
-  c.fillStyle='#3f2c20'; c.fillRect(16,30,2,19);                          // sombra do tronco
-  c.fillStyle='#5c4033'; c.fillRect(10,47,4,2); c.fillRect(17,47,4,2);    // raízes
-  pixDisc(c,15,17,13,'#175e3c','#0e3a24');                                // copa base (escura + contorno)
-  pixDisc(c,10,15,8,'#1f7a4d'); pixDisc(c,20,14,7,'#1f7a4d');             // volumes médios
-  pixDisc(c,9,12,5,'#2fa35f');  pixDisc(c,19,10,5,'#2fa35f');             // tufos claros
-  pixDisc(c,12,9,3,'#46b06a');  pixDisc(c,21,8,2,'#46b06a');              // luz de topo
-  c.fillStyle='#0e3a24'; c.fillRect(6,25,18,3);                           // sombra sob a copa
-  c.fillStyle='rgba(255,255,255,.20)'; c.fillRect(8,7,3,1); c.fillRect(18,5,2,1); // brilhinhos
-  return cv;
-}
-function treeTexture(){ return tex(treeCanvas()); }
+// coinCanvas/coinTexture/treeCanvas/treeTexture migrados p/ render/props.js (Fase 2.19)
 
 /* ===================== moedas (spawn real) ===================== */
 function findCoinCandidates(){
