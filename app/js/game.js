@@ -5,9 +5,9 @@
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
-import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue } from './core/state.js'; // Fase 2: estado (phase, quizLevel, numPlayers, cenario)
+import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue } from './core/state.js'; // Fase 2: estado (phase, quizLevel, numPlayers, cenario, activity)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.163.3';
+const INCL_VERSION='4.163.4';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2458,10 +2458,10 @@ const ACTIVITIES={ // d = descrição do minigame (rodapé dos menus secundário
   fr2a6:{cat:'mat',nome:'Soma e subtração com frações de meio a sextos',dens:[2,3,4,5,6], d:'Some e subtraia frações de meios a sextos.'},
 };
 const ALF_LEVEL={alf1:1,alf2:2,alf3:3,alf4:4,alf5:5};
-let ACTIVITY=(()=>{ try{ const a=localStorage.getItem('incl_activity'); return ACTIVITIES[a]?a:'ludico'; }catch(e){ return 'ludico'; } })();
+if(!ACTIVITIES[ACTIVITY]) setActivityValue('ludico'); // ACTIVITY vem de core/state.js (Fase 2, mega-var 5); valida o valor inicial contra as atividades existentes
 let tabSel=(()=>{ try{ const s=JSON.parse(localStorage.getItem('incl_tabsel')); if(Array.isArray(s)&&s.length)return s.filter(n=>n>=0&&n<=10); }catch(e){} return [2,3,4,5]; })();
 function actCat(){ return (ACTIVITIES[ACTIVITY]||{}).cat||'ludico'; }
-function setActivity(id){ if(!ACTIVITIES[id])id='ludico'; ACTIVITY=id; try{localStorage.setItem('incl_activity',id);}catch(e){}
+function setActivity(id){ if(!ACTIVITIES[id])id='ludico'; setActivityValue(id); // core/state.js: valor + persistência (incl_activity) + evento; a validação fica aqui
   const cat=ACTIVITIES[id].cat;
   if(cat==='alf')setQuizLevel(ALF_LEVEL[id],false); // reusa os 5 níveis da psicogênese
   MODE = cat==='alf'?'silabas':cat==='mat'?'somasub':'ludico'; }

@@ -27,3 +27,8 @@ export function setNumPlayersValue(n) { numPlayers = n; emit('numPlayers', n); }
 //     o trabalho de textura ficam no setCenario() do game.js — aqui só o valor + persistência + evento. ---
 export let cenario = null;
 export function setCenarioValue(theme) { cenario = theme; store.set('incl_cenario', theme); emit('cenario', theme); }
+
+// --- activity: id da atividade selecionada (persistido em incl_activity). A validação contra ACTIVITIES
+//     (objeto do game.js) fica no setActivity() do game.js — aqui só o valor cru + persistência + evento. ---
+export let activity = store.get('incl_activity', 'ludico');
+export function setActivityValue(id) { activity = id; store.set('incl_activity', id); emit('activity', id); }
