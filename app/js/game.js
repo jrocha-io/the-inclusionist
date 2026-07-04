@@ -14,9 +14,10 @@ import { VIZ_MODES, VIZ_BY_KEY, VIZ_FILTER, VIZ_CYCLE } from './render/viz-modes
 import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js'; // Fase 2: rótulos de gamepad/toque (dados)
 import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, catNode, setCatGain, tone, tonePan, noiseBuffer, noiseHit, _footCount } from './platform/audio.js'; // Fase 2: base + mestre + mixer + sínteses (oscilador + ruído)
 import { gameSay } from './platform/speech.js';
-import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE } from './render/sprites.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
+import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE } from './render/sprites.js';
+import { makeCanvas, tex, pixDisc } from './render/canvas.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.15';
+const INCL_VERSION='4.164.16';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -130,8 +131,7 @@ const PLAYER_HURT = [
 const APP = { H:'#403020', S:'#c08070', D:'#9a5f50', K:'#1a1420', W:'#e8eef0', R:'#3090d0', T:'#2566a0', B:'#303050', P:'#20203a' };
 
 /* ===================== canvas → textura ===================== */
-const makeCanvas=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
-const tex=(cv)=>{const t=PIXI.Texture.from(cv);t.baseTexture.scaleMode=PIXI.SCALE_MODES.NEAREST;return t;};
+// makeCanvas/tex/pixDisc migrados p/ render/canvas.js (Fase 2.18).
 
 /* ===== Contorno ESCURO único (usado pelo 1º plano do alto contraste) =====
    Preserva a arte: só adiciona um contorno escuro atrás do elemento. Sem anel claro (cortava o personagem
@@ -238,8 +238,6 @@ function directSpriteTexture(srcTex,mode){ if(hcOutlineFg<=0) return srcTex; con
     const o=outlineCanvas(s,th); cv.width=o.width;cv.height=o.height; const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.drawImage(o,0,0); dst.update(); };
   if(srcTex.baseTexture.valid)paint(); else srcTex.baseTexture.once('loaded',paint); return dst; }
 // Alto contraste (re-adicionado): recolore cada tile pela PALETA do grupo (gradient-map por matiz, mantém claro-escuro).
-// pixel art: disco com pixels INTEIROS (serrilhado nítido, sem anti-aliasing dos arcos vetoriais)
-function pixDisc(c,cx,cy,r,col,edge){ for(let y=Math.floor(cy-r);y<=cy+r;y++)for(let x=Math.floor(cx-r);x<=cx+r;x++){ const d=Math.hypot(x-cx,y-cy); if(d<=r){ c.fillStyle=(edge&&d>r-1.05)?edge:col; c.fillRect(x,y,1,1);} } }
 function coinCanvas(){
   const cv=makeCanvas(11,11),c=cv.getContext('2d');
   pixDisc(c,5,5,5,'#ffd23f','#7a5400');           // disco dourado + contorno
