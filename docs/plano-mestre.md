@@ -106,3 +106,10 @@ Itens de acabamento visual que dependem de tocar funções de render ainda no `g
   (borda/centro) cruzar a margem da tela, não pela nuvem inteira (x+largura) sair. Corrigir o teste de wrap para
   `x > telaW` (reentra por `-largura`) e `x < -largura`. Locais: `drawTitleScene` (abertura, ~game.js:768) e o
   decor de tela `if(d.includes('nuvens'))` (amanhecer/campo, ~game.js:1449–1450). Ver [[project-inclusionist]].
+
+### Dívida técnica menor (auditoria de smells 2026-07-04)
+- **`platform/audio.js`: efeito colateral no import** — `export const audioCat = loadAudioCat();` LÊ localStorage no
+  momento do import (mesma categoria do smell de `sprites.js`, porém BRANDO: síncrono, try/catch, sem rejeição
+  async). Fazer `audioCat` carregar de forma preguiçosa/explícita (ex.: `initAudioMixer()`) quando o subsistema de
+  áudio for mais modularizado — hoje `audioCat` é objeto vivo lido em vários lugares, então o custo do refactor
+  supera o ganho. Um teste "importar audio.js não toca localStorage" pegaria isso.
