@@ -5,8 +5,9 @@
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
+import { phase, setPhaseValue } from './core/state.js'; // Fase 2: estado (mega-variável 1: phase)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.162.1';
+const INCL_VERSION='4.163.0';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -426,7 +427,7 @@ function takeCoin(cn){ cn.taken=true; } // item tem 1 dono; coletar = some do mu
 // Power-ups: individuais por jogador, MENOS a CHAVE (compartilhada — vale para o time todo).
 function puTaken(pu,pi){ if(pu.kind==='key') return !!pu.taken; return pu.by ? !!pu.by[pi] : !!pu.taken; }
 function takePu(pu,pi){ if(pu.kind==='key'){ pu.taken=true; return; } if(!pu.by)pu.by=[]; pu.by[pi]=1; if(pi===0)pu.taken=true; }
-let phase='title'; // E14: 'title' | 'playing' | 'paused' — congela o jogo fora de 'playing'
+// 'phase' agora vem de core/state.js (Fase 2, mega-variável 1). Leitura = binding vivo; escrita só via setPhase().
 
 /* ===================== input ===================== */
 const keys=new Set(); let jumpEdge=false, captureAction=null, captureMapRef=null, optionsOpen=false, movementOpen=false, animationOpen=false, visualOpen=false, empathyOpen=false, audioOpen=false;
@@ -3383,7 +3384,7 @@ window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
 
 /* ===================== E14: shell — título/splash + pausa ===================== */
 function setPhase(p){
-  phase=p;
+  setPhaseValue(p); // core/state.js: só o valor + evento; a reação de UI abaixo fica aqui
   if(p!=='playing'&&typeof hideTouchControls==='function')hideTouchControls(); // menu ativo (título/pausa) = sem controle virtual
   // GAG: na pausa, silencia TODO o som do jogo (loops de ambiente/chuva inclusive) — o áudio volta ao retomar.
   if(_masterGain&&audioCtx) try{ _masterGain.gain.setTargetAtTime(p==='playing'?1:0, audioCtx.currentTime, 0.04); }catch(e){}
