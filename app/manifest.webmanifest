@@ -1,7 +1,7 @@
 {
   "name": "The Inclusionist",
   "short_name": "Inclusionist",
-  "description": "Jogo educativo acessível (esqueleto PixiJS v4.0.0).",
+  "description": "Jogo educativo de plataforma acessível (PixiJS · WCAG 2.2 + GAG).",
   "lang": "pt-BR",
   "start_url": ".",
   "scope": ".",
