@@ -92,3 +92,17 @@ puxar itens da Fase 6 para intervalos, se preferir. **Fora isso, seguimos esta o
 ## Relação com docs antigos
 Este plano-mestre é a espinha atual e **atualiza** o enquadramento do `ROADMAP.md`/`PLANO-EXECUCAO.md` (série
 L0–L9) para o novo escopo (engine + arte + editores + i18n). Os planos detalhados por fase seguem valendo.
+
+## Backlog de polimento (a fazer QUANDO a camada de render for modularizada)
+Itens de acabamento visual que dependem de tocar funções de render ainda no `game.js` — adiá-los evita retrabalho
+(consertar agora e re-extrair depois). Fazer junto da extração da respectiva função (Fase 2 → subsistema render).
+
+- **Movimento das nuvens duro + sumiço na metade da borda** (reportado pelo José 2026-07-04). Duas falhas nas
+  nuvens de TELA (não as do mundo em `skyLayer`, que já embrulham a `±50px`): (a) **movimento não-suave** — a
+  cada frame a nuvem "some e reaparece 1px à frente"; a posição é redesenhada arredondada a pixel inteiro e a
+  velocidade é <1px/frame (`sp` 0.05–0.11), então ela trava e pula 1px a cada ~10–20 frames. Guardar posição
+  sub-pixel (float) e/ou acumular o resíduo; se manter snap pixel-art, suavizar a cadência. (b) **some quando
+  metade chega na borda** em vez de continuar até sair inteira — o wrap reseta pelo ponto de referência
+  (borda/centro) cruzar a margem da tela, não pela nuvem inteira (x+largura) sair. Corrigir o teste de wrap para
+  `x > telaW` (reentra por `-largura`) e `x < -largura`. Locais: `drawTitleScene` (abertura, ~game.js:768) e o
+  decor de tela `if(d.includes('nuvens'))` (amanhecer/campo, ~game.js:1449–1450). Ver [[project-inclusionist]].
