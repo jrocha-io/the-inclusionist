@@ -65,8 +65,13 @@ script CJK existir.
 ## 4. Execução em etapas (cada uma = 1 commit verificado, sem mudar comportamento em pt)
 1. **Fundação:** `core/i18n.js` + `i18n/pt.js` (seed) + `applyDom`; converter **um** subconjunto (menu do
    título) para `data-i18n`; game.js faz o 1º `import`. Verificar: título idêntico, vindo do dicionário.
-2. **Extração da UI (pt):** migrar em lotes todas as strings de chrome de `index.html` + game.js para `pt.js`
-   (chave a chave, verificando). Fim: pt 100% via `t()`, comportamento idêntico.
+2. **Localização POR MÓDULO (durante a Fase B da modularização) — NÃO varrer o monólito.** Correção de rumo
+   (2026-07-03): extrair strings do `game.js` de 3800 linhas antes de modularizar era garimpar + tocar o mesmo
+   código duas vezes. Em vez disso, **cada módulo com UI extraído na Fase B** (`ui/menus`, `ui/pause`,
+   diálogos…) já sai com seus literais trocados por `t()`/`data-i18n` e as chaves no `pt.js` — **uma tocada só
+   por trecho de código**. Os lotes já feitos (título, pausa) são a largada dos futuros `ui/*` (chaves prontas,
+   não retrabalho). As strings estáticas do `index.html` (diálogos) casam com a extração do módulo que as
+   controla. Ver `plano-modularizacao.md`.
 3. **Voz por locale:** `localeVoice()`; seletor 🌐; persistência + default por navegador.
 4. **en + es (UI + Matemática + Lúdico):** `i18n/en.js`, `i18n/es.js`; TTS en/es; Alfabetização fica pt
    (rótulo "disponível em português") até os pacotes de currículo.

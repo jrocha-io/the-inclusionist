@@ -102,6 +102,10 @@ poucos casos que hoje leem o global "de longe". Sem framework: um `Map<string, S
 Princípio: o jogo tem que **continuar rodando e passar a verificação a cada commit**. Nada de "big bang".
 Cada etapa extrai um pedaço, o arquivo antigo passa a importar dele, verifica-se no Preview, commita.
 
+**Localizar JUNTO (i18n):** cada módulo com UI extraído aqui já sai com seus literais trocados por
+`t()`/`data-i18n` e as chaves no `pt.js` — modulariza e localiza na MESMA passada (evita garimpar o monólito e
+re-tocar o código). Ver `plano-i18n.md` §4.2. A fundação de i18n (`core/i18n.js`) já foi feita.
+
 **Etapa 0 — Andaime (baixo risco).** Trocar `index.html` para `type="module"`; criar `main.js` que só
 faz `import './game.js'` (ainda monólito) e adicionar `import map` do Pixi. Bump `sw.js` incluindo os novos
 arquivos no SHELL. *Verificar: jogo idêntico.* → 1 commit.
