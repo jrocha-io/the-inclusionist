@@ -39,3 +39,8 @@ export function setActivityValue(id) { activity = id; store.set('incl_activity',
 export let vizMode = 'normal';
 export function initVizMode(mode) { vizMode = mode; }
 export function setVizModeValue(mode) { vizMode = mode; store.set('incl_viz', mode); emit('vizMode', mode); }
+
+// --- coins[]: moedas/coletáveis. Mutado IN-PLACE (push/forEach — usa a ref importada) mas também REATRIBUÍDO
+//     (pickCoins/filter no game.js) — reatribuição via setCoins() (binding importado não pode ser reatribuído). ---
+export let coins = [];
+export function setCoins(arr) { coins = arr; emit('coins', arr); }

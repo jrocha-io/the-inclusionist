@@ -5,9 +5,9 @@
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
-import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue, vizMode, initVizMode, setVizModeValue } from './core/state.js'; // Fase 2: estado (phase, quizLevel, numPlayers, cenario, activity, vizMode)
+import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue, vizMode, initVizMode, setVizModeValue, coins, setCoins } from './core/state.js'; // Fase 2: estado (…, vizMode, coins)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.163.5';
+const INCL_VERSION='4.163.6';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -420,7 +420,7 @@ function wrapConvex(pl,N,mv,preX,preY){ const T=TILE,hw=BOX.w/2,bh=BOX.h;
 }
 let players=[makePlayer(0)]; let player=players[0];
 // 'numPlayers' agora vem de core/state.js (Fase 2, mega-variável 3). Escrita via setNumPlayers()/joinPlayer.
-let coins=pickCoins(COIN_TARGET), collected=0, ended=false;
+let collected=0, ended=false; setCoins(pickCoins(COIN_TARGET)); // coins: mega-var 7 em core/state.js (reatribuição via setCoins)
 // Itens INDIVIDUAIS por jogador (multiplayer em telas separadas): cada moeda/letra/forma é coletada
 // independentemente por cada jogador. Só a CHAVE é compartilhada (ver powerups). taken = espelho do P1 (solo).
 function takeCoin(cn){ cn.taken=true; } // item tem 1 dono; coletar = some do mundo (todas as telas)
@@ -1871,7 +1871,7 @@ function resolveY(pl){
 }
 function triggerLava(pl){
   if(pl.hurtTimer>0)return;
-  coins=pickCoins(COIN_TARGET); rebuildCoins();
+  setCoins(pickCoins(COIN_TARGET)); rebuildCoins();
   players.forEach(p=>p.collected=0); collected=0; updateHud();
   sfx('hurt'); pl.hurtTimer=60; pl.vy=-10; pl.vx=(rnd()<0.5?-1:1)*5;
   addShake(3,14); addHitstop(4); // JUICE: dano é o impacto mais forte do jogo
@@ -2421,7 +2421,7 @@ function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); 
   $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); narrate(`${who}Venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
 function restartGame(){
   players.forEach(p=>closeQuiz(p)); // L3: quiz é por jogador
-  coins=pickCoins(COIN_TARGET);
+  setCoins(pickCoins(COIN_TARGET));
   rebuildCoins();
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
@@ -2577,7 +2577,7 @@ function addCoinsForOwner(owner){ const a=shuffle(findCoinCandidates());
   a.slice(0,Math.min(COIN_TARGET,a.length)).forEach((c,i2)=>coins.push({ x:c.tx*TILE+3, y:c.ty*TILE+3, owner, taken:false,
     shape:sh.length?sh[i2%sh.length]:'', letter:lt.length?lt[i2%lt.length]:'' }));
   rebuildCoins(); }
-function respawnCoinsForOwner(owner){ coins=coins.filter(c=>c.owner!==owner); addCoinsForOwner(owner); }
+function respawnCoinsForOwner(owner){ setCoins(coins.filter(c=>c.owner!==owner)); addCoinsForOwner(owner); }
 function respawnPlayer(k){ const p=players[k]; if(!p)return; resetPlayerState(p,k); respawnCoinsForOwner(k); // recomeça SÓ este jogador: coleta tudo do zero, itens re-sorteados
   if(typeof updateGameHud==='function')updateGameHud(); srSay('Jogador '+(k+1)+' recomeçou nesta tela.'); }
 // L1: entra num jogo EM ANDAMENTO (sem reiniciar a rodada dos outros): cria o jogador, a tela e os itens dele.
