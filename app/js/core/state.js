@@ -22,3 +22,8 @@ export function setQuizLevelValue(n) { quizLevel = Math.max(1, Math.min(5, n | 0
 // --- numPlayers: 1..4 (nº de telas/jogadores; não persistido) ---
 export let numPlayers = 1;
 export function setNumPlayersValue(n) { numPlayers = n; emit('numPlayers', n); }
+
+// --- cenario: tema visual ativo (cidade/campo/…; persistido em incl_cenario). A validação contra CENARIOS e
+//     o trabalho de textura ficam no setCenario() do game.js — aqui só o valor + persistência + evento. ---
+export let cenario = null;
+export function setCenarioValue(theme) { cenario = theme; store.set('incl_cenario', theme); emit('cenario', theme); }

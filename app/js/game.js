@@ -5,9 +5,9 @@
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
-import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue } from './core/state.js'; // Fase 2: estado (phase, quizLevel, numPlayers)
+import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue } from './core/state.js'; // Fase 2: estado (phase, quizLevel, numPlayers, cenario)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.163.2';
+const INCL_VERSION='4.163.3';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -934,7 +934,7 @@ function updateParallax(camX,camY){
 }
 /* Tema de cenário: troca as 3 texturas de parallax por assets/cenarios/<tema>/c{4,3,2}.png.
    Sem tema definido → placeholders. Persiste em localStorage. */
-let CENARIO=null, _vidaReady=false; // _vidaReady: camadas de vida/tráfego/tema já existem (applyCenarioVida pode rodar)
+let _vidaReady=false; // _vidaReady: camadas de vida/tráfego/tema já existem (applyCenarioVida pode rodar). CENARIO vem de core/state.js (Fase 2, mega-var 4)
 function loadTileImages(theme){ return new Promise(res=>{
   const fill=new Image(), surf=new Image(); let n=0, fail=false;
   const done=()=>{ if(fail)return; if(++n===2) res({fill,surface:surf}); };
@@ -942,7 +942,7 @@ function loadTileImages(theme){ return new Promise(res=>{
   fill.src='assets/cenarios/'+theme+'/tile_fill.png'; surf.src='assets/cenarios/'+theme+'/tile_surface.png';
 }); }
 function setCenario(theme){ if(!CENARIOS[theme])theme='cidade';
-  CENARIO=theme;
+  setCenarioValue(theme); // core/state.js: valor + persistência (incl_cenario) + evento; a validação e o trabalho de textura ficam aqui
   const T=CENARIOS[theme];
   if(T.v3){ // fiel à v3: céu-gradiente + 2 bandas de morros (fórmulas de lá); sem PNG (a arte por tema entra depois)
     const texs=[themeSkyTexture(T),themeHillsTexture(T,false),themeHillsTexture(T,true)];
@@ -959,7 +959,7 @@ function setCenario(theme){ if(!CENARIOS[theme])theme='cidade';
   // (o Cenário saiu do menu de pausa — a escolha é do J1 no splash, antes de começar)
   if(_vidaReady) applyCenarioVida(); // liga/desliga carros/deco da cidade e semeia as peculiaridades do tema
   if(vizReady) reapplyVizAll(); // reaplica o cenário recolorido (só após o init montar tudo)
-  try{ localStorage.setItem('incl_cenario',theme); }catch(e){}
+  // incl_cenario agora é persistido por setCenarioValue (core/state.js)
 }
 // Modos de cor. kind: normal=arte crua · hcnew=Renderização Direta (alto contraste, 3 níveis) ·
 // filter=simulação/correção de daltonismo (SVG na canvas) · lowvision/blind=empatia.
