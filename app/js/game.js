@@ -9,8 +9,9 @@ import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumP
 import { startLoop } from './core/loop.js'; // Fase 2: driver do loop (docs/plano-engine.md)
 import { loadKB, saveKB, resetKB } from './input/keyboard.js'; // Fase 2: config de teclado (subsistema input)
 import { AUDIO_CATS, loadAudioCat, saveAudioCat } from './platform/audio-mixer.js'; // Fase 2: mixer de áudio (categorias + persistência)
+import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.164.3';
+const INCL_VERSION='4.164.4';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2956,35 +2957,10 @@ vizReady=true; applyVizGlobal(players[0].viz); // estado inicial (solo)
    3 grupos, UMA fonte ativa (radio), pré-visualização com o pangrama "Juiz foge e bota fita de cetim
    na xícara". Todas as fontes hospedadas são SIL OFL 1.1 (política do fonts.css); as canônicas EdSP
    mantêm o mecanismo antigo (Lexend preserva o espaçamento BDA via data-fonte="dislexia"). */
-const FONT_GROUPS=[
-  {g:'Sem serifa', items:[
-    {k:'atkinson',   fam:'Atkinson Hyperlegible', fb:'sans', d:'feita pelo Braille Institute para pessoas com baixa visão (padrão do jogo)'},
-    {k:'lexend',     fam:'Lexend',                fb:'sans', d:'feita para reduzir stress visual e atender pessoas disléxicas (ativa o espaçamento extra)'},
-    {k:'quattro',    fam:'iA Writer Quattro',     fb:'sans', d:'criada para diminuir a fadiga visual de quem passa muito tempo na tela'},
-    {k:'andika',     fam:'Andika',                fb:'sans', d:'baseada na Sassoon; fruto de pesquisa sobre como crianças leem e escrevem'},
-    {k:'sourcesans', fam:'Source Sans 3',         fb:'sans'},
-    {k:'inter',      fam:'Inter',                 fb:'sans'},
-    {k:'opensans',   fam:'Open Sans',             fb:'sans'},
-    {k:'lato',       fam:'Lato',                  fb:'sans'} ]},
-  {g:'Serifada', items:[
-    {k:'literata',    fam:'Literata',       fb:'serif'},
-    {k:'sourceserif', fam:'Source Serif 4', fb:'serif'},
-    {k:'newsreader',  fam:'Newsreader',     fb:'serif'} ]},
-  {g:'Manuscrita', items:[
-    {k:'greatvibes', fam:'Great Vibes',         fb:'cursive', d:'caligráfica inglesa'},
-    {k:'pinyon',     fam:'Pinyon Script',       fb:'cursive', d:'caligráfica inglesa'},
-    {k:'ufcook',     fam:'UnifrakturCook',      fb:'cursive', d:'blackletter alemã'},
-    {k:'ufmag',      fam:'UnifrakturMaguntia',  fb:'cursive', d:'blackletter alemã'},
-    {k:'comicneue',  fam:'Comic Neue',          fb:'cursive', d:'bola e bastão (alfabetização)'},
-    {k:'learningcurve', fam:'Learning Curve',   fb:'cursive', d:'cursiva inglesa', off:'licença a confirmar — ainda não embarcada'},
-    {k:'kindergarten',  fam:'Kindergarten Pro', fb:'cursive', d:'cursiva brasileira', off:'licença em negociação'} ]},
-];
-const FONT_BY_KEY={}; FONT_GROUPS.forEach(g=>g.items.forEach(it=>FONT_BY_KEY[it.k]=it));
-let fontKey=(()=>{ try{ const k=localStorage.getItem('incl_font_k'); if(k&&FONT_BY_KEY[k]&&!FONT_BY_KEY[k].off)return k;
-  const leg=localStorage.getItem('incl_fonte'); if(leg==='alfabetizacao')return 'andika'; if(leg==='dislexia')return 'lexend'; }catch(e){} // migra a escolha antiga
-  return 'atkinson'; })();
+// FONT_GROUPS/FONT_BY_KEY/loadFontKey extraídos p/ ui/fonts.js (Fase 2, tipografia).
+let fontKey=loadFontKey();
 function setGameFont(k,announce){ const it=FONT_BY_KEY[k]; if(!it||it.off)return; fontKey=k;
-  try{ localStorage.setItem('incl_font_k',k); }catch(e){}
+  saveFontKey(k);
   const root=document.documentElement;
   if(k==='atkinson'){ root.dataset.fonte='padrao'; root.style.removeProperty('--font-custom'); }
   else if(k==='andika'){ root.dataset.fonte='alfabetizacao'; root.style.removeProperty('--font-custom'); }
