@@ -6,7 +6,7 @@ import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
-const INCL_VERSION='4.162.0';
+const INCL_VERSION='4.162.1';
 // Mundo autêntico (CLARITY_MAP+buildWorld portados do v3.1.100), spawn real de moedas,
 // física com escada/água/trampolim, animações (idle/walk/climb). Texto/UI no DOM (a11y).
 
@@ -2670,7 +2670,7 @@ addEventListener('gamepaddisconnected',(e)=>{ try{ const owner=players.findIndex
    DirectInput como VALOR de eixo ({av,v}, casamento por proximidade ±0.13 — os 8 passos do hat
    distam ~0.286). Mapa salvo por gamepad.id em localStorage → vale p/ aquele modelo de controle. */
 const _padMaps={}; // cache id → mapa custom (null = sem mapa, usa o padrão)
-function padMapFor(id){ if(_padMaps[id]===undefined){ try{ const s=localStorage.getItem('incl_padmap_'+id); _padMaps[id]=s?JSON.parse(s):null; }catch(e){ _padMaps[id]=null; } } return _padMaps[id]; }
+function padMapFor(id){ if(_padMaps[id]===undefined){ _padMaps[id]=store.getJSON('incl_padmap_'+id,null); } return _padMaps[id]; }
 function bindActive(gp,bd){ if(!bd)return false;
   if(bd.b!=null) return !!(gp.buttons[bd.b]&&gp.buttons[bd.b].pressed);
   if(bd.ax!=null) return ((gp.axes[bd.ax]||0)*bd.s)>0.5;                 // analógico: limiar com sinal
@@ -2692,7 +2692,7 @@ function openPadWizFor(gp){ const ov=$('#padwiz'); if(!ov)return; ov.hidden=fals
   const pr=$('#padwiz-progress'); if(pr)pr.textContent='';
   padWiz.timer=setInterval(padWizTick,30); }
 function closePadWiz(save){ if(!padWiz)return; clearInterval(padWiz.timer);
-  if(save&&padWiz.id){ try{ localStorage.setItem('incl_padmap_'+padWiz.id, JSON.stringify(padWiz.map)); }catch(e){}
+  if(save&&padWiz.id){ store.setJSON('incl_padmap_'+padWiz.id, padWiz.map);
     _padMaps[padWiz.id]=padWiz.map; srAlert('Mapeamento salvo para: '+padWiz.id+'.'); }
   else if(padWiz.id && !_padMaps[padWiz.id]) _padMaps[padWiz.id]={_skip:true}; // cancelou: usa o mapa PADRÃO nesta sessão (não salva; evita reabrir o wizard em loop)
   const gi=padWiz.gi; padWiz=null; const ov=$('#padwiz'); if(ov)ov.hidden=true;
@@ -3106,7 +3106,7 @@ const PAD_DESIGNS={ generic:{'0':['0','#3a4a6a'],'1':['1','#3a4a6a'],'2':['2','#
   microsoft:{'0':['A','#2fae4e'],'1':['B','#d23b3b'],'2':['X','#2f6fd2'],'3':['Y','#d9a400']},
   sony:{'0':['✕','#4f8fd0'],'1':['○','#d23b3b'],'2':['□','#d76fae'],'3':['△','#2fae7e']},
   nintendo:{'0':['B','#d9a400'],'1':['A','#d23b3b'],'2':['Y','#2fae4e'],'3':['X','#2f6fd2']} };
-let padDesign=(()=>{try{return localStorage.getItem('incl_paddesign')||'generic';}catch(e){return 'generic';}})(); // padrão Windows = Genérico (números)
+let padDesign=store.get('incl_paddesign','generic'); // padrão Windows = Genérico (números)
 // Sim/Não nos menus: SÓ Sony e Nintendo invertem os botões 0↔1 (confirmar = ○/A à direita, cultural).
 // Xbox/Genérico: sim = botão 0 (A verde / "0"), não = botão 1 (B vermelho / "1").
 function simNaoGlyphs(){ const set=PAD_DESIGNS[padDesign]||PAD_DESIGNS.generic; const inv=(padDesign==='sony'||padDesign==='nintendo');
@@ -3115,7 +3115,7 @@ function renderPauseLegend(){ const g=simNaoGlyphs();
   const chip=(s,word)=>`<span class="lg"><span class="lg-ico" style="background:${s[1]}">${s[0]}</span> ${word}</span>`;
   const html=chip(g.sim,'Sim')+chip(g.nao,'Não');
   document.querySelectorAll('.pause-legend').forEach(el=>{ el.innerHTML=html; }); } // todas as pausas por tela
-function applyPadDesign(d){ if(d&&PAD_DESIGNS[d])padDesign=d; try{localStorage.setItem('incl_paddesign',padDesign);}catch(e){} const set=PAD_DESIGNS[padDesign]||PAD_DESIGNS.generic;
+function applyPadDesign(d){ if(d&&PAD_DESIGNS[d])padDesign=d; store.set('incl_paddesign',padDesign); const set=PAD_DESIGNS[padDesign]||PAD_DESIGNS.generic;
   document.querySelectorAll('#pad-diamond .pad-b').forEach(b=>{ const s=set[b.dataset.btn]; if(s){ b.textContent=s[0]; b.style.background=s[1]; } }); renderPauseLegend(); }
 applyPadDesign(padDesign);
 // START (pílula): função vem do touchMap (padrão pausar) — a fiação fica no touchSetup, junto do doTouch.
@@ -3131,11 +3131,11 @@ const padDesignSel=$('#pad-design'); if(padDesignSel){ padDesignSel.value=padDes
 //  deslocamento 4,5mm. Faixa criança↔adulto estreita: crianças NÃO devem ir a alvos minúsculos.
 const IPHONE16_LONG_MM=141.1;
 function padPxPerMm(){ return Math.max(window.innerWidth,window.innerHeight)/IPHONE16_LONG_MM; }
-const padLoad=(k,d)=>{ try{ const v=parseFloat(localStorage.getItem(k)); return isNaN(v)?d:v; }catch(e){ return d; } };
+const padLoad=(k,d)=>store.getNum(k,d);
 let padBtnMm=padLoad('incl_padbtnmm',12.5), padGapMm=padLoad('incl_padgapmm',3);
 let padStickMm=padLoad('incl_padstickmm',18), padTravelMm=padLoad('incl_padtravelmm',4.5);
 let padDpadMm=padLoad('incl_paddpadmm',12); // comprimento do braço da cruz (D-pad físico real ~10–13mm)
-let padDir=(()=>{try{return localStorage.getItem('incl_paddir')||'stick';}catch(e){return 'stick';}})(); // 'stick' | 'cross'
+let padDir=store.get('incl_paddir','stick'); // 'stick' | 'cross'
 let _stickTravelPx=42, _stickDeadPx=12; // atualizados por applyPadPhysical; lidos pelo joystick
 function padHandTag(v,lo,hi){ return v<=lo?'crianca':v>=hi?'adulto':'inter'; }
 function applyDirStyle(){ const st=$('#touch-stick'), cr=$('#touch-cross'); if(st)st.hidden=(padDir==='cross'); if(cr)cr.hidden=(padDir!=='cross'); const sel=$('#pad-dir'); if(sel&&sel.value!==padDir)sel.value=padDir; }
@@ -3156,7 +3156,7 @@ function applyPadPhysical(){ const r=padPxPerMm();
   upd('#pad-travel-val','#pad-travel-tag',padTravelMm,4,5.5,'#pad-travel');
   upd('#pad-dpad-val','#pad-dpad-tag',padDpadMm,12,14,'#pad-dpad'); }
 function setPadMm(o){ if(o.btn!=null)padBtnMm=o.btn; if(o.gap!=null)padGapMm=o.gap; if(o.stick!=null)padStickMm=o.stick; if(o.travel!=null)padTravelMm=o.travel; if(o.dpad!=null)padDpadMm=o.dpad;
-  try{localStorage.setItem('incl_padbtnmm',padBtnMm);localStorage.setItem('incl_padgapmm',padGapMm);localStorage.setItem('incl_padstickmm',padStickMm);localStorage.setItem('incl_padtravelmm',padTravelMm);localStorage.setItem('incl_paddpadmm',padDpadMm);}catch(e){} applyPadPhysical(); }
+  store.set('incl_padbtnmm',padBtnMm);store.set('incl_padgapmm',padGapMm);store.set('incl_padstickmm',padStickMm);store.set('incl_padtravelmm',padTravelMm);store.set('incl_paddpadmm',padDpadMm); applyPadPhysical(); }
 applyPadPhysical(); applyDirStyle();
 addEventListener('resize',applyPadPhysical); // recalcula os px ao girar/redimensionar; os mm são fixos
 const padSizeEl=$('#pad-size'); if(padSizeEl)padSizeEl.addEventListener('input',()=>setPadMm({btn:parseFloat(padSizeEl.value)}));
@@ -3164,7 +3164,7 @@ const padGapEl=$('#pad-gap'); if(padGapEl)padGapEl.addEventListener('input',()=>
 const padStickEl=$('#pad-stick'); if(padStickEl)padStickEl.addEventListener('input',()=>setPadMm({stick:parseFloat(padStickEl.value)}));
 const padTravelEl=$('#pad-travel'); if(padTravelEl)padTravelEl.addEventListener('input',()=>setPadMm({travel:parseFloat(padTravelEl.value)}));
 const padDpadEl=$('#pad-dpad'); if(padDpadEl)padDpadEl.addEventListener('input',()=>setPadMm({dpad:parseFloat(padDpadEl.value)}));
-const padDirSel=$('#pad-dir'); if(padDirSel){ padDirSel.value=padDir; padDirSel.addEventListener('change',()=>{ padDir=padDirSel.value; try{localStorage.setItem('incl_paddir',padDir);}catch(e){} applyDirStyle(); srSay('Direcional: '+(padDir==='cross'?'cruz (D-pad)':'analógico')+'.'); }); }
+const padDirSel=$('#pad-dir'); if(padDirSel){ padDirSel.value=padDir; padDirSel.addEventListener('change',()=>{ padDir=padDirSel.value; store.set('incl_paddir',padDir); applyDirStyle(); srSay('Direcional: '+(padDir==='cross'?'cruz (D-pad)':'analógico')+'.'); }); }
 const padPresetChild=$('#pad-preset-child'); if(padPresetChild)padPresetChild.addEventListener('click',()=>{ setPadMm({btn:12,gap:2.5,stick:16.5,travel:4,dpad:11.5}); srSay('Controles no tamanho de mão de criança (6 a 12 anos).'); });
 const padPresetAdult=$('#pad-preset-adult'); if(padPresetAdult)padPresetAdult.addEventListener('click',()=>{ setPadMm({btn:14,gap:4.5,stick:20,travel:5.5,dpad:14}); srSay('Controles no tamanho de mão de adulto.'); });
 // REMAPEAR a FUNÇÃO de cada botão de toque (9 posições → ação). Lido ao vivo pelos handlers de toque.
@@ -3172,10 +3172,10 @@ const TOUCH_ACT_LABELS={ left:'Andar à esquerda', right:'Andar à direita', up:
 const TOUCH_ACTS=['left','right','up','down','jump','run','especial','swap','pause'];
 const TOUCH_SLOTS=[ {k:'up',lbl:'Direcional ↑ (cima)'},{k:'down',lbl:'Direcional ↓ (baixo)'},{k:'left',lbl:'Direcional ← (esquerda)'},{k:'right',lbl:'Direcional → (direita)'},{k:'start',lbl:'START (enter)'},{k:'b0',lbl:'Botão 0 (baixo)'},{k:'b1',lbl:'Botão 1 (direita)'},{k:'b2',lbl:'Botão 2 (esquerda)'},{k:'b3',lbl:'Botão 3 (cima)'} ];
 const TOUCH_DEFAULT={ up:'up',down:'down',left:'left',right:'right',start:'pause',b0:'jump',b1:'especial',b2:'run',b3:'swap' };
-let touchMap=(()=>{ try{ const s=JSON.parse(localStorage.getItem('incl_touchmap')); return Object.assign({},TOUCH_DEFAULT, s&&typeof s==='object'?s:{}); }catch(e){ return Object.assign({},TOUCH_DEFAULT); } })();
+let touchMap=(()=>{ const s=store.getJSON('incl_touchmap',null); return Object.assign({},TOUCH_DEFAULT, s&&typeof s==='object'?s:{}); })();
 function renderTouchMap(){ const el=$('#touchmap-list'); if(!el)return;
   el.innerHTML=TOUCH_SLOTS.map(s=>`<div class="ctrl-row"><label for="tm-${s.k}">${s.lbl}</label><select id="tm-${s.k}" class="vol" data-slot="${s.k}">${TOUCH_ACTS.map(a=>`<option value="${a}"${touchMap[s.k]===a?' selected':''}>${TOUCH_ACT_LABELS[a]}</option>`).join('')}</select></div>`).join('');
-  el.querySelectorAll('select[data-slot]').forEach(sel=>sel.addEventListener('change',()=>{ touchMap[sel.dataset.slot]=sel.value; try{localStorage.setItem('incl_touchmap',JSON.stringify(touchMap));}catch(e){} srSay((sel.previousElementSibling?sel.previousElementSibling.textContent:'Botão')+': '+TOUCH_ACT_LABELS[sel.value]+'.'); }));
+  el.querySelectorAll('select[data-slot]').forEach(sel=>sel.addEventListener('change',()=>{ touchMap[sel.dataset.slot]=sel.value; store.setJSON('incl_touchmap',touchMap); srSay((sel.previousElementSibling?sel.previousElementSibling.textContent:'Botão')+': '+TOUCH_ACT_LABELS[sel.value]+'.'); }));
 }
 // JOGAR COM OS OLHOS (webcam): WebGazer lazy (CDN no 1º uso; futuro: vendorizar p/ offline). Olhar esq/dir anda; olhar p/ cima pula.
 let eyeMode=false, _eyeKeys={left:false,right:false,up:false};
