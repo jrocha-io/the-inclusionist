@@ -40,6 +40,7 @@ import { initCoins, findCoinCandidates, pickCoins, positionEasyCoins, takeCoin }
 import { srSay, srAlert, setVlibrasSay } from './core/a11y-sr.js'; // Estágio 4 (Tier 1): anúncios p/ leitor de tela (+ Libras injetado)
 import { CRT, crtScanVars, applyCrt } from './render/crt.js'; // Estágio 4 (Tier 1): estética CRT (scanlines/vinheta/cantos)
 import { initMinimap, markSeen, redrawMinimapIfDirty, drawMinimapPlayer, resetMinimap, setMinimapCorner, setMinimapVisible, getMinimap, minimapSeenCount } from './render/minimap.js'; // Estágio 4 (Tier 1): minimapa + fog-of-war
+import { vlibrasSay, vlibrasOpen, toggleLibras, vlTick, librasOpen, LIBRAS_RESERVE, setOnLibrasChange } from './ui/vlibras.js'; // Estágio 4 (Tier 1): intérprete VLibras (modo pessoa surda)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -421,21 +422,8 @@ const anyOf=(arr)=>arr.some(k=>keys.has(k));
 // held(pl,act) movido p/ input/state.js (Fase 2.22) // teclado OU gamepad do jogador
 
 /* ===================== a11y ===================== */
-/* VLibras: com o painel ABERTO, as narrações do jogo vão para o intérprete. O plugin traduz o TEXTO do
-   elemento CLICADO — usamos um nó quase invisível e disparamos o clique. Fila de 1 (tradução leva ~s;
-   fala nova substitui a pendente). _vlOpen é setado pelo vlTick (evita TDZ de librasOpen no boot). */
-let _vlOpen=false,_vlNode=null,_vlBusyUntil=0,_vlNext=null;
-function vlibrasSay(text){ if(!_vlOpen||!text)return;
-  const now=Date.now();
-  if(now<_vlBusyUntil){ _vlNext=text; return; }
-  _vlBusyUntil=now+4000;
-  if(!_vlNode){ _vlNode=document.createElement('span'); _vlNode.setAttribute('aria-hidden','true');
-    _vlNode.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:.01;z-index:1;pointer-events:auto';
-    document.body.appendChild(_vlNode); }
-  _vlNode.textContent=text; try{ _vlNode.click(); }catch(e){}
-  setTimeout(()=>{ const nx=_vlNext; _vlNext=null; _vlBusyUntil=0; if(nx)vlibrasSay(nx); },4100);
-}
-setVlibrasSay(vlibrasSay); // core/a11y-sr (Estágio 4): srSay/srAlert extraídos; aqui registramos o VLibras p/ a fala em Libras
+// vlibrasSay + _vl* + vlibrasOpen/toggleLibras/vlTick/librasOpen/LIBRAS_RESERVE extraídos p/ ui/vlibras.js (Estágio 4, Tier 1).
+setVlibrasSay(vlibrasSay); // registra a fala em Libras (ui/vlibras) no core/a11y-sr
 
 /* ===== E9: áudio (WebAudio) + legendas (C1) + assistência (C2) ===== */
 // SFX (definições de som) extraído p/ platform/audio.js (Fase 2).
@@ -3020,15 +3008,7 @@ function hideTips(){} // dicas de início REMOVIDAS (José 2026-07-04); stub man
    Usa o BOTÃO NATIVO do VLibras (reposicionado à direita do jogo). Detecta abertura/fechamento
    por polling e, ao abrir, reserva o slot 5:9 (jogo desloca à esquerda, conjunto 21:9 centraliza)
    e encaixa+escala o painel no slot. */
-let librasOpen=false;
-const vwBtn=()=>document.querySelector('[vw-access-button]');
-function vlibrasOpen(){ const b=vwBtn(); if(!b)return false; const r=b.getBoundingClientRect(); return r.width===0||r.height===0||b.offsetParent===null; }
-// Liga/desliga o intérprete de Libras (modo pessoa surda). Abre clicando o botão de acesso do VLibras; fecha pelo
-// evento oficial do widget (pesquisa 2026-07-04: widget é DOM/Unity na própria origem, não iframe).
-function toggleLibras(){ const b=vwBtn(); if(!b){ srAlert('Intérprete de Libras ainda carregando — tente de novo em instantes.'); return; }
-  if(vlibrasOpen()){ try{ window.dispatchEvent(new CustomEvent('vp-widget-close')); }catch(e){} }
-  else { try{ b.click(); }catch(e){} } }
-const LIBRAS_RESERVE=380; // px reservados p/ o painel do VLibras quando aberto
+// librasOpen/vwBtn/vlibrasOpen/toggleLibras/LIBRAS_RESERVE/vlTick → ui/vlibras.js (Estágio 4, Tier 1). layout() segue aqui (ui/layout depois).
 function layout(){
   const wrap=$('#stage-wrap'); if(!wrap)return;
   // ao abrir o VLibras, reserva espaço à direita → o jogo desloca p/ a esquerda e o conjunto centraliza
@@ -3061,9 +3041,8 @@ function layout(){
   if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
   if(/[?&]debug=true/.test(location.search))console.info(`[escala] kDev=${kDev}× px REAIS (canvas físico ${baseW*kDev}×${baseH*kDev} = múltiplo INTEIRO de ${baseW}×${baseH}); CSS ${Math.round(baseW*k)}×${Math.round(baseH*k)} (k=${k.toFixed(3)}, dpr=${dpr})`); // José confirma: os PIXELS REAIS são múltiplo inteiro
 }
-function vlTick(){ const o=vlibrasOpen(); _vlOpen=o; if(o!==librasOpen){ librasOpen=o; layout();
-  if(o)vlibrasSay('Tradução em Libras ligada.'); } }
 addEventListener('resize', layout);
+setOnLibrasChange(layout); // ui/vlibras: reflui o layout ao abrir/fechar o intérprete (callback injetado)
 setInterval(vlTick, 250);
 layout(); requestAnimationFrame(layout); setTimeout(layout, 1500);
 window.__incl.layout=layout; window.__incl.get_librasOpen=()=>librasOpen;
