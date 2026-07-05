@@ -2,7 +2,7 @@
 
 Pedido do José em 2026-07-03: o jogo precisa suportar vários idiomas. Começar por **pt-BR**, adicionar já
 **inglês** e **espanhol** (as duas línguas da BNCC), e no futuro a lista comercial (mandarim, hindi, indonésio,
-japonês, coreano, francês, alemão, finlandês). Integrado à modularização (`plano-modularizacao.md`) — o i18n
+japonês, coreano, francês, alemão, finlandês). Integrado à modularização (`5-Refactoring/plano-modularizacao.md`) — o i18n
 vira um dos primeiros módulos, porque toca em tudo.
 
 ---
@@ -71,7 +71,7 @@ script CJK existir.
    diálogos…) já sai com seus literais trocados por `t()`/`data-i18n` e as chaves no `pt.js` — **uma tocada só
    por trecho de código**. Os lotes já feitos (título, pausa) são a largada dos futuros `ui/*` (chaves prontas,
    não retrabalho). As strings estáticas do `index.html` (diálogos) casam com a extração do módulo que as
-   controla. Ver `plano-modularizacao.md`.
+   controla. Ver `5-Refactoring/plano-modularizacao.md`.
 3. **Voz por locale:** `localeVoice()`; seletor 🌐; persistência + default por navegador.
 4. **en + es (UI + Matemática + Lúdico):** `i18n/en.js`, `i18n/es.js`; TTS en/es; Alfabetização fica pt
    (rótulo "disponível em português") até os pacotes de currículo.

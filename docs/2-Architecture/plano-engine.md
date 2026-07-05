@@ -2,7 +2,7 @@
 
 Pedido do José em 2026-07-03: planejar uma engine para o jogo. Decisão travada: **sob medida para ESTE jogo
 agora** (não uma engine genérica dos 35+ jogos — extrai-se o núcleo comum depois, já sabendo o que se repete).
-A engine **não é um rewrite**: ela é o **destino formalizado da modularização** (`plano-modularizacao.md`),
+A engine **não é um rewrite**: ela é o **destino formalizado da modularização** (`../5-Refactoring/plano-modularizacao.md`),
 alcançada de forma incremental. Pilares herdados: **no-build, offline/PWA, a11y-first, enxuta**.
 
 ## 1. Referências estudadas

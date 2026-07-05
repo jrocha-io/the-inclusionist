@@ -22,7 +22,7 @@ no manual version bump is needed for clients to update.
 ## Release (versioning)
 
 Not part of CI. Cutting a version is a **local, human-run** step: `release-it` (Conventional-Commits changelog +
-tag). The build stamps `__BUILD__` from `git describe`. See `../plano-versionamento.md`.
+tag). The build stamps `__BUILD__` from `git describe`. See `plano-versionamento.md`.
 
 ## Notes / TODO
 

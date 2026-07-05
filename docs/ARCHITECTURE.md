@@ -61,18 +61,21 @@ docs/
 │   ├── Feature-Flags.md · DFD.md · STRIDE.md · CI-CD.md
 │   ├── K8s-Manifests.md       #   note: when K8s becomes worth it (deferred)
 │   ├── learning-interop.md    #   xAPI/Caliper/LTI/AfA… e-learning standards (deferred) — ADR-0004
-│   └── backend-cloud-roadmap.md   # staged AWS/backend adoption + which docs when
+│   ├── backend-cloud-roadmap.md   # staged AWS/backend adoption + which docs when
+│   └── plano-engine.md · plano-typescript-vite.md · plano-versionamento.md   # engine TDD · toolchain · release
 ├── 3-Sprint-Design/           # per-feature design
 │   ├── data-model/            #   DBML.md · Migrations.md · Normalization.md
 │   ├── api/                   #   OpenAPI.md · Pact.md
 │   ├── bdd/                   #   Gherkin acceptance for activities (pt-BR features)
-│   └── Test-Plan.md
+│   ├── Test-Plan.md
+│   └── plano-testes.md        #   test strategy (Vitest projects, ZOMBIES/Right-BICEP)
 ├── 4-Sprints/                 # execution (phase d)
 │   ├── TDD.md                 #   TDD/XP + Vitest (ZOMBIES/Right-BICEP); Test Case → Test-Plan
 │   ├── Commits.md             #   Conventional Commits + Closes #N
 │   └── Frontend.md            #   DOM activities: light-DOM WC + Atomic + Storybook (→ ADR-0002); canvas excluded
 ├── 5-Refactoring/             # improving (phase e)
-│   └── Engineering-Rules.md   #   DRY/SOLID/cohesion↑; supersede-don't-append; ADRs change in-sprint
+│   ├── Engineering-Rules.md   #   DRY/SOLID/cohesion↑; supersede-don't-append; ADRs change in-sprint
+│   └── plano-modularizacao.md · plano-modularizacao-mapa.md   # the modularization ADR (arXiv:2409.15152) + extraction map
 ├── 6-DevOps-SRE/              # phase f
 │   ├── CI-QA.md               #   axe-core a11y (now, verifies NFR) · k6 load (backend, verifies SLO)
 │   ├── Security-Pipeline.md   #   SAST/Dependabot (now) · DAST (backend) · Pentest (scheduled)

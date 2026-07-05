@@ -86,7 +86,7 @@ community.aseprite.org (frameTags→animations middleware; slices/pivot) · asep
 ## C. Impacto nas decisões anteriores
 - **`plano-editor-mapa.md`:** confirmado — texto-glifo + editor custom seguem. Tiled não muda nada (no máximo um
   conversor opcional futuro).
-- **`plano-engine.md`:** o subsistema **Render** ganha um `aseprite-loader.js` (se a decisão B for "adotar");
+- **`../2-Architecture/plano-engine.md`:** o subsistema **Render** ganha um `aseprite-loader.js` (se a decisão B for "adotar");
   o subsistema **Entidades** consome `animations`. O **alto-contraste** amarra o caminho ASCII/indexado — a
   engine deve mantê-lo como subsistema vivo, não descartável.
 - **Repo público (GPL):** aviso lateral — a **procedência/licença dos PNGs atuais** (PixelLab) precisa ser

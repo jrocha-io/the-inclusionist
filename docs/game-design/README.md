@@ -23,7 +23,7 @@ minigames so far. The artifact that names *where* a mechanic can carry a learnin
 - **Art pipeline plans:** [plano-arte-procedural.md](plano-arte-procedural.md) · [plano-tiled-aseprite.md](plano-tiled-aseprite.md).
 - **Level design:** [plano-cenario-cidade.md](plano-cenario-cidade.md) (the city level; its beat chart marks activity insertion points).
 - **Per-game one-sheets** — a short pitch + core loop + its learning objective, created as each minigame is built.
-- **Engine (TDD)** stays in `../2-Architecture/` + `../plano-engine.md`; **map/art tooling** in `../plano-editor-mapa.md`.
+- **Engine (TDD)** stays in `../2-Architecture/` + `../2-Architecture/plano-engine.md`; **map/art tooling** in `../plano-editor-mapa.md`.
 
 ## Not here (ADR-0009)
 

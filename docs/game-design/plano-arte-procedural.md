@@ -67,7 +67,7 @@ Reusa as pesquisas de `plano-tiled-aseprite.md` — agora como **parsers de impo
   contorno presente.
 - Reusa `art/palettes.js` e o motor de render do jogo (uma verdade só; valida as fronteiras da engine).
 
-## 8. Encaixe na engine (`plano-engine.md`)
+## 8. Encaixe na engine (`../2-Architecture/plano-engine.md`)
 - Novo subsistema **Arte/Material** (`art/`): `semantic.js` (formato+parse), `palettes.js` (dicionário),
   `recolor.js` (motor de composição). O subsistema **Render** consome texturas já compostas; as **Entidades**
   pedem "personagem com pele=X, camisa=Y". **Tiles** idem (material por tipo).

@@ -1,7 +1,7 @@
 # Plano de Testes — The Inclusionist
 
 Testes de unidade dos módulos, escritos **conforme cada módulo é extraído** (decisão do José, 2026-07-04; ver
-`plano-modularizacao.md` §8). Padrões adotados: **ZOMBIES** (didático) + **Right-BICEP** (rigor obrigatório).
+`../5-Refactoring/plano-modularizacao.md` §8). Padrões adotados: **ZOMBIES** (didático) + **Right-BICEP** (rigor obrigatório).
 
 ## 1. Por que testar por extração (e com redundância)
 O momento da extração é quando o contrato do módulo está mais claro → teste mais barato de escrever, e rede de

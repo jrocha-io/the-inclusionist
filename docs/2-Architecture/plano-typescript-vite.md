@@ -61,7 +61,7 @@ Objetivo: provar que o toolchain roda com o mínimo de mudança (PIXI segue glob
 - Cada conversão: `tsc --noEmit` limpo + testes verdes.
 
 ### Estágio 4 — Retomar a modularização em `.ts`
-- O resto do mapa (`plano-modularizacao-mapa.md`) segue, mas cada extração já nasce `.ts` tipada. O `game.ts`
+- O resto do mapa (`../5-Refactoring/plano-modularizacao-mapa.md`) segue, mas cada extração já nasce `.ts` tipada. O `game.ts`
   (ex-`game.js`) encolhe até virar `main.ts` (composition root).
 
 ## Deploy (Cloudflare Pages) — ação do José

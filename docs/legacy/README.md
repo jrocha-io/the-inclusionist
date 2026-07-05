@@ -17,3 +17,4 @@ Migration round 1 (2026-07-05) — archived after their live content was salvage
 | `TODO.md` | v3.1.x shared task list | live items → GitHub issues #12–#20 |
 | `PLANO-EXECUCAO.md` | Lotes L0–L9 | Lotes superseded by Fases 0–6; Quiz-5-levels superseded by `plano-alfabetizacao` (6 games); Live2D/Libras → separate parked project; open Lotes → issues |
 | `DIRETRIZES-VISUAIS-E-FISICA.md` | José's 2026-06-01 visual/physics directives | mostly implemented (REGISTRO §8); enduring art rules → `game-design/Art-Bible.md` + `plano-arte-procedural` |
+| `plano-reorganizacao-deploy.md` | v4.0.0/ → app/ reorg + GitHub + CF Pages | **implemented** (app/ live on CF Pages); current deploy in `2-Architecture/CI-CD.md` |

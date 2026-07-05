@@ -11,7 +11,7 @@ One file per deliberate architectural decision, in **YADR** format — the YAML 
 - **Naming:** `ADR-NNNN-short-slug.yaml`, 4-digit zero-padded, monotonic.
 - **Immutable:** to change a decision, write a **new** ADR and set the old one's `metadata.status` to
   `"superseded by ADR-NNNN"`. Never edit an accepted decision — refactors **supersede**, they don't pile up.
-- **Big design docs that *are* a decision** (e.g. the modularization plan, `../../plano-modularizacao.md`, built on
+- **Big design docs that *are* a decision** (e.g. the modularization plan, `../../5-Refactoring/plano-modularizacao.md`, built on
   arXiv:2409.15152) act as ADRs too — link them from the table rather than duplicating.
 - **Upgrade path:** if LGPD/compliance needs an audited, CI-validated decision log, adopt **Structured MADR**
   ([smadr.dev](https://smadr.dev/)) — our YAML frontmatter is already close.

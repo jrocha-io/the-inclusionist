@@ -31,4 +31,4 @@ decided; but items can be pulled into gaps if preferred.
 
 - **Fase 0** (deploy) — done (public repo + Cloudflare Pages).
 - **Fase 2** (engine spine / modularization) — in progress (the current work).
-- **Migration to TS + Vite** adopted 2026-07-04 (supersedes the old "no build" preference) — `plano-typescript-vite.md`.
+- **Migration to TS + Vite** adopted 2026-07-04 (supersedes the old "no build" preference) — `2-Architecture/plano-typescript-vite.md`.
