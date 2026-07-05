@@ -2,16 +2,19 @@
 
 The automated quality gates that run in the pipeline (`.github/workflows/ci.yml`). Split by "now" vs "with backend".
 
-## a11y — axe-core  ✅ adopt now
+## a11y — axe-core  ✅ adopt now (#10)
 
-Runs in the Vitest **browser** project (Playwright) against the DOM layer (in-game a11y shell now; the DOM
-activities later). **Purpose: verify the WCAG requirements *declared* in [`../1-Discovery/NFR.md`](../1-Discovery/NFR.md)** —
-without this, NFR states the WCAG target but nothing enforces it. This closes that loop.
+**`scripts/axe-check.mjs`** runs axe-core against the **RUNNING app** (Playwright → the `vite preview` server) — the
+reliable method (live DOM **with CSS**; a DOM-injection unit test gives false contrast/visibility results). Matches the
+old AUDITORIA-E13 (which found 0 violations). Excludes the third-party **VLibras** widget. **Purpose: verify the WCAG
+requirements *declared* in [`../1-Discovery/NFR.md`](../1-Discovery/NFR.md)** — without this, NFR states the target but
+nothing enforces it.
 
-- Scope: DOM (menus, `aria-live`, roles, contrast on DOM UI). The **canvas** render is not axe-testable — its a11y is
-  the DOM shell + captions, which axe *does* cover.
-- Owner: the a11y gate fails CI on a new WCAG-A/AA violation in declared scope.
-- Setup tracked as a GitHub issue (Dev runs CI).
+- Scope: the DOM shell (menus, `aria-live`, roles, labels, contrast on DOM UI). The **canvas** render isn't
+  axe-testable — its a11y IS the DOM shell + captions, which axe covers.
+- Gate: fails CI on any WCAG-A/AA violation in our app.
+- **Dev steps** (Node runs on the Dev's side): `npm i -D @axe-core/playwright` → `npm run build && npm run preview` →
+  `AXE_URL=http://localhost:4173/ node scripts/axe-check.mjs`; then a CI job that builds + previews + runs it.
 
 ## Load / performance — k6  ⏸ defer to backend
 
