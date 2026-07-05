@@ -8,6 +8,7 @@ import * as tiles from './core/tiles.js'; // legend + parser do mapa em glifo
 import * as store from './platform/storage.js'; // camada de persistência
 import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue, vizMode, initVizMode, setVizModeValue, coins, setCoins, players } from './core/state.js'; // estado (as 8 mega-variáveis)
 import { startLoop } from './core/loop.js'; // driver do loop
+import { initDebugPanel } from './ui/debug-panel.js'; // painel ?debug (Tier 1)
 import { loadKB, saveKB, resetKB } from './input/keyboard.js'; // Fase 2: config de teclado (subsistema input)
 import { AUDIO_CATS } from './platform/audio-mixer.js'; // Fase 2: categorias do mixer (dados); audioCat/catNode/setCatGain vêm de audio.js
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)
@@ -3309,59 +3310,8 @@ function showTouchControls(){ if(numPlayers>1 || phase!=='playing' || players.so
   window.__incl.showTouch=()=>{ tc.hidden=false; }; // p/ testes em desktop
 })();
 
-/* ===================== ?debug=true: painel de afinação ao vivo (cadência etc.) ===================== */
-(function debugPanel(){
-  if(!/[?&]debug=true/.test(location.search)) return;
-  const KNOBS=[
-    {h:'Movimento (valores absolutos)'},
-    {label:'Velocidade de andar', get:()=>TUNE.hWalk, set:v=>TUNE.hWalk=v, min:0.5, max:5, step:0.1},
-    {label:'Velocidade de correr', get:()=>TUNE.hRun, set:v=>TUNE.hRun=v, min:1, max:7, step:0.1},
-    {label:'Super-corrida (turbo)', get:()=>TUNE.hTurbo, set:v=>TUNE.hTurbo=v, min:1, max:9, step:0.1},
-    {label:'Pulo (impulso inicial)', get:()=>TUNE.jumpVel, set:v=>TUNE.jumpVel=v, min:1, max:8, step:0.1},
-    {label:'Ultra-pulo', get:()=>TUNE.ultraJumpVel, set:v=>TUNE.ultraJumpVel=v, min:3, max:16, step:0.1},
-    {label:'Trampolim (base)', get:()=>TUNE.trampBase, set:v=>TUNE.trampBase=v, min:2, max:10, step:0.1},
-    {label:'Trampolim (máximo)', get:()=>TUNE.trampMax, set:v=>TUNE.trampMax=v, min:3, max:14, step:0.1},
-    {label:'Nado: impulso', get:()=>TUNE.waterJump, set:v=>TUNE.waterJump=v, min:1, max:7, step:0.1},
-    {label:'Nado: impulso correndo', get:()=>TUNE.waterJumpRun, set:v=>TUNE.waterJumpRun=v, min:1, max:8, step:0.1},
-    {label:'Nado: quadros/braçada', get:()=>TUNE.waterStrokeFrames, set:v=>TUNE.waterStrokeFrames=v, min:10, max:60, step:1},
-    {label:'Escalada (velocidade)', get:()=>TUNE.climbSpeed, set:v=>TUNE.climbSpeed=v, min:0.5, max:4, step:0.1},
-    {label:'Gravidade', get:()=>TUNE.gravity, set:v=>TUNE.gravity=v, min:0.05, max:0.4, step:0.01},
-    {label:'Queda máxima', get:()=>TUNE.maxFall, set:v=>TUNE.maxFall=v, min:3, max:14, step:0.5},
-    {label:'Queda máxima na água', get:()=>TUNE.waterMaxFall, set:v=>TUNE.waterMaxFall=v, min:1, max:8, step:0.5},
-    {h:'Animação (cadência: ticks/quadro)'},
-    {label:'Andar', get:()=>ANIM.walkHold, set:v=>ANIM.walkHold=v, min:1, max:20, step:1, cad:true},
-    {label:'Correr', get:()=>ANIM.runHold, set:v=>ANIM.runHold=v, min:1, max:20, step:1, cad:true},
-    {label:'Parado (idle)', get:()=>ANIM.idleHold, set:v=>ANIM.idleHold=v, min:2, max:40, step:1, cad:true},
-    {label:'Nado', get:()=>ANIM.swimHold, set:v=>ANIM.swimHold=v, min:2, max:24, step:1, cad:true},
-    {h:'Juice (efeitos de resposta) — toggles independentes'},
-    {label:'💨 Poeira (pulo/pouso/corrida)', chk:()=>JUICE.dust,    set:v=>{JUICE.dust=v;saveJuice();}},
-    {label:'✨ Brilho ao coletar',           chk:()=>JUICE.sparkle, set:v=>{JUICE.sparkle=v;saveJuice();}},
-    {label:'🤸 Squash & stretch',            chk:()=>JUICE.squash,  set:v=>{JUICE.squash=v;saveJuice();}},
-    {label:'⏱️ Hit-stop (impacto)',          chk:()=>JUICE.hitstop, set:v=>{JUICE.hitstop=v;saveJuice();}},
-    {label:'📳 Tremor de tela',              chk:()=>JUICE.shake,   set:v=>{JUICE.shake=v;saveJuice();}},
-    {label:'🌟 Cintilar dos itens',          chk:()=>JUICE.shimmer, set:v=>{JUICE.shimmer=v;saveJuice();}},
-  ]; // Estética CRT saiu daqui: agora mora no menu Sensibilidade visual (pedido do José)
-  const p=document.createElement('div'); p.id='debug-panel'; p.hidden=true; p.setAttribute('role','group'); p.setAttribute('aria-label','Painel de depuração'); // começa oculto; abre pelo botão 🐞 Debug
-  p.style.cssText='position:fixed;top:8px;right:8px;z-index:200;background:rgba(11,16,32,.97);color:#fff;border:2px solid #ffd23f;border-radius:8px;padding:.6rem .7rem;font:13px/1.4 system-ui,sans-serif;max-width:270px;max-height:86vh;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.5)';
-  p.innerHTML='<strong>🔧 ?debug — valores ao vivo</strong>';
-  KNOBS.forEach(k=>{
-    if(k.h){ const h=document.createElement('div'); h.textContent=k.h; h.style.cssText='margin:.7rem 0 .1rem;font-weight:700;color:#ffd23f;border-bottom:1px solid rgba(255,210,63,.4)'; p.appendChild(h); return; }
-    if(k.chk){ const row=document.createElement('label'); row.style.cssText='display:flex;gap:.4rem;align-items:center;margin-top:.4rem;font-size:12px;cursor:pointer';
-      const inp=document.createElement('input'); inp.type='checkbox'; inp.checked=k.chk();
-      inp.addEventListener('change',()=>k.set(inp.checked));
-      row.appendChild(inp); row.appendChild(document.createTextNode(k.label)); p.appendChild(row); return; }
-    const row=document.createElement('div'); row.style.cssText='margin-top:.5rem';
-    const lab=document.createElement('label'); lab.style.cssText='display:block;font-size:12px;margin-bottom:2px';
-    const val=document.createElement('strong'); val.style.cssText='color:#ffd23f;float:right';
-    const upd=()=>{ val.textContent = k.cad ? (k.get()+' ('+Math.round(60/k.get())+'fps)') : k.get(); };
-    lab.textContent=k.label; lab.appendChild(val);
-    const inp=document.createElement('input'); inp.type='range'; inp.min=k.min;inp.max=k.max;inp.step=k.step;inp.value=k.get(); inp.style.cssText='width:100%';
-    inp.setAttribute('aria-label',k.label);
-    inp.addEventListener('input',()=>{ k.set(parseFloat(inp.value)); upd(); });
-    row.appendChild(lab); row.appendChild(inp); p.appendChild(row); upd();
-  });
-  document.body.appendChild(p);
-})();
+/* ===================== ?debug=true: painel de afinação ao vivo (extraído → ui/debug-panel.ts) ===================== */
+initDebugPanel({ TUNE, ANIM, JUICE, saveJuice });
 
 /* ===================== PWA ===================== */
 // PWA/SW agora gerados pelo vite-plugin-pwa (Estágio 1); registro injetado no build. Ver vite.config.ts.
