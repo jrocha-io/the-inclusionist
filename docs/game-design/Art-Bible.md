@@ -1,7 +1,7 @@
 # Art Bible — visual system
 
 The visual style guide (ADR-0009 "art bible"). This is the **index** of the visual system; detail lives in the linked
-docs. **Much is already implemented** — the concrete decisions + commits are in `../REGISTRO-DE-DECISOES.md` §8; this
+docs. **Much is already implemented** — the concrete decisions + commits are in ADR-0018; this
 bible states the enduring rules.
 
 ## Core rule — art is data (GPL-clean)
@@ -35,7 +35,7 @@ The canonical font system (roster by role, evidence-based, licences) →
 
 Juice (dust, collect-glow, squash&stretch, hit-stop, screenshake, tile shimmer, camera easing) — **each an independent
 debug toggle**, plus a "low-performance" profile that turns all off. CRT scanlines + vignette as toggleable CSS
-overlays. Dedicated doc: **`Game-Feel.md`** *(to create — absorbs REGISTRO §8 + `../1-Discovery/plano-audio-fase-f.md`)*.
+overlays. Dedicated doc: **`Game-Feel.md`** *(to create — absorbs ADR-0018 + `../1-Discovery/plano-audio-fase-f.md`)*.
 
 ## Colour & accessibility
 

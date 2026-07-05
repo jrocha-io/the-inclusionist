@@ -1,0 +1,31 @@
+---
+metadata:
+  status: "accepted"
+  date: 2026-06-02
+  decision-makers: [Dev, AI]
+  consulted: []
+  informed: []
+
+title: Typography decisions (font roster, spacing)
+
+context-and-problem-statement: |
+  The font-system decisions. Was REGISTRO §2. The full evidence-based reference (roster by role, ABNT/DOI sources)
+  lives in ../../game-design/typography.md; this ADR records the DECISIONS.
+
+decision-outcome:
+  justification: |
+    Adopt the roster + spacing below; evidence (Zorzi 2012, Minakata/Beier 2022, BDA 2023) shows spacing matters more
+    than the font — so the safe bet is generous, adjustable spacing over any "magic" font.
+
+more-information: |
+  Decisions (was REGISTRO §2):
+  - **Canonical fonts:** Atkinson Hyperlegible (default), Andika (early literacy), Lexend (optional dyslexia/
+    dyscalculia/ADHD), Atkinson Hyperlegible Mono (math), Braille CC0. [game-design/typography.md canonical]
+  - **OpenDyslexic out of the canon** (weak/negative evidence) — available only by explicit user choice, no efficacy
+    claim.
+  - **Default spacing:** line ≥ 1.5×, letter ≥ 0.12em, word ≥ 0.16em, paragraph ≥ 2× (WCAG 1.4.12); Dyslexia toggle =
+    letter 0.18em + word 0.63em (British Dyslexia Association guide).
+  - **Own Typography menu** in pause (pt-BR pangram preview; 3 groups sans/serif/manuscript; one active font, radio).
+    [commit 450e96f]
+  - **Only SIL OFL 1.1 fonts embedded** (16 families, ~530KB, SW-cached). Learning Curve / Kindergarten Pro appear
+    DISABLED (licences pending — the foundry contact for Kindergarten Pro embedding is an open task).

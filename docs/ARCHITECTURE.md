@@ -51,7 +51,7 @@ docs/
 │   ├── Art-Bible.md           #   visual system index
 │   ├── character-animation.md #   layered character + animation spec (was ANIMACOES-PERSONAGEM)
 │   ├── typography.md          #   canonical font system (was referencia-tipografica-v6)
-│   ├── Game-Feel.md           #   juice/feel/camera (REGISTRO §8)
+│   ├── Game-Feel.md           #   juice/feel/camera (ADR-0018)
 │   ├── genre-catalog.md       #   the 35-genre minigame backlog
 │   ├── LM-GM-Map.md           #   learning-mechanic ↔ game-mechanic — the activity insertion points
 │   ├── plano-arte-procedural.md · plano-tiled-aseprite.md · plano-editor-mapa.md   # art pipeline · importers · map editor

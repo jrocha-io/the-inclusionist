@@ -30,3 +30,15 @@ One file per deliberate architectural decision, in **YADR** format — the YAML 
 | [ADR-0008](ADR-0008-multiplayer-scaling.yaml) | Multiplayer scaling: 4/screen → classroom LAN → internet after study | accepted |
 | [ADR-0009](ADR-0009-game-documentation-subset.yaml) | Game-dev doc subset (LM-GM + light per-game; defer networking; reject MMO/economy/live-ops) | accepted |
 | [ADR-0010](ADR-0010-non-negotiable-pillars.yaml) | The 10 non-negotiable pillars (constitution) — was PILARES-INEGOCIAVEIS | accepted |
+| [ADR-0011](ADR-0011-visual-accessibility.yaml) | Visual accessibility (high-contrast, colour-blind, low-vision, TEA) | accepted |
+| [ADR-0012](ADR-0012-typography.yaml) | Typography (font roster, spacing) | accepted |
+| [ADR-0013](ADR-0013-motor-input-accessibility.yaml) | Motor & input accessibility (touch, gamepad, keyboard, easy mode, wheelchair) | accepted |
+| [ADR-0014](ADR-0014-auditory-accessibility.yaml) | Auditory accessibility (mixer, blind mode, TTS) | accepted |
+| [ADR-0015](ADR-0015-pedagogy-and-game-modes.yaml) | Pedagogy & game modes (quiz levels, per-player, reduce-motion) | accepted |
+| [ADR-0016](ADR-0016-city-scenario-and-themes.yaml) | City scenario & theme decisions | accepted |
+| [ADR-0017](ADR-0017-compliance-and-data-governance.yaml) | Compliance & data governance (local-law-wins, RN-01..04) | accepted |
+| [ADR-0018](ADR-0018-art-and-visual-design.yaml) | Art & visual design (art=data, juice, CRT, CB-safe) | accepted |
+| [ADR-0019](ADR-0019-adopt-typescript-vite.yaml) | Adopt TypeScript + Vite (supersedes "no build") | accepted |
+
+> ADRs 0011–0019 replaced the informal `REGISTRO-DE-DECISOES.md` log (a decision is an ADR). The exhaustive per-row
+> detail of the old log is in git history; these ADRs carry the decisions + rationale.

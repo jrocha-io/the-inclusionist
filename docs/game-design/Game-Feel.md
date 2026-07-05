@@ -1,7 +1,7 @@
 # Game Feel — juice & camera
 
 How controlling the game *feels* (Swink's "game feel"). **Already implemented** — concrete decisions + commits in
-`../REGISTRO-DE-DECISOES.md` §8; this doc states the rules. Every effect is **individually toggleable** so it can be
+ADR-0018; this doc states the rules. Every effect is **individually toggleable** so it can be
 tested and switched off on weak target hardware.
 
 ## Juice effects (each an independent `?debug` toggle + a "low-performance" profile that disables all)

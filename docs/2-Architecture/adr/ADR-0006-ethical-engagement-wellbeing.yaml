@@ -59,4 +59,4 @@ decision-outcome:
 more-information: |
   From the Dev's product vision (drafted as messages to a teacher), 2026-07-05. Refines **pillar 7 (multiplayer)** to
   cooperative-only; the player-count/scaling decision is in **ADR-0008**. The "no Duolingo" instinct was already in
-  REGISTRO §5.10; this ADR makes it a first-class decision.
+  the former REGISTRO (now ADR-0018); this ADR makes it a first-class decision.

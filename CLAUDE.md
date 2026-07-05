@@ -102,7 +102,7 @@ navegador) e deixo o Dev rodar o Vitest. Padrões: **ZOMBIES** (didático) + **R
   `docs/3-Sprint-Design/` (data-model·api·bdd·Test-Plan), `4-Sprints`·`5-Refactoring`·`6-DevOps-SRE`·`7-Async-Systems`,
   `docs/research/` e `docs/legacy/`. **Discovery = software; pedagogia = educational/** (ADR-0004).
 - **Constantes do motor** (TILE_TYPES, TUNE, tiles, dimensões): `app/js/core/constants.ts` (fonte única, tipada).
-- **Planos legados** (`docs/plano-*.md`, `PESQUISA-*`, `PILARES-INEGOCIAVEIS`, `REGISTRO-DE-DECISOES`, etc.): **ainda
+- **Planos legados** (`docs/plano-*.md`, `PESQUISA-*`, etc.): **ainda
   na raiz de `docs/`**, sendo migrados **arquivo por arquivo, com revisão de conteúdo** (nada automático) para dentro
   da árvore canônica acima — issue `#1`. Até migrar, coexistem.
 

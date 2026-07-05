@@ -64,7 +64,7 @@ more-information: |
          Economy / balance spreadsheet  NOW*     DIFFICULTY/fairness tuning only — NOT a virtual economy
          State machine / Behavior tree  NOW      game AI (enemies, NPCs, attract-mode bot)
          Art bible + asset list         NOW      = DIRETRIZES-VISUAIS + ANIMACOES + plano-arte-procedural (migrate here)
-         Game feel / juice + camera     NOW      already ours (REGISTRO §8 juice; the juice toggles)
+         Game feel / juice + camera     NOW      already ours (ADR-0018 juice; the juice toggles)
     B    Netcode / replication /        DEFER    the whole real-time stack -> the internet-MP tier (ADR-0008 study)
          determinism / lag-comp
          Matchmaking / SBMM             REJECT   cooperative, no ranking/competition
