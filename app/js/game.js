@@ -37,6 +37,7 @@ import { rnd, randInt, shuffle } from './core/rng.js'; // Fase 2.26: RNG semeado
 import { initCollision, caneBlockPx, isSolidType, tileAt, solidTile, solidAt, surfTop, isWcRampRiser, rampSurfaceY } from './core/collision.js'; // Estágio 4: colisão de grade (determinística; ctx por closures)
 import { BOX, SPAWN_X, SPAWN_Y, makePlayer, jumpVel, isBouncyGroundBelow, touchingWall, clingSides, firstClingSide, spiderReattach, wrapConvex } from './game/player.js'; // Estágio 4: entidade + geometria de colisão do jogador
 import { initCoins, findCoinCandidates, pickCoins, positionEasyCoins, takeCoin } from './game/coins.js'; // Estágio 4: posicionamento dos coletáveis (pools vêm daqui)
+import { srSay, srAlert, setVlibrasSay } from './core/a11y-sr.js'; // Estágio 4 (Tier 1): anúncios p/ leitor de tela (+ Libras injetado)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -432,8 +433,7 @@ function vlibrasSay(text){ if(!_vlOpen||!text)return;
   _vlNode.textContent=text; try{ _vlNode.click(); }catch(e){}
   setTimeout(()=>{ const nx=_vlNext; _vlNext=null; _vlBusyUntil=0; if(nx)vlibrasSay(nx); },4100);
 }
-const srSay=(t)=>{const el=$('#sr-status');el.textContent='';requestAnimationFrame(()=>el.textContent=t); vlibrasSay(t);};
-const srAlert=(t)=>{const el=$('#sr-alert');el.textContent='';requestAnimationFrame(()=>el.textContent=t); vlibrasSay(t);};
+setVlibrasSay(vlibrasSay); // core/a11y-sr (Estágio 4): srSay/srAlert extraídos; aqui registramos o VLibras p/ a fala em Libras
 
 /* ===== E9: áudio (WebAudio) + legendas (C1) + assistência (C2) ===== */
 // SFX (definições de som) extraído p/ platform/audio.js (Fase 2).
