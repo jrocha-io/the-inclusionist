@@ -35,7 +35,7 @@ The canonical font system (roster by role, evidence-based, licences) →
 
 Juice (dust, collect-glow, squash&stretch, hit-stop, screenshake, tile shimmer, camera easing) — **each an independent
 debug toggle**, plus a "low-performance" profile that turns all off. CRT scanlines + vignette as toggleable CSS
-overlays. Dedicated doc: **`Game-Feel.md`** *(to create — absorbs REGISTRO §8 + `../plano-audio-fase-f.md`)*.
+overlays. Dedicated doc: **`Game-Feel.md`** *(to create — absorbs REGISTRO §8 + `../1-Discovery/plano-audio-fase-f.md`)*.
 
 ## Colour & accessibility
 

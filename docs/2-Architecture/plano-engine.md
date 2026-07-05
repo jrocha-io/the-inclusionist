@@ -27,7 +27,7 @@ alcançada de forma incremental. Pilares herdados: **no-build, offline/PWA, a11y
 |---|---|---|---|
 | **Loop** | `core/loop.js` | passo fixo `update(dt)` + `render()`; hoje é `app.ticker` | a extrair |
 | **Estado/Cena** | `core/state.js` | fonte única: `phase` (máquina), players, coins, entidades, event bus | a extrair (era o próximo passo) |
-| **Nível/Tilemap** | `core/world.js` + `core/tiles.js` + `assets/levels/*.map.txt` | grid, `tileAt`, colisão de tile, **legend/parser** | `world.js` já isolado; formato → `plano-editor-mapa.md` |
+| **Nível/Tilemap** | `core/world.js` + `core/tiles.js` + `assets/levels/*.map.txt` | grid, `tileAt`, colisão de tile, **legend/parser** | `world.js` já isolado; formato → `../game-design/plano-editor-mapa.md` |
 | **Física** | `core/physics.js` | `resolveX/Y`, movimento, água/escada/trampolim | a extrair |
 | **Input** | `input/{keyboard,gamepad,touch}.js` | dispositivos → ações normalizadas | a extrair |
 | **Render** | `render/{pixi-app,viewport,parallax,direct-viz}.js` | façade PIXI, viewports, modos visuais a11y | a extrair |
@@ -53,7 +53,7 @@ O editor (`tools/map-editor.html`) é o **primeiro consumidor externo** dos mód
 jogo inteiro, as **fronteiras da engine estão certas**. Ou seja: o editor valida a modularização na prática.
 
 ## 6. Sequência (encaixa na Fase B da modularização, sem rewrite)
-1. **Tilemap primeiro** (`plano-editor-mapa.md`): `core/tiles.js` (legend) + `parseLevel` no `world.js` +
+1. **Tilemap primeiro** (`../game-design/plano-editor-mapa.md`): `core/tiles.js` (legend) + `parseLevel` no `world.js` +
    migração p/ `.map.txt` + boot async. Fecha o subsistema Nível e destrava o editor.
 2. **Editor** `tools/map-editor.html` (valida as fronteiras).
 3. **`core/state.js`** (a mega-barreira) — agora com o alvo claro: é o subsistema Estado/Cena da engine;
@@ -69,6 +69,6 @@ jogo inteiro, as **fronteiras da engine estão certas**. Ou seja: o editor valid
 - **Não** é um rewrite: cada subsistema nasce de uma extração verificável do monólito, sem mudar comportamento.
 
 ## 8. Decisão pendente (José)
-Aprovar (a) o formato de mapa + editor (`plano-editor-mapa.md`) e (b) esta arquitetura de subsistemas como
+Aprovar (a) o formato de mapa + editor (`../game-design/plano-editor-mapa.md`) e (b) esta arquitetura de subsistemas como
 alvo da Fase B. Com o aval, começo pela **Etapa 1 do tilemap** (`core/tiles.js` + `parseLevel`, sem mudar o
 jogo), que é a base do editor e do subsistema Nível.

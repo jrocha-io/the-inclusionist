@@ -40,7 +40,8 @@ docs/
 ├── 1-Discovery/               # SOFTWARE / engine requirements & design (NOT pedagogy — that's educational/)
 │   ├── User-Stories.md        #   engine/game features — negotiable layer
 │   ├── NFR.md                 #   non-functional reqs + the 10 pillars      ← PILARES-INEGOCIAVEIS
-│   └── Event-Storming.md      #   DDD events — deferred (telemetry + Student Manager)
+│   ├── Event-Storming.md      #   DDD events — deferred (telemetry + Student Manager)
+│   └── plano-acessibilidade.md · plano-audio-fase-f.md · plano-tts-fase-f5.md · plano-i18n.md   # a11y/audio/i18n design
 ├── educational/               # CURRICULUM / pedagogy layer (pt-BR domain) — see ADR-0004
 │   ├── Learning-Objectives.md #   measurable objectives (BNCC + Mager) — absorbs old SRS
 │   ├── Curriculum-Map.md      #   scope & sequence, BNCC coverage (+ Instituto Reúna focus-map)
@@ -53,7 +54,7 @@ docs/
 │   ├── Game-Feel.md           #   juice/feel/camera (REGISTRO §8)
 │   ├── genre-catalog.md       #   the 35-genre minigame backlog
 │   ├── LM-GM-Map.md           #   learning-mechanic ↔ game-mechanic — the activity insertion points
-│   ├── plano-arte-procedural.md · plano-tiled-aseprite.md   # art pipeline + importers
+│   ├── plano-arte-procedural.md · plano-tiled-aseprite.md · plano-editor-mapa.md   # art pipeline · importers · map editor
 │   └── plano-cenario-cidade.md #   city level design
 ├── 2-Architecture/            # system architecture & decisions
 │   ├── C4-Context.md          #   C4 Level 1 (L2 with backend)

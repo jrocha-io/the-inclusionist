@@ -8,7 +8,7 @@
 
 - **Incremental, no behavior change:** each step = one atomic commit, verified in the preview, game identical.
 - **Don't do work a foundational decision would invalidate** — that's why format/engine come before features.
-- **Localize as you go (i18n):** every extracted UI module ships with `t()`/`data-i18n` (see `plano-i18n.md` §4.2).
+- **Localize as you go (i18n):** every extracted UI module ships with `t()`/`data-i18n` (see `1-Discovery/plano-i18n.md` §4.2).
 - **Pillars:** offline/PWA, lean runtime, a11y-first, GPL-clean.
 
 ## Phases and why this order (by dependency)
