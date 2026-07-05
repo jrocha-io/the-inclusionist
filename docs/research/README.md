@@ -8,4 +8,6 @@ the docs consolidation (issue #1).
 
 ## Contents
 
-- _(to be populated by the consolidation)_
+- **`AUDITORIA-E13-axe.md`** — axe-core a11y audit (2026-06-01, v4.0.0): 0 WCAG A/AA violations in our app;
+  the 5 ADR-001 validation gates (hardware/screen-reader/children) → tracked as issues #12–#14, #19. Evidence for the
+  a11y claims; the reproduction snippet lives here.

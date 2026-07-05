@@ -9,4 +9,11 @@ and source docs after they are folded into a canonical file (e.g. the three visu
 
 ## Contents
 
-- _(to be populated by the consolidation)_
+Migration round 1 (2026-07-05) — archived after their live content was salvaged:
+
+| File | Was | Salvage went to |
+|---|---|---|
+| `ROADMAP-E1-E13.md` | old vertical-slice roadmap (E1–E13) | superseded by Fases 0–6 (plano-mestre); E8 Braille → `plano-alfabetizacao` (alf5); E11 multiplayer → realized in code (P7) |
+| `VERTICAL-SLICE.md` | very early v4.0.x plan | recolor/art-as-data already in `plano-arte-procedural`; nothing unique |
+| `TODO.md` | v3.1.x shared task list | live items → GitHub issues #12–#20 |
+| `PLANO-EXECUCAO.md` | Lotes L0–L9 | Lotes superseded by Fases 0–6; Quiz-5-levels superseded by `plano-alfabetizacao` (6 games); Live2D/Libras → separate parked project; open Lotes → issues |
