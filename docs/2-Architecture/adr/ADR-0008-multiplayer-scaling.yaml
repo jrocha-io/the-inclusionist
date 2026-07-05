@@ -55,4 +55,6 @@ decision-outcome:
 
 more-information: |
   From the Dev (2026-07-05). Supersedes the player-count question in ADR-0006. Refines pillar 7 (separate-screen MP)
-  and pillar 9 (LAN + store-and-forward). The internet-MP security study is a future task/ADR.
+  and pillar 9 (LAN + store-and-forward). The internet-MP security study is
+  `../../research/internet-multiplayer-security.md` (#29) — its core rule: children never contact strangers online;
+  any internet MP is adult-mediated, closed, no open chat. It must become a STRIDE pass + an ADR before implementation.

@@ -28,3 +28,5 @@ Migration round 2 (2026-07-05) — studies relocated intact (their findings feed
   NFR (testable rules) + adr (decisions). *Engineering summaries, not legal advice.*
 - **`LACUNAS-V3-vs-V4.md`** — v3→v4 gap analysis (2026-06-01, 4 subagents). Mostly closed since; the open
   character-diversity items → `game-design/plano-arte-procedural.md` + `character-animation.md`.
+- **`internet-multiplayer-security.md`** (#29) — threat model for the deferred internet-MP tier (ADR-0008): the
+  "no stranger contact / adult-mediated closed sessions / no open chat" rule + STRIDE + child-safety. Feeds a future ADR.
