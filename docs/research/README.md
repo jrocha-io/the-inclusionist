@@ -22,3 +22,7 @@ Migration round 2 (2026-07-05) — studies relocated intact (their findings feed
 | `LICENCAS-GERACAO-IMAGEM.md` | AI-image-gen licensing vs GPL (draft, validate w/ legal) → art pipeline |
 | `AVALIACAO-ADVERSARIAL-PREMORTEM.md` | risk/red-team assessment → NFR + roadmap |
 | `auditoria-v3-riqueza-ambiente.md` · `auditoria-creditos-pixellab.csv` | evidence for the procedural-art pillar |
+
+- **`compliance-legal.md`** — legal/compliance analysis extracted from PILARES (P4/P5/P6/P10): region regimes
+  (LGPD/COPPA/PIPL/GDPR), the local-law-wins model, RN-01..04, ABNT NBR 15290 (Libras), funding × licensing. Feeds
+  NFR (testable rules) + adr (decisions). *Engineering summaries, not legal advice.*
