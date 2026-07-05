@@ -59,6 +59,9 @@ docs/
 > **Deferred-but-homed:** many 2-/3-/6- artifacts are stubs that record *where/when/how* an artifact activates
 > (e.g. DBML at the corpus DB, OpenAPI/Pact at the backend, K8s at stage 4). The stub **is** the decision — it exists
 > so the choice isn't improvised later; it is not empty ceremony.
+>
+> **Not in `docs/`:** the **executable backlog** lives in **GitHub Projects + Issues** (`jrocha-io/the-inclusionist`),
+> not in a Markdown file — `ROADMAP.md` is the strategy, issues are the granular work. See `../CONTRIBUTING.md`.
 
 | File / folder | Holds | Used by |
 |---|---|---|

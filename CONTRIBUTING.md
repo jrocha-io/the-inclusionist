@@ -11,6 +11,11 @@
 - **Tests:** every module ships with tests — **Vitest**, two projects: `node` (pure logic, no PIXI/DOM) and
   `browser`/Playwright (render/DOM). Patterns: **ZOMBIES** (didactic) + **Right-BICEP** (rigor).
 - **Validation before "done":** `npm run build` + `npx vitest run` + `npx tsc --noEmit` green.
+- **Backlog & issues:** the executable backlog lives in **GitHub Projects + Issues** (`jrocha-io/the-inclusionist`),
+  **not** in a Markdown file. `docs/ROADMAP.md` holds the *strategic* phased plan; the granular work is issues.
+  Priority is carried by labels **`P0`/`P1`/`P2`** (until a Project single-select field is set up); area/type labels
+  (`a11y`, `curriculum`, `engine`, `docs`, `infra`, `bug`, `feature`, `research`, `pillar`, …) classify them. Commits
+  close issues with **`Closes #N`** — the light commit↔requirement trace (the heavy FEAT-### traceability is deferred).
 - The **map of where everything lives** is [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The AI agent's operating
   rules are in [`CLAUDE.md`](CLAUDE.md).
 
