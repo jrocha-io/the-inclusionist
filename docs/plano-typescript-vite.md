@@ -46,9 +46,10 @@ Objetivo: provar que o toolchain roda com o mínimo de mudança (PIXI segue glob
   - **Lote 2 (FEITO):** `core/world`, `input/state`, `platform/storage`.
   - **Lote 3 (FEITO):** `input/devices`, `render/viz-modes`, `core/loop`, `ui/fonts`.
   - **Lote 4 (FEITO):** `core/i18n`, `input/keyboard`, `platform/audio-mixer`, `platform/speech`.
-    Os **dicionários** `i18n/{pt,en,es}` seguem `.js`: o `import()` dinâmico em `core/i18n` vira glob de
-    build (`../i18n/*.js`), que não casaria com `.ts` → viram um **lote i18n dedicado** (validar troca de
-    idioma no preview, não só o boot pt estático).
+  - **Lote 4b (FEITO):** dicionários `i18n/{pt,en,es}` → `.ts`. O `import()` dinâmico "cru" foi trocado por
+    `import.meta.glob('../i18n/*.ts')` (nativo do Vite: casa `.ts` no build explicitamente, sem depender do
+    glob "adivinhado" pelo Rollup). pt segue import **estático** (boot síncrono); en/es entram como chunks
+    sob demanda. **Validar no preview** a troca de idioma (glob só é exercitado em `build` + `preview`).
   - **Lote 5 (próximo):** demais folhas sem PIXI restantes (`core/state`, `ui/dom`, `platform/audio`).
 - **Módulos de render** (canvas, props, sprites, sprite-fx): lote dedicado — trocar o `PIXI` global por
   `import * as PIXI from 'pixi.js'` (dep real, tree-shakeável, tipada). `$` de ui/dom vira helper **tipado** (`$<T>()`).
