@@ -1,6 +1,20 @@
 import { defineConfig } from 'vitest/config'; // (não de 'vite': é o vitest/config que tipa o campo `test`)
 import { VitePWA } from 'vite-plugin-pwa';
 import { playwright } from '@vitest/browser-playwright'; // Vitest 4: provider virou factory de pacote próprio
+import { execSync } from 'node:child_process';
+
+// CARIMBO DE BUILD (versionamento — ver docs/plano-versionamento.md). git describe dá a versão: no commit de uma
+// tag de release (feita pelo release-it), sai limpa (v4.165.0 = "versão de marketing"); nos demais, tag+ahead+sha;
+// com mudanças não commitadas, sufixo -dirty. Fallbacks: CF Pages faz clone RASO → se as tags não vierem (build
+// command deve fazer `git fetch --tags --force`), cai no CF_PAGES_COMMIT_SHA; sem git, 'dev'. Injetado via define.
+const sh = (cmd: string): string => { try { return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } };
+const cfSha = (process.env.CF_PAGES_COMMIT_SHA || '').slice(0, 7);
+const BUILD = {
+  version: sh('git describe --tags --always --dirty') || cfSha || 'dev',
+  sha: sh('git rev-parse --short HEAD') || cfSha || 'dev',
+  date: sh('git log -1 --format=%cd --date=short') || '', // data do COMMIT (estável entre rebuilds do mesmo commit)
+  env: process.env.CF_PAGES ? 'prod' : 'local',
+};
 
 // Migração TS+Vite (docs/plano-typescript-vite.md). root=app/ (index.html) p/ dev/build.
 // PWA (Estágio 1): o vite-plugin-pwa gera o SW (Workbox) e o manifest — aposenta o sw.js artesanal e o bump
@@ -9,6 +23,7 @@ import { playwright } from '@vitest/browser-playwright'; // Vitest 4: provider v
 // A config de TESTE vive aqui (Vitest 3 deprecou o workspace → test.projects; cada project usa root=raiz do repo).
 export default defineConfig({
   root: 'app',
+  define: { __BUILD__: JSON.stringify(BUILD) }, // carimbo de build (versão/sha/data/env) — game.js lê __BUILD__.version
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',

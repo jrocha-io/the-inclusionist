@@ -1,0 +1,21 @@
+{
+  "//": "Versionamento de release (docs/plano-versionamento.md). App (não pacote): NÃO publica em registry.",
+  "//2": "Rode `npm run release` com a árvore limpa: bumpa package.json, gera CHANGELOG dos Conventional Commits,",
+  "//3": "cria o commit chore(release) + a tag vX.Y.Z. Depois `git push --follow-tags` → o CF builda e mostra a tag.",
+  "git": {
+    "commitMessage": "chore(release): v${version}",
+    "tagName": "v${version}",
+    "tagAnnotation": "Release v${version}",
+    "requireCleanWorkingDir": true,
+    "requireUpstream": false,
+    "push": false
+  },
+  "github": { "release": false },
+  "npm": { "publish": false },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "conventionalcommits",
+      "infile": "CHANGELOG.md"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "the-inclusionist",
-  "version": "0.0.0",
+  "version": "4.164.25",
   "private": true,
   "type": "module",
   "description": "The Inclusionist — jogo educativo a11y-first (PixiJS). Toolchain: Vite (dev/build) + TypeScript (migração incremental, docs/plano-typescript-vite.md) + Vitest. Deploy = dist/ no Cloudflare Pages.",
@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:node": "vitest run --project node",
-    "test:browser": "vitest run --project browser"
+    "test:browser": "vitest run --project browser",
+    "release": "release-it"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
