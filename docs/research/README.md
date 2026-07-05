@@ -26,3 +26,5 @@ Migration round 2 (2026-07-05) — studies relocated intact (their findings feed
 - **`compliance-legal.md`** — legal/compliance analysis extracted from PILARES (P4/P5/P6/P10): region regimes
   (LGPD/COPPA/PIPL/GDPR), the local-law-wins model, RN-01..04, ABNT NBR 15290 (Libras), funding × licensing. Feeds
   NFR (testable rules) + adr (decisions). *Engineering summaries, not legal advice.*
+- **`LACUNAS-V3-vs-V4.md`** — v3→v4 gap analysis (2026-06-01, 4 subagents). Mostly closed since; the open
+  character-diversity items → `game-design/plano-arte-procedural.md` + `character-animation.md`.
