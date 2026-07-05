@@ -9,8 +9,8 @@ bible states the enduring rules.
 **All art** (character, tiles, decoration) obeys **one unified palette-mother + one light direction + one outline
 style**. No embedded PNG in-game: the target is **procedural art** (semantic image `(region, luminosity)` + palette
 dictionary → recolor by colour-key + layers). PixelLab/Aseprite/Tiled are **design reference only**, converted by hand
-to procedural. Active pipeline plans: [`../plano-arte-procedural.md`](../plano-arte-procedural.md),
-[`../plano-tiled-aseprite.md`](../plano-tiled-aseprite.md).
+to procedural. Active pipeline plans: [`plano-arte-procedural.md`](plano-arte-procedural.md),
+[`plano-tiled-aseprite.md`](plano-tiled-aseprite.md).
 
 ## Character & animation
 

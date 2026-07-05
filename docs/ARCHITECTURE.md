@@ -50,9 +50,11 @@ docs/
 │   ├── Art-Bible.md           #   visual system index
 │   ├── character-animation.md #   layered character + animation spec (was ANIMACOES-PERSONAGEM)
 │   ├── typography.md          #   canonical font system (was referencia-tipografica-v6)
+│   ├── Game-Feel.md           #   juice/feel/camera (REGISTRO §8)
 │   ├── genre-catalog.md       #   the 35-genre minigame backlog
-│   ├── LM-GM-Map.md           #   learning-mechanic ↔ game-mechanic (activity insertion points) — to create
-│   └── Game-Feel.md           #   juice/feel/camera — to create (REGISTRO §8 + audio)
+│   ├── LM-GM-Map.md           #   learning-mechanic ↔ game-mechanic — the activity insertion points
+│   ├── plano-arte-procedural.md · plano-tiled-aseprite.md   # art pipeline + importers
+│   └── plano-cenario-cidade.md #   city level design
 ├── 2-Architecture/            # system architecture & decisions
 │   ├── C4-Context.md          #   C4 Level 1 (L2 with backend)
 │   ├── adr/                   #   decisions in YADR (YAML) + index README
