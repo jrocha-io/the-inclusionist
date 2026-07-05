@@ -17,6 +17,9 @@ de entrada e os ponteiros; a verdade detalhada vive no **código tipado** (`app/
   (canvas ≥ 1 + `window.__incl`; nunca só screenshot do título).
 - **Sinalize antes de executar** incoerências/erros. **Anuncie decisões não triviais:** `Decisão: X porque Y. Para
   sobrepor, diga Z.` **"ok/tudo ok" ≠ carta branca** → proponho e confirmo a próxima escolha, não sigo sozinho.
+- **Decisão confirmada ganha lar durável NO MESMO TURNO** — não deixar como prosa no chat. Se for arquitetural →
+  um **ADR (YADR)** em `docs/2-Architecture/adr/` + entrada no índice; senão → o doc canônico certo; e **reflita no
+  mapa** (`ARCHITECTURE.md`) quando muda onde algo vive. Concordar/discordar sem registrar = decisão perdida.
 - **Ensinar-e-deixar-ele-rodar:** para mudanças de estado (git push, npm, sistema), oriento e preparo os arquivos;
   **quem roda é o Dev**, no PowerShell.
 
