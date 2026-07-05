@@ -68,6 +68,27 @@ minimização (GDPR/LGPD, local-first) · residência (RN-04) · sem profiling/a
 - **Condicional (r4):** a estratégia "código FOSS + arte não-FOSS" está **condicionada à aceitação das fontes de
   fomento** — se um financiador exigir arte livre, reavaliar caso a caso.
 
+## 6.5 Normas adicionais (consulta com professora, 2026-07-05)
+
+Padrões que reforçam os pilares e devem entrar no mapa de conformidade:
+
+- **GB/T 37668-2019 (China) — acessibilidade:** além do WCAG 2.2 — braille eletrônico (adaptado, ainda não testado),
+  **tempo suficiente de leitura**, navegação por **teclado** (não só mouse), compatibilidade com **tecnologia
+  assistiva de terceiros**. *(confiança: média — validar tradução da norma)*
+- **EN 301 549 / EAA (UE) — acessibilidade:** navegação **sem depender de texto** (ícones intuitivos + pistas visuais;
+  ex.: os 4 dígitos do filtro = 4 bichinhos com cores primárias/secundárias); **dica quando travado** (3 min sem
+  progresso → setas, instruções de botão, animação-demo) sem gerar ansiedade; **design limpo** (sem explosão de cor/som
+  — autismo). → operacionalizado em [ADR-0005](../2-Architecture/adr/ADR-0005-no-login-access-teacher-activity-code.yaml)
+  e [ADR-0006](../2-Architecture/adr/ADR-0006-ethical-engagement-wellbeing.yaml).
+- **China "Youth Mode":** trava de **40 min** contra fadiga visual/mental (→ ADR-0006 + NFR).
+- **Padrão de transparência nórdico:** mesmo com dados na escola, o jogo permite **baixar todas as progressões**
+  (portabilidade/transparência).
+- **Persistência escola (v2.0):** progresso salvo no **servidor da escola**, com **aprovação dos pais** → a
+  responsabilidade LGPD/GDPR passa à **escola/rede** e **fica só lá**. Fora do MVP (v2.0).
+- **Analytics fora do jogo:** coleta de comportamento (quais jogos funcionam/são abandonados/quebram) é **anônima** e
+  visível **só num painel separado** (outro programa), **inacessível de dentro do jogo**; progresso local (rede da
+  escola / casa). Reforça RN-01.
+
 ## 6. IP dos geradores de imagem por IA
 
 Mesmo convertendo a imagem em algoritmo, pode haver responsabilidade por **derivar da expressão** específica gerada

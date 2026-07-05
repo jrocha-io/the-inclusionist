@@ -24,3 +24,6 @@ One file per deliberate architectural decision, in **YADR** format — the YAML 
 | [ADR-0002](ADR-0002-dom-activities-ui-light-dom-web-components.yaml) | DOM activities UI: light-DOM Web Components + Atomic Design; no Shadow DOM | accepted |
 | [ADR-0003](ADR-0003-tiered-sdd-documentation-subset.yaml) | Tier-2 lean subset of the SDD doc schema (adopt/defer/reject matrix) | accepted |
 | [ADR-0004](ADR-0004-educational-documentation-subset.yaml) | Educational-software doc subset (learning artifacts + e-learning interop) | accepted |
+| [ADR-0005](ADR-0005-no-login-access-teacher-activity-code.yaml) | Access: no login, teacher activity-code, icon-based non-text nav | accepted |
+| [ADR-0006](ADR-0006-ethical-engagement-wellbeing.yaml) | Ethical engagement: no dark patterns, cooperative, play-based, session limit | accepted |
+| [ADR-0007](ADR-0007-ai-content-human-curation.yaml) | AI content gated by human curation (human accountable) | accepted |

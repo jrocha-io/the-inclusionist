@@ -15,9 +15,20 @@ Por etapa → disciplina → habilidade BNCC → atividade que a cobre (ou lacun
 | Fundamental 1º ano | Língua Portuguesa | _(a preencher)_ | alf1–alf6 | parcial |
 | … | | | | lacuna |
 
+## Mapa de foco (Instituto Reúna) — pré-requisitos e andaime
+
+Além da habilidade BNCC-alvo, cada atividade se **alicerça no mapa de foco do Instituto Reúna**: se a criança **não
+tem desenvolvida** a habilidade necessária para jogar aquele jogo, ela **continua no jogo treinando a habilidade
+*necessária àquela*** (o pré-requisito), em vez de travar. É a operacionalização da **ZPD** (ver
+[Pedagogical-Model.md](Pedagogical-Model.md)): o jogo desce ao pré-requisito e sobe de volta.
+
+- Cada objetivo carrega, além do código BNCC, seu(s) **pré-requisito(s)** segundo o mapa de foco Reúna.
+- A busca por atividade também é por **taxonomia de Bloom** e **habilidade cognitiva** (para uso por
+  psicopedagogos/neuropsicólogos/fono/T.O.) — ver [ADR-0005](../2-Architecture/adr/ADR-0005-no-login-access-teacher-activity-code.yaml).
+
 ## Como usar
 
-- Uma linha por habilidade BNCC da etapa; marca **coberta / parcial / lacuna**.
+- Uma linha por habilidade BNCC da etapa; marca **coberta / parcial / lacuna**; anota o **pré-requisito Reúna**.
 - Lacuna vira trabalho (issue) — é assim que se prioriza *qual próximo jogo* fazer.
 - Cada atividade referencia seus objetivos em [Learning-Objectives.md](Learning-Objectives.md).
 
