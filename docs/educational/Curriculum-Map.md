@@ -6,14 +6,24 @@ a análise de cobertura que justifica a camada currículo separada (Jacobs, *Map
 
 Escopo total do projeto: **3 anos de infantil + 9 de fundamental + 3 de médio**, várias disciplinas, 35+ jogos.
 
-## Matriz de cobertura (semente)
+## Matriz de cobertura (atividades já no jogo — 1º ano; BNCC a confirmar pelo Dev)
 
-Por etapa → disciplina → habilidade BNCC → atividade que a cobre (ou lacuna).
+Por etapa → disciplina → habilidade BNCC → atividade que a cobre. Detalhe do objetivo em
+[Learning-Objectives.md](Learning-Objectives.md).
 
-| Etapa | Disciplina | Habilidade BNCC | Atividade | Cobertura |
+| Etapa | Disciplina | Habilidade (BNCC?) | Atividade | Cobertura |
 |---|---|---|---|---|
-| Fundamental 1º ano | Língua Portuguesa | _(a preencher)_ | alf1–alf6 | parcial |
-| … | | | | lacuna |
+| Fund. 1º ano | Língua Portuguesa | consciência do padrão escrito (pré-silábico) | alf1 Descobrindo palavras | ✅ |
+| Fund. 1º ano | Língua Portuguesa | segmentação silábica c/ valor sonoro | alf2 Descobrindo sílabas | ✅ |
+| Fund. 1º ano | Língua Portuguesa | sílaba↔letras (silábico-alfabético) | alf3 Montando palavras | ✅ |
+| Fund. 1º ano | Língua Portuguesa | relação fonema-grafema | alf4 Grafema e fonema | ✅ |
+| Fund. 1º ano | Língua Portuguesa (a11y) | reconhecimento da cela Braille | alf5 Malha de Braille | ✅ |
+| Fund. 1º ano | Língua Portuguesa | escrita alfabética de palavras | alf6 Escrevendo palavras | ✅ |
+| Fund. 1º ano | Matemática | adição e subtração | Soma-Sub | ✅ |
+| Fund. 3º ano? | Matemática | multiplicação | Tabuada | ✅ |
+| Fund. 3º–4º? | Matemática | divisão exata | Divisão | ✅ |
+| Fund. 4º–5º? | Matemática | frações (soma/subtração) | Frações | ✅ |
+| … demais anos/habilidades | | | | **lacuna** (prioriza próximo jogo) |
 
 ## Mapa de foco (Instituto Reúna) — pré-requisitos e andaime
 
