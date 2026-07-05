@@ -2942,8 +2942,13 @@ const padDesignSel=$('#pad-design'); if(padDesignSel){ padDesignSel.value=padDes
 //  botão 12,5mm (piso 11mm > alvo de polegar Parhi 9,6mm; segurar cansa mais em botão pequeno),
 //  folga 3mm (evita apertar 2 sem esticar o polegar), analógico 18mm (capuz físico ~18–20mm),
 //  deslocamento 4,5mm. Faixa criança↔adulto estreita: crianças NÃO devem ir a alvos minúsculos.
-const IPHONE16_LONG_MM=141.1;
-function padPxPerMm(){ return Math.max(window.innerWidth,window.innerHeight)/IPHONE16_LONG_MM; }
+const IPHONE16_LONG_MM=141.1, IPHONE16_LONG_PX=852, IPHONE16_PXMM=IPHONE16_LONG_PX/IPHONE16_LONG_MM; // ~6,04 px CSS/mm
+// No CELULAR (alvo real), ancora na aresta longa da janela ÷ 141,1mm — funciona em retrato E paisagem (max()) e
+// dá o físico exato por aparelho (no iPhone 16, 6,04 px/mm). No DESKTOP/notebook (ponteiro fino, isMobile=false)
+// a janela larga NÃO é a aresta física de 141mm de um celular: usar o window-anchor inflava o pad (12,5mm→~170px
+// num monitor 1920). Aí fixa no ratio do iPhone 16 → o pad aparece no tamanho FÍSICO do aparelho-alvo (~75px),
+// estável (não cresce com a janela). Preview fiel ao que a criança vê no celular.
+function padPxPerMm(){ return isMobile() ? Math.max(window.innerWidth,window.innerHeight)/IPHONE16_LONG_MM : IPHONE16_PXMM; }
 const padLoad=(k,d)=>store.getNum(k,d);
 let padBtnMm=padLoad('incl_padbtnmm',12.5), padGapMm=padLoad('incl_padgapmm',3);
 let padStickMm=padLoad('incl_padstickmm',18), padTravelMm=padLoad('incl_padtravelmm',4.5);
