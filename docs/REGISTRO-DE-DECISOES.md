@@ -203,7 +203,7 @@
 | **PixiJS** (WebGL, 1 contexto) + texto/UI em DOM | Pilar P1 (hardware fraco) + AAA de texto exige DOM | [PILARES-INEGOCIAVEIS.md](PILARES-INEGOCIAVEIS.md) | ✅ |
 | MP = **contêiner DOM por jogador sobre render compartilhado** (RenderTexture por viewport); **E5 (N canvases) CANCELADO 2026-07-02** | N contextos WebGL = risco de FPS no Positivo/Chromebook | memória do projeto + PLANO-EXECUCAO.md | ✅ |
 | Cada viewport ≥**640×360** (k≥2); 2×2 cabe no Chromebook 1366×768; telas novas só se couberem; celular = fullscreen 1 jogador | Conta de layout sobre a resolução do hardware-alvo | commits Lote B | ✅ |
-| PWA offline com SW **network-first para app-shell** (mata o CSS/JS velho preso) + bump de CACHE por mudança | Gotcha documentado após incidentes de cache | legacy/README-app-v4.md | ✅ |
+| PWA offline com SW **network-first para app-shell** (mata o CSS/JS velho preso) + bump de CACHE por mudança | Gotcha documentado após incidentes de cache | 2-Architecture/CI-CD.md | ✅ |
 | Tauri/Tauri Mobile (não Electron/Capacitor) — pós-MVP | Peso do Electron × hardware fraco | PILARES | adiado |
 | GPL-3.0 no código desde já + **arte NÃO-FOSS** (marca seletiva + licença própria); jogo gratuito | Elegibilidade FOSS de editais + proteção de personagens; [LICENCAS-GERACAO-IMAGEM.md](research/LICENCAS-GERACAO-IMAGEM.md) (PixelLab SAFE etc.) | PILARES + LICENCAS | ✅ |
 | **Libras: Live2D Cubism com personagem PRÓPRIO** (zdog inviável — expressões faciais; samples oficiais Live2D não redistribuíveis) | Decisão José 2026-07-02; licença Live2D Free Material conferida | PLANO-EXECUCAO.md | 🔨 estudo em **L8** |
@@ -226,7 +226,7 @@
 
 | Decisão | Fundamento / estudo | Fonte | Status |
 |---|---|---|---|
-| Arte = **dados/código procedural** (PixelLab/Magnific só referência de design); pixel art PNG agora → procedural depois | GPL-clean + leveza; licenças conferidas | LICENCAS-GERACAO-IMAGEM.md, [DIRETRIZES-VISUAIS-E-FISICA.md](legacy/DIRETRIZES-VISUAIS-E-FISICA.md) | bases = José (Aseprite) |
+| Arte = **dados/código procedural** (PixelLab/Magnific só referência de design); pixel art PNG agora → procedural depois | GPL-clean + leveza; licenças conferidas | LICENCAS-GERACAO-IMAGEM.md, [Art-Bible.md](game-design/Art-Bible.md) | bases = José (Aseprite) |
 | Cores CHAPADAS sem contorno/sombra/luz nos personagens (TDAH); 320×180/16px mantidos (48×48 cancelado: "resolução rica demais pode ser problema para TDAH") | Hipótese pedagógica do José — ⚠️ sem estudo formal citado | DIRETRIZES | ⚠️ anotar como hipótese a validar |
 | Juice (poeira/brilho/squash/hit-stop/screenshake/shimmer/easing) — **cada efeito desligável no debug** p/ teste no hardware | GAG (efeitos desativáveis) + medição de custo | DIRETRIZES | ✅ commit `5e18fc0` |
 | Juice × Movimento Reduzido (WCAG 2.3.3): partículas→`rm.particles`, cintilar→`rm.items`, tremor de tela→`rm.parallax` (categoria "movimento de câmera"), squash→`rmWalk` por jogador; **hit-stop não é movimento** (é pausa) e fica fora do RM | Mapeamento 1:1 com os alvos de RM já existentes; evita criar chave nova | game.js (bloco JUICE) | ✅ decisão anotada |

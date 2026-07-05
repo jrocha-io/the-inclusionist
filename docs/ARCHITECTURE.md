@@ -7,7 +7,7 @@
 > two-layer requirements, "a doc becomes a test/task/ADR"), see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 >
 > **Naming conventions:** ADRs = `ADR-NNNN-slug.yaml` (YADR); domain blueprints = `<domain>.idd.md` (Instructional
-> Design) / `.ld.md` (Learning Design); studies live in `research/`; dead docs in `legacy/`.
+> Design) / `.ld.md` (Learning Design); studies live in `research/`; dead docs are deleted (git history is the archive).
 
 ## 1. Repository layout
 
@@ -84,9 +84,13 @@ docs/
 │   ├── Security-Pipeline.md   #   SAST/Dependabot (now) · DAST (backend) · Pentest (scheduled)
 │   └── SLO.md                 #   SLI/SLO/Error-Budget/SLA (backend, rigor by tier)
 ├── 7-Async-Systems/           # phase g — message contracts · idempotency · ordering · DLQ · chaos (all deferred)
-├── research/                  # cross-cutting: studies that back decisions  ← PESQUISA-*, ESTUDO-FONTES, …
-└── legacy/                    # cross-cutting: dead but preserved           ← ROADMAP(E1–E13), VERTICAL-SLICE, TODO, …
+└── research/                  # cross-cutting: studies that back decisions  ← PESQUISA-*, ESTUDO-FONTES, …
 ```
+
+> **Dead docs are NOT kept in the tree (YAGNI).** `git history` is the archive — retired docs (the E1–E13 roadmap,
+> VERTICAL-SLICE, TODO, PLANO-EXECUCAO, DIRETRIZES-VISUAIS, README-app-v4, reorganizacao-deploy, and the `imagens-ref/`
+> screenshots) were **deleted** after their salvage was extracted; recover any via `git log --all`/`git show`. The
+> per-file salvage trail lives in the archival commit messages.
 
 > **Deferred-but-homed:** many 2-/3-/6- artifacts are stubs that record *where/when/how* an artifact activates
 > (e.g. DBML at the corpus DB, OpenAPI/Pact at the backend, K8s at stage 4). The stub **is** the decision — it exists
@@ -107,10 +111,10 @@ docs/
 | `1-Discovery/Event-Storming.md` | Deferred DDD scope for telemetry + Student Manager | (future) |
 | `2-Architecture/` … `6-DevOps-SRE/` | The remaining SDD phases — decided section by section (see §… of this doc's evaluation) | dev, reviewer |
 | `research/` | Studies with sources that justify decisions | reviewer (evidence), dev |
-| `legacy/` | Superseded docs kept for history | anyone digging into the past |
 
-> **Migration status:** `1-Discovery/` is created; the other phase folders + `research/`/`legacy/` are populated as
-> the file-by-file consolidation proceeds. Until then, the old flat `plano-*`/`PESQUISA-*` docs still coexist.
+> **Migration: complete.** The flat `docs/` was consolidated file-by-file into this structure; dead docs were deleted
+> (git is the archive). `docs/` root now holds only the four canonical top-level docs (ARCHITECTURE, ROADMAP, PILARES,
+> REGISTRO) + the phase/layer folders.
 
 ## 3. Code layout (`app/js/`)
 
