@@ -3,7 +3,7 @@ metadata:
   status: "accepted"
   date: 2026-07-05
   decision-makers: [Dev, AI]
-  consulted: [teacher consultation]
+  consulted: []
   informed: []
 
 title: Access & discovery — no login, teacher-generated activity code, icon-based non-text navigation
@@ -61,5 +61,5 @@ decision-outcome:
     filters and enter the code via icons/colours without reading text.
 
 more-information: |
-  From the teacher consultation (2026-07-05). Data persistence (progress on the SCHOOL server, with parental approval,
+  From the Dev's product vision (drafted as messages to a teacher), 2026-07-05. Data persistence (progress on the SCHOOL server, with parental approval,
   responsibility shifting to the school/network) is a **v2.0** concern — see research/compliance-legal.md.

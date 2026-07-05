@@ -20,13 +20,20 @@ de entrada e os ponteiros; a verdade detalhada vive no **código tipado** (`app/
 - **Decisão confirmada ganha lar durável NO MESMO TURNO** — não deixar como prosa no chat. Se for arquitetural →
   um **ADR (YADR)** em `docs/2-Architecture/adr/` + entrada no índice; senão → o doc canônico certo; e **reflita no
   mapa** (`ARCHITECTURE.md`) quando muda onde algo vive. Concordar/discordar sem registrar = decisão perdida.
+- **Doc alterada VIRA teste, tarefa (issue) ou ADR** — com pouquíssimas exceções, documentação que não se transforma
+  em algo acionável (um teste que a verifica, uma issue de trabalho, ou um ADR que a decide) **não serve**. Ao mexer
+  num doc, pergunte "isto vira o quê?" e crie.
+- **`ARCHITECTURE.md` é O MAPA** — o 1º doc a consultar em QUALQUER prompt (meu e das LLMs que eu coordeno) para achar
+  o que ler/alterar. **Toda** mudança de estrutura/nome/convenção de doc **reflete nele no mesmo turno**.
 - **Ensinar-e-deixar-ele-rodar:** para mudanças de estado (git push, npm, sistema), oriento e preparo os arquivos;
   **quem roda é o Dev**, no PowerShell.
 
 ## 1. Visão
 
-**EdSP** = engine de **jogos educativos** para **gamificar toda a educação básica brasileira** (infantil ·
-fundamental · médio) + uma **coleção** de jogos. **MVP atual:** *The Inclusionist* — plataforma 2D pixel-art
+**EdSP** = engine de **jogos educativos** + uma **coleção** de jogos para **gamificar toda a educação básica
+brasileira** (infantil · fundamental · médio) e, por proximidade, **EJA** e **profissionalizante/capacitação**
+(letramento digital para cidadania e mercado de trabalho), além de **passatempos de convivência** (centros de
+convivência de idosos e pessoas assistidas socialmente). **MVP atual:** *The Inclusionist* — plataforma 2D pixel-art
 **acessível** (PixiJS), o **1º** de 35+ jogos. Reimplementação clean-room do engine Clarity.
 
 - **🔴 PILARES INEGOCIÁVEIS** (constituição — leia ANTES de agir): `docs/PILARES-INEGOCIAVEIS.md`. 10 pilares:

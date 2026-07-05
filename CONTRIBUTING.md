@@ -17,8 +17,12 @@
   Priority is carried by labels **`P0`/`P1`/`P2`** (until a Project single-select field is set up); area/type labels
   (`a11y`, `curriculum`, `engine`, `docs`, `infra`, `bug`, `feature`, `research`, `pillar`, …) classify them. Commits
   close issues with **`Closes #N`** — the light commit↔requirement trace (the heavy FEAT-### traceability is deferred).
-- The **map of where everything lives** is [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The AI agent's operating
-  rules are in [`CLAUDE.md`](CLAUDE.md).
+- **Documentation is actionable:** a doc change becomes a **test** (that verifies it), a **task** (a GitHub issue), or
+  an **ADR** (that decides it). With very few exceptions, a doc that transforms into none of these earns its keep only
+  as a map/index. Ask "what does this become?" and create it.
+- The **map of where everything lives** is [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — **the first doc to open**
+  for any task, to find what to read/change. Any structure/name/convention change is reflected there the same commit.
+  The AI agent's operating rules are in [`CLAUDE.md`](CLAUDE.md).
 
 ## Documentation model (why our docs look the way they do)
 

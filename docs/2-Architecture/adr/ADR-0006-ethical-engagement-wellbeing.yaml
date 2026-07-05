@@ -3,7 +3,7 @@ metadata:
   status: "accepted"
   date: 2026-07-05
   decision-makers: [Dev, AI]
-  consulted: [teacher consultation]
+  consulted: []
   informed: []
 
 title: Ethical engagement, wellbeing & play-based pedagogy — no dark patterns, cooperative, session limits
@@ -57,6 +57,6 @@ decision-outcome:
     quiet are defaults; multiplayer is cooperative-only.
 
 more-information: |
-  From the teacher consultation (2026-07-05). Refines **pillar 7 (multiplayer)** to cooperative-only; the max player
-  count (2 vs the pillar's up-to-4) is open — see the flag raised with the Dev. The "no Duolingo" instinct was already
-  in REGISTRO §5.10; this ADR makes it a first-class decision.
+  From the Dev's product vision (drafted as messages to a teacher), 2026-07-05. Refines **pillar 7 (multiplayer)** to
+  cooperative-only; the player-count/scaling decision is in **ADR-0008**. The "no Duolingo" instinct was already in
+  REGISTRO §5.10; this ADR makes it a first-class decision.

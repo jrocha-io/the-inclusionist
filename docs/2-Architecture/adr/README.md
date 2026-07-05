@@ -27,3 +27,4 @@ One file per deliberate architectural decision, in **YADR** format — the YAML 
 | [ADR-0005](ADR-0005-no-login-access-teacher-activity-code.yaml) | Access: no login, teacher activity-code, icon-based non-text nav | accepted |
 | [ADR-0006](ADR-0006-ethical-engagement-wellbeing.yaml) | Ethical engagement: no dark patterns, cooperative, play-based, session limit | accepted |
 | [ADR-0007](ADR-0007-ai-content-human-curation.yaml) | AI content gated by human curation (human accountable) | accepted |
+| [ADR-0008](ADR-0008-multiplayer-scaling.yaml) | Multiplayer scaling: 4/screen → classroom LAN → internet after study | accepted |

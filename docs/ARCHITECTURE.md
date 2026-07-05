@@ -1,8 +1,13 @@
 # ARCHITECTURE — project & documentation map
 
-> **START HERE.** This is the map: where every file lives, what each canonical document holds, and how each role
-> (programmer, AI, reviewer) uses it. For *why* we document the way we do (the artifact model, the two-layer
-> requirements), see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+> **START HERE — this is THE map.** The first doc to open on **any** prompt (for the AI and any LLM it coordinates) to
+> find *what to read and what to change*. Where every file lives, what each canonical document holds, and how each role
+> (programmer, AI, reviewer) uses it. **Any change to structure, a filename, or a naming convention is reflected here
+> in the same commit** — a stale map is worse than none. For *why* we document the way we do (the artifact model, the
+> two-layer requirements, "a doc becomes a test/task/ADR"), see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+>
+> **Naming conventions:** ADRs = `ADR-NNNN-slug.yaml` (YADR); domain blueprints = `<domain>.idd.md` (Instructional
+> Design) / `.ld.md` (Learning Design); studies live in `research/`; dead docs in `legacy/`.
 
 ## 1. Repository layout
 

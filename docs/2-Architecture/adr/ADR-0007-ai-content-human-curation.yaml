@@ -3,7 +3,7 @@ metadata:
   status: "accepted"
   date: 2026-07-05
   decision-makers: [Dev, AI]
-  consulted: [teacher consultation]
+  consulted: []
   informed: []
 
 title: AI-generated content is gated by human curation — the human is accountable
@@ -53,4 +53,4 @@ decision-outcome:
     and applied; children are not given open AI tools in the product.
 
 more-information: |
-  From the teacher consultation (2026-07-05).
+  From the Dev's product vision (drafted as messages to a teacher), 2026-07-05.
