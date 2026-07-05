@@ -39,6 +39,7 @@ import { BOX, SPAWN_X, SPAWN_Y, makePlayer, jumpVel, isBouncyGroundBelow, touchi
 import { initCoins, findCoinCandidates, pickCoins, positionEasyCoins, takeCoin } from './game/coins.js'; // Estágio 4: posicionamento dos coletáveis (pools vêm daqui)
 import { srSay, srAlert, setVlibrasSay } from './core/a11y-sr.js'; // Estágio 4 (Tier 1): anúncios p/ leitor de tela (+ Libras injetado)
 import { CRT, crtScanVars, applyCrt } from './render/crt.js'; // Estágio 4 (Tier 1): estética CRT (scanlines/vinheta/cantos)
+import { initMinimap, markSeen, redrawMinimapIfDirty, drawMinimapPlayer, resetMinimap, setMinimapCorner, setMinimapVisible, getMinimap, minimapSeenCount } from './render/minimap.js'; // Estágio 4 (Tier 1): minimapa + fog-of-war
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -1517,10 +1518,10 @@ function configureRender(){
   vpDots.forEach(g=>g.destroy()); vpDots=[];
   if(numPlayers<=1){
     if(camera.parent!==app.stage) app.stage.addChildAt(camera,0);
-    minimap.visible=true; app.renderer.resize(LOGICAL_W,LOGICAL_H); buildGameHud();
+    setMinimapVisible(true); app.renderer.resize(LOGICAL_W,LOGICAL_H); buildGameHud();
   } else {
     if(camera.parent) camera.parent.removeChild(camera); // câmera renderizada manualmente nas RTs
-    minimap.visible=false;
+    setMinimapVisible(false);
     const cols=numPlayers<=2?numPlayers:2, rows=numPlayers<=2?1:2;
     app.renderer.resize(LOGICAL_W*cols, LOGICAL_H*rows);
     const positions=[];
@@ -1541,29 +1542,8 @@ function configureRender(){
 }
 
 // E5: minimapa estilo Metroid (canto inferior esquerdo, fixo na tela, fog-of-war)
-const MM_SCALE=0.8, MM_PAD=4, mmW=WORLD_W*MM_SCALE, mmH=WORLD_H*MM_SCALE;
-const minimap=new PIXI.Container(); minimap.x=MM_PAD; minimap.y=LOGICAL_H-mmH-MM_PAD; minimap.alpha=0.92;
-app.stage.addChild(minimap);
+initMinimap(app.stage, WORLD_W, WORLD_H); // render/minimap (Estágio 4, Tier 1): container + fog-of-war (markSeen/redrawMinimapIfDirty/drawMinimapPlayer/resetMinimap/setMinimapCorner/…)
 buildGameHud(); // HUD por jogador no init (single-screen; configureRender só roda ao trocar nº de telas)
-const mmBg=new PIXI.Graphics(); mmBg.beginFill(0x05070f,0.72); mmBg.drawRect(-1,-1,mmW+2,mmH+2); mmBg.endFill();
-const mmTiles=new PIXI.Graphics(), mmPlayer=new PIXI.Graphics();
-minimap.addChild(mmBg,mmTiles,mmPlayer);
-const seen=Array.from({length:WORLD_H},()=>new Uint8Array(WORLD_W)); let mmDirty=false;
-function markSeen(camX,camY){
-  const tx0=Math.max(0,(camX/TILE)|0),tx1=Math.min(WORLD_W-1,((camX+LOGICAL_W)/TILE)|0);
-  const ty0=Math.max(0,(camY/TILE)|0),ty1=Math.min(WORLD_H-1,((camY+LOGICAL_H)/TILE)|0);
-  for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++) if(!seen[ty][tx]){seen[ty][tx]=1;mmDirty=true;}
-}
-function redrawMinimap(){
-  mmTiles.clear();
-  for(let ty=0;ty<WORLD_H;ty++)for(let tx=0;tx<WORLD_W;tx++){
-    if(!seen[ty][tx])continue;
-    const t=tileAt(tx,ty);
-    const col=isSolidType(t)?0x9a93b5:(t===3?0x2f6fae:(t===9?0xff5b3a:0x232038));
-    mmTiles.beginFill(col,1); mmTiles.drawRect(tx*MM_SCALE,ty*MM_SCALE,MM_SCALE+0.4,MM_SCALE+0.4); mmTiles.endFill();
-  }
-  mmDirty=false;
-}
 
 /* ===================== física (por jogador — E11) ===================== */
 function sampleFeatures(pl){
@@ -1861,9 +1841,8 @@ function draw(){
   if(numPlayers<=1){
     for(let j=0;j<coinSprites.length;j++){ const s=coinSprites[j]; if(s)s.alpha=shimOn?0.8+0.2*Math.sin(fxClock*0.12+j*1.7):1; }
     const {camX,camY}=placeCam(players[0]);
-    markSeen(camX,camY); if(mmDirty) redrawMinimap();
-    mmPlayer.clear(); mmPlayer.beginFill(0xffd23f,1);
-    mmPlayer.drawRect((players[0].x/TILE)*MM_SCALE-1,((players[0].y-BOX.h/2)/TILE)*MM_SCALE-1,2.6,2.6); mmPlayer.endFill();
+    markSeen(camX,camY); redrawMinimapIfDirty();
+    drawMinimapPlayer(players[0].x, players[0].y - BOX.h/2);
   } else {
     // Otimização: se TODOS estão no mesmo modo (caso comum), troca as texturas UMA vez; senão, por viewport.
     const v0=players[0].viz, allSame=players.every(p=>p.viz===v0), anyOverlay=players.some(p=>{const m=VIZ_BY_KEY[p.viz];return m&&m.kind==='lowvision';});
@@ -2154,7 +2133,7 @@ function restartGame(){
   rebuildCoins();
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
-  seen.forEach(r=>r.fill(0)); mmDirty=true; // fim de fase: o MINIMAPA volta a ficar escuro (fog-of-war zera)
+  resetMinimap(); // fim de fase: o MINIMAPA volta a ficar escuro (fog-of-war zera)
   collected=0; ended=false;
   players.forEach(resetPlayerState);
   updateHud();
@@ -3013,15 +2992,15 @@ function fpsTick(){ const fps=app.ticker.FPS; fpsWarm++; fpsAccum+=fps; fpsFrame
 startLoop(app.ticker, (dt)=>{ pollPads(); update(dt); draw();
   titleG.visible=(phase==='title'); if(titleG.visible)drawTitleScene(); // cena do título da v3 cobre o mundo
   if(titleG.visible){ if(++_idleT>3600 && !attract)startAttract(); } else if(!attract)_idleT=0; // attract após 60s parado no menu (José)
-  minimap.visible=!titleG.visible&&numPlayers<=1; document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu
+  setMinimapVisible(!titleG.visible&&numPlayers<=1); document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu
   fpsTick();
   if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,minimap,parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
-  get mmSeen(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,get minimap(){return getMinimap();},parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+  get mmSeen(){return minimapSeenCount();},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
   setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,quizErase,get quiz(){return players[0].quiz;},INCL_VERSION,fmtFrac,fracGraphic,speakChoice,get fracNot(){return fracNot;},
-  setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){let n=0;for(const r of seen)for(const v of r)n+=v;return n;},
+  setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){return minimapSeenCount();},
   startAttract,stopAttract,get attract(){return attract;},set idleT(v){_idleT=v;},
   loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
@@ -3319,9 +3298,7 @@ addEventListener('gamepaddisconnected',()=>{ if(phase==='title')updateTitleLegen
 /* ===================== E13: controles de toque (mobile) ===================== */
 // oculta os botões de toque (chamado quando o jogador usa teclado/controle, p/ não atrapalhar)
 // minimapa: no toque vai pro canto SUPERIOR DIREITO (o direcional, embaixo à esq., não o cobre); senão, inferior esquerdo
-function setMinimapCorner(touch){ if(!minimap) return;
-  if(touch){ minimap.x = LOGICAL_W - mmW - MM_PAD; minimap.y = MM_PAD; }
-  else { minimap.x = MM_PAD; minimap.y = LOGICAL_H - mmH - MM_PAD; } }
+// setMinimapCorner extraído p/ render/minimap.js (Estágio 4, Tier 1).
 // teclado/controle → esconde os botões e devolve o minimapa ao canto inferior esquerdo
 function hideTouchControls(){ const tc=document.querySelector('#touch-controls'); if(tc && !tc.hidden) tc.hidden=true; document.body.classList.remove('touch-mode'); setMinimapCorner(false); }
 // toque/clique → mostra os botões e move o MINIMAPA p/ o canto sup. direito. Em multi-tela, NÃO ativa.
