@@ -18,9 +18,9 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 | Módulo | O que vai | game.js (linhas ref.) | Dep |
 |---|---|---|---|
 | `core/rng.js` 🟢 | `rnd`/`randInt`/`shuffle` + `_seed` (RNG semeado, determinístico) | 246–249 | — |
-| `core/a11y-sr.js` 🟢 | `srSay`/`srAlert` (região live do leitor de tela) | 523–524 | DOM |
+| ~~`core/a11y-sr.js` 🟢~~ **FEITO** | `srSay`/`srAlert` extraídos (+ testes browser). `vlibrasSay` por injeção (`setVlibrasSay`) até `ui/vlibras` sair. | — | ui/dom |
 | ~~`core/collision.js` 🟡~~ **FEITO** | `isSolidType`/`tileAt`/`solidTile`/`solidAt`/`surfTop`/`isWcRampRiser`/`caneBlockPx` + `rampSurfaceY`. Estado `gate`/`gateTiles`/`wcSolid`/`wheelchair`/`modoCego` SEGUE no game.js; a colisão o lê por **closures** no `initCollision(ctx)`. + testes node. | — | WORLD, ctx |
-| `render/crt.js` 🟢 | `crtScanVars`/`applyCrt` + `CRT` | 1515–1535 | PIXI |
+| ~~`render/crt.js` 🟢~~ **FEITO** | `crtScanVars`/`applyCrt` + `CRT` extraídos (+ testes browser). Auto-contido (recomputa escala do clientHeight; NÃO era cluster). | — | ui/dom, state |
 | `render/minimap.js` 🟡 | `redrawMinimap`/`markSeen`/`setMinimapCorner` | 1664–1669, 3429 | WORLD, PIXI |
 | `game/attract.js` 🟡 | modo atração/demo: `startAttract`/`stepAttract`/`stopAttract`/`attractRecFor` + `_idleT`/`attract` | 752–806 | input, loop |
 | `ui/vlibras.js` 🟡 | `vlibrasSay`/`vlibrasOpen`/`toggleLibras`/`vlTick` + `_vl*` | 513, 3152–3196 | DOM/VLibras |
