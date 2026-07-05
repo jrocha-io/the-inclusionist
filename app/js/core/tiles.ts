@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // core/tiles.ts — Legend de tiles + parser do mapa em texto-glifo (1 glifo significativo por tile). Módulo-folha,
-// ZERO deps. Ver docs/plano-editor-mapa.md e docs/plano-mestre.md (Fase 1). O jogo NÃO lê Tiled/Aseprite em
-// runtime — só este texto-glifo, legível/diffável como ascii art.
+// ZERO deps. O jogo NÃO lê Tiled/Aseprite em runtime — só este texto-glifo, legível/diffável como ascii art.
 
 // tipo (0–14) → glifo. Terreno = símbolos; power-ups = LETRAS maiúsculas mnemônicas.
 export const TYPE_GLYPH: Record<number, string> = {

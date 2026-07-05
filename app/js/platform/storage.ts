@@ -2,7 +2,7 @@
 // platform/storage.ts — Camada única de persistência (localStorage) — módulo-folha. À prova de exceção:
 // localStorage LANÇA em file:// e no modo privado de alguns navegadores, e isso derrubava o boot inteiro (por
 // isso todo acesso é try/catch). Centralizar aqui: um lugar para trocar a estratégia (namespacing, IndexedDB…)
-// sem caçar ~60 pontos. Migração em LOTES (plano-mestre Fase 2) — nem todo game.js usa isto ainda.
+// sem caçar ~60 pontos. Migração gradual — nem todo game.js usa isto ainda.
 
 export function get(key: string, fallback: string | null = null): string | null {
   try { const v = localStorage.getItem(key); return v == null ? fallback : v; } catch { return fallback; }

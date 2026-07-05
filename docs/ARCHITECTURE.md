@@ -31,7 +31,7 @@ Organized by **SDD lifecycle phase** (numbered), mirroring the schema we adopt (
 ```
 docs/
 ├── ARCHITECTURE.md            # THIS FILE — the map (start here)
-├── plano-mestre.md            # phased roadmap 0–6 (cross-cutting) — the canonical roadmap
+├── ROADMAP.md                 # strategy + why-this-order; phases live in the GitHub Project (issues #22–#28)
 ├── 1-Discovery/               # SOFTWARE / engine requirements & design (NOT pedagogy — that's educational/)
 │   ├── User-Stories.md        #   engine/game features — negotiable layer
 │   ├── NFR.md                 #   non-functional reqs + the 10 pillars      ← PILARES-INEGOCIAVEIS
@@ -74,12 +74,13 @@ docs/
 > so the choice isn't improvised later; it is not empty ceremony.
 >
 > **Not in `docs/`:** the **executable backlog** lives in **GitHub Projects + Issues** (`jrocha-io/the-inclusionist`),
-> not in a Markdown file — `plano-mestre.md` is the strategy, issues are the granular work. See `../CONTRIBUTING.md`.
+> not in a Markdown file. The **roadmap** is the GitHub Project *The Inclusionist Roadmap* (phase issues #22–#28);
+> `ROADMAP.md` keeps only the strategy/why-this-order. See `../CONTRIBUTING.md`.
 
 | File / folder | Holds | Used by |
 |---|---|---|
 | `ARCHITECTURE.md` | This map (files, code layout, system context) | everyone — the entry point |
-| `plano-mestre.md` | The canonical roadmap: what to build and in what order (Phases 0–6), by dependency | dev (next work), reviewer (scope) |
+| `ROADMAP.md` | Roadmap strategy + dependency-order rationale (phases are issues #22–#28 in the Project) | dev (next work), reviewer (scope) |
 | `educational/` | Curriculum layer (pt-BR): Learning Objectives (BNCC + measurable), Curriculum Map, Pedagogical Model | curriculum author, reviewer |
 | `1-Discovery/User-Stories.md` | Engine/game feature stories (small, negotiable) | dev |
 | `1-Discovery/NFR.md` | The 10 pillars as testable non-functional requirements | dev (constraints), reviewer (audit) |

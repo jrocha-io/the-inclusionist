@@ -54,7 +54,8 @@ fundamental · médio) + uma **coleção** de jogos. **MVP atual:** *The Inclusi
 - **Agora:** **Estágio 4 — modularização** do `game.js` em ES Modules `.ts`, cada um extraído **com teste**
   (ZOMBIES + Right-BICEP). Alvo/ordem: `docs/plano-modularizacao-mapa.md`. **Fundamentos** que guiam a quebra
   (coesão↑, acoplamento↓, DI, DAO, adapters — base arXiv:2409.15152): `docs/plano-modularizacao.md` (= o ADR).
-- **Roadmap por dependência** (`docs/plano-mestre.md` — roadmap canônico; *detalhe por fase ainda a fechar*):
+- **Roadmap por dependência** (fases no **GitHub Project *The Inclusionist Roadmap*** — issues #22–#28; a estratégia/
+  ordem em `docs/ROADMAP.md`):
   0 publicar ✅ · 1 nível-glifo + editor de mapa · **2 espinha da engine = a modularização atual** · 3 arte
   procedural semântica · 4 editor de arte + importadores · 5 i18n en/es · 6 features (**Alfabetização 6–9**, webcam/
   voz, refinos, auditoria WCAG/GAG). Alfabetização é **Fase 6** — vem depois da base limpa + arte + i18n.

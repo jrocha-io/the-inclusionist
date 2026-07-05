@@ -3,11 +3,11 @@
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. INCL_VERSION agora é DISPLAY (bump em mudança relevante); o cache é por content-hash do vite-plugin-pwa (Estágio 1) — sem sw.js/bump manual.
 import * as PIXI from 'pixi.js'; // PixiJS 7.4.2 via npm (Vite empacota; aposenta o <script> global vendor/pixi.min.js)
-import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
-import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
-import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
-import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue, vizMode, initVizMode, setVizModeValue, coins, setCoins, players } from './core/state.js'; // Fase 2: estado (as 8 mega-variáveis)
-import { startLoop } from './core/loop.js'; // Fase 2: driver do loop (docs/plano-engine.md)
+import i18n from './core/i18n.js'; // internacionalização
+import * as tiles from './core/tiles.js'; // legend + parser do mapa em glifo
+import * as store from './platform/storage.js'; // camada de persistência
+import { phase, setPhaseValue, quizLevel, setQuizLevelValue, numPlayers, setNumPlayersValue, cenario as CENARIO, setCenarioValue, activity as ACTIVITY, setActivityValue, vizMode, initVizMode, setVizModeValue, coins, setCoins, players } from './core/state.js'; // estado (as 8 mega-variáveis)
+import { startLoop } from './core/loop.js'; // driver do loop
 import { loadKB, saveKB, resetKB } from './input/keyboard.js'; // Fase 2: config de teclado (subsistema input)
 import { AUDIO_CATS } from './platform/audio-mixer.js'; // Fase 2: categorias do mixer (dados); audioCat/catNode/setCatGain vêm de audio.js
 import { FONT_GROUPS, FONT_BY_KEY, loadFontKey, saveFontKey } from './ui/fonts.js'; // Fase 2: tipografia (catálogo + persistência)

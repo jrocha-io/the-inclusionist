@@ -12,7 +12,8 @@
   `browser`/Playwright (render/DOM). Patterns: **ZOMBIES** (didactic) + **Right-BICEP** (rigor).
 - **Validation before "done":** `npm run build` + `npx vitest run` + `npx tsc --noEmit` green.
 - **Backlog & issues:** the executable backlog lives in **GitHub Projects + Issues** (`jrocha-io/the-inclusionist`),
-  **not** in a Markdown file. `docs/plano-mestre.md` holds the *strategic* phased plan; the granular work is issues.
+  **not** in a Markdown file. The roadmap is the **GitHub Project *The Inclusionist Roadmap*** (phase issues #22–#28);
+  `docs/ROADMAP.md` holds only the strategy / why-this-order.
   Priority is carried by labels **`P0`/`P1`/`P2`** (until a Project single-select field is set up); area/type labels
   (`a11y`, `curriculum`, `engine`, `docs`, `infra`, `bug`, `feature`, `research`, `pillar`, …) classify them. Commits
   close issues with **`Closes #N`** — the light commit↔requirement trace (the heavy FEAT-### traceability is deferred).

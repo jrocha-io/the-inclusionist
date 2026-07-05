@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // core/world.ts — Mundo/nível — constrói o grid a partir do TEXTO-GLIFO (assets/levels/clarity.map.txt). Depende
-// só de tiles.ts (modularização Fase B / plano-mestre Fase 1.2). O WORLD instanciado + tileAt/wcSolid/gate/rampas
-// ficam no game.js até core/state.js existir. Ver docs/plano-editor-mapa.md e docs/plano-mestre.md.
+// só de tiles.ts. O WORLD instanciado + tileAt/wcSolid/gate/rampas ficam no game.js até core/state.js existir.
 import { parseLevel } from './tiles.js';
 
 const STRUCTURAL_SOLID = new Set<number>([2, 5, 6, 10]);
