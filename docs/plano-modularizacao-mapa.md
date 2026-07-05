@@ -21,7 +21,7 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 | ~~`core/a11y-sr.js` 🟢~~ **FEITO** | `srSay`/`srAlert` extraídos (+ testes browser). `vlibrasSay` por injeção (`setVlibrasSay`) até `ui/vlibras` sair. | — | ui/dom |
 | ~~`core/collision.js` 🟡~~ **FEITO** | `isSolidType`/`tileAt`/`solidTile`/`solidAt`/`surfTop`/`isWcRampRiser`/`caneBlockPx` + `rampSurfaceY`. Estado `gate`/`gateTiles`/`wcSolid`/`wheelchair`/`modoCego` SEGUE no game.js; a colisão o lê por **closures** no `initCollision(ctx)`. + testes node. | — | WORLD, ctx |
 | ~~`render/crt.js` 🟢~~ **FEITO** | `crtScanVars`/`applyCrt` + `CRT` extraídos (+ testes browser). Auto-contido (recomputa escala do clientHeight; NÃO era cluster). | — | ui/dom, state |
-| `render/minimap.js` 🟡 | `redrawMinimap`/`markSeen`/`setMinimapCorner` | 1664–1669, 3429 | WORLD, PIXI |
+| ~~`render/minimap.js` 🟡~~ **FEITO** | `markSeen`/`redrawMinimapIfDirty`/`drawMinimapPlayer`/`resetMinimap`/`setMinimapCorner` + `setMinimapVisible`/`getMinimap`/`minimapSeenCount` extraídos (+ testes browser; `initMinimap` cria os objetos PIXI no boot). 11 sites no game.js atualizados. | — | PIXI, constants, collision |
 | `game/attract.js` 🟡 | modo atração/demo: `startAttract`/`stepAttract`/`stopAttract`/`attractRecFor` + `_idleT`/`attract` | 752–806 | input, loop |
 | `ui/vlibras.js` 🟡 | `vlibrasSay`/`vlibrasOpen`/`toggleLibras`/`vlTick` + `_vl*` | 513, 3152–3196 | DOM/VLibras |
 | `ui/webcam.js` 🟢 | `eyeSet`/`onGaze`/`startEyeControl`/`stopEyeControl`/`loadWebGazer` (controle por olhar) | 2997–3011 | WebGazer |
