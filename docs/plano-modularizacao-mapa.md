@@ -24,7 +24,7 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 | ~~`render/minimap.js` 🟡~~ **FEITO** | `markSeen`/`redrawMinimapIfDirty`/`drawMinimapPlayer`/`resetMinimap`/`setMinimapCorner` + `setMinimapVisible`/`getMinimap`/`minimapSeenCount` extraídos (+ testes browser; `initMinimap` cria os objetos PIXI no boot). 11 sites no game.js atualizados. | — | PIXI, constants, collision |
 | `game/attract.js` 🟡 | modo atração/demo: `startAttract`/`stepAttract`/`stopAttract`/`attractRecFor` + `_idleT`/`attract` | 752–806 | input, loop |
 | ~~`ui/vlibras.js` 🟡~~ **FEITO** | `vlibrasSay`/`vlibrasOpen`/`toggleLibras`/`vlTick` + `librasOpen`/`LIBRAS_RESERVE` extraídos (+ testes browser). Cluster com `layout` quebrado por callback (`setOnLibrasChange`); importa `srAlert` (a11y-sr NÃO importa de volta → sem ciclo). | — | a11y-sr, DOM |
-| `ui/webcam.js` 🟢 | `eyeSet`/`onGaze`/`startEyeControl`/`stopEyeControl`/`loadWebGazer` (controle por olhar) | 2997–3011 | WebGazer |
+| ~~`ui/webcam.js` 🟢~~ **FEITO** | `eyeSet`/`onGaze`/`startEyeControl`/`stopEyeControl`/`loadWebGazer` + `eyeMode`/`setEyeMode` extraídos (+ testes browser, incl. mapeamento olhar→tecla). O handler do #opt-eyes fica no game.js (usa toggleBtn). | — | dom, a11y-sr, WebGazer |
 | `ui/debug-panel.js` 🟡 | `buildDebugPanel` (painel `?debug` de afinação: TUNE/ANIM/JUICE/CRT) | 3499+ | TUNE, JUICE |
 | ~~`ui/layout.js` 🟡~~ **FEITO (layout)** | `layout` (escala inteira 320×180 + reserva VLibras) extraído (+ testes browser). Fecha o cluster vlibras↔layout (importa librasOpen/LIBRAS_RESERVE; sem ciclo). **Faltam:** `fpsTick` (usa app.ticker/fps-state) e `configureRender` (multi-tela → render/viewports). | — | dom, state, crt, vlibras |
 
