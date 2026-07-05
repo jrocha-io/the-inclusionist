@@ -40,7 +40,6 @@ docs/
 ├── 1-Discovery/               # SOFTWARE / engine requirements & design (NOT pedagogy — that's educational/)
 │   ├── User-Stories.md        #   engine/game features — negotiable layer
 │   ├── NFR.md                 #   non-functional reqs + the 10 pillars      ← PILARES-INEGOCIAVEIS
-│   ├── Design.md              #   visual/typography/physics (non-code)
 │   └── Event-Storming.md      #   DDD events — deferred (telemetry + Student Manager)
 ├── educational/               # CURRICULUM / pedagogy layer (pt-BR domain) — see ADR-0004
 │   ├── Learning-Objectives.md #   measurable objectives (BNCC + Mager) — absorbs old SRS
@@ -48,10 +47,12 @@ docs/
 │   ├── Pedagogical-Model.md   #   learning theory (Ferreiro & Teberosky, mastery, ZPD)
 │   └── alfabetizacao.idd.md   #   domain IDD (Ferreiro & Teberosky); `<domain>.idd.md`/`.ld.md` convention
 ├── game-design/               # GAME CRAFT layer — see ADR-0009
+│   ├── Art-Bible.md           #   visual system index
+│   ├── character-animation.md #   layered character + animation spec (was ANIMACOES-PERSONAGEM)
+│   ├── typography.md          #   canonical font system (was referencia-tipografica-v6)
 │   ├── genre-catalog.md       #   the 35-genre minigame backlog
 │   ├── LM-GM-Map.md           #   learning-mechanic ↔ game-mechanic (activity insertion points) — to create
-│   ├── Art-Bible.md · Game-Feel.md   # migration targets (DIRETRIZES/ANIMACOES/juice/art pipeline)
-│   └── (per-game one-sheets + beat charts)
+│   └── Game-Feel.md           #   juice/feel/camera — to create (REGISTRO §8 + audio)
 ├── 2-Architecture/            # system architecture & decisions
 │   ├── C4-Context.md          #   C4 Level 1 (L2 with backend)
 │   ├── adr/                   #   decisions in YADR (YAML) + index README
@@ -94,7 +95,7 @@ docs/
 | `educational/` | Curriculum layer (pt-BR): Learning Objectives (BNCC + measurable), Curriculum Map, Pedagogical Model | curriculum author, reviewer |
 | `1-Discovery/User-Stories.md` | Engine/game feature stories (small, negotiable) | dev |
 | `1-Discovery/NFR.md` | The 10 pillars as testable non-functional requirements | dev (constraints), reviewer (audit) |
-| `1-Discovery/Design.md` | Non-code design: typography, colour roles, physics feel, UI spacing | dev, designer |
+| `game-design/` | Game craft: Art Bible, character/animation, typography, genre catalog, LM-GM map, game feel | dev, designer |
 | `1-Discovery/Event-Storming.md` | Deferred DDD scope for telemetry + Student Manager | (future) |
 | `2-Architecture/` … `6-DevOps-SRE/` | The remaining SDD phases — decided section by section (see §… of this doc's evaluation) | dev, reviewer |
 | `research/` | Studies with sources that justify decisions | reviewer (evidence), dev |

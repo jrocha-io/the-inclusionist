@@ -15,8 +15,9 @@ minigames so far. The artifact that names *where* a mechanic can carry a learnin
 - **[genre-catalog.md](genre-catalog.md)** — the 35-genre starting-point catalog (the content backlog of minigames).
 - **`LM-GM-Map.md`** *(to create)* — Learning-Mechanic ↔ Game-Mechanic mapping: which minigame mechanic can carry
   which learning mechanic (ties `genre-catalog` ↔ `../educational/Learning-Objectives.md`). The insertion-point artifact.
-- **`Art-Bible.md`** *(migration target)* — visual style guide + asset list. Absorbs `../DIRETRIZES-VISUAIS-E-FISICA.md`,
-  `../ANIMACOES-PERSONAGEM.md`, `../referencia-tipografica-projeto-v6.md`, and the art pipeline `../plano-arte-procedural.md` / `../plano-tiled-aseprite.md`.
+- **[Art-Bible.md](Art-Bible.md)** ✅ — visual style guide (index of the visual system).
+- **[character-animation.md](character-animation.md)** ✅ — layered character + animation spec (was `ANIMACOES-PERSONAGEM`).
+- **[typography.md](typography.md)** ✅ — canonical font system, evidence-based (was `referencia-tipografica-projeto-v6`).
 - **`Game-Feel.md`** *(migration target)* — juice/feel/camera. Absorbs the juice decisions (REGISTRO §8) + `../plano-audio-fase-f.md`.
 - **Level design / beat charts** — per game with levels (e.g. `../plano-cenario-cidade.md` → a level-design doc);
   the beat chart is where educational-activity insertion points get marked.

@@ -4,7 +4,7 @@
 
 ## 0. ROSTER OFICIAL (decisão do José, 2026-06-02)
 
-> ⭐ **Documento CANÔNICO:** `referencia-tipografica-projeto-v6.md` (pesquisa completa do José — ordens de preferência por papel, evidência empírica e referências ABNT/DOI). Este `ESTUDO-FONTES.md` e a `PESQUISA-FONTES-CONDICOES-LETRAMENTO.md` foram **rascunhos que alimentaram a v6** — em caso de conflito, **vale a v6**.
+> ⭐ **Documento CANÔNICO:** `../game-design/typography.md` (a antiga `referencia-tipografica-projeto-v6` — pesquisa completa do José: ordens de preferência por papel, evidência empírica e referências ABNT/DOI). Este `ESTUDO-FONTES.md` e a `PESQUISA-FONTES-CONDICOES-LETRAMENTO.md` foram **rascunhos que alimentaram a v6** — em caso de conflito, **vale a canônica**.
 
 ### Núcleo de defaults (o que entra como padrão no jogo)
 - **Padrão geral:** **Atkinson Hyperlegible** (OFL) — legibilidade/baixa visão; "0" com traço próprio, 1/l/I distintos.

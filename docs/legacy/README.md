@@ -4,8 +4,7 @@ Docs that are **dead** but preserved so the reasoning trail survives. Nothing he
 
 **Migration target** (issue #1): the retired roadmap cluster and any doc replaced by the numbered-phase structure —
 e.g. `ROADMAP.md` (E1–E13), `VERTICAL-SLICE.md`, `TODO.md`, `PLANO-EXECUCAO.md` (Lotes L0–L9, superseded by Fases 0–6),
-and source docs after they are folded into a canonical file (e.g. the three visual docs merged into
-`../1-Discovery/Design.md`).
+and source docs whose enduring content is captured in a canonical file.
 
 ## Contents
 
@@ -17,3 +16,4 @@ Migration round 1 (2026-07-05) — archived after their live content was salvage
 | `VERTICAL-SLICE.md` | very early v4.0.x plan | recolor/art-as-data already in `plano-arte-procedural`; nothing unique |
 | `TODO.md` | v3.1.x shared task list | live items → GitHub issues #12–#20 |
 | `PLANO-EXECUCAO.md` | Lotes L0–L9 | Lotes superseded by Fases 0–6; Quiz-5-levels superseded by `plano-alfabetizacao` (6 games); Live2D/Libras → separate parked project; open Lotes → issues |
+| `DIRETRIZES-VISUAIS-E-FISICA.md` | José's 2026-06-01 visual/physics directives | mostly implemented (REGISTRO §8); enduring art rules → `game-design/Art-Bible.md` + `plano-arte-procedural` |
