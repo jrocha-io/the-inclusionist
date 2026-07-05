@@ -55,7 +55,11 @@ docs/
 │   └── Frontend.md            #   DOM activities: light-DOM WC + Atomic + Storybook (→ ADR-0002); canvas excluded
 ├── 5-Refactoring/             # improving (phase e)
 │   └── Engineering-Rules.md   #   DRY/SOLID/cohesion↑; supersede-don't-append; ADRs change in-sprint
-├── 6-DevOps-SRE/              # CI/CD now; observability/runbooks deferred to backend
+├── 6-DevOps-SRE/              # phase f
+│   ├── CI-QA.md               #   axe-core a11y (now, verifies NFR) · k6 load (backend, verifies SLO)
+│   ├── Security-Pipeline.md   #   SAST/Dependabot (now) · DAST (backend) · Pentest (scheduled)
+│   └── SLO.md                 #   SLI/SLO/Error-Budget/SLA (backend, rigor by tier)
+├── 7-Async-Systems/           # phase g — message contracts · idempotency · ordering · DLQ · chaos (all deferred)
 ├── research/                  # cross-cutting: studies that back decisions  ← PESQUISA-*, ESTUDO-FONTES, …
 └── legacy/                    # cross-cutting: dead but preserved           ← ROADMAP(E1–E13), VERTICAL-SLICE, TODO, …
 ```
