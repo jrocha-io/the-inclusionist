@@ -51,9 +51,11 @@ Objetivo: provar que o toolchain roda com o mínimo de mudança (PIXI segue glob
     glob "adivinhado" pelo Rollup). pt segue import **estático** (boot síncrono); en/es entram como chunks
     sob demanda. **Validar no preview** a troca de idioma (glob só é exercitado em `build` + `preview`).
   - **Lote 5 (FEITO):** `ui/dom` (`$`/`$$` genéricos), `core/state`, `platform/audio` (grafo Web Audio tipado).
-  - **Lote 6 (próximo — render/PIXI):** `render/{canvas,props,sprites,sprite-fx}` + `game.js`. Trocar o `PIXI`
-    global (`<script src=vendor/pixi>`) por `import * as PIXI from 'pixi.js'` (dep já no package.json, tipada,
-    tree-shakeável). É o lote de MAIOR risco (mexe no boot/canvas) → validar boot real no preview (canvas≥1 + `__incl`).
+  - **Lote 6a (FEITO — PIXI global→npm):** `game.js` + `render/{canvas,sprites}` passam a `import * as PIXI from
+    'pixi.js'` (7.4.2); removido o `<script src=vendor/pixi.min.js>` e o próprio arquivo (peso morto). Passo de
+    MAIOR risco (mexe no boot/canvas) → **validar boot real no preview (canvas≥1 + `__incl`) após o build do José.**
+  - **Lote 6b (FEITO — render→.ts):** `render/{canvas,props,sprites,sprite-fx}` tipados com os `@types` do pixi.js.
+  - Resta só o **`game.js`** como `.js` (o grande) → **Estágio 4** (modularização continua, cada extração nasce `.ts`).
 - **Módulos de render** (canvas, props, sprites, sprite-fx): lote dedicado — trocar o `PIXI` global por
   `import * as PIXI from 'pixi.js'` (dep real, tree-shakeável, tipada). `$` de ui/dom vira helper **tipado** (`$<T>()`).
 - Cada conversão: `tsc --noEmit` limpo + testes verdes.
