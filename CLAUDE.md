@@ -1,8 +1,12 @@
 # CLAUDE.md — EdSP / "The Inclusionist"
 
 Contexto de projeto carregado automaticamente pelo Claude Code. **Enxuto de propósito**: aqui ficam as regras
-de entrada e os ponteiros; a verdade detalhada vive no **código tipado** (`app/js/**`) e em `docs/**`. Trabalho
-100% em **pt-BR**.
+de entrada e os ponteiros; a verdade detalhada vive no **código tipado** (`app/js/**`) e em `docs/**`.
+
+- **Idioma (projeto open-source):** **artefatos em inglês** — docs, comentários de código, strings de UI e **mensagens
+  de commit**. **Exceção pt-BR:** conteúdo de domínio intrinsecamente brasileiro (objetivos BNCC, pedagogia de
+  alfabetização, *features* Gherkin das atividades, que são lidas por educadores). **A conversa com o Dev é em pt-BR.**
+  Este arquivo (manual operacional da IA) segue em pt-BR de propósito.
 
 ## 0. Regra de ouro (operacional — o que mais me guia)
 
@@ -32,7 +36,6 @@ fundamental · médio) + uma **coleção** de jogos. **MVP atual:** *The Inclusi
   Tiled só na **autoria**. Plano: `docs/plano-arte-procedural.md`, importadores em `docs/plano-tiled-aseprite.md`.
 - **a11y-first:** quando estética briga com a11y, a11y vence. AAA é aspiracional — **marque honestamente** onde só
   dá AA (ex.: 1.4.6 7:1 briga com cores vivas). Nunca vender "AAA em bloco".
-- **Idioma:** commits/docs/comentários em **pt-BR** (ajuda a atrair adesão de universidades públicas BR).
 
 ## 2. Estrutura & toolchain
 
@@ -80,10 +83,16 @@ navegador) e deixo o Dev rodar o Vitest. Padrões: **ZOMBIES** (didático) + **R
 
 ## 7. Onde achar (não duplico aqui — fato duplicado apodrece)
 
+- **Mapa da documentação:** `docs/ARCHITECTURE.md` (estrutura de arquivos) + `CONTRIBUTING.md` na raiz (como
+  trabalhamos + modelo de documentação). **Comece por aí.**
+- **Documentação canônica por fase SDD:** `docs/1-Discovery/` (SRS·User-Stories·NFR·Design·Event-Storming),
+  `docs/2-Architecture/` (C4·adr **YADR**·Feature-Flags·DFD·STRIDE·CI-CD·backend-cloud-roadmap·K8s),
+  `docs/3-Sprint-Design/` (data-model·api·bdd·Test-Plan), `4-Sprints`·`5-Refactoring`·`6-DevOps-SRE`,
+  `docs/research/` e `docs/legacy/`.
 - **Constantes do motor** (TILE_TYPES, TUNE, tiles, dimensões): `app/js/core/constants.ts` (fonte única, tipada).
-- **Planos:** `docs/plano-*.md` (mestre, modularização[-mapa], engine, testes, typescript-vite, i18n, versionamento,
-  arte-procedural, tiled-aseprite, editor-mapa, alfabetização, acessibilidade, tts-fase-f5, audio-fase-f, cenario-cidade).
-- **Decisões:** `docs/REGISTRO-DE-DECISOES.md`. **Legado v3 / lacunas:** `docs/LACUNAS-V3-vs-V4.md`, `docs/TODO.md`.
+- **Planos legados** (`docs/plano-*.md`, `PESQUISA-*`, `PILARES-INEGOCIAVEIS`, `REGISTRO-DE-DECISOES`, etc.): **ainda
+  na raiz de `docs/`**, sendo migrados **arquivo por arquivo, com revisão de conteúdo** (nada automático) para dentro
+  da árvore canônica acima — issue `#1`. Até migrar, coexistem.
 
-> ⚠️ **`docs/` está inchado (37 arquivos, com sobreposição** — ROADMAP × plano-mestre × PLANO-EXECUCAO × VERTICAL-SLICE
-> × TODO). Vale uma rodada de **consolidação** (fundir/aposentar) — combinar com o Dev antes de mexer.
+> ⚠️ **Migração em curso:** o esqueleto canônico (fases 1–6) já existe; o conteúdo dos ~30 arquivos soltos está sendo
+> transferido para dentro dele, revisado um a um. Não crie doc novo na raiz de `docs/` — use a árvore de fases.
