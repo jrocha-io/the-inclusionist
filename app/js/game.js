@@ -38,6 +38,7 @@ import { initCollision, caneBlockPx, isSolidType, tileAt, solidTile, solidAt, su
 import { BOX, SPAWN_X, SPAWN_Y, makePlayer, jumpVel, isBouncyGroundBelow, touchingWall, clingSides, firstClingSide, spiderReattach, wrapConvex } from './game/player.js'; // Estágio 4: entidade + geometria de colisão do jogador
 import { initCoins, findCoinCandidates, pickCoins, positionEasyCoins, takeCoin } from './game/coins.js'; // Estágio 4: posicionamento dos coletáveis (pools vêm daqui)
 import { srSay, srAlert, setVlibrasSay } from './core/a11y-sr.js'; // Estágio 4 (Tier 1): anúncios p/ leitor de tela (+ Libras injetado)
+import { CRT, crtScanVars, applyCrt } from './render/crt.js'; // Estágio 4 (Tier 1): estética CRT (scanlines/vinheta/cantos)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -1417,25 +1418,7 @@ function drawFx(){ fxG.clear(); for(const p of particles){ const f=p.life/p.max;
 /* L2: Estética CRT (menu Sensibilidade visual) — scanlines/vinheta/cantos em 3 NÍVEIS (0=desligado,
    1=pequeno, 2=grande), só CSS. Cantos: 0=tela quadrada, 1=padrão de sempre (8px), 2=arredondadão (24px).
    Migra o formato booleano antigo (true→ligado; round true→2, false→1). */
-const CRT=(()=>{ const d={scan:1,vig:0,round:1}; // scanline LIGADA por padrão (decisão do José 2026-07-03)
-  try{ const s=JSON.parse(localStorage.getItem('incl_crt2')||localStorage.getItem('incl_crt'));
-    const fresh=!localStorage.getItem('incl_crt2'); // migração p/ crt2: herda vig/round; scan volta ao padrão ON uma vez
-    if(s&&typeof s==='object') for(const k in d) if(k in s){ const v=s[k];
-      if(fresh&&k==='scan')continue;
-      d[k]= v===true?(k==='round'?2:1) : v===false?(k==='round'?1:0) : Math.max(0,Math.min(2,v|0)); } }catch(e){}
-  d.scan=d.scan?1:0; d.vig=d.vig?1:0; // scanlines/vinheta são ON/OFF (só cantos tem 3 níveis)
-  return d; })();
-function crtScanVars(){ const g=$('#game-region'); if(!g||!CRT.scan)return; // scanline = 1 linha por pixel de ARTE, ancorada em px REAIS
-  const rows=numPlayers<=2?1:2, dpr=window.devicePixelRatio||1;
-  const perDev=Math.max(2,Math.round((g.clientHeight||360)*dpr/(180*rows))); // kDev = pixels REAIS por linha de arte (INTEIRO) → espaçamento REGULAR
-  g.style.setProperty('--scan-per',(perDev/dpr)+'px');                        // período = kDev px reais (1 linha de arte)
-  g.style.setProperty('--scan-line',(Math.max(1,Math.round(dpr))/dpr)+'px'); } // linha = 1 px REAL
-function applyCrt(){ const g=$('#game-region'); if(!g)return;
-  ['crt-scan-1','crt-vig-1','crt-round-0','crt-round-2'].forEach(c=>g.classList.remove(c));
-  if(CRT.scan){ g.classList.add('crt-scan-'+CRT.scan); crtScanVars(); }
-  if(CRT.vig)g.classList.add('crt-vig-'+CRT.vig);
-  if(CRT.round!==1)g.classList.add('crt-round-'+CRT.round); // 1 = visual padrão (8px), sem classe
-  try{ localStorage.setItem('incl_crt2',JSON.stringify(CRT)); }catch(e){} }
+// CRT/crtScanVars/applyCrt extraídos p/ render/crt.js (Estágio 4, Tier 1). Boot: aplica as classes CSS agora.
 applyCrt();
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
 let allPSprites=[playerSprite];
