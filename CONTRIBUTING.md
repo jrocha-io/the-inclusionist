@@ -21,11 +21,15 @@
 
 ## Documentation model (why our docs look the way they do)
 
-Tier **T2** (educational platform, LGPD/child-data). We adopt a **lean subset** of a fullstack SDD schema — dropping
-the fullstack-only artifacts (K8s, Terraform, OpenAPI, Argo, message queues) — plus the **educational-software**
-artifacts (learning objectives, curriculum map, pedagogical model, xAPI). **Cut rule:** every statement in a doc is
-**either** (a) reducible to a machine-verifiable checklist/test (threshold/schema) **or** (b) a decision record an
-auditor needs to reconstruct reasoning. Anything else is noise and is cut.
+Tier **T2** (educational platform, LGPD/child-data). We adopt a **lean subset** of a fullstack SDD schema — each
+artifact is either **adopted now**, a **deferred-but-homed stub** (records where/when/how it activates), or an
+**explicit rejection**. The governing decision, with the full adopt/defer/reject matrix and rationale, is
+**[ADR-0003](docs/2-Architecture/adr/ADR-0003-tiered-sdd-documentation-subset.yaml)** — read it before adding or
+dropping a doc type.
+
+**Cut rule:** every statement in a doc is **either** (a) reducible to a machine-verifiable checklist/test
+(threshold/schema) **or** (b) a decision record an auditor needs to reconstruct reasoning. Anything else is noise and
+is cut.
 
 ## Requirements — a two-layer model (deliberate, and unusual)
 

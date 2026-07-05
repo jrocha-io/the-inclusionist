@@ -22,3 +22,4 @@ One file per deliberate architectural decision, in **YADR** format — the YAML 
 |---|---|---|
 | [ADR-0001](ADR-0001-integer-real-pixel-canvas-scale.yaml) | Lock canvas scale to integer real pixels | accepted |
 | [ADR-0002](ADR-0002-dom-activities-ui-light-dom-web-components.yaml) | DOM activities UI: light-DOM Web Components + Atomic Design; no Shadow DOM | accepted |
+| [ADR-0003](ADR-0003-tiered-sdd-documentation-subset.yaml) | Tier-2 lean subset of the SDD doc schema (adopt/defer/reject matrix) | accepted |
