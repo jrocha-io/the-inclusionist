@@ -7,14 +7,14 @@ de entrada e os ponteiros; a verdade detalhada vive no **código tipado** (`app/
 ## 0. Regra de ouro (operacional — o que mais me guia)
 
 - **Eu faço os commits** (atômicos, pt-BR, na `main`, com trailer `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`).
-  **O José roda** o push/deploy **e TODO comando Node** (`npm run build` / `npx vitest run` / `npx tsc --noEmit`) —
+  **O Dev roda** o push/deploy **e TODO comando Node** (`npm run build` / `npx vitest run` / `npx tsc --noEmit`) —
   eu **não tenho Node** no sandbox.
-- **Loop de trabalho:** eu extraio/edito → o José valida (build + vitest + tsc) → **eu confiro o boot no preview**
+- **Loop de trabalho:** eu extraio/edito → o Dev valida (build + vitest + tsc) → **eu confiro o boot no preview**
   (canvas ≥ 1 + `window.__incl`; nunca só screenshot do título).
 - **Sinalize antes de executar** incoerências/erros. **Anuncie decisões não triviais:** `Decisão: X porque Y. Para
   sobrepor, diga Z.` **"ok/tudo ok" ≠ carta branca** → proponho e confirmo a próxima escolha, não sigo sozinho.
 - **Ensinar-e-deixar-ele-rodar:** para mudanças de estado (git push, npm, sistema), oriento e preparo os arquivos;
-  **quem roda é o José**, no PowerShell dele.
+  **quem roda é o Dev**, no PowerShell.
 
 ## 1. Visão
 
@@ -53,21 +53,22 @@ fundamental · médio) + uma **coleção** de jogos. **MVP atual:** *The Inclusi
   procedural semântica · 4 editor de arte + importadores · 5 i18n en/es · 6 features (**Alfabetização 6–9**, webcam/
   voz, refinos, auditoria WCAG/GAG). Alfabetização é **Fase 6** — vem depois da base limpa + arte + i18n.
 
-## 4. Preferências (obrigatórias)
+## 4. Convenções do projeto (obrigatórias)
 
 - **Denso e auditável:** justifique escolhas não óbvias em ≤1 frase, com fonte primária quando couber.
 - **Research-first:** estude + monte uma **tabela de resultados esperados (com fontes)** ANTES de propor/codar.
   Sem go-horse; defina a saída esperada e onde avaliar antes de testes caros.
 - **Commits FREQUENTES e atômicos** (um bloco lógico por commit; nunca um "initial" gigante). Sem caminhos
   absolutos em arquivos versionados; to-dos pessoais ficam em arquivo git-ignored, não no README.
-- **a11y honesto** (§1) · **sem Mermaid** (SVG inline original) · **CSS com seletor descendente** → `grep` de todos
-  os elementos com a classe-alvo antes de adicionar a regra · **física com velocidades independentes**.
+- **a11y honesto:** não vender "AAA em bloco" — marcar onde só dá AA (detalhe em §1).
 
 ## 5. Testes
 
 Vitest com dois *projects*: **node** (lógica pura, sem PIXI/DOM) e **browser**/Playwright (render/DOM). Cada
 módulo extraído nasce com teste. **Eu não rodo Node** → pré-valido as expectativas no **preview** (harness de
-navegador) e deixo o José rodar o Vitest. Padrões: **ZOMBIES** (didático) + **Right-BICEP** (rigor). `docs/plano-testes.md`.
+navegador) e deixo o Dev rodar o Vitest. Padrões: **ZOMBIES** (didático) + **Right-BICEP** (rigor). `docs/plano-testes.md`.
+- **Hardware-alvo (Positivo/Chromebook):** montar baterias de teste para rodar **quando os aparelhos existirem**,
+  conforme o produto evolui — não bloqueia o desenvolvimento agora (não temos os aparelhos ainda).
 
 ## 6. Ambiente (Windows/Avast) — pegadinhas recorrentes
 
@@ -75,7 +76,7 @@ navegador) e deixo o José rodar o Vitest. Padrões: **ZOMBIES** (didático) + *
   Fix: **`NODE_OPTIONS=--use-system-ca`** (+ `UV_NATIVE_TLS=1` para uv). **Cursor precisa de restart REAL** (não só
   fechar a janela) para pegar env var nova.
 - **Nunca** o OAuth interativo do `npx wrangler` (Avast bloqueia + crasha no Windows) → usar `CLOUDFLARE_API_TOKEN`
-  ou o dashboard. **Nunca** testar no hardware-alvo (Positivo/Chromebook) antes do protótipo pronto + comprador aprovar.
+  ou o dashboard.
 
 ## 7. Onde achar (não duplico aqui — fato duplicado apodrece)
 
@@ -85,4 +86,4 @@ navegador) e deixo o José rodar o Vitest. Padrões: **ZOMBIES** (didático) + *
 - **Decisões:** `docs/REGISTRO-DE-DECISOES.md`. **Legado v3 / lacunas:** `docs/LACUNAS-V3-vs-V4.md`, `docs/TODO.md`.
 
 > ⚠️ **`docs/` está inchado (37 arquivos, com sobreposição** — ROADMAP × plano-mestre × PLANO-EXECUCAO × VERTICAL-SLICE
-> × TODO). Vale uma rodada de **consolidação** (fundir/aposentar) — combinar com o José antes de mexer.
+> × TODO). Vale uma rodada de **consolidação** (fundir/aposentar) — combinar com o Dev antes de mexer.
