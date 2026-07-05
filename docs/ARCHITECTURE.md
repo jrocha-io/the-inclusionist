@@ -44,9 +44,14 @@ docs/
 │   └── Event-Storming.md      #   DDD events — deferred (telemetry + Student Manager)
 ├── educational/               # CURRICULUM / pedagogy layer (pt-BR domain) — see ADR-0004
 │   ├── Learning-Objectives.md #   measurable objectives (BNCC + Mager) — absorbs old SRS
-│   ├── Curriculum-Map.md      #   scope & sequence, BNCC coverage across grades
+│   ├── Curriculum-Map.md      #   scope & sequence, BNCC coverage (+ Instituto Reúna focus-map)
 │   ├── Pedagogical-Model.md   #   learning theory (Ferreiro & Teberosky, mastery, ZPD)
 │   └── alfabetizacao.idd.md   #   domain IDD (Ferreiro & Teberosky); `<domain>.idd.md`/`.ld.md` convention
+├── game-design/               # GAME CRAFT layer — see ADR-0009
+│   ├── genre-catalog.md       #   the 35-genre minigame backlog
+│   ├── LM-GM-Map.md           #   learning-mechanic ↔ game-mechanic (activity insertion points) — to create
+│   ├── Art-Bible.md · Game-Feel.md   # migration targets (DIRETRIZES/ANIMACOES/juice/art pipeline)
+│   └── (per-game one-sheets + beat charts)
 ├── 2-Architecture/            # system architecture & decisions
 │   ├── C4-Context.md          #   C4 Level 1 (L2 with backend)
 │   ├── adr/                   #   decisions in YADR (YAML) + index README
