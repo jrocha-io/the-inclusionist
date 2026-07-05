@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// render/props.js — arte procedural de "props" coletáveis/decorativos: moeda (coin) e árvore urbana (tree).
-// Desenhados por ALGORITMO (pixel a pixel, sem PNG embutido) sobre as primitivas de render/canvas.js. Módulo-
+// render/props.ts — arte procedural de "props" coletáveis/decorativos: moeda (coin) e árvore urbana (tree).
+// Desenhados por ALGORITMO (pixel a pixel, sem PNG embutido) sobre as primitivas de render/canvas.ts. Módulo-
 // folha de dados visuais: zero estado de jogo. As variantes *Texture embrulham o canvas numa PIXI.Texture. (Fase 2.19)
 import { makeCanvas, tex, pixDisc } from './canvas.js';
 
-export function coinCanvas() {
-  const cv = makeCanvas(11, 11), c = cv.getContext('2d');
+export function coinCanvas(): HTMLCanvasElement {
+  const cv = makeCanvas(11, 11), c = cv.getContext('2d')!;
   pixDisc(c, 5, 5, 5, '#ffd23f', '#7a5400');                                // disco dourado + contorno
   c.fillStyle = '#fff3b0'; c.fillRect(3, 2, 2, 1); c.fillRect(2, 3, 1, 2);  // brilho (canto sup-esq)
   c.fillStyle = '#e0a82a'; c.fillRect(7, 7, 2, 1); c.fillRect(8, 6, 1, 2);  // sombra (inf-dir)
@@ -13,8 +13,8 @@ export function coinCanvas() {
 }
 export function coinTexture() { return tex(coinCanvas()); }
 
-export function treeCanvas() { // árvore urbana caprichada (R-cidade): tronco sombreado c/ raízes + copa em 3 tons + luz de borda
-  const cv = makeCanvas(30, 52), c = cv.getContext('2d');
+export function treeCanvas(): HTMLCanvasElement { // árvore urbana caprichada (R-cidade): tronco sombreado c/ raízes + copa em 3 tons + luz de borda
+  const cv = makeCanvas(30, 52), c = cv.getContext('2d')!;
   c.fillStyle = '#241a0e'; c.fillRect(12, 28, 7, 22); c.fillRect(9, 47, 13, 3); // contorno tronco + raízes
   c.fillStyle = '#5c4033'; c.fillRect(13, 28, 5, 21);                           // tronco
   c.fillStyle = '#7a5a48'; c.fillRect(13, 28, 2, 21);                           // luz do tronco
@@ -32,14 +32,14 @@ export function treeTexture() { return tex(treeCanvas()); }
 
 // Ícone 12×12 de power-up/chave por tipo (fundo escuro cantos-cortados + glifo nítido). triU/triR = triângulo ↑
 // e chevron → pixel-perfect (locais). O game.js embrulha em textura e aplica alto-contraste à parte (pupTexFor).
-export function powerupCanvas(kind) {
-  const cv = makeCanvas(12, 12), c = cv.getContext('2d');
-  const COL = { superjump: '#7fdcff', ultrajump: '#b388ff', turbo: '#34e29b', fly: '#c8a2ff', wallcling: '#ff9a4d', key: '#ffd23f', runcane: '#eaeaea' };
+export function powerupCanvas(kind: string): HTMLCanvasElement {
+  const cv = makeCanvas(12, 12), c = cv.getContext('2d')!;
+  const COL: Record<string, string> = { superjump: '#7fdcff', ultrajump: '#b388ff', turbo: '#34e29b', fly: '#c8a2ff', wallcling: '#ff9a4d', key: '#ffd23f', runcane: '#eaeaea' };
   const col = COL[kind] || '#7fdcff', BG = '#04121a';
   c.fillStyle = BG; c.fillRect(1, 0, 10, 12); c.fillRect(0, 1, 12, 10);   // fundo escuro, cantos cortados (pixel-rounded, sem AA)
   c.fillStyle = col;
-  const triU = (cx, topY, baseW, H) => { for (let i = 0; i < H; i++) { const w = Math.max(1, Math.round(baseW * (i + 1) / H)); c.fillRect(cx - (w >> 1), topY + i, w, 1); } }; // triângulo ↑ nítido
-  const triR = (lx, cy, baseH, W) => { for (let i = 0; i < W; i++) { const h = Math.max(1, Math.round(baseH * (W - i) / W)); c.fillRect(lx + i, cy - (h >> 1), 1, h); } };       // chevron → nítido
+  const triU = (cx: number, topY: number, baseW: number, H: number) => { for (let i = 0; i < H; i++) { const w = Math.max(1, Math.round(baseW * (i + 1) / H)); c.fillRect(cx - (w >> 1), topY + i, w, 1); } }; // triângulo ↑ nítido
+  const triR = (lx: number, cy: number, baseH: number, W: number) => { for (let i = 0; i < W; i++) { const h = Math.max(1, Math.round(baseH * (W - i) / W)); c.fillRect(lx + i, cy - (h >> 1), 1, h); } };       // chevron → nítido
   if (kind === 'superjump') { triU(6, 1, 8, 4); triU(6, 6, 8, 4); }                                  // ▲▲ super-pulo
   else if (kind === 'ultrajump') { triU(6, 1, 9, 4); c.fillRect(5, 5, 2, 6); }                        // ↑ ultra-pulo (cabeça + haste)
   else if (kind === 'turbo') { triR(2, 6, 9, 4); triR(6, 6, 9, 4); }                                  // » super-corrida
