@@ -50,8 +50,13 @@ So we **split by layer**:
 
 | Layer | Form | Where |
 |---|---|---|
-| **Curriculum** (large, fixed, BNCC-bound) | **Curriculum Map (Scope & Sequence)** + **Learning Objectives** — each objective = a BNCC skill code + a *measurable* criterion (e.g. "given a phoneme, selects the correct grapheme in ≥80% of attempts") | `docs/domain/` (pt-BR) |
-| **Engine / game** (small, negotiable software features) | light **User Stories** | backlog |
+| **Curriculum** (large, fixed, BNCC-bound) | **Curriculum Map (Scope & Sequence)** + **Learning Objectives** — each objective = a BNCC skill code + a *measurable* criterion (e.g. "given a phoneme, selects the correct grapheme in ≥80% of attempts") | `docs/educational/` (pt-BR) |
+| **Engine / game** (small, negotiable software features) | light **User Stories** | `docs/1-Discovery/User-Stories.md` + the GitHub backlog |
+
+> **Layer boundary (Dev's rule):** `1-Discovery/` is **software/engine only**; all pedagogical content — activities,
+> learning objectives, curriculum, pedagogical fundamentals — lives in `docs/educational/`. Which educational
+> artifacts we adopt/defer/reject is recorded in
+> [ADR-0004](docs/2-Architecture/adr/ADR-0004-educational-documentation-subset.yaml).
 
 The curriculum layer *is* the SRS of learning software, in the domain-native form. Curriculum Map + Learning
 Objectives are recognized instructional-design artifacts, structured/traceable/auditable — which matters for

@@ -1,11 +1,11 @@
 # User Stories (engine / game layer)
 
 The **negotiable software features** of the engine and games — the second layer of our two-layer requirements model
-(the fixed curriculum layer is in `SRS.md`; rationale in `../../CONTRIBUTING.md`). Format: Connextra
+(the fixed curriculum layer lives in `../educational/`; rationale in `../../CONTRIBUTING.md`). Format: Connextra
 ("As a `<role>`, I want `<goal>`, so that `<benefit>`"). Roles: **player (child)**, **teacher**, **parent**,
 **professional** (psychologist/physio/neuropsych — future Student Manager).
 
-Keep these small and negotiable; anything that is a *learning target* belongs in `SRS.md`, not here.
+Keep these small and negotiable; anything that is a *learning target* belongs in `../educational/`, not here.
 
 ## Seed (examples — to expand)
 

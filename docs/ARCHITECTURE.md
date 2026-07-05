@@ -32,17 +32,22 @@ Organized by **SDD lifecycle phase** (numbered), mirroring the schema we adopt (
 docs/
 ├── ARCHITECTURE.md            # THIS FILE — the map (start here)
 ├── ROADMAP.md                 # phased roadmap 0–6 (cross-cutting)          ← plano-mestre
-├── 1-Discovery/               # requirements & design intent
-│   ├── SRS.md                 #   curriculum requirements (BNCC) — fixed layer
+├── 1-Discovery/               # SOFTWARE / engine requirements & design (NOT pedagogy — that's educational/)
 │   ├── User-Stories.md        #   engine/game features — negotiable layer
 │   ├── NFR.md                 #   non-functional reqs + the 10 pillars      ← PILARES-INEGOCIAVEIS
 │   ├── Design.md              #   visual/typography/physics (non-code)
 │   └── Event-Storming.md      #   DDD events — deferred (telemetry + Student Manager)
+├── educational/               # CURRICULUM / pedagogy layer (pt-BR domain) — see ADR-0004
+│   ├── Learning-Objectives.md #   measurable objectives (BNCC + Mager) — absorbs old SRS
+│   ├── Curriculum-Map.md      #   scope & sequence, BNCC coverage across grades
+│   ├── Pedagogical-Model.md   #   learning theory (Ferreiro & Teberosky, mastery, ZPD)
+│   └── (plano-*educacionais)  #   the domain plans migrate here (plano-alfabetizacao, …)
 ├── 2-Architecture/            # system architecture & decisions
 │   ├── C4-Context.md          #   C4 Level 1 (L2 with backend)
 │   ├── adr/                   #   decisions in YADR (YAML) + index README
 │   ├── Feature-Flags.md · DFD.md · STRIDE.md · CI-CD.md
 │   ├── K8s-Manifests.md       #   note: when K8s becomes worth it (deferred)
+│   ├── learning-interop.md    #   xAPI/Caliper/LTI/AfA… e-learning standards (deferred) — ADR-0004
 │   └── backend-cloud-roadmap.md   # staged AWS/backend adoption + which docs when
 ├── 3-Sprint-Design/           # per-feature design
 │   ├── data-model/            #   DBML.md · Migrations.md · Normalization.md
@@ -75,7 +80,7 @@ docs/
 |---|---|---|
 | `ARCHITECTURE.md` | This map (files, code layout, system context) | everyone — the entry point |
 | `ROADMAP.md` | What to build and in what order (Phases 0–6), one canonical vocabulary | dev (next work), reviewer (scope) |
-| `1-Discovery/SRS.md` | Curriculum requirements → BNCC codes + measurable criteria (grows into a folder) | curriculum author, reviewer |
+| `educational/` | Curriculum layer (pt-BR): Learning Objectives (BNCC + measurable), Curriculum Map, Pedagogical Model | curriculum author, reviewer |
 | `1-Discovery/User-Stories.md` | Engine/game feature stories (small, negotiable) | dev |
 | `1-Discovery/NFR.md` | The 10 pillars as testable non-functional requirements | dev (constraints), reviewer (audit) |
 | `1-Discovery/Design.md` | Non-code design: typography, colour roles, physics feel, UI spacing | dev, designer |

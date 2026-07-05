@@ -88,10 +88,11 @@ navegador) e deixo o Dev rodar o Vitest. Padrões: **ZOMBIES** (didático) + **R
 
 - **Mapa da documentação:** `docs/ARCHITECTURE.md` (estrutura de arquivos) + `CONTRIBUTING.md` na raiz (como
   trabalhamos + modelo de documentação). **Comece por aí.**
-- **Documentação canônica por fase SDD:** `docs/1-Discovery/` (SRS·User-Stories·NFR·Design·Event-Storming),
-  `docs/2-Architecture/` (C4·adr **YADR**·Feature-Flags·DFD·STRIDE·CI-CD·backend-cloud-roadmap·K8s),
-  `docs/3-Sprint-Design/` (data-model·api·bdd·Test-Plan), `4-Sprints`·`5-Refactoring`·`6-DevOps-SRE`,
-  `docs/research/` e `docs/legacy/`.
+- **Documentação canônica por fase SDD:** `docs/1-Discovery/` (**software/engine**: User-Stories·NFR·Design·Event-Storming),
+  `docs/educational/` (**camada currículo/pedagogia, pt-BR**: Learning-Objectives·Curriculum-Map·Pedagogical-Model + planos educacionais),
+  `docs/2-Architecture/` (C4·adr **YADR**·Feature-Flags·DFD·STRIDE·CI-CD·learning-interop·backend-cloud-roadmap·K8s),
+  `docs/3-Sprint-Design/` (data-model·api·bdd·Test-Plan), `4-Sprints`·`5-Refactoring`·`6-DevOps-SRE`·`7-Async-Systems`,
+  `docs/research/` e `docs/legacy/`. **Discovery = software; pedagogia = educational/** (ADR-0004).
 - **Constantes do motor** (TILE_TYPES, TUNE, tiles, dimensões): `app/js/core/constants.ts` (fonte única, tipada).
 - **Planos legados** (`docs/plano-*.md`, `PESQUISA-*`, `PILARES-INEGOCIAVEIS`, `REGISTRO-DE-DECISOES`, etc.): **ainda
   na raiz de `docs/`**, sendo migrados **arquivo por arquivo, com revisão de conteúdo** (nada automático) para dentro

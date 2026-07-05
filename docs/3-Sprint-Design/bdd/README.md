@@ -13,8 +13,8 @@ programmer — read and validate what an activity is supposed to do.
   modularized).
 - **Authored in pt-BR** (`# language: pt` — `Funcionalidade / Cenário / Dado / Quando / Então`), because the audience
   is Brazilian educators. This is domain content, so it stays Portuguese even though the rest of the docs are English.
-- **Tie each feature to its learning objective** in `../../1-Discovery/SRS.md` (the natural id is the **BNCC code**,
-  not the deferred FEAT-### ceremony).
+- **Tie each feature to its learning objective** in `../../educational/Learning-Objectives.md` (the natural id is the
+  **BNCC code**, not the deferred FEAT-### ceremony).
 - Scope Gherkin to **pedagogical acceptance** (what the learner does and what counts as success), **not** engine
   internals (physics, rendering — those are Vitest).
 - **Executable later:** wire to **Cucumber.js** / **playwright-bdd** when it pays; until then the `.feature` is a
