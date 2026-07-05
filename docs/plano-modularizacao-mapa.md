@@ -4,10 +4,11 @@ Estudo do `game.js` (v4.164.23, **3555 linhas**) para parar de extrair a conta-g
 (pedido do José 2026-07-04). Companheiro do `plano-modularizacao.md` (§3 alvo, §4 ordem, §8 testes). Cada módulo
 segue o padrão firmado: **import puro, I/O explícito, com teste do contrato** (ver [[project-inclusionist-testes]]).
 
-## Já extraído (23 módulos)
+## Já extraído (24 módulos)
 `core/{constants,tiles,world,state,loop,i18n,collision}` · `platform/{storage,audio,audio-mixer,speech}` ·
 `input/{keyboard,devices,state}` · `ui/{fonts,dom}` · `render/{viz-modes,canvas,sprites,props,sprite-fx}` ·
-`i18n/{pt,en,es}`. Todos `.ts`. `core/collision` (Estágio 4) já vem com testes node (ZOMBIES + Right-BICEP).
+`game/{player}` · `i18n/{pt,en,es}`. Todos `.ts`. `core/collision` e `game/player` (Estágio 4) vêm com testes
+node (ZOMBIES + Right-BICEP). `game/player` levou a geometria de colisão; `jumpVel`/`showPower` ficaram no game.js.
 
 ## Restante — ~34 módulos, em 3 tiers por acoplamento
 
@@ -50,7 +51,7 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 | `render/scene-city.js` 🟡 | Cidade viva (L5): `creatures`/`stepLife`/`spawnCreature`/`streetCols`/tráfego (`spawnCar`/`stepTraffic`/`drawSemaforo`)/`buildCityDeco` + `LIFE_TEX`/`ADULT_TEX`/`CAR_TEX` | 1175–1346 | WORLD, PIXI |
 | `render/scene-sky.js` 🟡 | Céu: `stepSky`/`drawV3Cloud`/`drawV3Grass`/`stepV3Decor` + `clouds`/`birds`. **Aqui entra o fix das nuvens do backlog.** | 1347–1454 | PIXI, tema |
 | `render/fx.js` 🟡 | Juice: `spawnParticle`/`puffDust`/`burstSparkle`/`addShake`/`addHitstop`/`setSquash`/`stepFx`/`drawFx` + `JUICE`/`particles` | 1490–1522 | PIXI |
-| `game/player.js` 🟡 | entidade: `makePlayer`/`jumpVel`/`showPower`/`isBouncyGroundBelow`/`touchingWall`/`clingSides`/`firstClingSide`/`spiderReattach`/`wrapConvex` | 329–398 | TUNE, WORLD, held |
+| ~~`game/player.js` 🟡~~ **FEITO (parcial)** | `makePlayer`/`BOX`/`SPAWN`/`isBouncyGroundBelow`/`touchingWall`/`clingSides`/`firstClingSide`/`spiderReattach`/`wrapConvex` extraídos (+ testes). **Faltam:** `jumpVel` (puxa `EASY` → mover `EASY`→constants antes) e `showPower` (DOM/HUD → vai p/ `ui/hud`). | — | collision, TILE |
 | `game/coins.js` 🟡 | `findCoinCandidates`/`malform`/`ferreiroDistractors`/`pickCoins`/`takeCoin`/`positionEasyCoins`/`rebuildCoins`/`addCoinsForOwner`/`coinTexFor` + `coinSprites` | 234–320, 912, 943–988, 2416 | WORLD, rng, state |
 | `game/powerups.js` 🟡 | `powerups`/`pupTexFor`/`rebuildExtras`/`setupExtras`/`takePu`/`puTaken` | 1020–1054 | WORLD, props.js |
 | `game/level-geometry.js` 🟡 | geometria de acessibilidade (cadeirante): `buildRamps`/`buildWcGeom`/`buildRopes`/`buildElevators`/`elevAt`/`drawElevators`/`drawCane`/`drawRunCane`/`drawChair` | 1056–1173 | WORLD, wcSolid |
