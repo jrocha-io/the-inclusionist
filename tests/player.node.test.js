@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import * as COL from '../app/js/core/collision.js';
 import * as P from '../app/js/game/player.js';
+import { TUNE } from '../app/js/core/constants.js';
 
 // ctx mínimo de colisão (modo normal): só o WORLD importa para a geometria do jogador.
 const useWorld = (grid) => COL.initCollision({
@@ -84,5 +85,20 @@ describe('game/player — spiderReattach (quina CÔNCAVA: parede→teto)', () =>
     P.spiderReattach(pl, pl.x, pl.y);
     expect(pl.clingN).toBe('U');
     expect(pl.vy).toBe(0);
+  });
+});
+
+describe('game/player — jumpVel (impulso inicial do pulo)', () => {
+  it('[Right] 5 tiles no modo normal = -TUNE.jumpVel (sqrt(5/5)=1)', () => {
+    expect(P.jumpVel({ easy: false }, 5)).toBeCloseTo(-TUNE.jumpVel, 10);
+  });
+  it('[Right/a11y] modo fácil dá empurrão extra (×8/7)', () => {
+    expect(P.jumpVel({ easy: true }, 5)).toBeCloseTo(-TUNE.jumpVel * 8 / 7, 10);
+  });
+  it('[Cross-check] altura ∝ sqrt(tiles): pulo de 20 tiles = 2× a vy do de 5 (sqrt(4)=2)', () => {
+    expect(P.jumpVel({ easy: false }, 20) / P.jumpVel({ easy: false }, 5)).toBeCloseTo(2, 10);
+  });
+  it('[Boundary] vy é NEGATIVA (y cresce para baixo)', () => {
+    expect(P.jumpVel({ easy: false }, 5)).toBeLessThan(0);
   });
 });

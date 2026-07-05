@@ -32,10 +32,10 @@ const INCL_VERSION='4.164.25';
 
 /* ===================== constantes ===================== */
 // Constantes puras extraídas para core/constants.js (modularização Fase B).
-import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, ANIM, TILE_TYPES, TILE_COLOR } from './core/constants.js';
+import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, ANIM, EASY, TILE_TYPES, TILE_COLOR } from './core/constants.js';
 import { rnd, randInt, shuffle } from './core/rng.js'; // Fase 2.26: RNG semeado (Tier 1)
 import { initCollision, caneBlockPx, isSolidType, tileAt, solidTile, solidAt, surfTop, isWcRampRiser, rampSurfaceY } from './core/collision.js'; // Estágio 4: colisão de grade (determinística; ctx por closures)
-import { BOX, SPAWN_X, SPAWN_Y, makePlayer, isBouncyGroundBelow, touchingWall, clingSides, firstClingSide, spiderReattach, wrapConvex } from './game/player.js'; // Estágio 4: entidade + geometria de colisão do jogador
+import { BOX, SPAWN_X, SPAWN_Y, makePlayer, jumpVel, isBouncyGroundBelow, touchingWall, clingSides, firstClingSide, spiderReattach, wrapConvex } from './game/player.js'; // Estágio 4: entidade + geometria de colisão do jogador
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -324,8 +324,7 @@ const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',u
 // Ícones canônicos dos power-ups (decisão do José 2026-07-02): 👟 corrida/bengala · 🕷️ escalada · 🎈 voo (jetpack) · 🐇 super pulo · 🦘 ultra pulo
 const POWER_SHORT={off:'—',superjump:'🐇 Super-pulo',ultrajump:'🦘 Ultra-pulo',turbo:'👟 Super-corrida',fly:'🎈 Voo',wallcling:'🕷️ Escalada',runcane:'👟 Bengala de corrida'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
-function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5)*(pl.easy?EASY.jump:1); } // Fácil: pulo ×8/7
-// (isBouncyGroundBelow/touchingWall/clingSides/firstClingSide/spiderReattach/wrapConvex → game/player.js, Estágio 4)
+// jumpVel + isBouncyGroundBelow/touchingWall/clingSides/firstClingSide/spiderReattach/wrapConvex → game/player.js (Estágio 4)
 players.push(makePlayer(0)); let player=players[0]; // 'players' vem de core/state.js (Fase 2, mega-var 8; nunca reatribuído, só mutado in-place); 'player'=players[0] fica local
 // 'numPlayers' agora vem de core/state.js (Fase 2, mega-variável 3). Escrita via setNumPlayers()/joinPlayer.
 let collected=0, ended=false; setCoins(pickCoins(COIN_TARGET)); // coins: mega-var 7 em core/state.js (reatribuição via setCoins)
@@ -464,7 +463,7 @@ const anyEasy=()=>players.some(p=>p.easy); // efeitos de MUNDO do Fácil (moedas
 const isGameKeyCode=(c)=>GAME_KEYS.includes(c)||players.some(p=>p.ctrl&&Object.values(p.ctrl).some(a=>a.includes(c)));
 // Modo Fácil (deficiência motora): gravidade ×2/3, pulo ×8/7, andar ×0.7, sem perigos, sem correr,
 // hitbox de coleta +4px, moedas no chão, proteção de borda, pula-pula suave (segurar = flutuar descendo).
-const EASY={grav:2/3, jump:8/7, speed:0.7, pad:4, slowFall:1.4, tramp:3.4};
+// EASY (modo fácil) migrado p/ core/constants.js (Estágio 4, dado de dificuldade — junto de TUNE/ANIM).
 // Movimento reduzido (WCAG 2.3.3 AA). 5 alvos; padrão herda prefers-reduced-motion; persistido.
 // Hoje agem 'parallax' e 'walk'; 'decor/items/particles' ficam prontos e ligam quando a Cidade animar.
 const RM_KEYS=['parallax','decor','items','particles']; // animações de CENA (globais)

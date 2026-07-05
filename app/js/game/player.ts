@@ -2,13 +2,17 @@
 // game/player.ts — entidade JOGADOR (fábrica de estado) + geometria de colisão do jogador. Extraído do game.js
 // (Estágio 4). As queries (isBouncyGroundBelow/touchingWall/clingSides/firstClingSide) e o contorno de quina da
 // ventosa-aranha (spiderReattach/wrapConvex) leem o mundo via core/collision (solidAt/tileAt) → puras, testáveis
-// com um mundo FALSO (initCollision no teste). BOX = caixa de colisão (px); SPAWN_* = nascedouro. jumpVel (EASY)
-// e showPower (DOM/HUD) seguem no game.js por ora. Consumido pela física (stepPlayer/resolveX/resolveY).
-import { TILE } from '../core/constants.js';
+// com um mundo FALSO (initCollision no teste). BOX = caixa de colisão (px); SPAWN_* = nascedouro. jumpVel = a
+// velocidade inicial do pulo (fórmula pura). showPower (DOM/HUD) segue no game.js. Consumido pela física.
+import { TILE, TUNE, EASY } from '../core/constants.js';
 import { solidAt, tileAt } from '../core/collision.js';
 
 export const SPAWN_X = 2 * TILE, SPAWN_Y = 24 * TILE;
 export const BOX = { w: 10, h: 30 };
+
+// Velocidade inicial (vy) do pulo, em função da altura desejada em TILES (sqrt: energia ∝ altura). Modo fácil
+// dá um empurrão extra no pulo (EASY.jump = 8/7). Negativa porque y cresce p/ baixo. (game.js: física do pulo)
+export function jumpVel(pl: { easy?: boolean }, tiles: number): number { return -TUNE.jumpVel * Math.sqrt(tiles / 5) * (pl.easy ? EASY.jump : 1); }
 
 type Side = 'R' | 'L' | 'U' | 'D';           // lados da ventosa: direita/esquerda/teto/chão
 type Sides = Record<Side, boolean>;

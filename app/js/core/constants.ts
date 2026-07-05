@@ -17,6 +17,10 @@ export const JUMP_BASE = TUNE.jumpVel * Math.sqrt(8 / 5); // ~4.43 (altura confo
 // pedido do José); idle 20; swim 24; cling 10; escada 8; flavor ~6s.
 export const ANIM = { walkHold: 6, runHold: 8, idleHold: 20, swimHold: 24, clingHold: 10, climbHold: 8, flavorDelay: 360 };
 
+// Modo FÁCIL (acessibilidade motora): multiplicadores que suavizam a física. grav ×2/3, pulo ×8/7, velocidade
+// ×0,7, zona-morta do pad ×4, queda lenta ×1,4, trampolim ×3,4. Lido pela física (game.js) e por jumpVel (player).
+export const EASY = { grav: 2 / 3, jump: 8 / 7, speed: 0.7, pad: 4, slowFall: 1.4, tramp: 3.4 };
+
 /* TILE_TYPES (fiel ao v3.1.100; subset usado no Lúdico) */
 export const TILE_TYPES = {
   0:{solid:false}, 1:{solid:false}, 2:{solid:true,bounce:0.28}, 3:{solid:false,water:true,jump:true},
