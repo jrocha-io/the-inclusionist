@@ -35,6 +35,7 @@ const INCL_VERSION='4.164.25';
 import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, ANIM, TILE_TYPES, TILE_COLOR } from './core/constants.js';
 import { rnd, randInt, shuffle } from './core/rng.js'; // Fase 2.26: RNG semeado (Tier 1)
 import { initCollision, caneBlockPx, isSolidType, tileAt, solidTile, solidAt, surfTop, isWcRampRiser, rampSurfaceY } from './core/collision.js'; // Estágio 4: colisão de grade (determinística; ctx por closures)
+import { BOX, SPAWN_X, SPAWN_Y, makePlayer, isBouncyGroundBelow, touchingWall, clingSides, firstClingSide, spiderReattach, wrapConvex } from './game/player.js'; // Estágio 4: entidade + geometria de colisão do jogador
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -317,75 +318,14 @@ function pickCoins(n){
 
 /* ===================== estado ===================== */
 // $ (querySelector) migrado p/ ui/dom.js (Fase 2.27 / Tier 1)
-const SPAWN_X=2*TILE, SPAWN_Y=24*TILE;
-const BOX={w:10,h:30};
-// E11: jogadores como array (física por jogador). P1 = players[0] (compat single-player).
-function makePlayer(i){ return {i,x:SPAWN_X+i*22,y:SPAWN_Y,vx:0,vy:0,onGround:false,onLadder:false,inWater:false,
-  facing:1,anim:0,walkAnim:0,jumpBuffer:0,waterStroke:0,hurtTimer:0,quiz:null,jumpEdge:false,collected:0,ctrl:null,sprite:null,
-  activePower:'off',owned:[],hasKey:false,jumpChain:0,groundIdle:0,clinging:false,clingN:null,runEdge:false,swapEdge:false,specialEdge:false,airTime:99,flying:false,idleNow:false,idleTime:0,flavor:-1,flavorT:0,climbFrame:0,
-  walkDir:0,leftEdge:false,rightEdge:false, viz:'normal', _tx:null, easy:false, toggleMove:false, pad:-1,
-  rmWalk:false, rmBreath:false, rmFlavor:false, stepT:0, guardT:0, _swapDown:false, _swapT:0, _swapSonar:false}; } // stepT/guardT = cadência de áudio; _swap* = detecção segurar-swap p/ sonar
+// BOX/SPAWN_X/SPAWN_Y/makePlayer + geometria de colisão do jogador (isBouncyGroundBelow/touchingWall/clingSides/
+// firstClingSide/spiderReattach/wrapConvex) extraídos p/ game/player.js (Estágio 4). P1 = players[0] (compat solo).
 const POWER_MSG={superjump:'Super-pulo! O pulo fica sempre na altura máxima.',ultrajump:'Ultra-pulo! Pulos de distância gigante.',turbo:'Super-corrida! Correndo você fica bem mais rápido.',fly:'Voo! No ar, aperte Pular para começar a voar; Pular de novo encerra.',wallcling:'Escalada (aranha)! No ar, aperte Correr perto de uma parede/teto para grudar; engatinha e contorna quinas; Correr de novo solta.'};
 // Ícones canônicos dos power-ups (decisão do José 2026-07-02): 👟 corrida/bengala · 🕷️ escalada · 🎈 voo (jetpack) · 🐇 super pulo · 🦘 ultra pulo
 const POWER_SHORT={off:'—',superjump:'🐇 Super-pulo',ultrajump:'🦘 Ultra-pulo',turbo:'👟 Super-corrida',fly:'🎈 Voo',wallcling:'🕷️ Escalada',runcane:'👟 Bengala de corrida'};
 function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('hud-power'); if(el)el.textContent=(POWER_SHORT[pl.activePower]||'—')+(pl.owned&&pl.owned.length>1?' ('+pl.owned.length+')':''); } }
 function jumpVel(pl,tiles){ return -TUNE.jumpVel*Math.sqrt(tiles/5)*(pl.easy?EASY.jump:1); } // Fácil: pulo ×8/7
-function isBouncyGroundBelow(pl){ const ty=Math.floor((pl.y+1)/TILE),x0=Math.floor((pl.x-BOX.w/2)/TILE),x1=Math.floor((pl.x+BOX.w/2-0.01)/TILE); for(let tx=x0;tx<=x1;tx++) if(tileAt(tx,ty)===2)return true; return false; }
-function touchingWall(pl){ const y0=Math.floor((pl.y-BOX.h)/TILE),y1=Math.floor((pl.y-1)/TILE),lx=Math.floor((pl.x-BOX.w/2-1)/TILE),rx=Math.floor((pl.x+BOX.w/2+1)/TILE); for(let ty=y0;ty<=y1;ty++) if(solidAt(lx,ty)||solidAt(rx,ty))return true; return false; }
-// E18c: ventosa "aranha" — sólidos adjacentes à caixa em cada lado (R=direita, L=esquerda, U=teto/acima, D=chão/abaixo)
-function clingSides(pl){ const l=pl.x-BOX.w/2,r=pl.x+BOX.w/2,t=pl.y-BOX.h,b=pl.y;
-  const x0=Math.floor(l/TILE),x1=Math.floor((r-0.01)/TILE),y0=Math.floor(t/TILE),y1=Math.floor((b-0.01)/TILE);
-  const lx=Math.floor((l-1)/TILE),rx=Math.floor((r+1)/TILE),uy=Math.floor((t-1)/TILE),dy=Math.floor((b+1)/TILE);
-  let R=false,L=false,U=false,D=false;
-  for(let ty=y0;ty<=y1;ty++){ if(solidAt(rx,ty))R=true; if(solidAt(lx,ty))L=true; }
-  for(let tx=x0;tx<=x1;tx++){ if(solidAt(tx,uy))U=true; if(solidAt(tx,dy))D=true; }
-  return {R,L,U,D}; }
-function firstClingSide(pl){ const s=clingSides(pl); return s.R?'R':s.L?'L':s.U?'U':s.D?'D':null; }
-// Reancora após o movimento: trata quina CÔNCAVA (bate numa face perpendicular à frente → gruda nela)
-// e CONVEXA (a face atual sumiu → contorna para uma face perpendicular disponível); senão, cola na quina.
-function spiderReattach(pl,preX,preY){ const s=clingSides(pl),N=pl.clingN,onWall=(N==='R'||N==='L');
-  const up=pl.vy<0,dn=pl.vy>0,lf=pl.vx<0,rt=pl.vx>0;
-  if(onWall){ if(up&&s.U){pl.clingN='U';pl.vy=0;return;} if(dn&&s.D){pl.clingN='D';pl.vy=0;return;} }   // CÔNCAVA (parede→teto/chão)
-  else      { if(rt&&s.R){pl.clingN='R';pl.vx=0;return;} if(lf&&s.L){pl.clingN='L';pl.vx=0;return;} }   // CÔNCAVA (teto→parede)
-  if(s[N]) return;                               // ainda na mesma face
-  const perp = onWall ? (s.U?'U':s.D?'D':null) : (s.R?'R':s.L?'L':null); // CONVEXA: face perpendicular já adjacente
-  if(perp){ pl.clingN=perp; pl.vx=0; pl.vy=0; return; }
-  wrapConvex(pl,N,{up,dn,lf,rt},preX,preY);      // CONVEXA "de ponta": reposiciona contornando a quina (dar a volta)
-}
-// Contorna a quina convexa (ponta): a face atual acabou e não há face perpendicular adjacente.
-// Acha a borda da face e reposiciona a caixa do outro lado da quina, na face perpendicular externa.
-function wrapConvex(pl,N,mv,preX,preY){ const T=TILE,hw=BOX.w/2,bh=BOX.h;
-  const tryland=(nN,nx,ny)=>{ const ox=pl.x,oy=pl.y,oN=pl.clingN; pl.x=nx;pl.y=ny;pl.clingN=nN;
-    if(clingSides(pl)[nN]){ pl.vx=0;pl.vy=0; return true; } pl.x=ox;pl.y=oy;pl.clingN=oN; return false; };
-  if(N==='U'||N==='D'){                          // estava no teto/chão andando na horizontal → desce/sobe pela face externa
-    const d = mv.rt?1:mv.lf?-1:0; if(d){
-      const srow = N==='U' ? Math.floor((preY-bh-1)/T) : Math.floor((preY+1)/T);
-      let edge=Math.floor(preX/T),guard=0;       // acha a ÚLTIMA coluna sólida da face (a borda), mesmo já tendo passado dela
-      if(solidAt(edge,srow)){ while(solidAt(edge+d,srow)&&guard++<64) edge+=d; }
-      else { while(!solidAt(edge,srow)&&guard++<64) edge-=d; }
-      if(solidAt(edge,srow)){
-        const nN = d>0?'L':'R';                  // bloco fica do lado de onde viemos
-        const nx = d>0 ? (edge+1)*T+hw+0.6 : edge*T-hw-0.6;
-        const ny = N==='U' ? srow*T+bh : (srow+1)*T; // encosta a caixa ao lado da face (na altura do bloco)
-        if(tryland(nN,nx,ny)) return;
-      }
-    }
-  } else {                                       // estava na parede subindo/descendo → contorna para o topo/fundo
-    const d = mv.up?-1:mv.dn?1:0; if(d){
-      const scol = N==='R' ? Math.floor((pl.x+hw+1)/T) : Math.floor((pl.x-hw-1)/T);
-      let edge=Math.floor((preY-1)/T),guard=0;   // acha a ÚLTIMA linha sólida da parede (a borda)
-      if(solidAt(scol,edge)){ while(solidAt(scol,edge+d)&&guard++<64) edge+=d; }
-      else { while(!solidAt(scol,edge)&&guard++<64) edge-=d; }
-      if(solidAt(scol,edge)){
-        const nN = d<0?'D':'U';                  // sobe→pousa no topo (D); desce→pendura no fundo (U)
-        const nx = scol*T+T/2;
-        const ny = d<0 ? edge*T-0.6 : (edge+1)*T+bh+0.6;
-        if(tryland(nN,nx,ny)) return;
-      }
-    }
-  }
-  pl.x=preX; pl.y=preY; pl.vx=0; pl.vy=0;        // sem como contornar → fica colado na quina
-}
+// (isBouncyGroundBelow/touchingWall/clingSides/firstClingSide/spiderReattach/wrapConvex → game/player.js, Estágio 4)
 players.push(makePlayer(0)); let player=players[0]; // 'players' vem de core/state.js (Fase 2, mega-var 8; nunca reatribuído, só mutado in-place); 'player'=players[0] fica local
 // 'numPlayers' agora vem de core/state.js (Fase 2, mega-variável 3). Escrita via setNumPlayers()/joinPlayer.
 let collected=0, ended=false; setCoins(pickCoins(COIN_TARGET)); // coins: mega-var 7 em core/state.js (reatribuição via setCoins)
