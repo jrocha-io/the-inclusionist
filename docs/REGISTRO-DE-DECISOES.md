@@ -200,7 +200,7 @@
 
 | Decisão | Fundamento / estudo | Fonte | Status |
 |---|---|---|---|
-| **PixiJS** (WebGL, 1 contexto) + texto/UI em DOM | Pilar P1 (hardware fraco) + AAA de texto exige DOM | [PILARES-INEGOCIAVEIS.md](PILARES-INEGOCIAVEIS.md) | ✅ |
+| **PixiJS** (WebGL, 1 contexto) + texto/UI em DOM | Pilar P1 (hardware fraco) + AAA de texto exige DOM | [ADR-0010](2-Architecture/adr/ADR-0010-non-negotiable-pillars.yaml) | ✅ |
 | MP = **contêiner DOM por jogador sobre render compartilhado** (RenderTexture por viewport); **E5 (N canvases) CANCELADO 2026-07-02** | N contextos WebGL = risco de FPS no Positivo/Chromebook | memória do projeto + PLANO-EXECUCAO.md | ✅ |
 | Cada viewport ≥**640×360** (k≥2); 2×2 cabe no Chromebook 1366×768; telas novas só se couberem; celular = fullscreen 1 jogador | Conta de layout sobre a resolução do hardware-alvo | commits Lote B | ✅ |
 | PWA offline com SW **network-first para app-shell** (mata o CSS/JS velho preso) + bump de CACHE por mudança | Gotcha documentado após incidentes de cache | 2-Architecture/CI-CD.md | ✅ |

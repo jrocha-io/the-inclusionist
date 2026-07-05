@@ -37,11 +37,9 @@ Organized by **SDD lifecycle phase** (numbered), mirroring the schema we adopt (
 docs/
 ├── ARCHITECTURE.md            # THIS FILE — the map (start here)
 ├── ROADMAP.md                 # strategy + why-this-order; phases live in the GitHub Project (issues #22–#28)
-├── PILARES-INEGOCIAVEIS.md    # the constitution (10 pillars index) — links to NFR/research/REGISTRO
-├── REGISTRO-DE-DECISOES.md    # project-wide DECISION LOG (weighty ones are YADR ADRs in 2-Architecture/adr/)
 ├── 1-Discovery/               # SOFTWARE / engine requirements & design (NOT pedagogy — that's educational/)
 │   ├── User-Stories.md        #   engine/game features — negotiable layer
-│   ├── NFR.md                 #   non-functional reqs + the 10 pillars      ← PILARES-INEGOCIAVEIS
+│   ├── NFR.md                 #   non-functional reqs + the 10 pillars      ← ADR-0010
 │   ├── Event-Storming.md      #   DDD events — deferred (telemetry + Student Manager)
 │   └── plano-acessibilidade.md · plano-audio-fase-f.md · plano-tts-fase-f5.md · plano-i18n.md   # a11y/audio/i18n design
 ├── educational/               # CURRICULUM / pedagogy layer (pt-BR domain) — see ADR-0004

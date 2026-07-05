@@ -36,7 +36,7 @@ brasileira** (infantil · fundamental · médio) e, por proximidade, **EJA** e *
 convivência de idosos e pessoas assistidas socialmente). **MVP atual:** *The Inclusionist* — plataforma 2D pixel-art
 **acessível** (PixiJS), o **1º** de 35+ jogos. Reimplementação clean-room do engine Clarity.
 
-- **🔴 PILARES INEGOCIÁVEIS** (constituição — leia ANTES de agir): `docs/PILARES-INEGOCIAVEIS.md`. 10 pilares:
+- **🔴 PILARES INEGOCIÁVEIS** (constituição — leia ANTES de agir): `docs/2-Architecture/adr/ADR-0010-non-negotiable-pillars.yaml`. 10 pilares:
   hardware de escola pública BR (Positivo/Chromebook) · a11y (WCAG 2.2 + GAG; Libras em motor zdog à parte) · i18n ·
   conformidade LGPD/COPPA/China/Nórdicos (regra mais rígida vence) · pixel 320×180 (Libras 420×180) · telemetria
   1EdTech+xAPI com privacidade infantil rígida · multiplayer em telas separadas (sem split-screen) · offline (PWA) ·

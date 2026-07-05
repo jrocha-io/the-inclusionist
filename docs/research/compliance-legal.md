@@ -2,7 +2,7 @@
 
 > ⚠️ **Resumos de engenharia, NÃO aconselhamento jurídico.** As sínteses de leis (LGPD, COPPA, PIPL/China,
 > GDPR/Nórdicos, ABNT, fontes de fomento) precisam ser **validadas com jurídico** antes de publicar/captar. A confiança
-> de cada ponto está marcada. Consolida a análise que estava em `../PILARES-INEGOCIAVEIS.md` (P4/P5/P6/P10).
+> de cada ponto está marcada. Consolida a análise que estava em `../2-Architecture/adr/ADR-0010-non-negotiable-pillars.yaml` (P4/P5/P6/P10).
 >
 > As **regras testáveis** derivadas daqui estão em [`../1-Discovery/NFR.md`](../1-Discovery/NFR.md) (RN-01..04, ABNT
 > ¼×½). As **decisões** (lei-local-vence, identidade-via-gov, GPL-3.0, arte-não-FOSS) vão em `../2-Architecture/adr/`.

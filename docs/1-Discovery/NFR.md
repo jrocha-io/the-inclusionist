@@ -4,10 +4,10 @@ The project's hard, cross-cutting constraints — the **testable layer** of the 
 **Accessibility lives here** (not a separate doc). Any trade-off against an NFR (e.g. WCAG level vs. cost) is recorded
 as an **ADR**.
 
-> **Decomposition of `../PILARES-INEGOCIAVEIS.md` (the constitution):** the *testable rules* land **here**; the
-> *ratified decisions* (arte=dados, GPL-3.0, Tauri, PixiJS, RN-01..04, identity-via-gov, local-law-wins) go to
-> `../2-Architecture/adr/`; the *legal/compliance analysis* (PIPL/COPPA/LGPD/ABNT/funding) goes to `../research/`.
-> PILARES itself stays as the slim **constitution index** linking the three.
+> **This is the testable derivation of the constitution.** The 10 pillars are the DECISION
+> **[ADR-0010](../2-Architecture/adr/ADR-0010-non-negotiable-pillars.yaml)**; the other ratified decisions are their
+> own ADRs in `../2-Architecture/adr/`; the legal/compliance analysis is in `../research/compliance-legal.md`. NFR
+> carries only the **testable thresholds** (the verifiable form of each pillar).
 
 Where a requirement is machine-verifiable, it carries a **threshold** (the testable part).
 

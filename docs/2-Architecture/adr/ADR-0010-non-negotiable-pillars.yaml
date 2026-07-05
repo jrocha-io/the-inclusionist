@@ -1,0 +1,67 @@
+---
+metadata:
+  status: "accepted"
+  date: 2026-06-01
+  decision-makers: [Dev]
+  consulted: []
+  informed: []
+
+title: The 10 non-negotiable pillars (the project constitution)
+
+context-and-problem-statement: |
+  EdSP (35+ educational games; The Inclusionist is the 1st MVP) needs a fixed set of constraints that no feature may
+  violate — the constitution. This ADR records the decision to adopt them and how conflicts resolve. Replaces the
+  informal PILARES-INEGOCIAVEIS.md doc: a constitution is a set of DECISIONS, so it lives in the ADR system. The
+  TESTABLE form of each pillar (thresholds) is derived into `../../1-Discovery/NFR.md`.
+
+decision-drivers:
+- One place for decisions (ADRs) — no parallel informal "constitution" doc.
+- The pillars are a 10-year NORTH; the MVP ships a minimal subset without abandoning the rest.
+
+considered-options:
+- &pillars "Adopt the 10 pillars as non-negotiable, local-law-wins on conflicts"
+- &none "No fixed constitution"
+
+pros-and-cons-of-the-options:
+  pillars:
+    pros:
+    - "A stable contract every feature is checked against; testable rows in NFR."
+  none:
+    cons:
+    - "Scope drift; a Tier-2 child-data education product needs fixed a11y/privacy/licensing constraints."
+
+decision-outcome:
+  chosen-option:
+    link: *pillars
+    justification: |
+      Adopt the 10 pillars as the constitution. They are the DESTINATION (non-negotiable); the MVP delivers a minimal
+      subset and defers the rest (premortem: `../../research/AVALIACAO-ADVERSARIAL-PREMORTEM.md`). On conflict, the
+      **local law of the deployment region wins** (not "strictest wins", which was self-contradictory).
+  consequences:
+    positive:
+    - "Every feature has a fixed contract to satisfy; NFR carries the testable thresholds."
+    neutral:
+    - "MVP scope = a subset (e.g. China -> Fase-N with a partner; no personal telemetry in MVP; 'AA + AAA where viable')."
+    negative:
+    - "Some pillars (backend telemetry, LAN, nordic i18n) are deferred, not delivered now."
+  confirmation: |
+    NFR.md holds each pillar as a testable row; a feature that violates a pillar is rejected in review or blocked by
+    the relevant gate (axe-core for a11y, etc.).
+
+more-information: |
+  The 10 pillars:
+    1. Runs on weak BR public-school hardware (Positivo tablet, Chromebook) — PWA-first, 60fps on scaled 320x180.
+    2. Accessibility — WCAG 2.2 + GAG (+ GB/T 37668, EN 301 549); AAA aspirational-honest; text always in the DOM; Libras in a separate engine.
+    3. i18n — real (nordic portfolio): pt base -> en/es -> nordic; zero hardcoded strings.
+    4. Compliance — LGPD/COPPA/China/Nordic; **local law of the deployment region wins**, the rest are goals.
+    5. Pixel grid 320x180 (16:9); Libras panel 420x180 (21:9), >= 1/4 width x 1/2 height (ABNT NBR 15290).
+    6. Standardized telemetry + strict privacy — 1EdTech (LTI 1.3) + Caliper + xAPI; treat every user as a child; no open child data.
+    7. Multiplayer on separate screens (no split-screen) — N viewports, one sim; scaling in ADR-0008.
+    8. Offline — PWA (base) + Tauri/Tauri Mobile; never duplicate logic per target.
+    9. LAN + store-and-forward telemetry — playing needs no internet; queue + batch on reconnect.
+    10. Open + free + funded — GPL-3.0 code + non-FOSS art (selective trademark); free; no dark patterns (ADR-0006).
+
+  Conflict resolutions (synthesis): packaging vs weak hw -> Tauri+PWA; research-data vs child-privacy -> no open data (RN-01);
+  AAA text vs 320x180 -> text in the DOM; FOSS grants vs character protection -> GPL code + non-FOSS art; split-screen vs
+  separate screens -> N viewports one page; Libras 21:9 vs 16:9 -> additive 100px panel. The RN-01..04 data rules + the
+  local-law-wins model are detailed in `../../research/compliance-legal.md`.

@@ -29,3 +29,4 @@ One file per deliberate architectural decision, in **YADR** format — the YAML 
 | [ADR-0007](ADR-0007-ai-content-human-curation.yaml) | AI content gated by human curation (human accountable) | accepted |
 | [ADR-0008](ADR-0008-multiplayer-scaling.yaml) | Multiplayer scaling: 4/screen → classroom LAN → internet after study | accepted |
 | [ADR-0009](ADR-0009-game-documentation-subset.yaml) | Game-dev doc subset (LM-GM + light per-game; defer networking; reject MMO/economy/live-ops) | accepted |
+| [ADR-0010](ADR-0010-non-negotiable-pillars.yaml) | The 10 non-negotiable pillars (constitution) — was PILARES-INEGOCIAVEIS | accepted |
