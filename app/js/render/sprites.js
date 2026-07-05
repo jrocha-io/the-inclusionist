@@ -4,7 +4,8 @@
 // denunciaram; ver docs/plano-testes.md). O contrato testável é o SPRITE_MANIFEST (dados puros: nº de quadros
 // por animação); a criação das texturas é um passo EXPLÍCITO em initCharacterSprites(), chamado UMA vez no boot
 // do game.js. Os TEX_* começam vazios e são preenchidos por init — importadores os leem como bindings VIVOS
-// (atualizam após init). Depende do PIXI global (vendor) só ao carregar. Fonte: assets/sprites/menino/. (Fase 2.24)
+// (atualizam após init). PIXI vem do npm (7.4.2), só usado em initCharacterSprites. Fonte: assets/sprites/menino/. (Fase 2.24)
+import * as PIXI from 'pixi.js';
 
 // Manifesto PURO (animação → nº de quadros): fonte única da ESTRUTURA, testável sem carregar textura nenhuma.
 export const SPRITE_MANIFEST = {

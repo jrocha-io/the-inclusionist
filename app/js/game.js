@@ -2,6 +2,7 @@
 // The Inclusionist v4 — port do Lúdico real sobre PixiJS.
 // VERSIONAMENTO (recalculado do git em 2026-07-02): MINOR +1 a cada feature (patch zera);
 // PATCH +1 a cada conserto/ajuste; docs/chore não mudam versão. INCL_VERSION agora é DISPLAY (bump em mudança relevante); o cache é por content-hash do vite-plugin-pwa (Estágio 1) — sem sw.js/bump manual.
+import * as PIXI from 'pixi.js'; // PixiJS 7.4.2 via npm (Vite empacota; aposenta o <script> global vendor/pixi.min.js)
 import i18n from './core/i18n.js'; // internacionalização (docs/plano-i18n.md)
 import * as tiles from './core/tiles.js'; // Fase 1: legend + parser do mapa em glifo (docs/plano-mestre.md)
 import * as store from './platform/storage.js'; // Fase 2: camada de persistência (docs/plano-mestre.md)
