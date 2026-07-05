@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // game/coins.ts — POSICIONAMENTO dos coletáveis no mapa (Estágio 4). findCoinCandidates acha as células onde
 // cabe um item (tile de ar(1)/água(3) com chão sólido logo abaixo, fora da zona de spawn); pickCoins sorteia n
-// posições POR JOGADOR (Lote C: cada dono tem seu conjunto) e carimba shape/letter dos POOLS RECEBIDOS. Corte
-// limpo: NÃO conhece MODE nem os dados de quiz — o game.js calcula os pools e os passa. O render (coinTexFor/
-// rebuildCoins/coinSprites) e os distratores de alfabetização (malform/ferreiroDistractors) ficam fora (quiz).
+// posições POR JOGADOR (Lote C: cada dono tem seu conjunto) e carimba shape/letter dos POOLS RECEBIDOS;
+// positionEasyCoins rebaixa cada moeda até o chão no modo Fácil/cadeirante (acessibilidade). Corte limpo: NÃO
+// conhece MODE nem os dados de quiz — o game.js calcula os pools e os passa; anyEasy/wheelchair entram por ctx.
+// O render (coinTexFor/rebuildCoins/coinSprites) e os distratores (malform/ferreiroDistractors) ficam fora (quiz/render).
 import { TILE } from '../core/constants.js';
 import { solidAt } from '../core/collision.js';
 import { shuffle } from '../core/rng.js';
-import { numPlayers } from '../core/state.js';
+import { numPlayers, coins } from '../core/state.js';
 
-// mundo injetado no boot (mesma referência do game.js/colisão). Só a grade + dims p/ varrer candidatos.
+// mundo + flags de acessibilidade injetados no boot (mesma referência do game.js/colisão). Closures = estado vivo.
 let _world: number[][] = [], _W = 0, _H = 0;
-export function initCoins(ctx: { world: number[][]; W: number; H: number }): void { _world = ctx.world; _W = ctx.W; _H = ctx.H; }
+let _anyEasy: () => boolean = () => false;      // algum jogador no modo Fácil? (efeito de MUNDO: moedas no chão)
+let _isWheelchair: () => boolean = () => false; // cadeirante também rebaixa as moedas (alcançáveis sentado)
+export function initCoins(ctx: { world: number[][]; W: number; H: number; anyEasy: () => boolean; isWheelchair: () => boolean }): void {
+  _world = ctx.world; _W = ctx.W; _H = ctx.H; _anyEasy = ctx.anyEasy; _isWheelchair = ctx.isWheelchair;
+}
 
 // Células candidatas a receber um item: ar(1)/água(3) com chão sólido em até 10 tiles abaixo (alcançável),
 // exceto a zona de spawn/queda (tx≤4 & ty≥16 → evita auto-coleta ao nascer).
@@ -43,6 +48,20 @@ export function pickCoins(n: number, pools: { shapes?: string[]; letters?: strin
     }));
   }
   return out;
+}
+
+// Fácil/cadeirante: rebaixa cada moeda até o chão logo abaixo (scan ≤10 tiles); guarda y0 p/ reverter ao desligar.
+// A moeda (10px) repousa com 1px de folga (fy-11). Sem Fácil nem cadeira: volta ao y0 original.
+type EasyCoin = { x: number; y: number; y0?: number };
+export function positionEasyCoins(): void {
+  (coins as EasyCoin[]).forEach((cn) => {
+    const y0 = (cn.y0 ??= cn.y);
+    if (_anyEasy() || _isWheelchair()) {
+      const tx = Math.floor((cn.x + 5) / TILE); let fy: number | null = null;
+      for (let ty = Math.floor(y0 / TILE); ty < _H && ty < Math.floor(y0 / TILE) + 10; ty++) { if (solidAt(tx, ty)) { fy = ty * TILE; break; } }
+      cn.y = fy != null ? fy - 11 : y0;
+    } else cn.y = y0;
+  });
 }
 
 // Coletar = marca 1 dono; some do mundo em TODAS as telas (o item tem um único dono).

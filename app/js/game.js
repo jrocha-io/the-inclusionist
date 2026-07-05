@@ -36,7 +36,7 @@ import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, ANIM, EASY, T
 import { rnd, randInt, shuffle } from './core/rng.js'; // Fase 2.26: RNG semeado (Tier 1)
 import { initCollision, caneBlockPx, isSolidType, tileAt, solidTile, solidAt, surfTop, isWcRampRiser, rampSurfaceY } from './core/collision.js'; // Estágio 4: colisão de grade (determinística; ctx por closures)
 import { BOX, SPAWN_X, SPAWN_Y, makePlayer, jumpVel, isBouncyGroundBelow, touchingWall, clingSides, firstClingSide, spiderReattach, wrapConvex } from './game/player.js'; // Estágio 4: entidade + geometria de colisão do jogador
-import { initCoins, findCoinCandidates, pickCoins, takeCoin } from './game/coins.js'; // Estágio 4: posicionamento dos coletáveis (pools vêm daqui)
+import { initCoins, findCoinCandidates, pickCoins, positionEasyCoins, takeCoin } from './game/coins.js'; // Estágio 4: posicionamento dos coletáveis (pools vêm daqui)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -64,7 +64,7 @@ let wcSolid=new Set();
 initCollision({ world: WORLD, W: WORLD_W, H: WORLD_H,
   isWheelchair: ()=>wheelchair, isModoCego: ()=>modoCego, caneDiv: ()=>caneBlockDiv,
   wcSolid: ()=>wcSolid, gateTiles: ()=>gateTiles, gateOpen: ()=>gateOpen });
-initCoins({ world: WORLD, W: WORLD_W, H: WORLD_H }); // Estágio 4: posicionamento de coletáveis (usa solidAt já ligado acima)
+initCoins({ world: WORLD, W: WORLD_W, H: WORLD_H, anyEasy: ()=>anyEasy(), isWheelchair: ()=>wheelchair }); // Estágio 4: posicionamento de coletáveis (usa solidAt já ligado acima)
 // Itens do mapa Clarity → viram ITENS/barreira (não tiles): 7=pulo-turbo, 8=voo, 11=chave; 10=portão.
 // Removemos o tile do grid (vira ar) e o item/barreira é desenhado/colidido à parte; some ao pegar/abrir.
 const MAP_ITEMS=[], MAP_GATE=[];
@@ -853,14 +853,7 @@ function letterTexture(ch){
 }
 const coinContainer=new PIXI.Container(); camera.addChild(coinContainer);
 let coinSprites=[];
-// Fácil: rebaixa cada moeda até o chão logo abaixo (scan ≤10 tiles); guarda y0 p/ reverter ao desligar.
-function positionEasyCoins(){
-  coins.forEach(cn=>{ if(cn.y0==null)cn.y0=cn.y;
-    if(anyEasy()||wheelchair){ const tx=Math.floor((cn.x+5)/TILE); let fy=null;
-      for(let ty=Math.floor(cn.y0/TILE);ty<WORLD_H && ty<Math.floor(cn.y0/TILE)+10;ty++){ if(solidAt(tx,ty)){ fy=ty*TILE; break; } }
-      cn.y = fy!=null ? fy-11 : cn.y0; } // moeda (10px) repousa com 1px de folga
-    else cn.y=cn.y0; });
-}
+// positionEasyCoins extraído p/ game/coins.js (Estágio 4, posicionamento — Fácil/cadeirante rebaixam a moeda).
 function rebuildCoins(){
   positionEasyCoins();
   coinContainer.removeChildren().forEach(s=>s.destroy());

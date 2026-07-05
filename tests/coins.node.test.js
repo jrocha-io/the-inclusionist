@@ -5,14 +5,14 @@
 import { describe, it, expect } from 'vitest';
 import * as COL from '../app/js/core/collision.js';
 import * as COINS from '../app/js/game/coins.js';
-import { setNumPlayersValue } from '../app/js/core/state.js';
+import { setNumPlayersValue, setCoins } from '../app/js/core/state.js';
 import { reseed } from '../app/js/core/rng.js';
 
-// liga colisão (p/ solidAt) + coins no MESMO mundo falso.
-const useWorld = (grid) => {
+// liga colisão (p/ solidAt) + coins no MESMO mundo falso. flags.easy/wheelchair alimentam positionEasyCoins.
+const useWorld = (grid, flags = {}) => {
   const ctx = { world: grid, W: grid[0].length, H: grid.length };
-  COL.initCollision({ ...ctx, isWheelchair: () => false, isModoCego: () => false, caneDiv: () => 1, wcSolid: () => new Set(), gateTiles: () => new Set(), gateOpen: () => true });
-  COINS.initCoins(ctx);
+  COL.initCollision({ ...ctx, isWheelchair: () => !!flags.wheelchair, isModoCego: () => false, caneDiv: () => 1, wcSolid: () => new Set(), gateTiles: () => new Set(), gateOpen: () => true });
+  COINS.initCoins({ ...ctx, anyEasy: () => !!flags.easy, isWheelchair: () => !!flags.wheelchair });
 };
 
 // (1,1)=ar com chão em (1,2); (3,1)=água com chão em (3,3) (dy=2); (5,1)=ar FLUTUANTE (sem chão) → não candidato.
@@ -66,6 +66,54 @@ describe('game/coins — pickCoins (sorteio por jogador + pools recebidos)', () 
     expect(coins.length).toBe(4); // 2 candidatos × 2 jogadores
     expect([...new Set(coins.map((c) => c.owner))].sort()).toEqual([0, 1]);
     setNumPlayersValue(1); // restaura p/ não vazar estado a outros testes
+  });
+});
+
+// Mundo com chão sólido só em (1,4). Moeda em x=24 (tx=1), y=20 → rebaixa até fy=4*16=64 → y=64-11=53.
+const EASYWORLD = [
+  [0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0],
+  [0, 2, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0],
+];
+
+describe('game/coins — positionEasyCoins (Fácil/cadeirante: moeda ao chão)', () => {
+  it('[Right/a11y] modo Fácil rebaixa a moeda até o chão (y=53) e guarda o y0 original', () => {
+    useWorld(EASYWORLD, { easy: true });
+    const cs = [{ x: 24, y: 20 }]; setCoins(cs);
+    COINS.positionEasyCoins();
+    expect(cs[0].y).toBe(53);
+    expect(cs[0].y0).toBe(20);
+  });
+  it('[Inverse] sem Fácil nem cadeira → moeda fica na posição original', () => {
+    useWorld(EASYWORLD, {});
+    const cs = [{ x: 24, y: 20 }]; setCoins(cs);
+    COINS.positionEasyCoins();
+    expect(cs[0].y).toBe(20);
+  });
+  it('[Right/a11y] cadeirante (sem Fácil) também rebaixa', () => {
+    useWorld(EASYWORLD, { wheelchair: true });
+    const cs = [{ x: 24, y: 20 }]; setCoins(cs);
+    COINS.positionEasyCoins();
+    expect(cs[0].y).toBe(53);
+  });
+  it('[Boundary] sem chão abaixo (10 tiles) → fica no y0', () => {
+    useWorld([[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]], { easy: true });
+    const cs = [{ x: 24, y: 20 }]; setCoins(cs);
+    COINS.positionEasyCoins();
+    expect(cs[0].y).toBe(20);
+  });
+  it('[Cross-check/y0] liga (rebaixa) e depois desliga → volta ao y0 ORIGINAL, não à posição rebaixada', () => {
+    const flags = { easy: true, wheelchair: false };
+    useWorld(EASYWORLD, flags);
+    const cs = [{ x: 24, y: 20 }]; setCoins(cs);
+    COINS.positionEasyCoins();
+    expect(cs[0].y).toBe(53);
+    flags.easy = false;               // desliga sem reinit (closure lê o estado vivo)
+    COINS.positionEasyCoins();
+    expect(cs[0].y).toBe(20);         // volta ao original (20), não fica em 53
   });
 });
 
