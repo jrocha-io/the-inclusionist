@@ -62,26 +62,18 @@ docs/
 
 ## 3. Code layout (`app/js/`)
 
-Migrating from the `game.js` monolith into native ES modules (TypeScript), layered by responsibility.
-**Dependency rule:** domain never reaches platform globals — platform is behind thin **adapters**, dependencies are
-**injected** (e.g. `initCollision(ctx)`, `setVlibrasSay(fn)`). That is what makes each module unit-testable.
+*Where* the code lives, by folder (ES modules, TypeScript). The architecture **rules** behind this layout (cohesion,
+dependency injection, adapters) and the **system design** (C4, backend) belong in `2-Architecture/` — **not here**.
+This file is structure only.
 
-| Layer | Modules | Responsibility |
-|---|---|---|
-| `core/` | constants · tiles · world · collision · state · loop · rng · i18n · a11y-sr | Pure engine + game state (single source of truth) |
-| `platform/` | storage · audio · audio-mixer · speech | Adapters over browser APIs |
-| `input/` | state · keyboard · devices | Keyboard/gamepad/touch config + live state |
-| `render/` | canvas · sprites · props · sprite-fx · viz-modes · crt · minimap | PixiJS/canvas drawing + visual subsystems |
-| `ui/` | dom · fonts · vlibras · layout · webcam | DOM UI, scaling, assistive-input adapters |
-| `game/` | player · coins | Entities + placement (lean on `core/collision`) |
-| — | `game.js` (**dissolving**) | Shrinking monolith → ends as `main.ts` (composition root; wires adapters, exposes `window.__incl`) |
+| Folder | Modules |
+|---|---|
+| `core/` | constants · tiles · world · collision · state · loop · rng · i18n · a11y-sr |
+| `platform/` | storage · audio · audio-mixer · speech |
+| `input/` | state · keyboard · devices |
+| `render/` | canvas · sprites · props · sprite-fx · viz-modes · crt · minimap |
+| `ui/` | dom · fonts · vlibras · layout · webcam |
+| `game/` | player · coins |
+| (root) | `game.js` — dissolving into modules → ends as `main.ts` |
 
-Constants (TILE_TYPES, TUNE, dimensions) live only in `app/js/core/constants.ts` — never duplicated in docs.
-
-## 4. System context (C4 — Level 1)
-
-Client-side **PWA**, no backend today: PixiJS (WebGL/Canvas) render + DOM UI (a11y), **offline** (Workbox), shipped
-as `dist/` on **Cloudflare Pages**. Edge deps: PixiJS · VLibras · WebGazer · neural TTS (future) · Web Speech/
-Gamepad/Audio APIs. **Non-goals (now):** server API, microservices, K8s. **Future backend:** when logged-in users
-make sense, **Nakama** (self-hostable — fits LGPD/data-locality); telemetry (xAPI/Caliper/LTI) is store-and-forward,
-not a live cloud. These land as ADRs when adopted.
+Engine constants (TILE_TYPES, TUNE, dimensions) live only in `app/js/core/constants.ts` — never duplicated in docs.
