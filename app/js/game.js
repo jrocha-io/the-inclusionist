@@ -44,6 +44,7 @@ import { CRT, crtScanVars, applyCrt } from './render/crt.js'; // Estágio 4 (Tie
 import { initMinimap, markSeen, redrawMinimapIfDirty, drawMinimapPlayer, resetMinimap, setMinimapCorner, setMinimapVisible, getMinimap, minimapSeenCount } from './render/minimap.js'; // Estágio 4 (Tier 1): minimapa + fog-of-war
 import { vlibrasSay, vlibrasOpen, toggleLibras, vlTick, librasOpen, LIBRAS_RESERVE, setOnLibrasChange } from './ui/vlibras.js'; // Estágio 4 (Tier 1): intérprete VLibras (modo pessoa surda)
 import { layout } from './ui/layout.js'; // Estágio 4 (Tier 1): escala do jogo (múltiplo inteiro de 320×180 em px reais)
+import { eyeMode, setEyeMode, startEyeControl, stopEyeControl, loadWebGazer } from './ui/webcam.js'; // Estágio 4 (Tier 1): jogar com os olhos (WebGazer)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -2855,16 +2856,8 @@ function renderTouchMap(){ const el=$('#touchmap-list'); if(!el)return;
   el.innerHTML=TOUCH_SLOTS.map(s=>`<div class="ctrl-row"><label for="tm-${s.k}">${s.lbl}</label><select id="tm-${s.k}" class="vol" data-slot="${s.k}">${TOUCH_ACTS.map(a=>`<option value="${a}"${touchMap[s.k]===a?' selected':''}>${TOUCH_ACT_LABELS[a]}</option>`).join('')}</select></div>`).join('');
   el.querySelectorAll('select[data-slot]').forEach(sel=>sel.addEventListener('change',()=>{ touchMap[sel.dataset.slot]=sel.value; store.setJSON('incl_touchmap',touchMap); srSay((sel.previousElementSibling?sel.previousElementSibling.textContent:'Botão')+': '+TOUCH_ACT_LABELS[sel.value]+'.'); }));
 }
-// JOGAR COM OS OLHOS (webcam): WebGazer lazy (CDN no 1º uso; futuro: vendorizar p/ offline). Olhar esq/dir anda; olhar p/ cima pula.
-let eyeMode=false, _eyeKeys={left:false,right:false,up:false};
-function eyeSet(k,on,code){ if(_eyeKeys[k]===on)return; _eyeKeys[k]=on; const ev=new KeyboardEvent(on?'keydown':'keyup',{code:code,bubbles:true}); window.dispatchEvent(ev); document.dispatchEvent(ev); }
-function onGaze(data){ if(!data||!eyeMode)return; const gr=$('#game-region'); if(!gr)return; const r=gr.getBoundingClientRect(); if(!r.width)return;
-  const fx=(data.x-r.left)/r.width, fy=(data.y-r.top)/r.height;
-  eyeSet('left', fx<0.4, 'KeyA'); eyeSet('right', fx>0.6, 'KeyD'); eyeSet('up', fy<0.28, 'Space'); } // olhar esq/dir = andar; alto = pular
-function startEyeControl(){ try{ const wg=window.webgazer; if(!wg){ srAlert('WebGazer não carregou.'); return; } wg.setRegression('ridge').setGazeListener(onGaze).begin(); try{ wg.showVideoPreview(true).showPredictionPoints(true); }catch(e){} srAlert('Jogar com os olhos: olhe pela tela e clique em alguns pontos para calibrar. Olhar esquerda/direita anda; olhar para cima pula.'); }catch(e){} }
-function stopEyeControl(){ try{ if(window.webgazer)window.webgazer.end(); }catch(e){} eyeSet('left',false,'KeyA'); eyeSet('right',false,'KeyD'); eyeSet('up',false,'Space'); }
-function loadWebGazer(cb){ if(window.webgazer){cb&&cb();return;} const s=document.createElement('script'); s.src='https://webgazer.cs.brown.edu/webgazer.js'; s.async=true; s.onload=()=>cb&&cb(); s.onerror=()=>srAlert('Não foi possível carregar o WebGazer (precisa de internet no 1º uso).'); document.head.appendChild(s); }
-const eyesBtn=$('#opt-eyes'); if(eyesBtn)eyesBtn.addEventListener('click',()=>{ eyeMode=!eyeMode; toggleBtn(eyesBtn,eyeMode); eyesBtn.textContent=eyeMode?'❚❚ Ligado':'▶ Desligado';
+// JOGAR COM OS OLHOS: eyeMode/eyeSet/onGaze/startEyeControl/stopEyeControl/loadWebGazer → ui/webcam.js (Estágio 4, Tier 1).
+const eyesBtn=$('#opt-eyes'); if(eyesBtn)eyesBtn.addEventListener('click',()=>{ setEyeMode(!eyeMode); toggleBtn(eyesBtn,eyeMode); eyesBtn.textContent=eyeMode?'❚❚ Ligado':'▶ Desligado';
   if(eyeMode){ loadWebGazer(startEyeControl); srSay('Jogar com os olhos: carregando a webcam (permita o acesso).'); } else { stopEyeControl(); srSay('Jogar com os olhos desligado.'); } });
 const audioMasterBtn=$('#audio-master'); if(audioMasterBtn)audioMasterBtn.addEventListener('click',()=>{ setSoundOn(!soundOn); reflectAudioMaster(); srSay('Som '+(soundOn?'ligado.':'desligado.')); });
 const audioMasterVol=$('#audio-master-vol'); if(audioMasterVol)audioMasterVol.addEventListener('input',()=>{ setVolume((+audioMasterVol.value)/100); if(volume>0&&!soundOn){ setSoundOn(true); reflectAudioMaster(); } });

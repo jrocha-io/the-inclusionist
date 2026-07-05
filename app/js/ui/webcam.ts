@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// ui/webcam.ts — JOGAR COM OS OLHOS (acessibilidade motora): controle por olhar via WebGazer (webcam). Estágio 4,
+// Tier 1. WebGazer entra lazy (script do CDN no 1º uso; vendorizar p/ offline é futuro). onGaze mapeia o olhar
+// para teclas SINTÉTICAS (olhar esq/dir = andar A/D; olhar p/ cima = pular Espaço) → reusa o input do teclado.
+// O botão (#opt-eyes) fica no game.js (usa toggleBtn); aqui a lógica. Deps: ui/dom ($) + core/a11y-sr (srSay/srAlert).
+import { $ } from './dom.js';
+import { srAlert } from '../core/a11y-sr.js';
+
+// API mínima do WebGazer (lib externa, não tipada) — encadeável.
+type WG = { setRegression(m: string): WG; setGazeListener(fn: (d: unknown) => void): WG; begin(): WG; end(): void; showVideoPreview(b: boolean): WG; showPredictionPoints(b: boolean): WG };
+const wg = (): WG | undefined => (window as unknown as { webgazer?: WG }).webgazer;
+
+export let eyeMode = false; // ligado pelo botão; onGaze só age com ele ligado
+export function setEyeMode(on: boolean): void { eyeMode = on; }
+
+type EyeKey = 'left' | 'right' | 'up';
+const _eyeKeys: Record<EyeKey, boolean> = { left: false, right: false, up: false };
+// Dispara keydown/keyup SINTÉTICO só na TRANSIÇÃO (evita repetir). code = tecla física (KeyA/KeyD/Space).
+function eyeSet(k: EyeKey, on: boolean, code: string): void {
+  if (_eyeKeys[k] === on) return; _eyeKeys[k] = on;
+  const ev = new KeyboardEvent(on ? 'keydown' : 'keyup', { code, bubbles: true });
+  window.dispatchEvent(ev); document.dispatchEvent(ev);
+}
+// Recebe o ponto do olhar (px de tela), normaliza dentro do #game-region e vira direção. Exportado p/ teste.
+export function onGaze(data: unknown): void {
+  const d = data as { x: number; y: number } | null;
+  if (!d || !eyeMode) return; const gr = $<HTMLElement>('#game-region'); if (!gr) return;
+  const r = gr.getBoundingClientRect(); if (!r.width) return;
+  const fx = (d.x - r.left) / r.width, fy = (d.y - r.top) / r.height;
+  eyeSet('left', fx < 0.4, 'KeyA'); eyeSet('right', fx > 0.6, 'KeyD'); eyeSet('up', fy < 0.28, 'Space'); // esq/dir = andar; alto = pular
+}
+export function startEyeControl(): void {
+  try {
+    const g = wg(); if (!g) { srAlert('WebGazer não carregou.'); return; }
+    g.setRegression('ridge').setGazeListener(onGaze).begin();
+    try { g.showVideoPreview(true).showPredictionPoints(true); } catch (e) { /* noop */ }
+    srAlert('Jogar com os olhos: olhe pela tela e clique em alguns pontos para calibrar. Olhar esquerda/direita anda; olhar para cima pula.');
+  } catch (e) { /* noop */ }
+}
+export function stopEyeControl(): void {
+  try { const g = wg(); if (g) g.end(); } catch (e) { /* noop */ }
+  eyeSet('left', false, 'KeyA'); eyeSet('right', false, 'KeyD'); eyeSet('up', false, 'Space');
+}
+// Carrega o WebGazer (uma vez) do CDN e chama cb ao terminar. Precisa de internet no 1º uso.
+export function loadWebGazer(cb?: () => void): void {
+  if (wg()) { if (cb) cb(); return; }
+  const s = document.createElement('script'); s.src = 'https://webgazer.cs.brown.edu/webgazer.js'; s.async = true;
+  s.onload = () => { if (cb) cb(); };
+  s.onerror = () => srAlert('Não foi possível carregar o WebGazer (precisa de internet no 1º uso).');
+  document.head.appendChild(s);
+}
