@@ -41,7 +41,7 @@ docs/
 │   ├── Learning-Objectives.md #   measurable objectives (BNCC + Mager) — absorbs old SRS
 │   ├── Curriculum-Map.md      #   scope & sequence, BNCC coverage across grades
 │   ├── Pedagogical-Model.md   #   learning theory (Ferreiro & Teberosky, mastery, ZPD)
-│   └── plano-alfabetizacao.md #   domain IDD (Ferreiro & Teberosky); matemática/… to come
+│   └── alfabetizacao.idd.md   #   domain IDD (Ferreiro & Teberosky); `<domain>.idd.md`/`.ld.md` convention
 ├── 2-Architecture/            # system architecture & decisions
 │   ├── C4-Context.md          #   C4 Level 1 (L2 with backend)
 │   ├── adr/                   #   decisions in YADR (YAML) + index README
