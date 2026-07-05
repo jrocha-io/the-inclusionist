@@ -10,7 +10,7 @@ domínio, agendamento de repetição espaçada), a *implementação* passa a ser
 
 A progressão dos 6 jogos segue as hipóteses da criança (pré-silábico → silábico sem/com valor sonoro →
 silábico-alfabético → alfabético). Os distratores (jogo 1) são os erros *previstos por Ferreiro* (tamanho ≠ objeto,
-falta de variedade). Detalhe completo em `../plano-alfabetizacao.md` (a migrar pra cá). É o exemplo canônico de "o
+falta de variedade). Detalhe completo em [`plano-alfabetizacao.md`](plano-alfabetizacao.md). É o exemplo canônico de "o
 modelo pedagógico dita a mecânica".
 
 ### (outros domínios — a preencher)
@@ -25,5 +25,5 @@ Matemática, etc. — registrar a teoria adotada quando o domínio for desenhado
 
 ## Status
 
-- Alfabetização documentada (Ferreiro & Teberosky) via `../plano-alfabetizacao.md`. Demais domínios: a preencher
+- Alfabetização documentada (Ferreiro & Teberosky) via [`plano-alfabetizacao.md`](plano-alfabetizacao.md). Demais domínios: a preencher
   quando desenhados.

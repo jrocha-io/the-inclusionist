@@ -1,5 +1,10 @@
 # Plano — Redesenho pedagógico da Alfabetização (Ferreiro & Teberosky)
 
+> **Papel na camada currículo:** este é o **IDD (blueprint pedagógico) do domínio Alfabetização**. Os objetivos
+> mensuráveis derivados daqui vão em [`Learning-Objectives.md`](Learning-Objectives.md) (código BNCC + critério); a
+> teoria que o rege está em [`Pedagogical-Model.md`](Pedagogical-Model.md); a cobertura por etapa, em
+> [`Curriculum-Map.md`](Curriculum-Map.md). O aceite de cada jogo vira uma `.feature` Gherkin em `../3-Sprint-Design/bdd/`.
+
 Pedido do José em 2026-07-04. Grande; executar em ETAPAS. Base psicogenética (Emília Ferreiro & Ana Teberosky).
 
 ## Decisões travadas (José)

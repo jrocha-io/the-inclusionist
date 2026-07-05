@@ -71,7 +71,7 @@ Sobre a base já localizada por módulo (Fases 1–4). (`plano-i18n.md` §4.3–
 - **Pronto quando:** trocar idioma muda toda a UI + Matemática/Lúdico + voz, offline, sem recarregar.
 
 ## FASE 6 — Features pedagógicas + auditoria (sobre a base já modular)
-Retomar o conteúdo, agora sobre a engine limpa. (`plano-alfabetizacao.md` §6–9 + roadmap L7–L9)
+Retomar o conteúdo, agora sobre a engine limpa. (`educational/plano-alfabetizacao.md` §6–9 + roadmap L7–L9)
 1. **Alfabetização:** Grafema e fonema (eSpeak fonema), Malha de Braille, Escrevendo palavras, VLibras (surdo).
 2. **L7** webcam (MediaPipe rosto/olhos) + comando de voz. **L8** refinos (cadeirante, pose vitória, chiptunes).
 3. **L9** auditoria final WCAG 2.2 AAA / GAG.

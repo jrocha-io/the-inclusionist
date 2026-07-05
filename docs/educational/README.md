@@ -18,8 +18,9 @@ artefatos educacionais adotamos/adiamos/rejeitamos).
   tem jogo/atividade?".
 - **[Pedagogical-Model.md](Pedagogical-Model.md)** — modelo pedagógico / teoria de aprendizagem que rege o design
   (psicogênese de Ferreiro & Teberosky na alfabetização; domínio/mastery; repetição espaçada; ZPD).
-- **Planos educacionais por domínio** (a migrar pra cá): `plano-alfabetizacao.md`, matemática, … — os *blueprints*
-  (IDD em prosa) de cada conjunto de atividades.
+- **Planos educacionais por domínio** — os *blueprints* (IDD em prosa) de cada conjunto de atividades:
+  - **[plano-alfabetizacao.md](plano-alfabetizacao.md)** ✅ (Ferreiro & Teberosky, 6 jogos) — já migrado.
+  - matemática, … — a criar/migrar.
 
 > As **features Gherkin** de aceite das atividades ficam em `../3-Sprint-Design/bdd/` (artefato de teste), mas
 > **referenciam** os objetivos daqui pelo código BNCC.
