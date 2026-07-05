@@ -4,10 +4,10 @@ Estudo do `game.js` (v4.164.23, **3555 linhas**) para parar de extrair a conta-g
 (pedido do José 2026-07-04). Companheiro do `plano-modularizacao.md` (§3 alvo, §4 ordem, §8 testes). Cada módulo
 segue o padrão firmado: **import puro, I/O explícito, com teste do contrato** (ver [[project-inclusionist-testes]]).
 
-## Já extraído (22 módulos)
-`core/{constants,tiles,world,state,loop,i18n}` · `platform/{storage,audio,audio-mixer,speech}` ·
-`input/{keyboard,devices,state}` · `ui/{fonts}` · `render/{viz-modes,canvas,sprites,props,sprite-fx}` ·
-`i18n/{pt,en,es}`.
+## Já extraído (23 módulos)
+`core/{constants,tiles,world,state,loop,i18n,collision}` · `platform/{storage,audio,audio-mixer,speech}` ·
+`input/{keyboard,devices,state}` · `ui/{fonts,dom}` · `render/{viz-modes,canvas,sprites,props,sprite-fx}` ·
+`i18n/{pt,en,es}`. Todos `.ts`. `core/collision` (Estágio 4) já vem com testes node (ZOMBIES + Right-BICEP).
 
 ## Restante — ~34 módulos, em 3 tiers por acoplamento
 
@@ -18,7 +18,7 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 |---|---|---|---|
 | `core/rng.js` 🟢 | `rnd`/`randInt`/`shuffle` + `_seed` (RNG semeado, determinístico) | 246–249 | — |
 | `core/a11y-sr.js` 🟢 | `srSay`/`srAlert` (região live do leitor de tela) | 523–524 | DOM |
-| `core/collision.js` 🟡 | `isSolidType`/`tileAt`/`solidTile`/`solidAt`/`surfTop`/`isWcRampRiser`/`caneBlockPx` + `rampSurfaceY` + estado `gate`/`gateTiles`/`wcSolid` | 40–90, 51–61 | WORLD, wheelchair |
+| ~~`core/collision.js` 🟡~~ **FEITO** | `isSolidType`/`tileAt`/`solidTile`/`solidAt`/`surfTop`/`isWcRampRiser`/`caneBlockPx` + `rampSurfaceY`. Estado `gate`/`gateTiles`/`wcSolid`/`wheelchair`/`modoCego` SEGUE no game.js; a colisão o lê por **closures** no `initCollision(ctx)`. + testes node. | — | WORLD, ctx |
 | `render/crt.js` 🟢 | `crtScanVars`/`applyCrt` + `CRT` | 1515–1535 | PIXI |
 | `render/minimap.js` 🟡 | `redrawMinimap`/`markSeen`/`setMinimapCorner` | 1664–1669, 3429 | WORLD, PIXI |
 | `game/attract.js` 🟡 | modo atração/demo: `startAttract`/`stepAttract`/`stopAttract`/`attractRecFor` + `_idleT`/`attract` | 752–806 | input, loop |
