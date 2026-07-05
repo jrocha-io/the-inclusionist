@@ -49,8 +49,12 @@ docs/
 │   ├── api/                   #   OpenAPI.md · Pact.md
 │   ├── bdd/                   #   Gherkin acceptance for activities (pt-BR features)
 │   └── Test-Plan.md
-├── 4-Sprints/                 # execution — process lives in CONTRIBUTING (thin folder)
-├── 5-Refactoring/             # supersede-don't-append (YADR ADRs)
+├── 4-Sprints/                 # execution (phase d)
+│   ├── TDD.md                 #   TDD/XP + Vitest (ZOMBIES/Right-BICEP); Test Case → Test-Plan
+│   ├── Commits.md             #   Conventional Commits + Closes #N
+│   └── Frontend.md            #   DOM activities: light-DOM WC + Atomic + Storybook (→ ADR-0002); canvas excluded
+├── 5-Refactoring/             # improving (phase e)
+│   └── Engineering-Rules.md   #   DRY/SOLID/cohesion↑; supersede-don't-append; ADRs change in-sprint
 ├── 6-DevOps-SRE/              # CI/CD now; observability/runbooks deferred to backend
 ├── research/                  # cross-cutting: studies that back decisions  ← PESQUISA-*, ESTUDO-FONTES, …
 └── legacy/                    # cross-cutting: dead but preserved           ← ROADMAP(E1–E13), VERTICAL-SLICE, TODO, …
