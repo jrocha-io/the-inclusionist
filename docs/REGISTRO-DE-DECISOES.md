@@ -1,19 +1,22 @@
 # Registro de Decisões — The Inclusionist v4
 
-> Índice canônico: **toda decisão do projeto + o estudo que a embasa**. Uma linha por decisão;
-> quando o estudo existe, linka o doc; quando não existe, o status é **ESTUDO PENDENTE** e o item
-> entra na agenda (§9). Convenção: decisões são sobreponíveis pelo José — a reversão deve ser
-> registrada aqui com a data.
+> **O LOG de decisões do projeto inteiro** (a11y, tipografia, pedagogia, arte, arquitetura, compliance) — uma linha por
+> decisão + o estudo que a embasa. É mais amplo que arquitetura, por isso fica na raiz de `docs/` (não em
+> `2-Architecture/adr/`). As decisões **pesadas, com alternativas** viram **YADR ADRs** em
+> [`2-Architecture/adr/`](2-Architecture/adr/) (0001–0009); este log referencia-as e registra o restante.
+>
+> Uma linha por decisão; quando o estudo existe, linka o doc; quando não, o status é **ESTUDO PENDENTE** (agenda §9).
+> Convenção: decisões são sobreponíveis pelo Dev — a reversão é registrada aqui com a data.
 
 ## 1. Acessibilidade visual
 
 | Decisão | Fundamento / estudo | Fonte | Status |
 |---|---|---|---|
-| Alto contraste = **Renderização Direta** (contorno + color-blocking + fundo que recua), NÃO filtros fotográficos | CLAHE/VCEA/linear-quadrático são técnicas fotográficas: posterizam pixel art, não separam papéis, custo alto no hardware-alvo; renderização direta é a prática da indústria (PlayStation 1ª parte, Saints Row 2022) e atinge contraste por construção | [PESQUISA-ALTO-CONTRASTE.md](PESQUISA-ALTO-CONTRASTE.md) | ✅ documentado |
+| Alto contraste = **Renderização Direta** (contorno + color-blocking + fundo que recua), NÃO filtros fotográficos | CLAHE/VCEA/linear-quadrático são técnicas fotográficas: posterizam pixel art, não separam papéis, custo alto no hardware-alvo; renderização direta é a prática da indústria (PlayStation 1ª parte, Saints Row 2022) e atinge contraste por construção | [PESQUISA-ALTO-CONTRASTE.md](research/PESQUISA-ALTO-CONTRASTE.md) | ✅ documentado |
 | 3 níveis de contraste: **3:1 (padrão) · 4,5:1 · 7:1** — 3:1 escolhido como melhor ("7:1 vira tudo amarelo/preto/branco, desagradável") | Razões de luminância WCAG medidas analiticamente (3,8 / 4,5 / 7,4 plataforma×fundo); WCAG 1.4.11 (3:1 não-texto), 1.4.6 (7:1 AAA texto) como âncoras dos níveis | PESQUISA-ALTO-CONTRASTE.md §6 + commits `e1e1f56` | ✅ |
 | **Dois contornos configuráveis** (Nenhum/Fino/Grosso): 1º plano = personagem/itens; 2º plano = só o PERÍMETRO externo de plataforma/água/lava | WCAG 2.4.7 (foco visível → 1º plano) e 1.4.11 (≥3:1 → ambos); "borda em cada bloco fica esquisito, o que faz sentido é delimitar navegável × não-navegável" (José) | commit `87aed33` | ✅ |
 | **Color-blocking por papel**: perigo=laranja, escada/trampolim=ciano (escada em degraus ciano/preto), água=azul, portão trancado=magenta, estrutura=cinza | Papel→matiz distinto para identificação de função à primeira vista (prática GAG/indústria); escada desenhada como escada para não ler como "pista" | commits `d235004`/`7c7a425`/`4677e85` | ✅ (customização de cores → L2) |
-| **Daltonização (fix-\*)**: matrizes canônicas C = I + M_err·(I−Sim); Sim = Machado 2009 sev. 1.0; M_err = Fidaner et al. | Fontes primárias conferidas (UFRGS/IEEE; daltonize.py); verificação: ganho de ΔE 4×/84×/3,7× nos piores pares confundíveis; brancos preservados (linhas somam 1) | [PESQUISA-DALTONIZACAO.md](PESQUISA-DALTONIZACAO.md) | ✅ |
+| **Daltonização (fix-\*)**: matrizes canônicas C = I + M_err·(I−Sim); Sim = Machado 2009 sev. 1.0; M_err = Fidaner et al. | Fontes primárias conferidas (UFRGS/IEEE; daltonize.py); verificação: ganho de ΔE 4×/84×/3,7× nos piores pares confundíveis; brancos preservados (linhas somam 1) | [PESQUISA-DALTONIZACAO.md](research/PESQUISA-DALTONIZACAO.md) | ✅ |
 | **Simulações (sim-\*)** também Machado 2009 (as "colorjack" antigas eram sem fonte) | Review DaltonLens: matrizes colorjack imprecisas | PESQUISA-DALTONIZACAO.md §2 | ✅ |
 | Brettel 1997 exato para tritan **adiado** (piecewise, inexprimível em feColorMatrix) → Machado tritan como aproximação linear | PESQUISA-DALTONIZACAO.md §4 | idem | ✅ documentado |
 | Aplicação de filtros em **sRGB nos 2 caminhos** (solo SVG ≡ MP PIXI) em vez de RGB-linear canônico | Consistência visual solo×MP > exatidão colorimétrica; aproximação padrão das implementações web | PESQUISA-DALTONIZACAO.md §4 | ✅ documentado |
@@ -34,7 +37,7 @@
 
 | Decisão | Fundamento / estudo | Fonte | Status |
 |---|---|---|---|
-| Fontes canônicas: **Atkinson Hyperlegible** (padrão), **Andika** (alfabetização), **Lexend** (opcional dislexia/discalculia/TDAH), **Atkinson Hyperlegible Mono** (matemática), **Braille CC0** | Pesquisa própria do José com referências ABNT/DOI + estudo meu convergente | [referencia-tipografica-projeto-v6.md](referencia-tipografica-projeto-v6.md) (canônico) · [ESTUDO-FONTES.md](ESTUDO-FONTES.md) · [PESQUISA-FONTES-CONDICOES-LETRAMENTO.md](PESQUISA-FONTES-CONDICOES-LETRAMENTO.md) | ✅ |
+| Fontes canônicas: **Atkinson Hyperlegible** (padrão), **Andika** (alfabetização), **Lexend** (opcional dislexia/discalculia/TDAH), **Atkinson Hyperlegible Mono** (matemática), **Braille CC0** | Pesquisa própria do José com referências ABNT/DOI + estudo meu convergente | [referencia-tipografica-projeto-v6.md](game-design/typography.md) (canônico) · [ESTUDO-FONTES.md](research/ESTUDO-FONTES.md) · [PESQUISA-FONTES-CONDICOES-LETRAMENTO.md](research/PESQUISA-FONTES-CONDICOES-LETRAMENTO.md) | ✅ |
 | OpenDyslexic **fora do cânone** (evidência fraca/negativa), disponível só por escolha explícita, sem alegar eficácia | Estudos de eficácia citados no ESTUDO-FONTES | idem | ✅ |
 | Espaçamento padrão: line ≥1.5×, letter ≥0.12em, word ≥0.16em, paragraph ≥2×; toggle Dislexia = letter 0.18em + word 0.63em | WCAG 2.2 §1.4.12 + Guia da British Dyslexia Association (palavra ≥3,5× o espaço entre letras; letra ≈35% da largura média) | ESTUDO-FONTES.md | ✅ |
 | Kindergarten Pro (BR) e Learning Curve (EU/CA/US) para caligrafia — uso "inegociável" | Learning Curve conferida: gratuita p/ uso comercial (Blue Vinyl); Kindergarten Pro = licença de embedding a negociar | ESTUDO-FONTES.md | ⚠️ contato com a foundry pendente |
@@ -62,10 +65,10 @@
 
 | Decisão | Fundamento / estudo | Fonte | Status |
 |---|---|---|---|
-| Mixer com **9 categorias** independentes (música, ambiente, interação, earcons, outros, TTS, sonar, guarda de beirada, guia) — volume de navegação sonora NÃO é afetado pelo volume geral | GAG (controles de volume independentes); espec. do José | [plano-audio-fase-f.md](plano-audio-fase-f.md) | ✅ |
+| Mixer com **9 categorias** independentes (música, ambiente, interação, earcons, outros, TTS, sonar, guarda de beirada, guia) — volume de navegação sonora NÃO é afetado pelo volume geral | GAG (controles de volume independentes); espec. do José | [plano-audio-fase-f.md](1-Discovery/plano-audio-fase-f.md) | ✅ |
 | **Modo cego** = ajudas de áudio (bengala com material por superfície, sonar, guarda de beirada, guia em laço, cordas na água) SEM escurecer a tela; empatia-cego = tela preta | "NÃO CONFUNDA MODO CEGO COM MODO EMPATIA" (José) | plano-acessibilidade.md | ✅ |
 | Sons por **saída de áudio por jogador** (setSinkId); volume/TTS/modo cego só editáveis por quem tem saída PRIVADA | Impossível jogar com bengalas de jogadores diferentes na mesma caixa (José) | game.js `hasPrivateOutput` | ✅ |
-| TTS: **Piper primário pt-BR** + Kokoro + Kitten + eSpeak NG WASM embutido; Web Speech = fallback; toggles TTS e Legendas separados | Pesquisa F5: só Piper tinha voz pt-BR neural leve | [plano-tts-fase-f5.md](plano-tts-fase-f5.md) | 🔨 neural em **L4** |
+| TTS: **Piper primário pt-BR** + Kokoro + Kitten + eSpeak NG WASM embutido; Web Speech = fallback; toggles TTS e Legendas separados | Pesquisa F5: só Piper tinha voz pt-BR neural leve | [plano-tts-fase-f5.md](1-Discovery/plano-tts-fase-f5.md) | 🔨 neural em **L4** |
 | Perda auditiva (empatia): expansão descendente (downward expansion) + low-pass — o INVERSO de um aparelho auditivo | Espec. técnica do José (limiar → ×0,1; agudos primeiro) | plano-acessibilidade.md | ✅ |
 | Música: **MIDI ou procedural, nada de ogg/mp3** | Peso no hardware-alvo + GPL-clean | decisão José | 🔨 estudo em **L8** |
 | Pausa GAG: silencia TODO o som e congela chuva/animações | GAG (Pause/Stop/Hide) + WCAG 2.2.2 | setPhase | ✅ |
@@ -200,9 +203,9 @@
 | **PixiJS** (WebGL, 1 contexto) + texto/UI em DOM | Pilar P1 (hardware fraco) + AAA de texto exige DOM | [PILARES-INEGOCIAVEIS.md](PILARES-INEGOCIAVEIS.md) | ✅ |
 | MP = **contêiner DOM por jogador sobre render compartilhado** (RenderTexture por viewport); **E5 (N canvases) CANCELADO 2026-07-02** | N contextos WebGL = risco de FPS no Positivo/Chromebook | memória do projeto + PLANO-EXECUCAO.md | ✅ |
 | Cada viewport ≥**640×360** (k≥2); 2×2 cabe no Chromebook 1366×768; telas novas só se couberem; celular = fullscreen 1 jogador | Conta de layout sobre a resolução do hardware-alvo | commits Lote B | ✅ |
-| PWA offline com SW **network-first para app-shell** (mata o CSS/JS velho preso) + bump de CACHE por mudança | Gotcha documentado após incidentes de cache | v4.0.0/README.md | ✅ |
+| PWA offline com SW **network-first para app-shell** (mata o CSS/JS velho preso) + bump de CACHE por mudança | Gotcha documentado após incidentes de cache | legacy/README-app-v4.md | ✅ |
 | Tauri/Tauri Mobile (não Electron/Capacitor) — pós-MVP | Peso do Electron × hardware fraco | PILARES | adiado |
-| GPL-3.0 no código desde já + **arte NÃO-FOSS** (marca seletiva + licença própria); jogo gratuito | Elegibilidade FOSS de editais + proteção de personagens; [LICENCAS-GERACAO-IMAGEM.md](LICENCAS-GERACAO-IMAGEM.md) (PixelLab SAFE etc.) | PILARES + LICENCAS | ✅ |
+| GPL-3.0 no código desde já + **arte NÃO-FOSS** (marca seletiva + licença própria); jogo gratuito | Elegibilidade FOSS de editais + proteção de personagens; [LICENCAS-GERACAO-IMAGEM.md](research/LICENCAS-GERACAO-IMAGEM.md) (PixelLab SAFE etc.) | PILARES + LICENCAS | ✅ |
 | **Libras: Live2D Cubism com personagem PRÓPRIO** (zdog inviável — expressões faciais; samples oficiais Live2D não redistribuíveis) | Decisão José 2026-07-02; licença Live2D Free Material conferida | PLANO-EXECUCAO.md | 🔨 estudo em **L8** |
 | VLibras como interim (painel 420×180, 21:9; jogo desloca e centraliza) | NBR 15290 (janela de intérprete ¼ largura × ½ altura) adaptada | PILARES P5 | ✅ |
 
@@ -212,18 +215,18 @@
 |---|---|---|---|
 | **Lei local da região de implantação VENCE**; o resto é "meta, conforme possível" | Resolução da contradição China real-name × COPPA/LGPD | PILARES P4 (RN-01..04) | ✅ |
 | Identidade do adulto NUNCA armazenada (token/booleano de consentimento; quem trata é o gov); real-name só dentro da China; residência de dados no país de origem | Minimização LGPD/GDPR/COPPA/PIPL | PILARES RN-02/03/04 | ✅ |
-| Dados de pesquisa: **nada aberto** — só anônimos/agregados via parceria com instituição de renome | Risco de escândalo (premortem) | [AVALIACAO-ADVERSARIAL-PREMORTEM.md](AVALIACAO-ADVERSARIAL-PREMORTEM.md) | ✅ |
+| Dados de pesquisa: **nada aberto** — só anônimos/agregados via parceria com instituição de renome | Risco de escândalo (premortem) | [AVALIACAO-ADVERSARIAL-PREMORTEM.md](research/AVALIACAO-ADVERSARIAL-PREMORTEM.md) | ✅ |
 | China = "**aprovável**" é META de engenharia, não claim de venda (版号/localização são aprovação externa) | Red-team | idem | ✅ |
 | **Políticas educacionais finlandesas/nórdicas** (critérios de qualidade p/ jogos educativos) | — | — | ❌ **ESTUDO PENDENTE (L0)** |
 | **Políticas educacionais chinesas** (anti-addiction, conteúdo, 版号 como referência de projeto) | — | — | ❌ **ESTUDO PENDENTE (L0)** |
-| **Mapa GAG item-a-item** (o que cada feature cobre: Basic/Intermediate/Advanced) | Parcial: AUDITORIA-E13 cobriu gates | [v4.0.0/AUDITORIA-E13.md](../v4.0.0/AUDITORIA-E13.md) | ⚠️ **consolidar (L0) + final em L9** |
+| **Mapa GAG item-a-item** (o que cada feature cobre: Basic/Intermediate/Advanced) | Parcial: AUDITORIA-E13 cobriu gates | [v4.0.0/AUDITORIA-E13.md](research/AUDITORIA-E13-axe.md) | ⚠️ **consolidar (L0) + final em L9** |
 | **Mapa WCAG 2.2 critério-a-critério** (AA × AAA, honesto: onde só dá AA) | Parcial (axe = 0 violações na E13; AAA "aspiracional marcado honestamente" — CLAUDE.md §2.7) | idem | ⚠️ **consolidar (L0) + final em L9** |
 
 ## 8. Arte e visual (diretrizes vigentes)
 
 | Decisão | Fundamento / estudo | Fonte | Status |
 |---|---|---|---|
-| Arte = **dados/código procedural** (PixelLab/Magnific só referência de design); pixel art PNG agora → procedural depois | GPL-clean + leveza; licenças conferidas | LICENCAS-GERACAO-IMAGEM.md, [DIRETRIZES-VISUAIS-E-FISICA.md](../v4.0.0/DIRETRIZES-VISUAIS-E-FISICA.md) | bases = José (Aseprite) |
+| Arte = **dados/código procedural** (PixelLab/Magnific só referência de design); pixel art PNG agora → procedural depois | GPL-clean + leveza; licenças conferidas | LICENCAS-GERACAO-IMAGEM.md, [DIRETRIZES-VISUAIS-E-FISICA.md](legacy/DIRETRIZES-VISUAIS-E-FISICA.md) | bases = José (Aseprite) |
 | Cores CHAPADAS sem contorno/sombra/luz nos personagens (TDAH); 320×180/16px mantidos (48×48 cancelado: "resolução rica demais pode ser problema para TDAH") | Hipótese pedagógica do José — ⚠️ sem estudo formal citado | DIRETRIZES | ⚠️ anotar como hipótese a validar |
 | Juice (poeira/brilho/squash/hit-stop/screenshake/shimmer/easing) — **cada efeito desligável no debug** p/ teste no hardware | GAG (efeitos desativáveis) + medição de custo | DIRETRIZES | ✅ commit `5e18fc0` |
 | Juice × Movimento Reduzido (WCAG 2.3.3): partículas→`rm.particles`, cintilar→`rm.items`, tremor de tela→`rm.parallax` (categoria "movimento de câmera"), squash→`rmWalk` por jogador; **hit-stop não é movimento** (é pausa) e fica fora do RM | Mapeamento 1:1 com os alvos de RM já existentes; evita criar chave nova | game.js (bloco JUICE) | ✅ decisão anotada |
