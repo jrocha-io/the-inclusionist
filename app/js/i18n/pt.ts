@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Locale pt-BR — idioma base (import ESTÁTICO em core/i18n.js → boot síncrono). Ver docs/plano-i18n.md.
+// Locale pt-BR — idioma base (import ESTÁTICO em core/i18n.ts → boot síncrono). Ver docs/plano-i18n.md.
 // A UI em pt é extraída em lotes; en/es caem no fallback pt até serem completados (Etapa 4).
-export default {
+const pt: Record<string, string> = {
   // Chrome / navegação
   'skip.toGame': 'Pular para o jogo',
   'menu.ludico': 'Lúdico',
@@ -34,3 +34,4 @@ export default {
   'a11y.gameRegion': 'Área de jogo. Mova com A e D ou setas; pule com L ou Espaço; suba e desça escadas (e nade na água) com W e S ou setas; corra com P ou Shift. Colete 10 moedas.',
   'game.instructions': 'Mova o personagem pela caverna e colete 10 moedas. Sem limite de tempo. Controles: A e D ou setas movem; L ou Espaço pulam; W e S (ou setas cima/baixo) sobem/descem escadas e nadam; P ou Shift correm.',
 };
+export default pt;

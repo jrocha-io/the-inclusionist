@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // i18n — internacionalização (ver docs/plano-i18n.md).
 // O idioma padrão (pt) é import ESTÁTICO → dicionário pronto antes do game.js rodar (boot síncrono, sem
-// refatorar o init para async). Os demais entram por import() DINÂMICO ao trocar de idioma (o SW cacheia).
-// Os dicionários pt/en/es seguem .js por ora (o import() dinâmico vira glob de build — convertê-los é lote à parte).
+// refatorar o init para async). Os demais entram sob demanda ao trocar de idioma, via import.meta.glob (o
+// Vite gera um chunk por locale e o SW cacheia). import.meta.glob (em vez de import(`…${code}.ts`) cru) é o
+// jeito nativo do Vite: casa arquivos .ts no build de forma explícita, sem depender do glob "adivinhado".
 import pt from '../i18n/pt.js';
 
 type LocaleDict = Record<string, string>;
@@ -11,6 +12,9 @@ const AVAILABLE = ['pt', 'en', 'es'];
 const base: LocaleDict = pt;                // dicionário-base (fallback), tipado
 const DICTS: Record<string, LocaleDict> = { pt: base }; // dicionários já carregados (pt embutido)
 const STORE_KEY = 'incl_lang';
+
+// carregadores preguiçosos por locale (chaves: '../i18n/en.ts', '../i18n/es.ts', '../i18n/pt.ts'); pt já é estático.
+const loaders = import.meta.glob<{ default: LocaleDict }>('../i18n/*.ts');
 
 let locale = 'pt';
 let dict: LocaleDict = base;
@@ -33,7 +37,9 @@ export function applyDom(root: ParentNode = document): void {
 
 async function ensure(code: string): Promise<LocaleDict> {
   if (DICTS[code]) return DICTS[code];
-  const mod = await import(`../i18n/${code}.js`); // relativo a este módulo → app/js/i18n/<code>.js
+  const load = loaders[`../i18n/${code}.ts`];
+  if (!load) return base; // idioma sem arquivo → cai no pt
+  const mod = await load();
   DICTS[code] = mod.default;
   return DICTS[code];
 }
