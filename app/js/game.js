@@ -41,6 +41,7 @@ import { srSay, srAlert, setVlibrasSay } from './core/a11y-sr.js'; // Estágio 4
 import { CRT, crtScanVars, applyCrt } from './render/crt.js'; // Estágio 4 (Tier 1): estética CRT (scanlines/vinheta/cantos)
 import { initMinimap, markSeen, redrawMinimapIfDirty, drawMinimapPlayer, resetMinimap, setMinimapCorner, setMinimapVisible, getMinimap, minimapSeenCount } from './render/minimap.js'; // Estágio 4 (Tier 1): minimapa + fog-of-war
 import { vlibrasSay, vlibrasOpen, toggleLibras, vlTick, librasOpen, LIBRAS_RESERVE, setOnLibrasChange } from './ui/vlibras.js'; // Estágio 4 (Tier 1): intérprete VLibras (modo pessoa surda)
+import { layout } from './ui/layout.js'; // Estágio 4 (Tier 1): escala do jogo (múltiplo inteiro de 320×180 em px reais)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -3008,39 +3009,7 @@ function hideTips(){} // dicas de início REMOVIDAS (José 2026-07-04); stub man
    Usa o BOTÃO NATIVO do VLibras (reposicionado à direita do jogo). Detecta abertura/fechamento
    por polling e, ao abrir, reserva o slot 5:9 (jogo desloca à esquerda, conjunto 21:9 centraliza)
    e encaixa+escala o painel no slot. */
-// librasOpen/vwBtn/vlibrasOpen/toggleLibras/LIBRAS_RESERVE/vlTick → ui/vlibras.js (Estágio 4, Tier 1). layout() segue aqui (ui/layout depois).
-function layout(){
-  const wrap=$('#stage-wrap'); if(!wrap)return;
-  // ao abrir o VLibras, reserva espaço à direita → o jogo desloca p/ a esquerda e o conjunto centraliza
-  wrap.style.paddingRight = librasOpen ? LIBRAS_RESERVE+'px' : '0px';
-  const availW=(wrap.clientWidth||320) - (librasOpen?LIBRAS_RESERVE:0); // clientWidth inclui padding → descontar
-  const availH=wrap.clientHeight||180;
-  // E11: a grade de telas define a base (1=320×180, 2=640×180, 3-4=640×360)
-  const cols=numPlayers<=1?1:(numPlayers<=2?numPlayers:2), rows=numPlayers<=2?1:2;
-  const baseW=320*cols, baseH=180*rows;
-  // múltiplo inteiro, MAS tolerando até 5px lógicos de corte por lado (×k) se isso aumentar o k.
-  // overflow/lado ≤ 5k  ⇒  baseW·k − avail ≤ 10k  ⇒  k ≤ avail/(base−10)
-  // Piso k=2: CADA viewport tem no mínimo 640×360 (320×180 lógico × 2). Assim 2×2 = 1280×720 cabe num
-  // Chromebook do governo (1366×768). Se nesse mínimo não couber, a Etapa 4 vai bloquear aquele nº de telas.
-  const MIN_K=2;
-  // ADR-001 (CORRIGIDO 2026-07-04): ESCALA travada em PIXELS REAIS INTEIROS. Cada pixel de arte = kDev pixels
-  // FÍSICOS (inteiro) → scanlines SEMPRE regulares e arte uniforme em QUALQUER dpr. O tamanho CSS resultante
-  // (baseW·kDev/dpr) pode ser fracionário, mas isso é abstração do navegador — os pixels REAIS desenhados são
-  // múltiplo inteiro EXATO de 320×180. (A regra "sem dpr" da v4.147.2 estava errada: dava inteiro em CSS, mas em
-  // telas dpr≠1 os pixels reais saíam irregulares → scanlines desalinhadas. José escolheu inteiro-REAL.)
-  // Tolera ≤5px lógicos de corte por lado (o −10). base·kDev − avail·dpr ≤ 10·kDev ⇒ kDev ≤ avail·dpr/(base−10).
-  const dpr=window.devicePixelRatio||1;
-  const kDev=Math.max(Math.round(MIN_K*dpr), Math.floor(Math.min(availW*dpr/(baseW-10), availH*dpr/(baseH-10))));
-  const k=kDev/dpr; // fator LÓGICO/CSS (kDev = fator em pixels REAIS, inteiro)
-  // ESCALA das variáveis de UI é ESCOPADA ao #game-region: só a UI DENTRO do canvas (menus, HUD, pausa, quiz)
-  // escala com o k. Fora do canvas (barra de topo, painel de debug) herda o :root → texto SEMPRE 16px, toque 44px (José).
-  const gr=$('#game-region'); if(gr){ gr.style.width=(baseW*k)+'px'; gr.style.height=(baseH*k)+'px';
-    gr.style.setProperty('--hud-fs', Math.max(9, Math.round(180*k*0.052))+'px');
-    gr.style.setProperty('--ui-fs', (8*k)+'px');   // base LÓGICA 8px × k (16px em k=2)
-    gr.style.setProperty('--tap', (22*k)+'px'); }  // toque 22px × k (44px em k=2, piso WCAG)
-  if(typeof crtScanVars==='function')crtScanVars(); // scanlines re-alinham quando a escala k muda
-  if(/[?&]debug=true/.test(location.search))console.info(`[escala] kDev=${kDev}× px REAIS (canvas físico ${baseW*kDev}×${baseH*kDev} = múltiplo INTEIRO de ${baseW}×${baseH}); CSS ${Math.round(baseW*k)}×${Math.round(baseH*k)} (k=${k.toFixed(3)}, dpr=${dpr})`); // José confirma: os PIXELS REAIS são múltiplo inteiro
-}
+// layout() extraído p/ ui/layout.js (Estágio 4, Tier 1) — fecha o cluster: importa librasOpen/LIBRAS_RESERVE de ui/vlibras.
 addEventListener('resize', layout);
 setOnLibrasChange(layout); // ui/vlibras: reflui o layout ao abrir/fechar o intérprete (callback injetado)
 setInterval(vlTick, 250);
