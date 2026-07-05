@@ -34,14 +34,16 @@ const INCL_VERSION='4.164.25';
 // Constantes puras extraídas para core/constants.js (modularização Fase B).
 import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, ANIM, TILE_TYPES, TILE_COLOR } from './core/constants.js';
 import { rnd, randInt, shuffle } from './core/rng.js'; // Fase 2.26: RNG semeado (Tier 1)
+import { initCollision, caneBlockPx, isSolidType, tileAt, solidTile, solidAt, surfTop, isWcRampRiser, rampSurfaceY } from './core/collision.js'; // Estágio 4: colisão de grade (determinística; ctx por closures)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
 // Modo cego (A12e auditiva): SÓ as ajudas de áudio (bengala + sonar + guarda + narração), sem tela preta. Empatia cegueira liga por padrão.
 let modoCego=store.getBool('incl_modocego');
 let caneBlockDiv=store.getNum('incl_cane_div',1)||1; // 1 = 1 batida/bloco; 2 = 1 batida/meio bloco (por DISTÂNCIA pisada)
-const caneBlockPx=()=>TILE/caneBlockDiv;
-const isSolidType = (t) => ((wheelchair && (t===9||t===5)) || (modoCego && t===9)) ? true : !!(TILE_TYPES[t] && TILE_TYPES[t].solid); // cadeirante: lava(9)+trampolim(5) viram chão; modo CEGO: lava(9) vira chão (remove o perigo — José)
+// caneBlockPx/isSolidType/tileAt/solidTile/solidAt/surfTop/isWcRampRiser/rampSurfaceY extraídos p/ core/collision.js
+// (Estágio 4). Estado que a colisão lê (caneBlockDiv/wheelchair/modoCego/wcSolid/gateTiles/gateOpen) SEGUE aqui —
+// a colisão o acessa por closures via initCollision(ctx), logo abaixo (após o WORLD ficar pronto).
 // TILE_COLOR agora vem de core/constants.js (importado acima).
 
 /* ===================== mundo ===================== */
@@ -51,22 +53,15 @@ import { buildWorldFromText } from './core/world.js';
 const WORLD = buildWorldFromText(await (await fetch('assets/levels/clarity.map.txt')).text());
 const WORLD_W = WORLD[0].length, WORLD_H = WORLD.length;
 const WORLD_PX_W = WORLD_W*TILE, WORLD_PX_H = WORLD_H*TILE;
-const tileAt=(tx,ty)=>(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H)?2:WORLD[ty][tx];
 // E12: portão dinâmico — seus tiles são sólidos enquanto fechado (gateOpen=true ⇒ comporta normal)
 let gateTiles=new Set(), gateOpen=true, gate=null;
 // Cadeirante: sólidos SÓ-CADEIRANTE (pontes/plataformas que não existem no modo normal) — não altera CLARITY_MAP.
 let wcSolid=new Set();
-const solidTile=(x,y)=>{ const t=tileAt(x,y); return (wheelchair&&wcSolid.has(x+','+y)) || isSolidType(t); }; // isSolidType inclui lava(9)/trampolim(5) no modo cadeira → surfTop/rampas os enxergam como piso (José: rampa p/ sair da lava)
-const solidAt=(tx,ty)=>(!gateOpen && gateTiles.has(tx+','+ty)) || (wheelchair && wcSolid.has(tx+','+ty)) || isSolidType(tileAt(tx,ty));
-// Cadeirante: geometria da rampa de 1 tile. surfTop=topo caminhável; riser=o degrau que a rampa cobre
-// (não é parede p/ o cadeirante: a rampa guia o Y). rampSurfaceY=altura da diagonal 45° num x do mundo.
-const surfTop=(x,y)=> solidTile(x,y) && !solidTile(x,y-1);
-const isWcRampRiser=(col,row)=> surfTop(col,row) && (surfTop(col-1,row+1)||surfTop(col+1,row+1));
-function rampSurfaceY(cx,py){ const tcx=Math.floor(cx/TILE), fx=cx-tcx*TILE, ty=Math.floor(py/TILE);
-  for(let y=ty-1;y<=ty+1;y++){ if(y<1||!surfTop(tcx,y))continue;
-    if(surfTop(tcx+1,y-1)) return y*TILE-fx;       // degrau sobe p/ direita: y*TILE → (y-1)*TILE
-    if(surfTop(tcx-1,y-1)) return (y-1)*TILE+fx;   // degrau sobe p/ esquerda: (y-1)*TILE → y*TILE
-  } return null; }
+// Mundo + estado prontos → liga a colisão (core/collision.js). As closures leem o estado VIVO daqui:
+// wheelchair/modoCego/caneBlockDiv/wcSolid/gateTiles/gateOpen mudam neste módulo e a colisão sempre vê o atual.
+initCollision({ world: WORLD, W: WORLD_W, H: WORLD_H,
+  isWheelchair: ()=>wheelchair, isModoCego: ()=>modoCego, caneDiv: ()=>caneBlockDiv,
+  wcSolid: ()=>wcSolid, gateTiles: ()=>gateTiles, gateOpen: ()=>gateOpen });
 // Itens do mapa Clarity → viram ITENS/barreira (não tiles): 7=pulo-turbo, 8=voo, 11=chave; 10=portão.
 // Removemos o tile do grid (vira ar) e o item/barreira é desenhado/colidido à parte; some ao pegar/abrir.
 const MAP_ITEMS=[], MAP_GATE=[];
