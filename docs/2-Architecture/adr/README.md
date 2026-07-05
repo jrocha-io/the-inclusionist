@@ -1,16 +1,23 @@
-# Architecture Decision Records (ADR)
+# Architecture Decision Records (YADR)
 
-One file per deliberate architectural decision — **Nygard format**. An ADR is immutable once accepted: to change a
-decision, write a **new** ADR that **supersedes** the old one (`Superseded by ADR-NNN` / `Supersedes ADR-MMM`), never
-edit the original. This keeps refactors as an audit trail instead of a pile of new records.
+One file per deliberate architectural decision, in **YADR** format — the YAML sibling of MADR
+([adr/yadr](https://github.com/adr/yadr)). Pure YAML so records are **machine-readable** (filter/index by
+`metadata.status`, generate the table below, lint against a schema later).
 
-- **Naming:** `ADR-NNN-short-slug.md`, NNN zero-padded, monotonic.
-- **Index / log:** `../../REGISTRO-DE-DECISOES.md` is the running decision log (to migrate here as the index).
-- **Big design docs that *are* a decision** (e.g. the modularization plan `../../plano-modularizacao.md`, built on
-  arXiv:2409.15152) act as ADRs too — link them from the index rather than duplicating.
+- **Format:** `templates/yadr-template-full.yaml` from the upstream repo. Keys, in order: `metadata`
+  (`status`, `date`, `decision-makers`, `consulted`, `informed`) → `title` → `context-and-problem-statement` →
+  `decision-drivers` → `considered-options` → `pros-and-cons-of-the-options` → `decision-outcome`
+  (`chosen-option{link,justification}`, `consequences{positive,neutral,negative}`, `confirmation`) → `more-information`.
+- **Naming:** `ADR-NNNN-short-slug.yaml`, 4-digit zero-padded, monotonic.
+- **Immutable:** to change a decision, write a **new** ADR and set the old one's `metadata.status` to
+  `"superseded by ADR-NNNN"`. Never edit an accepted decision — refactors **supersede**, they don't pile up.
+- **Big design docs that *are* a decision** (e.g. the modularization plan, `../../plano-modularizacao.md`, built on
+  arXiv:2409.15152) act as ADRs too — link them from the table rather than duplicating.
+- **Upgrade path:** if LGPD/compliance needs an audited, CI-validated decision log, adopt **Structured MADR**
+  ([smadr.dev](https://smadr.dev/)) — our YAML frontmatter is already close.
 
 ## Records
 
 | ADR | Decision | Status |
 |---|---|---|
-| [ADR-001](ADR-001-escala-canvas-inteira.md) | Integer canvas scaling | Accepted |
+| [ADR-0001](ADR-0001-integer-real-pixel-canvas-scale.yaml) | Lock canvas scale to integer real pixels | accepted |

@@ -38,11 +38,27 @@ docs/
 │   ├── NFR.md                 #   non-functional reqs + the 10 pillars      ← PILARES-INEGOCIAVEIS
 │   ├── Design.md              #   visual/typography/physics (non-code)
 │   └── Event-Storming.md      #   DDD events — deferred (telemetry + Student Manager)
-├── 2-Architecture/            # (under construction) C4 · ADRs · DFD-PII · CI/CD · …
-├── 3-Sprint-Design/ · 4-Sprints/ · 5-Refactoring/ · 6-DevOps-SRE/   # (under construction, one per SDD section)
+├── 2-Architecture/            # system architecture & decisions
+│   ├── C4-Context.md          #   C4 Level 1 (L2 with backend)
+│   ├── adr/                   #   decisions in YADR (YAML) + index README
+│   ├── Feature-Flags.md · DFD.md · STRIDE.md · CI-CD.md
+│   ├── K8s-Manifests.md       #   note: when K8s becomes worth it (deferred)
+│   └── backend-cloud-roadmap.md   # staged AWS/backend adoption + which docs when
+├── 3-Sprint-Design/           # per-feature design
+│   ├── data-model/            #   DBML.md · Migrations.md · Normalization.md
+│   ├── api/                   #   OpenAPI.md · Pact.md
+│   ├── bdd/                   #   Gherkin acceptance for activities (pt-BR features)
+│   └── Test-Plan.md
+├── 4-Sprints/                 # execution — process lives in CONTRIBUTING (thin folder)
+├── 5-Refactoring/             # supersede-don't-append (YADR ADRs)
+├── 6-DevOps-SRE/              # CI/CD now; observability/runbooks deferred to backend
 ├── research/                  # cross-cutting: studies that back decisions  ← PESQUISA-*, ESTUDO-FONTES, …
 └── legacy/                    # cross-cutting: dead but preserved           ← ROADMAP(E1–E13), VERTICAL-SLICE, TODO, …
 ```
+
+> **Deferred-but-homed:** many 2-/3-/6- artifacts are stubs that record *where/when/how* an artifact activates
+> (e.g. DBML at the corpus DB, OpenAPI/Pact at the backend, K8s at stage 4). The stub **is** the decision — it exists
+> so the choice isn't improvised later; it is not empty ceremony.
 
 | File / folder | Holds | Used by |
 |---|---|---|
