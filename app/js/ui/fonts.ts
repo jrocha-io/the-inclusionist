@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ui/fonts.js — catálogo de fontes (dados) + índice por chave + carga/persistência da escolha. Módulo-folha
+// ui/fonts.ts — catálogo de fontes (dados) + índice por chave + carga/persistência da escolha. Módulo-folha
 // (só depende de storage). A instância `fontKey` e o setGameFont (aplica família/espaçamento) ficam no game.js.
 import * as store from '../platform/storage.js';
 
-export const FONT_GROUPS = [
+export type FontItem = { k: string; fam: string; fb: string; d?: string; off?: string };
+export type FontGroup = { g: string; items: FontItem[] };
+export const FONT_GROUPS: FontGroup[] = [
   {g:'Sem serifa', items:[
     {k:'atkinson',   fam:'Atkinson Hyperlegible', fb:'sans', d:'feita pelo Braille Institute para pessoas com baixa visão (padrão do jogo)'},
     {k:'lexend',     fam:'Lexend',                fb:'sans', d:'feita para reduzir stress visual e atender pessoas disléxicas (ativa o espaçamento extra)'},
@@ -26,12 +28,12 @@ export const FONT_GROUPS = [
     {k:'learningcurve', fam:'Learning Curve',   fb:'cursive', d:'cursiva inglesa', off:'licença a confirmar — ainda não embarcada'},
     {k:'kindergarten',  fam:'Kindergarten Pro', fb:'cursive', d:'cursiva brasileira', off:'licença em negociação'} ]},
 ];
-export const FONT_BY_KEY = {}; FONT_GROUPS.forEach((g) => g.items.forEach((it) => { FONT_BY_KEY[it.k] = it; }));
+export const FONT_BY_KEY: Record<string, FontItem> = {}; FONT_GROUPS.forEach((g) => g.items.forEach((it) => { FONT_BY_KEY[it.k] = it; }));
 
-// escolha inicial: incl_font_k (validada; ignora fontes .off) → migra a chave antiga incl_fonte → 'atkinson'.
-export function loadFontKey() {
+// escolha inicial: incl_font_k (validada; ignora fontes .off) -> migra a chave antiga incl_fonte -> 'atkinson'.
+export function loadFontKey(): string {
   const k = store.get('incl_font_k', null); if (k && FONT_BY_KEY[k] && !FONT_BY_KEY[k].off) return k;
   const leg = store.get('incl_fonte', null); if (leg === 'alfabetizacao') return 'andika'; if (leg === 'dislexia') return 'lexend';
   return 'atkinson';
 }
-export function saveFontKey(k) { store.set('incl_font_k', k); }
+export function saveFontKey(k: string): void { store.set('incl_font_k', k); }
