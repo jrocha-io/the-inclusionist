@@ -36,6 +36,7 @@ import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, ANIM, EASY, T
 import { rnd, randInt, shuffle } from './core/rng.js'; // Fase 2.26: RNG semeado (Tier 1)
 import { initCollision, caneBlockPx, isSolidType, tileAt, solidTile, solidAt, surfTop, isWcRampRiser, rampSurfaceY } from './core/collision.js'; // Estágio 4: colisão de grade (determinística; ctx por closures)
 import { BOX, SPAWN_X, SPAWN_Y, makePlayer, jumpVel, isBouncyGroundBelow, touchingWall, clingSides, firstClingSide, spiderReattach, wrapConvex } from './game/player.js'; // Estágio 4: entidade + geometria de colisão do jogador
+import { initCoins, findCoinCandidates, pickCoins, takeCoin } from './game/coins.js'; // Estágio 4: posicionamento dos coletáveis (pools vêm daqui)
 // Empatia MOTORA (global, muda a jogabilidade) — declarados cedo pois isSolidType os usa (cadeirante: trampolim vira elevador atravessável)
 let oneButton=store.getBool('incl_onebtn');
 let wheelchair=store.getBool('incl_wheelchair');
@@ -63,6 +64,7 @@ let wcSolid=new Set();
 initCollision({ world: WORLD, W: WORLD_W, H: WORLD_H,
   isWheelchair: ()=>wheelchair, isModoCego: ()=>modoCego, caneDiv: ()=>caneBlockDiv,
   wcSolid: ()=>wcSolid, gateTiles: ()=>gateTiles, gateOpen: ()=>gateOpen });
+initCoins({ world: WORLD, W: WORLD_W, H: WORLD_H }); // Estágio 4: posicionamento de coletáveis (usa solidAt já ligado acima)
 // Itens do mapa Clarity → viram ITENS/barreira (não tiles): 7=pulo-turbo, 8=voo, 11=chave; 10=portão.
 // Removemos o tile do grid (vira ar) e o item/barreira é desenhado/colidido à parte; some ao pegar/abrir.
 const MAP_ITEMS=[], MAP_GATE=[];
@@ -230,17 +232,7 @@ function directSpriteTexture(srcTex,mode){ if(hcOutlineFg<=0) return srcTex; con
 // coinCanvas/coinTexture/treeCanvas/treeTexture migrados p/ render/props.js (Fase 2.19)
 
 /* ===================== moedas (spawn real) ===================== */
-function findCoinCandidates(){
-  const cand=[],maxJ=10;
-  for(let ty=0;ty<WORLD_H;ty++)for(let tx=0;tx<WORLD_W;tx++){
-    const t=WORLD[ty][tx]; if(t!==1&&t!==3)continue;
-    if(tx<=4 && ty>=16) continue; // zona de spawn/queda: sem moeda (evita auto-coleta)
-    let below=-1;
-    for(let dy=1;dy<=maxJ&&ty+dy<WORLD_H;dy++){ if(solidAt(tx,ty+dy)){below=dy;break;} }
-    if(below>=1) cand.push({tx,ty});
-  }
-  return cand;
-}
+// findCoinCandidates/pickCoins/takeCoin extraídos p/ game/coins.js (Estágio 4, posicionamento).
 // RNG semeado (rnd/randInt/shuffle/_seed) migrado p/ core/rng.js (Fase 2.26 / Tier 1)
 // modos de jogo
 let MODE='ludico'; // 'ludico' | 'somasub' (silabas vem na E7)
@@ -300,21 +292,8 @@ const brailleText=(ch)=>{const d=BRAILLE[String(ch).toLowerCase()]; return d?d.m
 let blindMode=false; // modo pessoa cega: no Sílabas, dita os pontos Braille
 // Lote C: cada jogador tem SEU conjunto de n itens em posições ALEATÓRIAS próprias e com a COR do dono
 // (owner). Todos os itens de todos os jogadores existem no mundo; cada um coleta só os `owner===seu i`.
-function pickCoins(n){
-  const shapes = MODE==='somasub' ? SOMASUB_SHAPES.map(s=>s.id) : [];
-  const letters = MODE==='silabas' ? WORD_INITIALS : []; // letra = inicial da palavra
-  const out=[], np=Math.max(1,numPlayers);
-  for(let owner=0; owner<np; owner++){
-    const a=shuffle(findCoinCandidates());                 // sorteio de posições independente por jogador
-    const sh = shapes.length ? shuffle(shapes.slice()) : [], lt = letters.length ? shuffle(letters.slice()) : [];
-    a.slice(0,Math.min(n,a.length)).forEach((p,i)=>out.push({
-      x:p.tx*TILE+3, y:p.ty*TILE+3, owner, taken:false,
-      shape: sh.length ? sh[i%sh.length] : '',
-      letter: lt.length ? lt[i%lt.length] : '',
-    }));
-  }
-  return out;
-}
+// pickCoins extraído p/ game/coins.js; aqui só o cálculo dos POOLS a partir do MODE (coins não conhece MODE/quiz).
+const coinPools=()=>({ shapes: MODE==='somasub'?SOMASUB_SHAPES.map(s=>s.id):[], letters: MODE==='silabas'?WORD_INITIALS:[] });
 
 /* ===================== estado ===================== */
 // $ (querySelector) migrado p/ ui/dom.js (Fase 2.27 / Tier 1)
@@ -327,10 +306,10 @@ function showPower(pl){ if(pl===players[0]){ const el=document.getElementById('h
 // jumpVel + isBouncyGroundBelow/touchingWall/clingSides/firstClingSide/spiderReattach/wrapConvex → game/player.js (Estágio 4)
 players.push(makePlayer(0)); let player=players[0]; // 'players' vem de core/state.js (Fase 2, mega-var 8; nunca reatribuído, só mutado in-place); 'player'=players[0] fica local
 // 'numPlayers' agora vem de core/state.js (Fase 2, mega-variável 3). Escrita via setNumPlayers()/joinPlayer.
-let collected=0, ended=false; setCoins(pickCoins(COIN_TARGET)); // coins: mega-var 7 em core/state.js (reatribuição via setCoins)
+let collected=0, ended=false; setCoins(pickCoins(COIN_TARGET, coinPools())); // coins: mega-var 7 em core/state.js (reatribuição via setCoins)
 // Itens INDIVIDUAIS por jogador (multiplayer em telas separadas): cada moeda/letra/forma é coletada
 // independentemente por cada jogador. Só a CHAVE é compartilhada (ver powerups). taken = espelho do P1 (solo).
-function takeCoin(cn){ cn.taken=true; } // item tem 1 dono; coletar = some do mundo (todas as telas)
+// takeCoin extraído p/ game/coins.js (Estágio 4)
 // Power-ups: individuais por jogador, MENOS a CHAVE (compartilhada — vale para o time todo).
 function puTaken(pu,pi){ if(pu.kind==='key') return !!pu.taken; return pu.by ? !!pu.by[pi] : !!pu.taken; }
 function takePu(pu,pi){ if(pu.kind==='key'){ pu.taken=true; return; } if(!pu.by)pu.by=[]; pu.by[pi]=1; if(pi===0)pu.taken=true; }
@@ -1645,7 +1624,7 @@ function resolveY(pl){
 }
 function triggerLava(pl){
   if(pl.hurtTimer>0)return;
-  setCoins(pickCoins(COIN_TARGET)); rebuildCoins();
+  setCoins(pickCoins(COIN_TARGET, coinPools())); rebuildCoins();
   players.forEach(p=>p.collected=0); collected=0; updateHud();
   sfx('hurt'); pl.hurtTimer=60; pl.vy=-10; pl.vx=(rnd()<0.5?-1:1)*5;
   addShake(3,14); addHitstop(4); // JUICE: dano é o impacto mais forte do jogo
@@ -2195,7 +2174,7 @@ function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); 
   $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); narrate(`${who}Venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
 function restartGame(){
   players.forEach(p=>closeQuiz(p)); // L3: quiz é por jogador
-  setCoins(pickCoins(COIN_TARGET));
+  setCoins(pickCoins(COIN_TARGET, coinPools()));
   rebuildCoins();
   setupExtras(); // E12: re-posiciona power-ups + chave; portão volta a fechar
   darkRegions.forEach(r=>{ r.announced=false; r.gfx.alpha=1; r.gfx.visible=true; }); // re-escurece segredos
