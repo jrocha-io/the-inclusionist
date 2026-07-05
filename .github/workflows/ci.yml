@@ -21,6 +21,9 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Supply-chain — npm audit (deps de produção, que vão pro navegador)
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Type-check (tsc --noEmit)
         run: npm run typecheck
 
