@@ -26,7 +26,7 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 | ~~`ui/vlibras.js` 🟡~~ **FEITO** | `vlibrasSay`/`vlibrasOpen`/`toggleLibras`/`vlTick` + `librasOpen`/`LIBRAS_RESERVE` extraídos (+ testes browser). Cluster com `layout` quebrado por callback (`setOnLibrasChange`); importa `srAlert` (a11y-sr NÃO importa de volta → sem ciclo). | — | a11y-sr, DOM |
 | `ui/webcam.js` 🟢 | `eyeSet`/`onGaze`/`startEyeControl`/`stopEyeControl`/`loadWebGazer` (controle por olhar) | 2997–3011 | WebGazer |
 | `ui/debug-panel.js` 🟡 | `buildDebugPanel` (painel `?debug` de afinação: TUNE/ANIM/JUICE/CRT) | 3499+ | TUNE, JUICE |
-| `ui/layout.js` 🟡 | `layout`/`fpsTick` + `configureRender` (escala inteira 320×180, VLibras ao lado, FPS) | 1626, 3113, 3160 | PIXI, DOM |
+| ~~`ui/layout.js` 🟡~~ **FEITO (layout)** | `layout` (escala inteira 320×180 + reserva VLibras) extraído (+ testes browser). Fecha o cluster vlibras↔layout (importa librasOpen/LIBRAS_RESERVE; sem ciclo). **Faltam:** `fpsTick` (usa app.ticker/fps-state) e `configureRender` (multi-tela → render/viewports). | — | dom, state, crt, vlibras |
 
 > **Recalibração (durante a execução, 2026-07-04):** ao abrir o código, o Tier 1 tem mais acoplamento que os
 > rótulos sugeriam. Correções:
