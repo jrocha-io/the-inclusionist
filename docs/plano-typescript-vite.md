@@ -39,11 +39,15 @@ Objetivo: provar que o toolchain roda com o mínimo de mudança (PIXI segue glob
 - Bump `vitest`/`@vitest/browser` ao major compatível com o Vite instalado. Os dois projects (node/browser) e os
   testes atuais seguem; só a versão/ço​nfig ajusta. **José valida:** `npx vitest run` verde.
 
-### Estágio 3 — Converter para `.ts` (incremental) + PIXI via npm ⬅ PRÓXIMO
-- Renomear módulos `.js`→`.ts` e tipar, começando pelos **folha puros** (constants, tiles, rng, state, storage,
-  input/state, sprites-manifest…). Apertar `tsconfig` aos poucos (`strict` por flag).
-- Trocar o `PIXI` global por `import * as PIXI from 'pixi.js'` (dep real, tree-shakeável, tipada) — módulo a
-  módulo do render. `$` de ui/dom vira helper **tipado** (`$<T>()`).
+### Estágio 3 — Converter para `.ts` (incremental) + PIXI via npm ⬅ EM ANDAMENTO
+- Renomear módulos `.js`→`.ts` e tipar, começando pelos **folha puros**. `strict:true` já ligado (só `.ts` checado).
+  Progresso por **lotes** pequenos (cada um validado pelo José: `build` + `vitest run` + `tsc --noEmit`):
+  - **Lote 1 (FEITO):** `core/constants`, `core/rng`, `core/tiles`.
+  - **Lote 2 (FEITO):** `core/world`, `input/state`, `platform/storage`.
+  - **Lote 3 (FEITO):** `input/devices`, `render/viz-modes`, `core/loop`, `ui/fonts`.
+  - **Lote 4 (próximo):** demais folhas sem PIXI (audio-mixer, speech, keyboard, i18n…).
+- **Módulos de render** (canvas, props, sprites, sprite-fx): lote dedicado — trocar o `PIXI` global por
+  `import * as PIXI from 'pixi.js'` (dep real, tree-shakeável, tipada). `$` de ui/dom vira helper **tipado** (`$<T>()`).
 - Cada conversão: `tsc --noEmit` limpo + testes verdes.
 
 ### Estágio 4 — Retomar a modularização em `.ts`
