@@ -6,6 +6,7 @@
 // do game.js. Os TEX_* começam vazios e são preenchidos por init — importadores os leem como bindings VIVOS
 // (atualizam após init). PIXI vem do npm (7.4.2), só usado em initCharacterSprites. Fonte: assets/sprites/menino/. (Fase 2.24)
 import * as PIXI from 'pixi.js';
+import { makeCanvas, tex } from './canvas.js'; // p/ o tapa-costuras (inpaint 1px) dos frames do PixelLab
 
 // Manifesto PURO (animação → nº de quadros): fonte única da ESTRUTURA, testável sem carregar textura nenhuma.
 export const SPRITE_MANIFEST: Record<string, number> = {
@@ -31,6 +32,35 @@ const SPR = 'assets/sprites/menino/';
 const pngTex = (f: string): PIXI.Texture => { const t = PIXI.Texture.from(SPR + f); t.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST; return t; };
 const A = (anim: string, n: number): PIXI.Texture[] => Array.from({ length: n }, (_, i) => pngTex(anim + '/' + i + '.png')); // frames de cor
 
+// TAPA-COSTURAS (temporário, até refazer os sprites no Aseprite): os frames do PixelLab deslocam o tronco na
+// respiração/movimento e deixam uma FRESTA de 1px transparente no encaixe (o "fatiado"). Enche cada pixel transparente
+// cercado por opaco à ESQUERDA e à DIREITA com a MÉDIA dos dois (a cor do tronco) — só 1px, então vãos legítimos
+// (entre pernas/braços, largos) ficam intactos. Horizontal apenas (a cabeça sobe sem vão). Ver docs/plano-arte-procedural.md.
+function inpaintSeams1px(id: ImageData): void {
+  const d = id.data, w = id.width, h = id.height;
+  for (let y = 0; y < h; y++) for (let x = 1; x < w - 1; x++) {
+    const i = (y * w + x) * 4; if (d[i + 3] !== 0) continue; // opaco → pula
+    const l = (y * w + x - 1) * 4, r = (y * w + x + 1) * 4;
+    if (d[l + 3] > 0 && d[r + 3] > 0) { // fresta de 1px (opaco dos dois lados) → cor do tronco (média esq/dir)
+      d[i] = (d[l] + d[r]) >> 1; d[i + 1] = (d[l + 1] + d[r + 1]) >> 1; d[i + 2] = (d[l + 2] + d[r + 2]) >> 1; d[i + 3] = 255;
+    }
+  }
+}
+// Recarrega o PNG, aplica o inpaint e SUBSTITUI o binding vivo arr[idx] (o game.js lê a textura por frame → pega a nova).
+function inpaintInto(file: string, arr: PIXI.Texture[], idx: number): void {
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const cv = makeCanvas(img.width, img.height), c = cv.getContext('2d'); if (!c) return;
+      c.imageSmoothingEnabled = false; c.drawImage(img, 0, 0);
+      const id = c.getImageData(0, 0, img.width, img.height);
+      inpaintSeams1px(id); c.putImageData(id, 0, 0);
+      arr[idx] = tex(cv);
+    } catch (e) { /* falhou → mantém o PNG cru */ }
+  };
+  img.src = SPR + file;
+}
+
 let _loaded = false;
 // Cria as texturas do personagem (I/O EXPLÍCITO). Idempotente. Chamado uma vez no boot do game.js; NUNCA no import.
 // O alto-contraste REMAPEIA a cor no draw (tint/paleta), não recria a textura.
@@ -46,4 +76,9 @@ export function initCharacterSprites(): void {
   TEX_CLIMB = A('escada', 2); TEX_FLY = pngTex('voo/0.png');               // escada (vista de COSTAS) / voo
   TEX_CLING_WALL = A('parede', 4); TEX_CLING_CEIL = A('teto', 4);          // aranha: parede / teto (ciclos distintos)
   TEX_SWIM = A('nadar', 2); TEX_SWIMIDLE = A('nadar-parado', 2);           // nado MOVENDO / nado PARADO
+  // Tapa-costuras (temporário) nos frames que respiram/movem no chão: idle + andar + correr. Assíncrono — substitui a
+  // textura crua pela inpaintada quando o PNG termina de carregar (o game.js lê TEX_* por frame). Ver inpaintInto acima.
+  for (let i = 0; i < 4; i++) inpaintInto('idle/' + i + '.png', TEX_IDLE, i);
+  for (let i = 0; i < 8; i++) inpaintInto('andar/' + i + '.png', TEX_WALK, i);
+  for (let i = 0; i < 4; i++) inpaintInto('correr/' + i + '.png', TEX_RUN, i);
 }
