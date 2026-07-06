@@ -106,8 +106,11 @@ export function createSceneSky(ctx: SceneSkyCtx): SceneSky {
     const fl = ctx.THEME_FLORA[ctx.getCenario()], seen = new Set<string>();
     for (const pl of ctx.getPlayers()) { if (pl.quit) continue;
       const camX = Math.max(0, Math.min(pl.x - vw / 2, ctx.WORLD_PX_W - vw)), camY = Math.max(0, Math.min((pl.y - ctx.BOX.h / 2) - vh / 2, ctx.WORLD_PX_H - vh));
-      const tx0 = Math.max(0, Math.floor(camX / ctx.TILE) - 1), tx1 = Math.min(ctx.WORLD_W - 1, Math.floor((camX + vw) / ctx.TILE) + 1);
-      const ty0 = Math.max(0, Math.floor(camY / ctx.TILE) - 1), ty1 = Math.min(ctx.WORLD_H - 1, Math.floor((camY + vh) / ctx.TILE) + 1);
+      // Margem LARGA de propósito: a fauna FLUTUA acima da superfície-âncora (borboleta sobe ~34px ≈ 2 tiles, deriva
+      // ~19px de lado). O recorte é pela âncora → com margem 1 a âncora sai da tela ANTES do corpo e a borboleta some
+      // na borda. Estendo p/ 3 tiles embaixo (rise) + 2 nos demais lados p/ o corpo continuar desenhado. (#69)
+      const tx0 = Math.max(0, Math.floor(camX / ctx.TILE) - 2), tx1 = Math.min(ctx.WORLD_W - 1, Math.floor((camX + vw) / ctx.TILE) + 2);
+      const ty0 = Math.max(0, Math.floor(camY / ctx.TILE) - 2), ty1 = Math.min(ctx.WORLD_H - 1, Math.floor((camY + vh) / ctx.TILE) + 3);
       for (let tx = tx0; tx <= tx1; tx++) {
         for (let ty = ty0; ty <= ty1; ty++) {
           if (!(ctx.solidAt(tx, ty) && !ctx.solidAt(tx, ty - 1) && ctx.tileAt(tx, ty - 1) !== 3 && ctx.tileAt(tx, ty - 1) !== 9)) continue; // não na lava
