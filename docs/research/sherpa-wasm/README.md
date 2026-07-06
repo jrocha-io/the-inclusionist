@@ -16,22 +16,23 @@ conteúdo. Então, para a **Abordagem B** (motor genérico, voz em runtime), use
 (~5 MB, só o espeak-ng-data). O modelo real é escrito por cima em runtime pela página.
 
 ```bash
+cd /caminho/do/seu/clone/sherpa-onnx     # ex.: ~/_github/sherpa-onnx — o build-wasm-simd-tts.sh fica na RAIZ do repo
 # emsdk ativo no MESMO bash:  source ~/emsdk/emsdk_env.sh  &&  emcc -v  (precisa dizer 4.0.23)
-cd ~/sherpa-onnx/wasm/tts/assets
-# espeak-ng-data REAL precisa estar aqui (~5 MB). Se faltar, pegue de qualquer modelo:
-#   wget -q https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-faber-medium.tar.bz2 \
-#     && tar xf vits-piper-pt_BR-faber-medium.tar.bz2 && cp -r vits-piper-pt_BR-faber-medium/espeak-ng-data .
-: > model.onnx        # mock 0 byte — só passa o guard do CMake
-: > tokens.txt        # idem
-ls                    # deve ter: model.onnx (0B)  tokens.txt (0B)  espeak-ng-data/
-# ⚠️ CRÍTICO p/ Abordagem B: o build padrão NÃO exporta o FS ao JS → Module.FS = undefined → sem FS.writeFile.
-# Adicione 'FS' ao EXPORTED_RUNTIME_METHODS em wasm/tts/CMakeLists.txt (manual, ou o sed abaixo):
-sed -i "s/'ccall'/'ccall','FS','FS_createPath','FS_createDataFile','FS_unlink'/" ~/sherpa-onnx/wasm/tts/CMakeLists.txt
-grep -n "EXPORTED_RUNTIME_METHODS" ~/sherpa-onnx/wasm/tts/CMakeLists.txt   # confirme que 'FS' está na lista
-cd ~/sherpa-onnx/wasm/tts && ./build-wasm-simd-tts.sh
-# copie os 4 artefatos p/ docs/research/sherpa-wasm/tts/ (a página aponta pra lá):
-mkdir -p /mnt/c/Users/candi/Claude/SP-the-inclusionist-tracer/docs/research/sherpa-wasm/tts
-cp ~/sherpa-onnx/build-wasm-simd-tts/install/bin/wasm/tts/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-onnx-wasm-main-tts.data,sherpa-onnx-tts.js} /mnt/c/Users/candi/Claude/SP-the-inclusionist-tracer/docs/research/sherpa-wasm/tts/
+
+# 1) FS exportado (Abordagem B): o build padrão NÃO exporta FS → Module.FS=undefined → sem FS.writeFile.
+grep EXPORTED_RUNTIME_METHODS wasm/tts/CMakeLists.txt          # já tem 'FS'? pule o sed
+sed -i "s/'ccall'/'ccall','FS','FS_createPath','FS_createDataFile','FS_unlink'/" wasm/tts/CMakeLists.txt
+
+# 2) mock 0-byte (mantém espeak-ng-data REAL, ~5 MB; se faltar, pegue de qualquer modelo):
+cd wasm/tts/assets && : > model.onnx && : > tokens.txt && ls && cd ../../..
+
+# 3) rebuild LIMPO (apague o build p/ o CMake reler as flags):
+rm -rf build-wasm-simd-tts && ./build-wasm-simd-tts.sh   # warnings de openfst/flags são normais; olhe o "[100%] Linking"
+
+# 4) achar a saída e copiar os 4 artefatos por cima:
+SRC=$(dirname "$(find build-wasm-simd-tts -name sherpa-onnx-wasm-main-tts.js | head -1)")
+ls -lh "$SRC"/sherpa-onnx-wasm-main-tts.data              # ~5 MB (mock) = não assou modelo; ~60 MB = assou (refaça o mock)
+cp "$SRC"/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-onnx-wasm-main-tts.data,sherpa-onnx-tts.js} /mnt/c/Users/candi/Claude/SP-the-inclusionist-tracer/docs/research/sherpa-wasm/tts/
 ```
 
 > ⚠️ O 1º build (faber embutido, **sem** `FS` exportado) **não serve** para a página — ela escreve o modelo em runtime
