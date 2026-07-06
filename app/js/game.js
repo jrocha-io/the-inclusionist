@@ -26,6 +26,7 @@ import { createAudioAmbient } from './platform/audio-ambient.js'; // Tier 2 (áu
 import { createTts } from './platform/tts.js'; // Tier 2 (#38): narração por voz (Piper neural lazy + fallback Web Speech)
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE, initCharacterSprites } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
+import { cloudWrapX } from './render/scene-sky.js'; // Tier 2 (#43): deriva das nuvens de tela (corrige o bug #21)
 import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
 import { outlineCanvas, spriteToCanvas } from './render/sprite-fx.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
@@ -543,8 +544,8 @@ function drawTitleScene(){ const g=titleG; g.clear(); const W=app.screen.width,H
   const HOR=Math.round(H*0.735);
   for(let y=0;y<HOR;y++){ const f=y/HOR; // rgb(26→58, 26→76, 58→180) — interpolação exata da v3
     g.beginFill((Math.round(26+32*f)<<16)|(Math.round(26+50*f)<<8)|Math.round(58+122*f)).drawRect(0,y,W,1).endFill(); }
-  titleT++; const off=rm.parallax?0:Math.floor(titleT/6)%Math.max(1,Math.round(W));
-  const cloud=(cx,cy)=>{ const x=((((cx*k-off)%W)+W)%W)-14*k, s=k;
+  titleT++; const off=rm.parallax?0:titleT/6; // #21a: deriva sub-pixel (não mais Math.floor → sem "pula 1px a cada 6 frames")
+  const cloud=(cx,cy)=>{ const x=cloudWrapX(cx*k-off, -28*k, W+28*k), s=k; // #21b: wrap pelo CORPO INTEIRO (nuvem = 28*k de largura)
     g.beginFill(0xf6f5f0).drawRect(x,cy*s,28*s,6*s).drawRect(x+6*s,(cy-4)*s,16*s,6*s).drawRect(x+2*s,(cy+6)*s,24*s,4*s).endFill(); };
   cloud(40,30); cloud(180,52); cloud(265,22); cloud(110,72);
   g.beginFill(0x3f7d20).drawRect(0,HOR,W,H-HOR).endFill();
@@ -1173,7 +1174,7 @@ function stepV3Decor(){ const T=CENARIOS[CENARIO]||{};
       starsG.beginFill(0xffffff,a).drawRect((i*73)%vw,(i*49)%top,1,1).endFill(); } }
   // --- TELA: nuvens (3, derivas 0.08/0.05/0.11) e pássaros (3, em "v" batendo asas) — v3 exato
   if(d.includes('nuvens')){ const col=T.cloud, defs=[{y:6,sp:0.08,off:0},{y:20,sp:0.05,off:130},{y:12,sp:0.11,off:250}];
-    for(const c0 of defs){ const x=Math.round((((reduzido?0:t)*c0.sp+c0.off)%(vw+64))-44); drawV3Cloud(skyDecoG,x,c0.y,col); } }
+    for(const c0 of defs){ const x=cloudWrapX((reduzido?0:t)*c0.sp+c0.off, -44, vw+64); drawV3Cloud(skyDecoG,x,c0.y,col); } } // #21a: sub-pixel (helper, sem Math.round); cadência v3 (-44/vw+64) preservada
   if(!reduzido && d.includes('passaros')){ skyDecoG.beginFill(0x282837,0.7);
     for(let i=0;i<3;i++){ const bx=((t*(0.25+i*0.07)+i*90)%(vw+20))-10, by=14+i*9+Math.sin(t*0.04+i)*2, f=Math.sin(t*0.2+i)>0?1:2;
       const X=Math.round(bx),Y=Math.round(by); skyDecoG.drawRect(X-2,Y+f,2,1).drawRect(X+1,Y+f,2,1).drawRect(X,Y,1,1); }
