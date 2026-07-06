@@ -60,30 +60,18 @@
 <h2>Log</h2>
 <div id="log"></div>
 
-<!-- Module GLOBAL definido ANTES do glue (padrão do demo oficial do sherpa). locateFile resolve .wasm/.data. -->
+<!-- Os artefatos do build são ES MODULES (glue = "export default Module" + import.meta; wrapper = "export createOfflineTts").
+     Por isso carregamos via IMPORT de módulo — não <script> clássico (que dava "Unexpected token 'export'"/"import.meta"). -->
 <script>
-  var sherpaReady = false, sherpaModule = null;
-  var logEl = document.getElementById('status');
-  function labLog(m){ var el=document.getElementById('log'); el.textContent += m+'\n'; el.scrollTop=el.scrollHeight; }
-  window.addEventListener('error', function(e){ labLog('‼ window error: '+(e.message||e)); });
-  window.addEventListener('unhandledrejection', function(e){ labLog('‼ rejeição: '+((e.reason&&e.reason.message)||e.reason||e)); });
-  var Module = {
-    locateFile: function(path){ return 'sherpa-wasm/tts/' + path; }, // artefatos do build ficam em sherpa-wasm/tts/
-    setStatus: function(s){ if(s) labLog('[wasm] '+s); },
-    onRuntimeInitialized: function(){
-      sherpaReady = true; sherpaModule = Module;
-      labLog('[wasm] runtime pronto.');
-      try { labLog('[wasm] FS "/" contém: ' + Module.FS.readdir('/').filter(function(x){return x!=='.'&&x!=='..';}).join(', ')); }
-      catch(e){ labLog('[wasm] não consegui ler FS /: '+e.message); }
-      window.__sherpaBoot && window.__sherpaBoot();
-    }
-  };
+  window.labLog = function(m){ var el=document.getElementById('log'); el.textContent += m+'\n'; el.scrollTop=el.scrollHeight; };
+  window.addEventListener('error', function(e){ window.labLog('‼ window error: '+(e.message||e)); });
+  window.addEventListener('unhandledrejection', function(e){ window.labLog('‼ rejeição: '+((e.reason&&e.reason.message)||e.reason||e)); });
 </script>
-<script src="sherpa-wasm/tts/sherpa-onnx-wasm-main-tts.js"></script>
-<script src="sherpa-wasm/tts/sherpa-onnx-tts.js"></script>
-
-<script>
-(function(){
+<script type="module">
+import createSherpaModule from './sherpa-wasm/tts/sherpa-onnx-wasm-main-tts.js'; // factory Emscripten ESM
+import { createOfflineTts } from './sherpa-wasm/tts/sherpa-onnx-tts.js';         // wrapper
+const labLog = window.labLog;
+let sherpaModule = null;
   var TASKS = [
     { id:'phon',  label:'1 · Fonemas (sherpa não é p/ fonema cru — referência)', text:'a, é, i, ó, u, fê, sê, jê, erre, esse' },
     { id:'letr',  label:'2 · Soletrar letras', text:'a, bê, cê, dê, e, efe, gê, agá, i, jota, ká, ele, eme, ene, ó, pê, quê, erre, esse, tê, u, vê, dáblio, xis, ípsilon, zê' },
@@ -177,11 +165,14 @@
   reloadBtn.onclick = function(){ loadVoice(true); };     // força re-download
   clearBtn.onclick = clearVoices;
 
-  // habilita o botão Carregar quando o WASM terminar de iniciar
-  window.__sherpaBoot = function(){ loadBtn.disabled = false; setStatus('ok','motor pronto — escolha a voz e clique Carregar.'); };
-  if (sherpaReady) window.__sherpaBoot();
-  labLog('página pronta; aguardando o runtime WASM (se travar aqui, o glue/.data não carregou — cheque o fetch-sherpa-wasm.ps1 e o npx serve).');
-})();
+  // boot: instancia o motor WASM (factory ESM) e habilita a UI
+  labLog('carregando o motor WASM (módulo ESM)…');
+  try {
+    sherpaModule = await createSherpaModule({ locateFile: function(p){ return 'sherpa-wasm/tts/' + p; } });
+    labLog('[wasm] runtime pronto.');
+    try { labLog('[wasm] FS "/" contém: ' + sherpaModule.FS.readdir('/').filter(function(x){ return x!=='.'&&x!=='..'; }).join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
+    loadBtn.disabled = false; setStatus('ok','motor pronto — escolha a voz e clique Carregar.');
+  } catch(err){ labLog('‼ falha ao iniciar o WASM: '+(err.message||err)); setStatus('err','WASM não iniciou (veja o Log)'); }
 </script>
 </body>
 </html>

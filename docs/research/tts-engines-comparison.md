@@ -7,7 +7,7 @@ fallbacks, for the three languages that matter now: **Portuguese (pt-BR), Englis
 **Method:** this is the *expected-results table* (research-first, per CLAUDE.md §4). The empirical
 half — responsiveness (time-to-first-audio) and how each engine handles the five literacy tasks
 (phonemes · spelling letters · spelling syllables · isolated words · sentences) — is measured in the
-companion **[TTS engine lab](./tts-engine-lab.html)** (open it in a browser and run each engine).
+companion **[sherpa-lab](./sherpa-lab.html)** (the CDN-only `tts-engine-lab.html` was removed — YAGNI — once the runtime settled on sherpa-onnx-wasm).
 
 > Sizes are **approximate** and per *quantization/quality tier*; the lab reports the real bytes each
 > engine downloads on your machine. Confirm empirically before committing to one.
