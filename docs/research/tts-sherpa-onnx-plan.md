@@ -86,5 +86,8 @@ just another config row. Whether the target hardware can actually run either is 
 
 ## Still open
 - How the sherpa WASM + `espeak-ng-data` ship in Vite/`dist` and get precached for PWA/offline (+ single-thread vs COOP/COEP).
-- Kokoro in the lab: needs `kokoro-multi-lang-v1_0` (~340 MB: model + `voices.bin` + tokens) and the **sid** index for
-  `pb_dora`/`pb_alex` (sherpa selects Kokoro speaker by integer sid, not name).
+- Kokoro in the lab: needs `kokoro-multi-lang-v1_0` (~340 MB: model + `voices.bin` + tokens) via `offlineTtsKokoroModelConfig`.
+  Speaker is chosen by **integer sid** (not name): **`pb_alex` = sid 38 (M)**, **`pb_dora` = sid 39 (F)** — from
+  <https://huggingface.co/csukuangfj/kokoro-multi-lang-v1_0/tree/main>.
+- **FS must be exported** in the wasm build (`EXPORTED_RUNTIME_METHODS` += `FS`) — the default build omits it (models are
+  meant to be baked in `.data`), which is why runtime `FS.writeFile` (Approach B) failed with `Module.FS undefined`.
