@@ -39,6 +39,7 @@ One file per deliberate architectural decision, in **YADR** format — the YAML 
 | [ADR-0017](ADR-0017-compliance-and-data-governance.yaml) | Compliance & data governance (local-law-wins, RN-01..04) | accepted |
 | [ADR-0018](ADR-0018-art-and-visual-design.yaml) | Art & visual design (art=data, juice, CRT, CB-safe) | accepted |
 | [ADR-0019](ADR-0019-adopt-typescript-vite.yaml) | Adopt TypeScript + Vite (supersedes "no build") | accepted |
+| [ADR-0020](ADR-0020-canonical-z-order-and-post-fx.yaml) | Canonical Z-order registry (world/overlay, PIXI+DOM) + post-FX filter chain | accepted |
 
 > ADRs 0011–0019 replaced the informal `REGISTRO-DE-DECISOES.md` log (a decision is an ADR). The exhaustive per-row
 > detail of the old log is in git history; these ADRs carry the decisions + rationale.

@@ -1,0 +1,75 @@
+---
+metadata:
+  status: "accepted"
+  date: 2026-07-06
+  decision-makers: [Dev, AI]
+  consulted: []
+  informed: []
+
+title: Canonical Z-order registry (two scopes, PIXI + DOM) + post-process is a filter chain
+
+context-and-problem-statement: |
+  Render layers were created ad-hoc with `addChildAt(camera.getChildIndex(neighbour))`, welding each layer's z to the
+  ASSEMBLY ORDER of the render-graph. That coupled every layer to its neighbours (moving/extracting one risked a silent
+  visual regression — it blocked the scene-sky extraction, #43) and there was no single definition of "what each z means".
+  The Dev asked to define the layer stack once so the coupling ends. Two extra questions surfaced: where do CRT/vignette
+  and the a11y filters (high-contrast, colour-blind correction, disability simulation) sit, and do they cover the menus?
+
+decision-drivers:
+- Decouple: a layer must place itself by a NAMED z, never by referencing its neighbours.
+- a11y-first (ADR-0010/0011): the accessibility filters must cover EVERYTHING (game + HUD + menus), and must not be
+  degraded by decorative effects.
+- Multiplayer runs on separate viewports via per-screen render-textures — the world stack is per-viewport, the UI is global.
+- The frame is half PIXI canvas (world) and half DOM/CSS (menus/HUD/captions) — one registry must span both.
+- Inserting a future layer must not force renumbering everything.
+
+considered-options:
+- &adhoc "Keep ad-hoc addChildAt(getChildIndex(neighbour))"
+- &magic "Scatter raw z-index numbers at each call site"
+- &registry "A single named z-order registry (core/layers.ts) in two scopes, spanning PIXI+DOM, with post-FX as a separate filter chain"
+
+pros-and-cons-of-the-options:
+  adhoc:
+    cons:
+    - "Every layer coupled to its neighbours; z welded to creation order; extraction risks silent visual regressions."
+  magic:
+    cons:
+    - "Unnamed numbers drift and collide; no shared meaning; same coupling in disguise."
+  registry:
+    pros:
+    - &decouple "Each layer sets its own named z (PIXI zIndex + sortableChildren for world; CSS z-index for DOM overlay) — zero neighbour coupling."
+    - &gaps "Step-100 spacing + a reserved MENU range (2600–2999) → insert a layer without renumbering."
+    - &twoscopes "Two scopes make the per-viewport (world) vs global (overlay) split explicit, which is what the multiplayer render-textures need."
+    - &a11ycovers "The a11y correction covers the WHOLE composited frame (menus included) — fixing the current gap where it did not."
+
+decision-outcome:
+  chosen-option:
+    link: *registry
+    justification: |
+      Adopt `app/js/core/layers.ts` as the single source of truth: a named `Z` map in two scopes — WORLD (per viewport,
+      applied as PIXI `zIndex` with `sortableChildren` on the camera) and OVERLAY (global, used as CSS `z-index` on the
+      DOM menus/HUD/captions). Layer semantics (bottom→top): sky · sky-anim · parallax 4..1 · bg-decor · tiles ·
+      interactive-scenery · vfx-back · fauna-decor · npc · items · PLAYER · vfx-front · foreground/weather · world-a11y ·
+      then overlay: hud · touch-controls · captions · dialogue · game-msg · modal-scrim · menu(range) · transition · debug.
+      Two confirmed calls: ITEMS render BEHIND the player (DK barrels / Yoshi / SMW keys); the filters cover EVERYTHING.
+      Post-process is NOT a z-layer: CRT/vignette and the a11y filters are a CHAIN over the composited frame
+      (`POST_FX_ORDER`), applied inner→outer, with **A11Y_CORRECTION always last** (else the CRT re-tints and breaks the
+      colour-blind correction), a11y modes **suppress** the decorative CRT/flashes, and the overlay is **palette-aware**
+      (swaps to a CB-safe palette — extends the CB-safe UI work, ADR unlocks the "filter also covers the menu" fix).
+  consequences:
+    positive:
+    - *decouple
+    - *gaps
+    - *twoscopes
+    - *a11ycovers
+    neutral:
+    - "World layers switch to PIXI `zIndex` + `sortableChildren` on the camera (fixed layers → negligible sort cost)."
+    - "All ~54 addChild/addChildAt sites in game.js get rewired to `Z.*` — a dedicated round; scene-sky's 6 layers move too."
+    negative:
+    - "One-time large mechanical rewiring with visual-regression risk the sandbox can't verify → Dev eyeballs post-build."
+
+more-information: |
+  Registry + filter-chain live in `app/js/core/layers.ts` (`Z`, `POST_FX_ORDER`). Relates to ADR-0011 (visual a11y),
+  ADR-0010 (pillars: a11y-first), and the CB-safe UI work. Y-sorting within an actor band is NOT adopted (side-view
+  platformer → fixed order is standard); revisit only for a future top-down mode. The rewiring of the 54 sites is
+  tracked as its own modularization round (a new issue).
