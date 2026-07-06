@@ -163,17 +163,20 @@
         <div class="game-version" id="title-ver">v4</div>
       </div>
       <p class="game-subtitle" id="title-wait" hidden data-i18n="title.wait">Aguarde o Jogador 1 escolher o jogo</p>
-      <div class="title-menu" id="tm-main" role="menu" aria-label="Escolha o jogo">
+      <!-- role="group" (NÃO "menu"): botões navegados por Tab nativo, sem roving tabindex/setas entre itens (as
+           setas no #np-btn mudam o nº de jogadores). role="menu" exigiria filhos "menuitem" + padrão de setas ARIA
+           que não implementamos → violaria WCAG 1.3.1 (axe aria-required-children). O menu de PAUSA sim é role="menu". -->
+      <div class="title-menu" id="tm-main" role="group" aria-label="Escolha o jogo">
         <button class="title-btn" id="np-btn" type="button" aria-live="polite" aria-label="Número de jogadores: 1. Clique à esquerda para menos, à direita para mais.">◀ Nº de jogadores: <span id="np-n">1</span> ▶</button>
         <button class="title-btn" data-tm="ludico" type="button" data-i18n="menu.ludico">Lúdico</button>
         <button class="title-btn" data-tm="alf" type="button" data-i18n="menu.alfabetizacao">Alfabetização</button>
         <button class="title-btn" data-tm="mat" type="button" data-i18n="menu.matematica">Matemática</button>
       </div>
-      <div class="title-menu" id="tm-alf" role="menu" aria-label="Alfabetização" hidden></div>
-      <div class="title-menu" id="tm-mat" role="menu" aria-label="Matemática" hidden></div>
-      <div class="title-menu" id="tm-tab" role="menu" aria-label="Escolha os números" hidden></div>
-      <div class="title-menu" id="tm-fr" role="menu" aria-label="Fração" hidden></div>
-      <div class="title-menu" id="tm-cen" role="menu" aria-label="Escolha o cenário" hidden></div>
+      <div class="title-menu" id="tm-alf" role="group" aria-label="Alfabetização" hidden></div>
+      <div class="title-menu" id="tm-mat" role="group" aria-label="Matemática" hidden></div>
+      <div class="title-menu" id="tm-tab" role="group" aria-label="Escolha os números" hidden></div>
+      <div class="title-menu" id="tm-fr" role="group" aria-label="Fração" hidden></div>
+      <div class="title-menu" id="tm-cen" role="group" aria-label="Escolha o cenário" hidden></div>
       <div class="title-legend" id="title-legend" aria-live="polite"></div>
     </div>
   </div>
