@@ -113,17 +113,20 @@ export function createSceneSky(ctx: SceneSkyCtx): SceneSky {
           if (!(ctx.solidAt(tx, ty) && !ctx.solidAt(tx, ty - 1) && ctx.tileAt(tx, ty - 1) !== 3 && ctx.tileAt(tx, ty - 1) !== 9)) continue; // não na lava
           const k = tx + ',' + ty; if (seen.has('g' + k)) continue; seen.add('g' + k);
           if (fl) drawV3Grass(ctx.grassG, tx, ty, fl, t);
-          if (d.includes('minhocas') && (((tx % 4) + 4) % 4) === 0 && !seen.has('w' + tx)) { seen.add('w' + tx); // drawWorms v3: 1/4 colunas
+          // #69: fauna distribuída POR SUPERFÍCIE (hash de tx,ty), não "1 por coluna no topo" — aparece em todas as
+          // alturas, inclusive perto do player em corredores baixos / junto à lava (antes ancorava só na superfície + alta).
+          if (d.includes('minhocas') && ((tx * 668265263 ^ ty * 374761393) >>> 0) % 6 === 0 && !seen.has('w' + k)) { seen.add('w' + k); // ~1/6 das superfícies
             ctx.themeFxG.beginFill(0xc47b8a); const bx = tx * ctx.TILE + 5, by = ty * ctx.TILE + 4;
             for (let s2 = 0; s2 < 5; s2++) ctx.themeFxG.drawRect(bx + s2, by + Math.round(reduzido ? 0 : Math.sin(t * 0.15 + tx * 0.7 + s2 * 0.8)), 1, 1);
             ctx.themeFxG.endFill(); }
-          if (!reduzido && d.includes('borboletas') && (tx * 374761393 >>> 0) % 5 === 0 && !seen.has('b' + tx)) { seen.add('b' + tx); // drawButterflies v3: 1/5 colunas
-            const cols = [0xff8c42, 0xffd166, 0xef476f, 0xfca5d4, 0xf4a261, 0xe9c46a], h = (tx * 374761393) >>> 0;
-            const groundY = ty * ctx.TILE, wx = tx * ctx.TILE + 8 + 14 * Math.sin(t * 0.015 + tx) + 5 * Math.cos(t * 0.04 + tx);
-            const rise = 8 + 26 * (0.5 + 0.5 * Math.sin(t * 0.012 + tx * 1.3)), wy = groundY - rise + 4 * Math.sin(t * 0.05 + tx);
-            const flap = Math.abs(Math.sin(t * 0.4 + tx * 0.7)), w = 1 + Math.round(flap * 2), X = Math.round(wx), Y = Math.round(wy);
-            const bfg = (h & 1) ? ctx.themeFxG : ctx.themeFxBackG; // borboleta ATRÁS ou À FRENTE do player (~metade/metade por hash) — #69
-            bfg.beginFill(cols[h % cols.length]).drawRect(X - w, Y, w, 2).drawRect(X + 2, Y, w, 2).endFill();
+          const bh = (tx * 374761393 ^ ty * 668265263) >>> 0; // hash por superfície (cor + lado + gate)
+          if (!reduzido && d.includes('borboletas') && bh % 7 === 0 && !seen.has('b' + k)) { seen.add('b' + k); // ~1/7 das superfícies
+            const cols = [0xff8c42, 0xffd166, 0xef476f, 0xfca5d4, 0xf4a261, 0xe9c46a];
+            const groundY = ty * ctx.TILE, wx = tx * ctx.TILE + 8 + 14 * Math.sin(t * 0.015 + tx + ty) + 5 * Math.cos(t * 0.04 + tx);
+            const rise = 8 + 26 * (0.5 + 0.5 * Math.sin(t * 0.012 + tx * 1.3 + ty)), wy = groundY - rise + 4 * Math.sin(t * 0.05 + tx);
+            const flap = Math.abs(Math.sin(t * 0.4 + tx * 0.7 + ty)), w = 1 + Math.round(flap * 2), X = Math.round(wx), Y = Math.round(wy);
+            const bfg = (bh & 1) ? ctx.themeFxG : ctx.themeFxBackG; // metade ATRÁS / metade À FRENTE do player — #69
+            bfg.beginFill(cols[bh % cols.length]).drawRect(X - w, Y, w, 2).drawRect(X + 2, Y, w, 2).endFill();
             bfg.beginFill(0x3a2a1a).drawRect(X, Y, 2, 2).endFill(); }
           // (sem break: grama em TODAS as superfícies expostas da coluna, não só a mais alta — senão some perto do player. #69)
         } }
