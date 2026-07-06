@@ -12,7 +12,7 @@ function fakeLayer() { const rec = { added: 0, removed: 0 }; return { _rec: rec,
 
 function setup(over = {}) {
   const skyLayer = fakeLayer();
-  const layers = { starsG: fakeGfx(), skyDecoG: fakeGfx(), fogG: fakeGfx(), grassG: fakeGfx(), themeFxG: fakeGfx() };
+  const layers = { starsG: fakeGfx(), skyDecoG: fakeGfx(), fogG: fakeGfx(), grassG: fakeGfx(), themeFxG: fakeGfx(), themeFxBackG: fakeGfx() };
   class Sprite { constructor(tex) { this.texture = tex; this.x = 0; this.y = 0; this.alpha = 1; this.scale = { x: 1 }; this._v = 0; this._destroyed = false; } destroy() { this._destroyed = true; } }
   const ctx = {
     skyLayer, ...layers, CLOUD_TEX: [{}, {}], BIRD_TEX: [{}, {}], SpriteCtor: Sprite,
@@ -54,7 +54,7 @@ describe('render/scene-sky · createSceneSky', () => {
     expect(sky.getBirds().length).toBe(0);
   });
 
-  it('[Interface] stepV3Decor SEMPRE limpa as 5 camadas', () => {
+  it('[Interface] stepV3Decor SEMPRE limpa as 6 camadas (inclui themeFxBackG)', () => {
     const { sky, layers } = setup({ cenario: 'cidade' }); // tema não-v3
     sky.stepV3Decor();
     for (const g of Object.values(layers)) expect(g._rec.clears).toBe(1);
