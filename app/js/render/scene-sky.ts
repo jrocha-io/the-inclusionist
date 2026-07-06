@@ -26,7 +26,7 @@ interface Theme { v3?: boolean; decor?: string[]; cloud?: [string, string]; }
 interface Pl { x: number; y: number; quit?: boolean; }
 
 export interface SceneSkyCtx {
-  skyLayer: Layer; starsG: Gfx; skyDecoG: Gfx; fogG: Gfx; grassG: Gfx; themeFxG: Gfx; // camadas (criadas no game.js)
+  skyLayer: Layer; starsG: Gfx; skyDecoG: Gfx; fogG: Gfx; grassG: Gfx; themeFxG: Gfx; themeFxBackG: Gfx; // camadas (criadas no game.js)
   CLOUD_TEX: unknown[]; BIRD_TEX: unknown[]; SpriteCtor: SpriteCtor; // texturas + PIXI.Sprite
   hexN: (s: string) => number; rnd: () => number; randInt: (a: number, b: number) => number;
   WORLD_PX_W: number; WORLD_PX_H: number; WORLD_W: number; WORLD_H: number; TILE: number; LOGICAL_W: number; LOGICAL_H: number; BOX: { h: number };
@@ -82,7 +82,7 @@ export function createSceneSky(ctx: SceneSkyCtx): SceneSky {
 
   function stepV3Decor(): void {
     const T = ctx.CENARIOS[ctx.getCenario()] || {};
-    ctx.starsG.clear(); ctx.skyDecoG.clear(); ctx.fogG.clear(); ctx.grassG.clear(); ctx.themeFxG.clear();
+    ctx.starsG.clear(); ctx.skyDecoG.clear(); ctx.fogG.clear(); ctx.grassG.clear(); ctx.themeFxG.clear(); ctx.themeFxBackG.clear();
     if (!T.v3 || ctx.DIRECT_CFG[ctx.getVizMode()]) return; // Cidade tem o próprio céu; alto contraste dispensa decor
     const t = ctx.getFxClock(), d = T.decor || [], vw = ctx.LOGICAL_W, vh = ctx.LOGICAL_H, reduzido = !!ctx.getRm().decor;
     // TELA: estrelas (sparkles v3) — cintilam a ~0,3Hz
@@ -122,9 +122,10 @@ export function createSceneSky(ctx: SceneSkyCtx): SceneSky {
             const groundY = ty * ctx.TILE, wx = tx * ctx.TILE + 8 + 14 * Math.sin(t * 0.015 + tx) + 5 * Math.cos(t * 0.04 + tx);
             const rise = 8 + 26 * (0.5 + 0.5 * Math.sin(t * 0.012 + tx * 1.3)), wy = groundY - rise + 4 * Math.sin(t * 0.05 + tx);
             const flap = Math.abs(Math.sin(t * 0.4 + tx * 0.7)), w = 1 + Math.round(flap * 2), X = Math.round(wx), Y = Math.round(wy);
-            ctx.themeFxG.beginFill(cols[h % cols.length]).drawRect(X - w, Y, w, 2).drawRect(X + 2, Y, w, 2).endFill();
-            ctx.themeFxG.beginFill(0x3a2a1a).drawRect(X, Y, 2, 2).endFill(); }
-          break; // uma superfície por coluna (v3: break após achar o topo)
+            const bfg = (h & 1) ? ctx.themeFxG : ctx.themeFxBackG; // borboleta ATRÁS ou À FRENTE do player (~metade/metade por hash) — #69
+            bfg.beginFill(cols[h % cols.length]).drawRect(X - w, Y, w, 2).drawRect(X + 2, Y, w, 2).endFill();
+            bfg.beginFill(0x3a2a1a).drawRect(X, Y, 2, 2).endFill(); }
+          // (sem break: grama em TODAS as superfícies expostas da coluna, não só a mais alta — senão some perto do player. #69)
         } }
       if (!reduzido && d.includes('vagalumes')) { const cell = 64; // drawFireflies v3: grade hash fixa no mundo, só no ar
         const cx0 = Math.floor(camX / cell) - 1, cx1 = Math.floor((camX + vw) / cell) + 1, cy0 = Math.floor(camY / cell) - 1, cy1 = Math.floor((camY + vh) / cell) + 1;
@@ -135,8 +136,8 @@ export function createSceneSky(ctx: SceneSkyCtx): SceneSky {
           const wx = cxi * cell + 8 + (h % (cell - 16)) + 8 * Math.sin(t * 0.013 + ph), wy = cyi * cell + 8 + ((h >> 9) % (cell - 16)) + 6 * Math.cos(t * 0.017 + ph * 1.3);
           const a = 0.45 + 0.45 * Math.sin(t * 0.05 + ph); if (a <= 0.06) continue;
           if (ctx.solidAt(Math.floor(wx / ctx.TILE), Math.floor(wy / ctx.TILE))) continue;
-          ctx.themeFxG.beginFill(0xfff096, a * 0.35).drawRect(wx - 1, wy - 1, 3, 3).endFill();
-          ctx.themeFxG.beginFill(0xffffbe, a).drawRect(wx, wy, 1, 1).endFill(); } }
+          ctx.themeFxBackG.beginFill(0xfff096, a * 0.35).drawRect(wx - 1, wy - 1, 3, 3).endFill(); // vaga-lumes ao FUNDO (atrás do player) — #69
+          ctx.themeFxBackG.beginFill(0xffffbe, a).drawRect(wx, wy, 1, 1).endFill(); } }
     }
   }
 
