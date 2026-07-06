@@ -15,6 +15,10 @@ de entrada e os ponteiros; a verdade detalhada vive no **código tipado** (`app/
   eu **não tenho Node** no sandbox.
 - **Loop de trabalho:** eu extraio/edito → o Dev valida (build + vitest + tsc) → **eu confiro o boot no preview**
   (canvas ≥ 1 + `window.__incl`; nunca só screenshot do título).
+- **Preview: usar o server `dist`** (`npm run preview` sobre `dist/`, **após o Dev rodar `npm run build`**) — o
+  server **`inclusionist`/dev (`npm run dev`, Vite) NÃO roda no sandbox** (o pré-bundle de deps do Vite não fica
+  pronto → grafo de módulos morto → tela quebrada). O `launch.json` é **local, não-versionado** — nunca sobrescrever
+  sem ler antes.
 - **Sinalize antes de executar** incoerências/erros. **Anuncie decisões não triviais:** `Decisão: X porque Y. Para
   sobrepor, diga Z.` **"ok/tudo ok" ≠ carta branca** → proponho e confirmo a próxima escolha, não sigo sozinho.
 - **Decisão confirmada ganha lar durável NO MESMO TURNO** — não deixar como prosa no chat. Se for arquitetural →
@@ -23,6 +27,9 @@ de entrada e os ponteiros; a verdade detalhada vive no **código tipado** (`app/
 - **Doc alterada VIRA teste, tarefa (issue) ou ADR** — com pouquíssimas exceções, documentação que não se transforma
   em algo acionável (um teste que a verifica, uma issue de trabalho, ou um ADR que a decide) **não serve**. Ao mexer
   num doc, pergunte "isto vira o quê?" e crie.
+- **O TO-DO / BACKLOG do projeto vive no GitHub Project *The Inclusionist Roadmap* + Issues** (`jrocha-io/the-inclusionist`),
+  **NÃO em docs**. Trabalho novo → uma **issue** (labels: área + tipo + prioridade P0/P1/P2); o commit fecha com
+  `Closes #N`. `ROADMAP.md` guarda só a estratégia/ordem. (Posso mexer no board por `gh`.)
 - **`ARCHITECTURE.md` é O MAPA** — o 1º doc a consultar em QUALQUER prompt (meu e das LLMs que eu coordeno) para achar
   o que ler/alterar. **Toda** mudança de estrutura/nome/convenção de doc **reflete nele no mesmo turno**.
 - **Ensinar-e-deixar-ele-rodar:** para mudanças de estado (git push, npm, sistema), oriento e preparo os arquivos;
