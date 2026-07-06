@@ -33,6 +33,8 @@ export interface SceneSkyCtx {
   CENARIOS: Record<string, Theme>; THEME_FLORA: Record<string, Flora | undefined>; DIRECT_CFG: Record<string, unknown>;
   solidAt: (x: number, y: number) => boolean; tileAt: (x: number, y: number) => number;
   getCenario: () => string; getVizMode: () => string; getPlayers: () => Pl[]; getFxClock: () => number; getRm: () => { decor?: boolean; parallax?: boolean };
+  getGrassDensity: () => number; // 0..1: fração das superfícies com flora (grama/flores). 1 = todas; 0.6 = 60%. Base p/ estações.
+  getDecorSeed: () => number;    // semente por FASE: quais superfícies são escolhidas na densidade (randômico no load).
 }
 
 export interface SceneSky { stepSky: (dt: number) => void; stepV3Decor: () => void; getClouds: () => Sprite[]; getBirds: () => Bird[]; }
@@ -106,16 +108,17 @@ export function createSceneSky(ctx: SceneSkyCtx): SceneSky {
     const fl = ctx.THEME_FLORA[ctx.getCenario()], seen = new Set<string>();
     for (const pl of ctx.getPlayers()) { if (pl.quit) continue;
       const camX = Math.max(0, Math.min(pl.x - vw / 2, ctx.WORLD_PX_W - vw)), camY = Math.max(0, Math.min((pl.y - ctx.BOX.h / 2) - vh / 2, ctx.WORLD_PX_H - vh));
-      // Margem LARGA de propósito: a fauna FLUTUA acima da superfície-âncora (borboleta sobe ~34px ≈ 2 tiles, deriva
-      // ~19px de lado). O recorte é pela âncora → com margem 1 a âncora sai da tela ANTES do corpo e a borboleta some
-      // na borda. Estendo p/ 3 tiles embaixo (rise) + 2 nos demais lados p/ o corpo continuar desenhado. (#69)
-      const tx0 = Math.max(0, Math.floor(camX / ctx.TILE) - 2), tx1 = Math.min(ctx.WORLD_W - 1, Math.floor((camX + vw) / ctx.TILE) + 2);
-      const ty0 = Math.max(0, Math.floor(camY / ctx.TILE) - 2), ty1 = Math.min(ctx.WORLD_H - 1, Math.floor((camY + vh) / ctx.TILE) + 3);
+      // Margem de recorte = 3 tiles em TODAS as direções: cobre a flutuação da fauna (borboleta sobe ~34px ≈ 2 tiles,
+      // deriva ~19px) E reduz pop-in do decor na beirada ao mover a câmera → mais fluido (José). (#69)
+      const tx0 = Math.max(0, Math.floor(camX / ctx.TILE) - 3), tx1 = Math.min(ctx.WORLD_W - 1, Math.floor((camX + vw) / ctx.TILE) + 3);
+      const ty0 = Math.max(0, Math.floor(camY / ctx.TILE) - 3), ty1 = Math.min(ctx.WORLD_H - 1, Math.floor((camY + vh) / ctx.TILE) + 3);
       for (let tx = tx0; tx <= tx1; tx++) {
         for (let ty = ty0; ty <= ty1; ty++) {
-          if (!(ctx.solidAt(tx, ty) && !ctx.solidAt(tx, ty - 1) && ctx.tileAt(tx, ty - 1) !== 3 && ctx.tileAt(tx, ty - 1) !== 9)) continue; // não na lava
+          const st = ctx.tileAt(tx, ty); // flora/fauna SÓ em PEDRA(2)/parede(6) — nunca em trampolim(5), lava(9) ou escada(4). #69
+          if (!((st === 2 || st === 6) && !ctx.solidAt(tx, ty - 1) && ctx.tileAt(tx, ty - 1) !== 3 && ctx.tileAt(tx, ty - 1) !== 9)) continue;
           const k = tx + ',' + ty; if (seen.has('g' + k)) continue; seen.add('g' + k);
-          if (fl) drawV3Grass(ctx.grassG, tx, ty, fl, t);
+          // densidade: só uma FRAÇÃO das superfícies recebe flora (getGrassDensity), escolhidas por hash+semente da fase.
+          if (fl && ((tx * 668265263 ^ ty * 2246822519 ^ ctx.getDecorSeed()) >>> 0) % 1000 < ctx.getGrassDensity() * 1000) drawV3Grass(ctx.grassG, tx, ty, fl, t);
           // #69: fauna distribuída POR SUPERFÍCIE (hash de tx,ty), não "1 por coluna no topo" — aparece em todas as
           // alturas, inclusive perto do player em corredores baixos / junto à lava (antes ancorava só na superfície + alta).
           if (d.includes('minhocas') && ((tx * 668265263 ^ ty * 374761393) >>> 0) % 6 === 0 && !seen.has('w' + k)) { seen.add('w' + k); // ~1/6 das superfícies
