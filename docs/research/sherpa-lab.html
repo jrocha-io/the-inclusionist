@@ -115,10 +115,11 @@ let sherpaModule = null;
       sherpaModule.FS.writeFile('tokens.txt', tok);
       labLog('['+v+'] model.onnx ('+ (onnx.length/1e6).toFixed(1) +' MB) + tokens.txt escritos no FS.');
       // dataDir = espeak-ng-data já assado no bundle. Se o FS root usar outro nome, o Log de FS "/" acima mostra.
+      // NÃO passar os sub-configs Matcha/Kokoro/Kitten/etc.: o wrapper preenche defaults seguros só quando a chave está
+      // AUSENTE. Passar {} deixa config.acousticModel = undefined → lengthBytesUTF8(undefined) → "reading 'length'".
       var cfg = {
         offlineTtsModelConfig: {
-          offlineTtsVitsModelConfig: { model:'model.onnx', lexicon:'', tokens:'tokens.txt', dataDir:'espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 },
-          offlineTtsMatchaModelConfig:{}, offlineTtsKokoroModelConfig:{}, offlineTtsKittenModelConfig:{}, offlineTtsZipVoiceModelConfig:{}, offlineTtsPocketModelConfig:{},
+          offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 },
           numThreads:1, debug:1, provider:'cpu'
         }, ruleFsts:'', ruleFars:'', maxNumSentences:1
       };
