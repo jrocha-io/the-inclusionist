@@ -1,0 +1,324 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!--
+  TTS engine lab — compares Web Speech · eSpeak(meSpeak) · Piper · Kokoro on 5 literacy tasks × 3 languages.
+  Standalone research tool (NOT shipped code): engines load from CDN via ESM so there are no app deps to pollute.
+  Open in a browser. If file:// blocks a CDN import, serve the folder:  npx serve docs/research   (then open the URL).
+  Each engine is isolated — one failing engine never breaks the others; errors show inline. See tts-engines-comparison.md.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TTS engine lab — pt · en · es</title>
+<style>
+  :root { color-scheme: dark; --bg:#14161a; --panel:#1e2128; --line:#30343d; --ink:#e8eaed; --mut:#9aa0aa; --acc:#5aa0ff; --ok:#4bd07a; --warn:#f2c200; --err:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:20px; }
+  h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:15px; margin:18px 0 8px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; }
+  a { color:var(--acc); }
+  .sub { color:var(--mut); margin:0 0 16px; max-width:70ch; }
+  .langbar { display:flex; gap:8px; margin:12px 0 18px; flex-wrap:wrap; }
+  .langbar button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 16px; font-size:15px; cursor:pointer; }
+  .langbar button[aria-pressed=true] { border-color:var(--acc); background:#22304a; }
+  .engines { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-bottom:20px; }
+  .eng { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .eng h3 { margin:0 0 2px; font-size:15px; } .eng .size { color:var(--mut); font-size:13px; }
+  .eng select { width:100%; margin-top:8px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px; }
+  .eng .st { font-size:13px; margin-top:8px; min-height:1.4em; }
+  .eng .st.ok { color:var(--ok); } .eng .st.warn { color:var(--warn); } .eng .st.err { color:var(--err); }
+  .eng button.load { margin-top:8px; width:100%; background:#263143; color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px; cursor:pointer; }
+  table { border-collapse:collapse; width:100%; }
+  th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+  th { background:var(--panel); color:var(--mut); font-weight:600; font-size:13px; }
+  td.task { width:34%; }
+  td.task textarea { width:100%; min-height:3.2em; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px; font:14px/1.4 inherit; resize:vertical; }
+  td.task .lbl { font-weight:600; display:block; margin-bottom:4px; }
+  .cell { display:flex; align-items:center; gap:8px; }
+  .cell button { background:#263143; color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px 10px; cursor:pointer; font-size:14px; }
+  .cell button:disabled { opacity:.4; cursor:not-allowed; }
+  .cell .ms { font-variant-numeric:tabular-nums; color:var(--mut); font-size:13px; min-width:5ch; }
+  .cell .ms.good { color:var(--ok); } .cell .ms.slow { color:var(--warn); }
+  #log { background:#0d0f12; border:1px solid var(--line); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,Consolas,monospace; color:var(--mut); max-height:180px; overflow:auto; white-space:pre-wrap; margin-top:8px; }
+  .note { color:var(--mut); font-size:13px; }
+</style>
+</head>
+<body>
+<h1>TTS engine lab — <span id="langName">Português</span></h1>
+<p class="sub">
+  Compara <b>Web Speech</b> (nativo), <b>eSpeak NG</b> (embutido/robótico), <b>Piper</b> e <b>Kokoro</b> (neurais) nas
+  cinco tarefas de alfabetização, em pt-BR · en · es. Escolha o idioma, carregue os motores neurais (baixam o modelo no
+  1º uso — é o que estamos medindo) e toque ▶ em cada célula. O tempo mostrado é <b>até o primeiro som</b> (ms).
+  KittenTTS é só inglês → fora daqui. Detalhes: <a href="./tts-engines-comparison.md">tts-engines-comparison.md</a>.
+</p>
+
+<div class="langbar" role="group" aria-label="Idioma">
+  <button data-lang="pt" aria-pressed="true">Português (pt-BR)</button>
+  <button data-lang="en" aria-pressed="false">English</button>
+  <button data-lang="es" aria-pressed="false">Español</button>
+</div>
+
+<h2>Motores</h2>
+<div class="engines" id="engines"></div>
+
+<h2>Tarefas</h2>
+<table id="matrix">
+  <thead><tr id="matrixHead"></tr></thead>
+  <tbody id="matrixBody"></tbody>
+</table>
+
+<h2>Log</h2>
+<div id="log"></div>
+
+<script type="module">
+/* ------------------------------------------------------------------ samples ---- */
+const TASKS = [
+  { id:'phon',  label:'1 · Fonemas' },
+  { id:'letr',  label:'2 · Soletrar letras' },
+  { id:'silab', label:'3 · Soletrar sílabas' },
+  { id:'palav', label:'4 · Palavras soltas' },
+  { id:'frase', label:'5 · Frases' },
+];
+const SAMPLES = {
+  pt: {
+    phon:  'a  é  i  ó  u   f  s  x  j  r  m  n  l',
+    letr:  'a, bê, cê, dê, e, efe, gê, agá, i, jota, ká, ele, eme, ene, ó, pê, quê, erre, esse, tê, u, vê, dáblio, xis, ípsilon, zê',
+    silab: 'ba be bi bo bu, ca ce ci co cu, da de di do du, fa fe fi fo fu',
+    palav: 'casa, bola, gato, escola, pato, dado, sapo, uva',
+    frase: 'O gato preto subiu no telhado da casa amarela.',
+  },
+  en: {
+    phon:  'a  e  i  o  u   f  s  th  sh  ch   m  n  l  r',
+    letr:  'ay, bee, see, dee, ee, ef, gee, aitch, eye, jay, kay, el, em, en, oh, pee, cue, ar, ess, tee, you, vee, double-u, ex, wy, zee',
+    silab: 'ba be bi bo bu, ca ce ci co cu, da de di do du',
+    palav: 'house, ball, cat, school, duck, dog, frog, apple',
+    frase: 'The black cat climbed onto the roof of the yellow house.',
+  },
+  es: {
+    phon:  'a  e  i  o  u   f  s  j  rr   m  n  l  r  ñ',
+    letr:  'a, be, ce, de, e, efe, ge, hache, i, jota, ka, ele, eme, ene, eñe, o, pe, cu, erre, ese, te, u, uve, doble uve, equis, i griega, zeta',
+    silab: 'ba be bi bo bu, ca ce ci co cu, da de di do du',
+    palav: 'casa, pelota, gato, escuela, pato, dado, sapo, uva',
+    frase: 'El gato negro subió al tejado de la casa amarilla.',
+  },
+};
+const BCP47 = { pt:'pt-BR', en:'en-US', es:'es-ES' };
+const LANGNAME = { pt:'Português', en:'English', es:'Español' };
+
+let LANG = 'pt';
+const logEl = document.getElementById('log');
+const log = (m) => { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+/* ------------------------------------------------------------------ engines ---- */
+// Each engine: { id, name, size, neural, voices(lang)->[{id,label}], init(), speak(text,lang,voiceId)->{el|onstart} }
+// speak returns a Promise that resolves once audio STARTS (for time-to-first-audio). Throws on failure.
+const engines = {};
+
+/* --- Web Speech (native) --- */
+engines.webspeech = {
+  id:'webspeech', name:'Web Speech', size:'nativo · 0 MB', neural:false, _voices:[],
+  async init(setSt) {
+    const load = () => { engines.webspeech._voices = speechSynthesis.getVoices() || []; };
+    load(); if (!engines.webspeech._voices.length) { speechSynthesis.onvoiceschanged = load; await new Promise(r=>setTimeout(r,300)); load(); }
+    setSt(engines.webspeech._voices.length ? 'ok' : 'warn', engines.webspeech._voices.length ? engines.webspeech._voices.length+' vozes no SO' : 'nenhuma voz no SO?');
+  },
+  voices(lang) { const p = BCP47[lang].slice(0,2); return engines.webspeech._voices.filter(v=>v.lang.toLowerCase().startsWith(p)).map(v=>({id:v.voiceURI,label:v.name+' ('+v.lang+')'})); },
+  speak(text, lang, voiceId) {
+    return new Promise((res, rej) => {
+      const ss = window.speechSynthesis; if (!ss) return rej(new Error('sem speechSynthesis')); ss.cancel();
+      const u = new SpeechSynthesisUtterance(text); u.lang = BCP47[lang];
+      const v = engines.webspeech._voices.find(x=>x.voiceURI===voiceId); if (v) u.voice = v;
+      u.onstart = () => res(); u.onerror = (e) => rej(new Error(e.error||'speech error'));
+      ss.speak(u);
+    });
+  },
+};
+
+/* --- eSpeak NG via meSpeak (embedded formant synth) --- */
+engines.espeak = {
+  id:'espeak', name:'eSpeak NG', size:'embutido · ~2–4 MB', neural:false, _ready:false, _loaded:{},
+  async init(setSt) {
+    setSt('warn','carregando meSpeak…');
+    await new Promise((res, rej) => { const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/mespeak@2.0.2/mespeak.full.js'; s.onload=res; s.onerror=()=>rej(new Error('script meSpeak não carregou')); document.head.appendChild(s); });
+    if (!window.meSpeak) throw new Error('meSpeak global ausente');
+    // mespeak.full.js já traz config + voz en. Vozes extras (pt/es) carregadas sob demanda em speak().
+    engines.espeak._ready = true; setSt('ok','pronto (voz en embutida; pt/es sob demanda)');
+  },
+  _voiceCode(lang) { return { pt:'pt-br', en:'en/en-us', es:'es' }[lang] || 'en/en-us'; }, // caminhos eSpeak dentro do pacote meSpeak
+  async _ensureVoice(lang, setSt) {
+    const code = engines.espeak._voiceCode(lang); if (engines.espeak._loaded[code]) return code;
+    // meSpeak.loadVoice aceita URL do JSON de voz; tentamos alguns nomes comuns do pacote.
+    const candidates = { pt:['pt-br','pt'], en:['en/en-us','en'], es:['es','es-la'] }[lang] || ['en/en-us'];
+    for (const c of candidates) {
+      const url = 'https://cdn.jsdelivr.net/npm/mespeak@2.0.2/voices/'+c+'.json';
+      const okc = await new Promise((res)=>{ try { window.meSpeak.loadVoice(url, (ok)=>res(ok? c : false)); } catch(e){ res(false); } });
+      if (okc) { engines.espeak._loaded[okc] = true; return okc; }
+    }
+    throw new Error('nenhuma voz eSpeak p/ '+lang+' no CDN (tente outro pacote)');
+  },
+  voices() { return []; }, // eSpeak: 1 voz por idioma
+  async speak(text, lang, _v) {
+    if (!engines.espeak._ready) throw new Error('não inicializado');
+    const code = await engines.espeak._ensureVoice(lang, ()=>{});
+    const url = window.meSpeak.speak(text, { voice: engines.espeak._loaded[code] ? code : undefined, rawdata:'data-url' });
+    if (!url) throw new Error('meSpeak não gerou áudio');
+    return playUrl(url);
+  },
+};
+
+/* --- Piper (neural VITS, ONNX) --- */
+engines.piper = {
+  id:'piper', name:'Piper', size:'~20–63 MB/voz', neural:true, _mod:null, _sessions:{}, _voiceList:null,
+  async init(setSt) {
+    setSt('warn','baixando lib…');
+    engines.piper._mod = await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web/+esm');
+    try { engines.piper._voiceList = await engines.piper._mod.voices(); } catch(e){ engines.piper._voiceList = null; }
+    setSt('ok','lib pronta (modelo baixa no 1º ▶)');
+  },
+  voices(lang) {
+    const p = { pt:'pt', en:'en', es:'es' }[lang];
+    const list = engines.piper._voiceList;
+    if (Array.isArray(list)) {
+      const out = list.map(v => (v && (v.key||v.id||v.voiceId||v.name)) ).filter(Boolean).filter(k=>String(k).toLowerCase().startsWith(p));
+      if (out.length) return out.map(k=>({id:k,label:k}));
+    }
+    // fallback: IDs conhecidos
+    return ({ pt:[{id:'pt_BR-faber-medium',label:'pt_BR-faber-medium'},{id:'pt_BR-edresson-low',label:'pt_BR-edresson-low'}],
+              en:[{id:'en_US-hfc_female-medium',label:'en_US-hfc_female-medium'},{id:'en_US-amy-medium',label:'en_US-amy-medium'}],
+              es:[{id:'es_ES-davefx-medium',label:'es_ES-davefx-medium'},{id:'es_MX-ald-medium',label:'es_MX-ald-medium'}] })[lang];
+  },
+  async speak(text, lang, voiceId, setSt) {
+    const vid = voiceId || engines.piper.voices(lang)[0].id;
+    let session = engines.piper._sessions[vid];
+    if (!session) {
+      if (setSt) setSt('warn','baixando modelo '+vid+'…');
+      session = await engines.piper._mod.TtsSession.create({ voiceId: vid, progress:(pr)=>{ if(pr&&pr.total&&setSt) setSt('warn', vid+': '+Math.round(pr.loaded*100/pr.total)+'%'); }, logger:()=>{} });
+      engines.piper._sessions[vid] = session; if (setSt) setSt('ok','modelo pronto');
+    }
+    const wav = await session.predict(text); // Blob
+    return playUrl(URL.createObjectURL(wav));
+  },
+};
+
+/* --- Kokoro-82M (neural, transformers.js) --- */
+engines.kokoro = {
+  id:'kokoro', name:'Kokoro-82M', size:'~80 MB (q8, todos idiomas)', neural:true, _tts:null, _voices:null,
+  async init(setSt) {
+    setSt('warn','baixando lib + modelo (~80 MB no 1º uso)…');
+    const mod = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
+    engines.kokoro._tts = await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype:'q8', device: (navigator.gpu?'webgpu':'wasm') });
+    try { engines.kokoro._voices = engines.kokoro._tts.list_voices ? engines.kokoro._tts.list_voices() : Object.keys(engines.kokoro._tts.voices||{}); } catch(e){ engines.kokoro._voices = null; }
+    setSt('ok','modelo pronto ('+(navigator.gpu?'WebGPU':'WASM')+')');
+  },
+  voices(lang) {
+    const pref = { pt:['p'], en:['a','b'], es:['e'] }[lang]; // Kokoro voice-name prefixes
+    const list = engines.kokoro._voices;
+    const names = Array.isArray(list) ? list : (list && typeof list==='object' ? Object.keys(list) : null);
+    if (names) { const out = names.filter(n=>pref.includes(String(n)[0])); if (out.length) return out.map(n=>({id:n,label:n})); }
+    return ({ pt:[{id:'pf_dora',label:'pf_dora'},{id:'pm_alex',label:'pm_alex'},{id:'pm_santa',label:'pm_santa'}],
+              en:[{id:'af_heart',label:'af_heart'},{id:'am_adam',label:'am_adam'}],
+              es:[{id:'ef_dora',label:'ef_dora'},{id:'em_alex',label:'em_alex'}] })[lang];
+  },
+  async speak(text, lang, voiceId) {
+    const vid = voiceId || engines.kokoro.voices(lang)[0].id;
+    const audio = await engines.kokoro._tts.generate(text, { voice: vid });
+    const blob = audio.toBlob ? await audio.toBlob() : audio; // RawAudio → Blob
+    return playUrl(URL.createObjectURL(blob));
+  },
+};
+
+/* ------------------------------------------------------------------ playback --- */
+let currentAudio = null;
+function playUrl(url) { // resolves when audio actually STARTS
+  return new Promise((res, rej) => {
+    try { if (currentAudio) { currentAudio.pause(); } } catch(e){}
+    const a = new Audio(url); currentAudio = a;
+    a.onplaying = () => res();
+    a.onerror = () => rej(new Error('falha ao tocar o áudio gerado'));
+    a.play().catch(rej);
+  });
+}
+
+/* ------------------------------------------------------------------ UI build --- */
+const ENGINE_ORDER = ['webspeech','espeak','piper','kokoro'];
+const engEls = {}; // id -> {card, st, sel}
+
+function buildEngines() {
+  const host = document.getElementById('engines'); host.innerHTML = '';
+  for (const id of ENGINE_ORDER) {
+    const e = engines[id];
+    const card = document.createElement('div'); card.className = 'eng';
+    card.innerHTML = `<h3>${e.name}</h3><div class="size">${e.size}</div>
+      <select aria-label="voz ${e.name}"><option>—</option></select>
+      <div class="st">${e.neural ? 'não carregado' : ''}</div>
+      ${e.neural ? '<button class="load">Carregar</button>' : ''}`;
+    host.appendChild(card);
+    const st = card.querySelector('.st'), sel = card.querySelector('select');
+    engEls[id] = { card, st, sel };
+    const setSt = (cls,msg)=>{ st.className='st '+cls; st.textContent=msg; };
+    const doInit = async () => { try { await e.init(setSt); refreshVoices(id); enableCells(id,true); } catch(err){ setSt('err', err.message||String(err)); log('['+id+'] init erro: '+(err.message||err)); } };
+    if (e.neural) card.querySelector('.load').onclick = () => { card.querySelector('.load').disabled=true; doInit(); };
+    else doInit(); // não-neurais inicializam sozinhos
+  }
+}
+function refreshVoices(id) {
+  const e = engines[id], sel = engEls[id].sel; if (!sel) return;
+  let vs = []; try { vs = e.voices(LANG) || []; } catch(err){ vs = []; }
+  sel.innerHTML = vs.length ? vs.map(v=>`<option value="${v.id}">${v.label}</option>`).join('') : '<option value="">(padrão)</option>';
+}
+function enableCells(id, on) { document.querySelectorAll('button[data-eng="'+id+'"]').forEach(b=>{ if(engines[id].neural) b.disabled = !on; }); }
+
+function buildMatrix() {
+  const head = document.getElementById('matrixHead'), body = document.getElementById('matrixBody');
+  head.innerHTML = '<th>Tarefa / texto</th>' + ENGINE_ORDER.map(id=>`<th>${engines[id].name}</th>`).join('');
+  body.innerHTML = '';
+  for (const t of TASKS) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td'); td.className='task';
+    td.innerHTML = `<span class="lbl">${t.label}</span><textarea data-task="${t.id}">${SAMPLES[LANG][t.id]}</textarea>`;
+    tr.appendChild(td);
+    for (const id of ENGINE_ORDER) {
+      const cell = document.createElement('td');
+      const dis = engines[id].neural ? 'disabled' : '';
+      cell.innerHTML = `<div class="cell"><button data-eng="${id}" data-task="${t.id}" ${dis}>▶</button><span class="ms" data-ms="${id}-${t.id}"></span></div>`;
+      tr.appendChild(cell);
+    }
+    body.appendChild(tr);
+  }
+  body.querySelectorAll('button[data-eng]').forEach(b => b.onclick = () => speakCell(b.dataset.eng, b.dataset.task, b));
+}
+
+async function speakCell(engId, taskId, btn) {
+  const text = document.querySelector('textarea[data-task="'+taskId+'"]').value.trim(); if (!text) return;
+  const voiceId = engEls[engId].sel ? engEls[engId].sel.value : '';
+  const msEl = document.querySelector('span[data-ms="'+engId+'-'+taskId+'"]');
+  msEl.textContent = '…'; msEl.className='ms'; btn.disabled = true;
+  const t0 = performance.now();
+  try {
+    await engines[engId].speak(text, LANG, voiceId, engEls[engId].st ? (c,m)=>{engEls[engId].st.className='st '+c;engEls[engId].st.textContent=m;} : null);
+    const dt = Math.round(performance.now() - t0);
+    msEl.textContent = dt + ' ms'; msEl.className = 'ms ' + (dt<400?'good':dt<1500?'':'slow');
+    log('['+engId+'/'+LANG+'/'+taskId+'] '+dt+' ms');
+  } catch (err) {
+    msEl.textContent = 'erro'; msEl.className='ms slow'; log('['+engId+'/'+LANG+'/'+taskId+'] ERRO: '+(err.message||err));
+  } finally { btn.disabled = engines[engId].neural ? !ready(engId) : false; }
+}
+function ready(id){ const e=engines[id]; return e.neural ? !!(e._mod||e._tts) : true; }
+
+/* language switch */
+document.querySelectorAll('.langbar button').forEach(b => b.onclick = () => {
+  LANG = b.dataset.lang;
+  document.querySelectorAll('.langbar button').forEach(x=>x.setAttribute('aria-pressed', x===b));
+  document.getElementById('langName').textContent = LANGNAME[LANG];
+  buildMatrix(); ENGINE_ORDER.forEach(refreshVoices);
+  // re-disable neural cells that aren't loaded yet
+  ENGINE_ORDER.forEach(id=>{ if(engines[id].neural) enableCells(id, ready(id)); });
+});
+
+/* boot */
+buildEngines();
+buildMatrix();
+log('Pronto. Não-neurais (Web Speech, eSpeak) inicializam sozinhos; toque "Carregar" nos neurais (Piper, Kokoro).');
+</script>
+</body>
+</html>
