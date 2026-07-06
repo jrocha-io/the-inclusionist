@@ -46,8 +46,8 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 | ~~`platform/audio-cues.js`~~ | **NÃO é um módulo só** — a superfície de cues é heterogênea; decomposta em 4 rodadas por acoplamento crescente (abaixo). `platform/audio.js` já tem a base (audioCtx/mixer/tone/noiseHit). | — | — |
 | `platform/audio-jingles.ts` ✅ | **[áudio r1 — FEITO]** jingles SEM estado de jogo: `playVictory`/`playPuzzleSolved`/`firework` | 625–633 | audio.js (tone/ensureAC/catNode) |
 | `platform/audio-earcons.ts` ✅ | **[áudio r2 — FEITO]** earcons + ponte c/ legendas: `sfx`/`doorSound` (`showCaption`/`captionsOn` ficam no game.js — UI alterna, `win()` reusa — e entram por injeção) | 461–474, 527–530 | audio.js, showCaption (inj.) |
-| `platform/audio-nav.ts` 🟡 | **[áudio r3]** pistas espaciais a11y (cego/baixa-visão): `playerCtx`/`caneProbe`/`caneTap`/`waterNav`/`sonar`/`panFor`/`needsAudioCues`/`surfaceUnder` + contadores | 489–540 | audio.js, tiles, players, coins |
-| `platform/audio-ambient.ts` 🟡 | **[áudio r4]** ambiente + guia (clima VISUAL `updateWeather`/`drawWeather` vai p/ render): `buildAmbient`/`updateAmbient`/`thunder`/`updateGuide` | 542–575 | audio.js, players, tiles |
+| `platform/audio-nav.ts` ✅ | **[áudio r3 — FEITO]** pistas espaciais a11y (cego/baixa-visão): `playerCtx`/`caneProbe`/`caneTap`/`waterNav`/`sonar`/`panFor`/`needsAudioCues`/`updateGuide` + contadores (`SURF_MAT`, `_guideCount` migraram). `playerCtx`/`panFor`/`needsAudioCues` expostos na API (guarda de beirada + gate de movimento). `surfaceUnder`/`caneOn`/`caneColor` FICARAM no game.js (passo/movimento/render) | 489–540, 561–564 | audio.js, tiles, players, coins |
+| `platform/audio-ambient.ts` 🟡 | **[áudio r4]** ambiente/clima SÓ (o guia foi p/ nav): `buildAmbient`/`updateAmbient`/`thunder` (o clima VISUAL `updateWeather`/`drawWeather` vai p/ render) | 542–560 | audio.js, players, tiles |
 | `platform/tts.js` 🟡 | TTS neural (F5): `loadTTS`/`ttsSpeak`/`narrate`/`speakWebSpeech`/`populateTTSEngines`/`populateTTSVoices` + estado dos motores | 670–711, 2874–2887 | audio.js, audioCat |
 | `render/world-tex.js` 🟡 | `worldCanvas`/`worldToTexture`/`worldTexFor` + tiles vivos `stepTileFx` (água/lava animadas) | 142–169, 909, 1457–1487 | WORLD, TILE_COLOR |
 | `render/high-contrast.js` 🟡 | Renderização Direta (a11y): `_dimDesat`/`worldToTextureDirect`/`directBgTexture`/`directSpriteCanvas`/`_roleOf`/`HC_ROLE`/`setRoleColor`/`resetRoleColors`/`DIRECT_CFG`/`hcOutline*` + persistência | 173–232, 2734–2768 | WORLD, canvas.js |
@@ -87,7 +87,7 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 
 ## Ordem sugerida
 1. **Tier 1 inteiro** (folhas) — blinda peças estáveis e sobe a cobertura de teste rápido.
-2. **Tier 2** por subsistema, na ordem: **áudio em 4 rodadas** (`audio-jingles` ✅ → `audio-earcons` → `audio-nav`
+2. **Tier 2** por subsistema, na ordem: **áudio em 4 rodadas** (`audio-jingles` ✅ → `audio-earcons` ✅ → `audio-nav` ✅
    → `audio-ambient`) + `tts` → `player`/`coins`/`powerups`/`level-geometry` →
    `render/*` (world-tex, high-contrast, scene-*, fx) → `input/*` → `ui/*` (title, hud, activities, settings-*).
 3. **Tier 3** por último, cada um com **testes fortes ANTES** (especialmente `physics`): physics → draw/viewports

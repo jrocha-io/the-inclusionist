@@ -21,6 +21,7 @@ import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioO
 import { gameSay } from './platform/speech.js';
 import { createAudioJingles } from './platform/audio-jingles.js'; // Tier 2 (áudio r1): jingles de vitória/enigma/fogos
 import { createAudioEarcons } from './platform/audio-earcons.js'; // Tier 2 (áudio r2): earcons (sfx) + porta + legendas
+import { createAudioNav } from './platform/audio-nav.js'; // Tier 2 (áudio r3): pistas espaciais (bengala/sonar/guarda/guia/nado)
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE, initCharacterSprites } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
 import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
@@ -476,59 +477,18 @@ function setHearingLoss(on){ setHearingLossGraph(on); store.setBool('incl_hearin
 // audioCat + catNode + setCatGain (mixer por categoria) extraídos p/ platform/audio.js (Fase 2).
 // ===== F2: efeitos de interação com o ambiente (passos por superfície, portas, escada) — ruído filtrado sintetizado =====
 // noiseBuffer + FOOT + noiseHit + _footCount (synth de ruído) extraídos p/ platform/audio.js (Fase 2). _noiseBuf era var morta.
-// ÁUDIO POR DISPOSITIVO (por jogador): um AudioContext por jogador, roteado com setSinkId ao dispositivo escolhido.
-// Só p/ as PISTAS por jogador (bengala/sonar/guarda/guia/nado). Sem dispositivo próprio → usa o contexto global.
-function playerCtx(pl){ if(!pl || !pl.audioSink) return null;
-  try{ if(!pl._ac){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return null; pl._ac=new AC(); pl._acOut=pl._ac.createGain(); pl._acOut.connect(pl._ac.destination); if(pl._ac.setSinkId)pl._ac.setSinkId(pl.audioSink).catch(()=>{}); }
-    if(pl._ac.state==='suspended')pl._ac.resume(); return {ac:pl._ac, out:pl._acOut}; }catch(e){ return null; } }
-// timbre por material: filtro + frequência + duração + volume (grama macia, piso seco, pedra brilhante, areia abafada, madeira grave, ferro metálico)
-// FOOT + noiseHit extraídos p/ platform/audio.js (Fase 2).
-// material sob os pés (cenário Cidade = concreto → 'piso'; futuros cenários mapeiam grama/areia/pedra)
+// material sob os pés (Cidade = concreto → 'piso') — usado pelo som do PASSO (game.js); não é pista espacial, fica aqui.
 function surfaceUnder(pl){ const t=tileAt(Math.floor(pl.x/TILE),Math.floor((pl.y+1)/TILE)); if(t!==2&&t!==6&&t!==5)return null; return CENARIO==='cidade'?'piso':'pedra'; }
-// BENGALA (modo cego / amaurose): bate À FRENTE e o som diz o material adiante (ou vazio).
-const SURF_MAT={ cidade:'piso', campo:'grama', floresta:'grama', cemiterio:'terra', espaco:'pedra', classico:'pedra' }; // chão por tema (piso = cimento)
-const caneOn=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return modoCego || !!(m&&(m.kind==='blind'||m.kind==='lowvision')); }; // cego (branca), baixa visão (verde) ou modo cego (branca)
-const caneColor=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return (m&&m.kind==='lowvision') ? 0x35d06a : 0xf2f2f2; }; // baixa visão = VERDE; cegueira/modo cego = BRANCA
-function caneProbe(pl){ const dir=pl.facing<0?-1:1;
-  const ax=Math.floor((pl.x+dir*(BOX.w/2+TILE*0.6))/TILE), footTy=Math.floor((pl.y+1)/TILE);
-  if(tileAt(ax,footTy)===3||tileAt(ax,footTy-1)===3) return 'agua';        // água à frente
-  let gty=-1; for(let ty=footTy; ty<=footTy+1; ty++){ if(solidAt(ax,ty)){ gty=ty; break; } } // chão à frente (pé ou 1 abaixo = degrau/rampa)
-  if(gty<0) return 'vazio';                                                 // sem chão → fosso
-  if(tileAt(ax,gty)===4) return 'madeira';                                  // escada
-  return SURF_MAT[CENARIO]||'pedra';
-}
-let _caneCount=0;
-function caneTap(pl){ const mat=caneProbe(pl), dir=pl.facing<0?-1:1, pan=dir*0.5, pc=playerCtx(pl); _caneCount++;
-  if(mat==='vazio'){ tonePan(150,0.18,'guard',pan,0.16,'sine',pc); return; } // vazio = tom grave oco (nada à frente)
-  noiseHit(mat,pan,pc);                                                      // batida no material adiante (no dispositivo do jogador)
-}
-// NADO CEGO: guia por contato com as bordas (azulejo das paredes, chão) e superfície (cordas flutuantes).
-let _waterNavCount=0;
-function waterNav(pl){ const dir=pl.facing<0?-1:1, tx=Math.floor(pl.x/TILE), tyF=Math.floor((pl.y-1)/TILE), tyH=Math.floor((pl.y-BOX.h)/TILE);
-  const wallAhead = solidAt(tx+dir,tyF)||solidAt(tx+dir,tyH);               // parede lateral (azulejo)
-  const floorBelow = solidAt(tx,tyF+1);                                     // chão (fundo)
-  const openAbove = tileAt(tx,tyH-1)!==3 && !solidAt(tx,tyH-1);             // acima da cabeça é ar → dá p/ subir/sair
-  const moving=(dir!==0)||held(pl,'up')||held(pl,'down'), pc=playerCtx(pl);
-  pl.wnT=(pl.wnT||0)+1; if(pl.wnT<18)return; let played=true;
-  if(openAbove && wallAhead) noiseHit('parede', dir*0.5, pc);               // superfície + parede = batida (fim da corda)
-  else if(openAbove && moving) tonePan(560,0.09,'guide', dir*0.4, 0.12,'sine', pc); // corda/superfície livre: "dá p/ subir aqui"
-  else if(wallAhead && dir!==0) noiseHit('parede', dir*0.5, pc);           // parede submersa (azulejo) à frente
-  else if(floorBelow && held(pl,'down')) noiseHit('areia', 0, pc);        // fundo (chão)
-  else played=false;
-  if(played){ pl.wnT=0; _waterNavCount++; } else pl.wnT=17; }              // sem contato = SEM som (pronto p/ tocar ao encostar)
-// doorSound extraído p/ platform/audio-earcons.ts (Tier 2, áudio rodada 2). Chamado como earcons.doorSound(...).
-// ===== F3: espacialização (pan pela direção, tom pela distância) + sonar + guarda de beirada =====
-function panFor(wx,pl){ return Math.max(-1,Math.min(1,(wx-pl.x)/(LOGICAL_W*0.55))); } // esquerda −1 … direita +1
-// tonePan (synth de oscilador com pan) extraído p/ platform/audio.js (Fase 2).
-function needsAudioCues(pl){ if(modoCego)return true; const m=VIZ_BY_KEY[pl.viz]; return !!(m&&(m.kind==='blind'||m.kind==='lowvision')); } // guarda/guia só quando a visão está comprometida ou no modo cego
-let _sonarCount=0;
-function sonar(pl){ _sonarCount++; let best=null,bd=1e9; for(const cn of coins){ if(cn.taken||cn.owner!==pl.i)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
-  const pc=playerCtx(pl); if(!best){ tonePan(300,0.2,'sonar',0,0.2,'sine',pc); srSay('Nenhuma moeda por perto.'); return; }
-  const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(12*TILE)); tonePan(380+740*near,0.16,'sonar',pan,0.26,'sine',pc); // mais perto = mais agudo (dispositivo do jogador)
-  const lado=best.x<pl.x-4?'à esquerda':best.x>pl.x+4?'à direita':'à frente', dist=bd<4*TILE?'bem perto':bd<9*TILE?'perto':'longe';
-  const msg=(numPlayers>1?'Jogador '+(pl.i+1)+': ':'')+'Sonar: moeda '+lado+', '+dist+'.'; srSay(msg); narrate(msg); }
+const caneOn=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return modoCego || !!(m&&(m.kind==='blind'||m.kind==='lowvision')); }; // predicado de visão (movimento/render) — fica no game.js
+const caneColor=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return (m&&m.kind==='lowvision') ? 0x35d06a : 0xf2f2f2; }; // cor da bengala (render) — fica no game.js
+// Pistas espaciais a11y (bengala · sonar · guarda de beirada · guia · nado, por dispositivo) extraídas p/ platform/audio-nav.ts
+// (Tier 2, áudio r3). playerCtx/panFor/needsAudioCues expostos na API porque a guarda de beirada + o gate de movimento os
+// chamam de fora do cluster. Estado do guia (_guideCount) e SURF_MAT vivem agora no módulo. Uso: nav.<fn>.
+const nav = createAudioNav({ tileAt, solidAt, held, tonePan, noiseHit, srSay, narrate, BOX, TILE, LOGICAL_W, VIZ_BY_KEY,
+  getCoins: () => coins, getPlayers: () => players, getNumPlayers: () => numPlayers, getCenario: () => CENARIO,
+  getModoCego: () => modoCego, getAudioCtx: () => audioCtx, getSoundOn: () => soundOn, getAudioCat: () => audioCat });
 // ===== F4: camadas de AMBIENTE (loops sintetizados) + PISTA/GUIA auditivo (beacon em laço) =====
-let _ambient=null, _rainLevel=0, _weatherT=0, _guideCount=0;
+let _ambient=null, _rainLevel=0, _weatherT=0; // _guideCount vive agora em platform/audio-nav.ts (r3)
 function buildAmbient(ac){ const cat=catNode('ambient'); if(!cat)return null;
   const n=(ac.sampleRate*2)|0, buf=ac.createBuffer(1,n,ac.sampleRate), d=buf.getChannelData(0); let last=0; for(let i=0;i<n;i++){ const w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; } // ruído rosa em loop
   const mk=(type,freq,q,vol)=>{ const s=ac.createBufferSource(); s.buffer=buf; s.loop=true; const f=ac.createBiquadFilter(); f.type=type; f.frequency.value=freq; if(q)f.Q.value=q; const g=ac.createGain(); g.gain.value=vol; s.connect(f).connect(g).connect(cat); try{s.start();}catch(e){} return g; };
@@ -558,10 +518,7 @@ function drawWeather(){ if(!weatherLayer)return; const g=weatherLayer; if(weathe
     if(!_rainDrops){ _rainDrops=[]; for(let i=0;i<110;i++)_rainDrops.push({x:rnd()*W,y:rnd()*H,len:6+rnd()*9,spd:8+rnd()*7}); }
     const mv=(phase==='playing'); g.lineStyle(1,0xaebfe0,0.5*_rainLevel); for(const d of _rainDrops){ if(mv){ d.y+=d.spd; d.x-=d.spd*0.35; if(d.y>H){ d.y=-d.len; d.x=rnd()*W; } if(d.x<0)d.x+=W; } g.moveTo(d.x,d.y); g.lineTo(d.x-2,d.y+d.len); } g.lineStyle(0); } // GAG: gotas congelam na pausa
   if(_flash>0){ g.beginFill(0xe4ecff, _flash*0.55); g.drawRect(0,0,W,H); g.endFill(); } }                            // clarão do relâmpago
-function updateGuide(){ if(!audioCtx||!soundOn||!audioCat.guide.on)return;
-  for(const pl of players){ if(!needsAudioCues(pl))continue; pl.guideT=(pl.guideT||0)+1; if(pl.guideT<48)continue; pl.guideT=0; // pinga ~0,8s
-    let best=null,bd=1e9; for(const cn of coins){ if(cn.taken||cn.owner!==pl.i)continue; const d=Math.hypot(cn.x-pl.x,cn.y-pl.y); if(d<bd){bd=d;best=cn;} }
-    if(best){ const pan=panFor(best.x,pl), near=Math.max(0,1-bd/(14*TILE)); tonePan(300+380*near,0.12,'guide',pan,0.11,'triangle',playerCtx(pl)); _guideCount++; } } }
+// updateGuide (beacon do guia) extraído p/ platform/audio-nav.ts (Tier 2, áudio r3). Chamado no loop como nav.updateGuide.
 // ===== F5 (plumbing): camada de narração TTS. Motor NEURAL (Piper pt-BR) é carregado LAZY (ver docs/plano-tts-fase-f5.md).
 // Decisões: pt-BR=Piper (só ele tem pt-BR); lazy-fetch de CDN + cache; voz Faber agora, seleção de voz depois.
 let ttsEngine=null, ttsLoading=false, _narrateCount=0, ttsLang='pt-BR', ttsVoice='faber';
@@ -1569,7 +1526,7 @@ function stepPlayer(pl,dt){
     pl.clinging=false; pl.flying=false; earcons.sfx('power'); showPower(pl); srSay(pl.activePower==='off'?'Sem poder ativo.':(POWER_MSG[pl.activePower]||'Poder ativado!')); };
   const swapNow=held(pl,'swap');
   if(swapNow){ pl._swapT+=dt;
-    if(!pl._swapSonar && (pl._swapT>18 || held(pl,'especial'))){ pl._swapSonar=true; sonar(pl); } // segurar ~0,3s OU acorde swap+especial
+    if(!pl._swapSonar && (pl._swapT>18 || held(pl,'especial'))){ pl._swapSonar=true; nav.sonar(pl); } // segurar ~0,3s OU acorde swap+especial
   } else { if(pl._swapDown && !pl._swapSonar) doSwap(); pl._swapT=0; pl._swapSonar=false; } // soltou após tap curto → troca
   pl._swapDown=swapNow;
   // ESPECIAL: ação ainda não implementada (stub — apenas registra o gatilho)
@@ -1645,18 +1602,18 @@ function stepPlayer(pl,dt){
   // F2: passos por superfície · escada (madeira) · escalada (parede). Cadência = ritmo do andar/correr.
   if(!pl.inWater){
     if(caneOn(pl)){ if(pl.airTime<=5){ // modo cego: chão ESTÁVEL (coyote) evita o flicker do onGround
-      if(dir!==0){ pl.caneDist=(pl.caneDist||0)+Math.abs(pl.vx*dt); if(pl.caneDist>=caneBlockPx()){ pl.caneDist=0; caneTap(pl); } } // ANDANDO: batida por DISTÂNCIA
-      else { pl.caneDist=0; if(held(pl,'run')){ pl.stepT+=dt; if(pl.stepT>=25){ pl.stepT=0; caneTap(pl); } } else pl.stepT=99; } } } // PARADO: sem batida; segurar corrida = sondagem (batida no chão à frente)
+      if(dir!==0){ pl.caneDist=(pl.caneDist||0)+Math.abs(pl.vx*dt); if(pl.caneDist>=caneBlockPx()){ pl.caneDist=0; nav.caneTap(pl); } } // ANDANDO: batida por DISTÂNCIA
+      else { pl.caneDist=0; if(held(pl,'run')){ pl.stepT+=dt; if(pl.stepT>=25){ pl.stepT=0; nav.caneTap(pl); } } else pl.stepT=99; } } } // PARADO: sem batida; segurar corrida = sondagem (batida no chão à frente)
     else if(pl.onGround && dir!==0){ const cad=(held(pl,'run')&&!pl.easy&&!pl.toggleMove)?11:17; pl.stepT+=dt; if(pl.stepT>=cad){ pl.stepT=0; const m=surfaceUnder(pl); if(m)noiseHit(m);
       if(run)puffDust(pl.x-pl.facing*5,pl.y,2); } } } // normal: passo no chão sob os pés · JUICE: correndo levanta poeira nos calcanhares
   else if(pl.onLadder && pl.vy!==0){ pl.stepT+=dt; if(pl.stepT>=20){ pl.stepT=0; noiseHit('madeira'); } }
   else if(pl.clinging && (pl.vx!==0||pl.vy!==0)){ pl.stepT+=dt; if(pl.stepT>=16){ pl.stepT=0; noiseHit('parede'); } }
-  else if(pl.inWater && caneOn(pl)){ waterNav(pl); } // NADO CEGO: guia por contato (paredes/chão/superfície-cordas)
+  else if(pl.inWater && caneOn(pl)){ nav.waterNav(pl); } // NADO CEGO: guia por contato (paredes/chão/superfície-cordas)
   else pl.stepT=99; // parado → próximo passo soa logo ao recomeçar
   // F3: guarda de beirada — bipa ao caminhar em direção a um fosso (só quando a visão está comprometida: blind/baixa visão)
-  if(needsAudioCues(pl) && pl.onGround && dir!==0 && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
+  if(nav.needsAudioCues(pl) && pl.onGround && dir!==0 && !pl.inWater && !pl.onLadder && !pl.flying && !pl.clinging){
     const leadTx=Math.floor((pl.x+dir*(BOX.w/2+TILE*0.5))/TILE), belowTy=Math.floor((pl.y+1)/TILE);
-    if(!solidAt(leadTx,belowTy)){ pl.guardT+=dt; if(pl.guardT>=9){ pl.guardT=0; tonePan(760,0.06,'guard',panFor((leadTx+0.5)*TILE,pl),0.16,'square',playerCtx(pl)); } } else pl.guardT=99;
+    if(!solidAt(leadTx,belowTy)){ pl.guardT+=dt; if(pl.guardT>=9){ pl.guardT=0; tonePan(760,0.06,'guard',nav.panFor((leadTx+0.5)*TILE,pl),0.16,'square',nav.playerCtx(pl)); } } else pl.guardT=99;
   } else pl.guardT=99;
   if(pl.y-BOX.h>WORLD_PX_H+40){ pl.x=SPAWN_X; pl.y=SPAWN_Y; pl.vx=pl.vy=0; }
   // coletar (P1 abre quiz nos modos didáticos; MP é Lúdico). Fácil: hitbox de coleta +4px por lado.
@@ -2938,8 +2895,8 @@ startLoop(app.ticker, (dt)=>{ pollPads(); update(dt); draw();
   attractCtl.titleIdleTick(titleG.visible); // attract após 60s parado no menu (José)
   setMinimapVisible(!titleG.visible&&numPlayers<=1); document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu
   fpsTick();
-  if(phase==='playing'){ updateWeather(); updateAmbient(); updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return _sonarCount;},get guideCount(){return _guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>sonar(players[0]),setHearingLoss,darkRegions,decoLayer,get minimap(){return getMinimap();},parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+  if(phase==='playing'){ updateWeather(); updateAmbient(); nav.updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return nav.sonarCount;},get guideCount(){return nav.guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>nav.sonar(players[0]),setHearingLoss,darkRegions,decoLayer,get minimap(){return getMinimap();},parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){return minimapSeenCount();},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
