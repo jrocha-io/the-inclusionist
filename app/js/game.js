@@ -23,6 +23,7 @@ import { createAudioJingles } from './platform/audio-jingles.js'; // Tier 2 (áu
 import { createAudioEarcons } from './platform/audio-earcons.js'; // Tier 2 (áudio r2): earcons (sfx) + porta + legendas
 import { createAudioNav } from './platform/audio-nav.js'; // Tier 2 (áudio r3): pistas espaciais (bengala/sonar/guarda/guia/nado)
 import { createAudioAmbient } from './platform/audio-ambient.js'; // Tier 2 (áudio r4): trilha de ambiente + trovão
+import { createTts } from './platform/tts.js'; // Tier 2 (#38): narração por voz (Piper neural lazy + fallback Web Speech)
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE, initCharacterSprites } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
 import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
@@ -482,10 +483,13 @@ function setHearingLoss(on){ setHearingLossGraph(on); store.setBool('incl_hearin
 function surfaceUnder(pl){ const t=tileAt(Math.floor(pl.x/TILE),Math.floor((pl.y+1)/TILE)); if(t!==2&&t!==6&&t!==5)return null; return CENARIO==='cidade'?'piso':'pedra'; }
 const caneOn=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return modoCego || !!(m&&(m.kind==='blind'||m.kind==='lowvision')); }; // predicado de visão (movimento/render) — fica no game.js
 const caneColor=(pl)=>{ const m=VIZ_BY_KEY[pl.viz]; return (m&&m.kind==='lowvision') ? 0x35d06a : 0xf2f2f2; }; // cor da bengala (render) — fica no game.js
+// TTS (narração por voz: Piper neural lazy + fallback Web Speech) extraído p/ platform/tts.ts (Tier 2, #38). Criado ANTES do
+// audio-nav porque o nav injeta narrate. As funções de painel (populateTTS*/reflectTTS) ficam no game.js (→ #54) e usam get/set.
+const tts = createTts({ srSay, srAlert, ensureAC, catNode, audioOut, getSoundOn: () => soundOn, getVolume: () => volume, getAudioCat: () => audioCat });
 // Pistas espaciais a11y (bengala · sonar · guarda de beirada · guia · nado, por dispositivo) extraídas p/ platform/audio-nav.ts
 // (Tier 2, áudio r3). playerCtx/panFor/needsAudioCues expostos na API porque a guarda de beirada + o gate de movimento os
 // chamam de fora do cluster. Estado do guia (_guideCount) e SURF_MAT vivem agora no módulo. Uso: nav.<fn>.
-const nav = createAudioNav({ tileAt, solidAt, held, tonePan, noiseHit, srSay, narrate, BOX, TILE, LOGICAL_W, VIZ_BY_KEY,
+const nav = createAudioNav({ tileAt, solidAt, held, tonePan, noiseHit, srSay, narrate: tts.narrate, BOX, TILE, LOGICAL_W, VIZ_BY_KEY,
   getCoins: () => coins, getPlayers: () => players, getNumPlayers: () => numPlayers, getCenario: () => CENARIO,
   getModoCego: () => modoCego, getAudioCtx: () => audioCtx, getSoundOn: () => soundOn, getAudioCat: () => audioCat });
 // ===== F4: camadas de AMBIENTE (loops sintetizados) + PISTA/GUIA auditivo (beacon em laço) =====
@@ -512,50 +516,9 @@ function drawWeather(){ if(!weatherLayer)return; const g=weatherLayer; if(weathe
     const mv=(phase==='playing'); g.lineStyle(1,0xaebfe0,0.5*_rainLevel); for(const d of _rainDrops){ if(mv){ d.y+=d.spd; d.x-=d.spd*0.35; if(d.y>H){ d.y=-d.len; d.x=rnd()*W; } if(d.x<0)d.x+=W; } g.moveTo(d.x,d.y); g.lineTo(d.x-2,d.y+d.len); } g.lineStyle(0); } // GAG: gotas congelam na pausa
   if(_flash>0){ g.beginFill(0xe4ecff, _flash*0.55); g.drawRect(0,0,W,H); g.endFill(); } }                            // clarão do relâmpago
 // updateGuide (beacon do guia) extraído p/ platform/audio-nav.ts (Tier 2, áudio r3). Chamado no loop como nav.updateGuide.
-// ===== F5 (plumbing): camada de narração TTS. Motor NEURAL (Piper pt-BR) é carregado LAZY (ver docs/plano-tts-fase-f5.md).
-// Decisões: pt-BR=Piper (só ele tem pt-BR); lazy-fetch de CDN + cache; voz Faber agora, seleção de voz depois.
-let ttsEngine=null, ttsLoading=false, _narrateCount=0, ttsLang='pt-BR', ttsVoice='faber';
-let ttsEngineSel=(()=>{try{return localStorage.getItem('incl_tts_engine')||'webspeech';}catch(e){return 'webspeech';}})(); // webspeech | piper | kokoro | kitten | espeak
-let _ttsVoiceObj=null; // voz do Web Speech selecionada
-function speakWebSpeech(text){ try{ const ss=window.speechSynthesis; if(!ss)return false; ss.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; u.rate=1; u.volume=Math.min(1,volume*1.4); ss.speak(u); return true; }catch(e){ return false; } }
-const TTS_SOURCES={ 'pt-BR':{ engine:'piper', voice:'pt_BR-faber-medium',
-  // D1: lazy-CDN + cache OPFS (a lib guarda o onnx no Origin Private File System → 2ª sessão fala offline).
-  // A lib puxa: bundle ESM (jsDelivr) + onnxruntime-web (cdnjs) + fonemizador espeak-ng WASM (jsDelivr, SÓ fonemas)
-  // + modelo VITS (HF diffusionstudio/piper-voices). URL do bundle configurável p/ espelho LAN futuro.
-  lib:'https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.4/+esm' } };
-let ttsFailed=false, _ttsPct=0;
-function loadTTS(){ if(ttsEngine||ttsLoading||ttsFailed)return;
-  if(ttsEngineSel!=='piper'){ // F5 D4: Kokoro/Kitten não têm pt-BR (ficam p/ os builds i18n); eSpeak NG entra depois
-    if(ttsEngineSel!=='webspeech') srAlert('Este motor ainda não fala português — por enquanto, use Piper (neural) ou a voz do navegador.');
-    return; }
-  ttsLoading=true; const t0=performance.now(); srSay('Baixando a voz neural (precisa de internet só no 1º uso)…');
-  import(TTS_SOURCES['pt-BR'].lib).then(async(tts)=>{
-    const session=await tts.TtsSession.create({ voiceId:TTS_SOURCES['pt-BR'].voice,
-      progress:(p)=>{ if(!p||!p.total)return; const pct=Math.round(p.loaded*100/p.total);
-        if(pct>=_ttsPct+25&&pct<100){ _ttsPct=pct; srSay('Voz neural: '+pct+'%.'); } },
-      logger:()=>{} });
-    let playing=null, busy=false, next=null; // fila de 1: narração de jogo envelhece — só a ÚLTIMA pendente vale
-    const speakNow=async(text)=>{ busy=true;
-      try{ const wav=await session.predict(text); const ac=ensureAC();
-        if(ac){ const buf=await ac.decodeAudioData(await wav.arrayBuffer());
-          if(playing){ try{playing.stop();}catch(e){} }
-          const src=ac.createBufferSource(); src.buffer=buf; src.connect(catNode('tts')||audioOut()||ac.destination);
-          src.onended=()=>{ if(playing===src)playing=null; const nx=next; next=null; if(nx)speakNow(nx); else busy=false; };
-          src.start(); playing=src; return; } }catch(e){}
-      const nx=next; next=null; if(nx)speakNow(nx); else busy=false; };
-    ttsEngine={ id:'piper', speak:(text)=>{ if(busy)next=text; else speakNow(text); } };
-    ttsLoading=false;
-    try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){}
-    narrate('Voz neural pronta, em '+((performance.now()-t0)/1000).toFixed(0)+' segundos.'); // já sai NA voz nova
-  }).catch(()=>{ ttsLoading=false; ttsFailed=true;
-    srAlert('Não deu para carregar a voz neural (precisa de internet no 1º uso) — seguindo com a voz do navegador.'); });
-}
-function ttsSpeak(text){ if(ttsEngineSel!=='webspeech'){
-    if(ttsEngine&&ttsEngine.id===ttsEngineSel&&ttsEngine.speak){ try{ ttsEngine.speak(text); }catch(e){} return true; }
-    loadTTS(); } // motor neural (baixando/indisponível) → cai no fallback
-  return speakWebSpeech(text); } // fallback imediato: Web Speech (nativo pt-BR); enquanto o neural não carrega
-
-function narrate(text){ if(!soundOn||!audioCat.tts.on||!text)return; _narrateCount++; ttsSpeak(text); } // gated pelo toggle 'Narração (TTS)' do mixer, independente das legendas
+// Narração TTS (Piper neural lazy + fallback Web Speech + estado) extraída p/ platform/tts.ts (Tier 2, #38). A instância `tts`
+// é criada acima (antes do audio-nav, que injeta narrate). Uso: tts.narrate / tts.ttsSpeak / tts.loadTTS; o painel usa
+// tts.get/setEngineSel + tts.get/setVoiceObj + tts.getEngine.
 // Fala de JOGO essencial (nome da palavra/sílaba/letra/fonema nos desafios de alfabetização): SEMPRE toca, mesmo com
 // o toggle 'Narração (TTS)' DESLIGADO — via voz nativa do navegador, fora do mixer (José 2026-07-04). Respeita o volume mestre.
 // Escolhe uma voz pt-BR (Brasil), evitando pt-PT (José: sílabas soavam "estranhas / pt-pt?"). Não cacheia — getVoices é barato e carrega assíncrono.
@@ -1619,7 +1582,7 @@ function stepPlayer(pl,dt){
       else if(MODE==='silabas'&&cn.letter){ if(!pl.quiz) openSilabas(pl,i,cn.letter); }
       else { takeCoin(cn); coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; earcons.sfx('coin'); // some p/ todas as telas (item tem 1 dono)
         burstSparkle(cn.x+5,cn.y+5,ownerColors?(PCOLOR[cn.owner]||0xffd23f):0xffd23f,8); // JUICE: brilho na cor do dono (segue a opção)
-        updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); narrate(msg); }
+        updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); tts.narrate(msg); }
         if(pl.collected>=COIN_TARGET)win(pl); }
     }});
   // E12: power-ups + chave (por jogador) e portão (compartilhado)
@@ -1628,8 +1591,8 @@ function stepPlayer(pl,dt){
       takePu(pu,pl.i); if((numPlayers<=1||pu.kind==='key') && pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:''; // chave: some p/ todos; demais: por viewport (no draw)
       burstSparkle(pu.x+6,pu.y+6,0xfff1a8,10); addHitstop(3); // JUICE: power-up = brilho dourado + micro hit-stop
       if(pu.kind==='key'){ pl.hasKey=true; earcons.sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); } // chave individual: só quem pegou fica com ela (mas o portão, aberto, vale p/ todos)
-      else if(pu.kind==='runcane'){ pl.runCane=true; earcons.sfx('power'); const pm=who+'Bengala de corrida! Agora dá para correr — segure Correr.'; srSay(pm); narrate(pm); } // cego: habilita correr (bengala com roda)
-      else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; earcons.sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); narrate(pm); } // entra no inventário; ativo = o último pego
+      else if(pu.kind==='runcane'){ pl.runCane=true; earcons.sfx('power'); const pm=who+'Bengala de corrida! Agora dá para correr — segure Correr.'; srSay(pm); tts.narrate(pm); } // cego: habilita correr (bengala com roda)
+      else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; earcons.sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); tts.narrate(pm); } // entra no inventário; ativo = o último pego
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
@@ -1869,14 +1832,14 @@ function quizSpeakSel(pl){ const q=pl.quiz; if(!q)return; // fala o item sob o c
   if(q.sel>=N){ srSay(q.sel===N?'apagar':'ok'); return; }
   const it=q.options[q.sel];
   if(q.kind==='silabas'){ if(q.hearSyl){ srSay(disp(it)); gameSay(it); }                          // Descobrindo sílabas (2): sílaba INTEIRA, áudio SEMPRE (gameSay)
-    else { srSay(soletra(it)); narrate(soletra(it)); } }                                           // Montando (3): SOLETRA as letras, áudio só com TTS ligado (narrate)
+    else { srSay(soletra(it)); tts.narrate(soletra(it)); } }                                           // Montando (3): SOLETRA as letras, áudio só com TTS ligado (narrate)
   else if(q.kind==='alf') srSay(q.braille?brailleText(it):(LETTER_NAME[it]||it)); // 4 nome da letra · 5 SÓ os pontos da cela ("a"→"um")
 }
 function placeLetter(pl,ch){ const q=pl.quiz; if(!q)return; const idx=q.boxes.indexOf(null); if(idx<0)return;
   q.boxes[idx]=ch; earcons.sfx('place'); srSay(q.braille?brailleText(ch):(LETTER_NAME[ch]||ch)); renderQuiz(pl); } // braille: só os PONTOS
 function eraseLastLetter(pl){ const q=pl.quiz; if(!q)return; for(let i=q.boxes.length-1;i>=0;i--){ if(q.boxes[i]!==null){ q.boxes[i]=null; break; } } renderQuiz(pl); }
 function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; earcons.sfx('place');
-  if(q.hearSyl){ srSay(disp(sy)); gameSay(sy); } else { srSay(soletra(sy)); narrate(soletra(sy)); } // Descobrindo: confirmação + refala a sílaba (sempre); Montando: SOLETRA as letras (só c/ TTS)
+  if(q.hearSyl){ srSay(disp(sy)); gameSay(sy); } else { srSay(soletra(sy)); tts.narrate(soletra(sy)); } // Descobrindo: confirmação + refala a sílaba (sempre); Montando: SOLETRA as letras (só c/ TTS)
   renderQuiz(pl); }
 function eraseLastSilaba(pl){ const q=pl.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(pl); }
 // E8: ditado de Braille (modo pessoa cega) — dita os pontos da cela por letra
@@ -2028,7 +1991,7 @@ function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); 
   if(pl&&pl.sprite) for(let i=0;i<4;i++) burstSparkle(pl.x+(rnd()-0.5)*24, pl.y-BOX.h/2-rnd()*12, PCOLOR[i]||0xffd23f, 10); // JUICE: confete nas 4 cores
   const who = numPlayers>1 ? `Jogador ${(pl?pl.i:0)+1} venceu! ` : '';
   $('#win-msg').textContent=`${who}Coletou as ${COIN_TARGET} moedas.`;
-  $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); narrate(`${who}Venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
+  $('#win-overlay').hidden=false; srAlert(`${who}Coletou as ${COIN_TARGET} moedas.`); tts.narrate(`${who}Venceu! Coletou as ${COIN_TARGET} moedas.`); $('#btn-again').focus(); }
 function restartGame(){
   players.forEach(p=>closeQuiz(p)); // L3: quiz é por jogador
   setCoins(pickCoins(COIN_TARGET, coinPools()));
@@ -2639,15 +2602,15 @@ function openAudio(){ const ov=$('#audio'); if(!ov)return; ensureAC(); renderAud
 function closeAudio(){ const ov=$('#audio'); if(!ov)return; ov.hidden=true; audioOpen=false; const b=$('#opt-sound'); if(b)b.focus(); }
 // A12e auditiva: Modo cego (só áudio) + seleção de voz (Web Speech agora; neurais em breve)
 function reflectModoCego(){ const b=$('#opt-modocego'); if(b){ toggleBtn(b,modoCego); b.textContent=modoCego?'❚❚ Ligado':'▶ Desligado'; } }
-function reflectTTS(){ const b=$('#opt-tts'); if(b){ toggleBtn(b,audioCat.tts.on); b.textContent=audioCat.tts.on?'❚❚ Ligado':'▶ Desligado'; } const e=$('#tts-engine'); if(e)e.value=ttsEngineSel; }
+function reflectTTS(){ const b=$('#opt-tts'); if(b){ toggleBtn(b,audioCat.tts.on); b.textContent=audioCat.tts.on?'❚❚ Ligado':'▶ Desligado'; } const e=$('#tts-engine'); if(e)e.value=tts.getEngineSel(); }
 function populateTTSEngines(){ const sel=$('#tts-engine'); if(!sel||sel.dataset.filled)return; sel.dataset.filled='1';
   [['webspeech','Voz do navegador (Web Speech)'],['piper','Piper (neural, offline) — baixa no 1º uso'],['kokoro','Kokoro-82M (neural) — baixa no 1º uso'],['kitten','Kitten (neural) — baixa no 1º uso'],['espeak','eSpeak NG (embutido)']]
-    .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; sel.appendChild(o); }); sel.value=ttsEngineSel; }
+    .forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; sel.appendChild(o); }); sel.value=tts.getEngineSel(); }
 function populateTTSVoices(){ const sel=$('#tts-voice'); if(!sel)return; let voices=[]; try{ voices=(window.speechSynthesis&&window.speechSynthesis.getVoices())||[]; }catch(e){}
   const pt=voices.filter(v=>/^pt/i.test(v.lang)), list=pt.length?pt:voices; sel.innerHTML='';
-  if(!list.length){ const o=document.createElement('option'); o.textContent='(sem vozes do sistema)'; sel.appendChild(o); _ttsVoiceObj=null; return; }
+  if(!list.length){ const o=document.createElement('option'); o.textContent='(sem vozes do sistema)'; sel.appendChild(o); tts.setVoiceObj(null); return; }
   list.forEach(v=>{ const o=document.createElement('option'); o.value=v.name; o.textContent=v.name+' ('+v.lang+')'; sel.appendChild(o); });
-  const saved=(()=>{try{return localStorage.getItem('incl_tts_voice');}catch(e){return null;}})(); const pick=list.find(v=>v.name===saved)||list[0]; sel.value=pick.name; _ttsVoiceObj=pick; }
+  const saved=(()=>{try{return localStorage.getItem('incl_tts_voice');}catch(e){return null;}})(); const pick=list.find(v=>v.name===saved)||list[0]; sel.value=pick.name; tts.setVoiceObj(pick); }
 const mcBtn=$('#opt-modocego'); if(mcBtn)mcBtn.addEventListener('click',()=>{ setModoCego(!modoCego); reflectModoCego(); });
 const caneDivSel=$('#cane-div'); if(caneDivSel){ caneDivSel.value=String(caneBlockDiv); caneDivSel.addEventListener('change',()=>{ caneBlockDiv=+caneDivSel.value||1; store.set('incl_cane_div',String(caneBlockDiv)); srSay('Bengala: '+(caneBlockDiv===2?'uma batida a cada meio bloco pisado.':'uma batida por bloco pisado.')); }); }
 // Botões abreviados: hover/foco DESCOMPACTA o número em letras (o "12" vira as 12 letras contando p/ baixo), suave;
@@ -2662,12 +2625,12 @@ function attachAbbr(b){ if(!b||b.dataset.abbrDone)return; const txt=b.textConten
   const go=(t)=>{ tgt=t; if(!timer)timer=setInterval(tick,16); };
   render(); b.addEventListener('mouseenter',()=>go(N)); b.addEventListener('mouseleave',()=>go(0)); b.addEventListener('focus',()=>go(N)); b.addEventListener('blur',()=>go(0)); }
 document.querySelectorAll('.mode-btn, .pm-btn').forEach(attachAbbr);
-const ttsBtn=$('#opt-tts'); if(ttsBtn)ttsBtn.addEventListener('click',()=>{ audioCat.tts.on=!audioCat.tts.on; setCatGain('tts'); reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); if(audioCat.tts.on)narrate('Narração por voz ligada.'); });
-const ttsEngSel=$('#tts-engine'); if(ttsEngSel)ttsEngSel.addEventListener('change',()=>{ ttsEngineSel=ttsEngSel.value; try{localStorage.setItem('incl_tts_engine',ttsEngineSel);}catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); narrate('Motor de voz: '+ttsEngSel.options[ttsEngSel.selectedIndex].text+'.'); });
-const ttsVoiceSel=$('#tts-voice'); if(ttsVoiceSel)ttsVoiceSel.addEventListener('change',()=>{ try{ const vs=window.speechSynthesis.getVoices(); _ttsVoiceObj=vs.find(v=>v.name===ttsVoiceSel.value)||null; localStorage.setItem('incl_tts_voice',ttsVoiceSel.value); }catch(e){} narrate('Voz selecionada.'); });
+const ttsBtn=$('#opt-tts'); if(ttsBtn)ttsBtn.addEventListener('click',()=>{ audioCat.tts.on=!audioCat.tts.on; setCatGain('tts'); reflectTTS(); srSay('Narração '+(audioCat.tts.on?'ligada.':'desligada.')); if(audioCat.tts.on)tts.narrate('Narração por voz ligada.'); });
+const ttsEngSel=$('#tts-engine'); if(ttsEngSel)ttsEngSel.addEventListener('change',()=>{ tts.setEngineSel(ttsEngSel.value); try{localStorage.setItem('incl_tts_engine',ttsEngSel.value);}catch(e){} if(ttsEngSel.value!=='webspeech')tts.loadTTS(); tts.narrate('Motor de voz: '+ttsEngSel.options[ttsEngSel.selectedIndex].text+'.'); });
+const ttsVoiceSel=$('#tts-voice'); if(ttsVoiceSel)ttsVoiceSel.addEventListener('change',()=>{ try{ const vs=window.speechSynthesis.getVoices(); tts.setVoiceObj(vs.find(v=>v.name===ttsVoiceSel.value)||null); localStorage.setItem('incl_tts_voice',ttsVoiceSel.value); }catch(e){} tts.narrate('Voz selecionada.'); });
 const ttsTestBtn=$('#opt-tts-test'); if(ttsTestBtn)ttsTestBtn.addEventListener('click',()=>{ const txt='Olá! Esta é a voz da narração do Inclusionista. Um, dois, três, testando.';
-  if(ttsEngineSel!=='webspeech' && ttsEngine && ttsEngine.speak){ try{ ttsEngine.speak(txt); }catch(e){} } // motor neural já carregado
-  else { try{ const ss=window.speechSynthesis; if(ss){ ss.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='pt-BR'; if(_ttsVoiceObj)u.voice=_ttsVoiceObj; u.rate=1; u.volume=1; ss.speak(u); } }catch(e){} if(ttsEngineSel!=='webspeech')loadTTS(); } // fallback audível (volume 1) + dispara download do neural
+  const _te=tts.getEngine(); if(tts.getEngineSel()!=='webspeech' && _te && _te.speak){ try{ _te.speak(txt); }catch(e){} } // motor neural já carregado
+  else { try{ const ss=window.speechSynthesis; if(ss){ ss.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='pt-BR'; const _vo=tts.getVoiceObj(); if(_vo)u.voice=_vo; u.rate=1; u.volume=1; ss.speak(u); } }catch(e){} if(tts.getEngineSel()!=='webspeech')tts.loadTTS(); } // fallback audível (volume 1) + dispara download do neural
   srSay('Testando a voz selecionada.'); });
 try{ if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged=populateTTSVoices; }catch(e){}
 const navMasterEl=$('#navsound-master'); if(navMasterEl)navMasterEl.addEventListener('input',()=>{ const v=(+navMasterEl.value)/100; NAV_CATS.forEach(k=>{ audioCat[k].vol=v; audioCat[k].on=true; setCatGain(k); }); renderNavSound(); }); // volume geral da navegação sonora (separado do som do jogo)
@@ -2889,14 +2852,14 @@ startLoop(app.ticker, (dt)=>{ pollPads(); update(dt); draw();
   setMinimapVisible(!titleG.visible&&numPlayers<=1); document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu
   fpsTick();
   if(phase==='playing'){ updateWeather(); ambient.updateAmbient(); nav.updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
-window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return nav.sonarCount;},get guideCount(){return nav.guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>nav.sonar(players[0]),setHearingLoss,darkRegions,decoLayer,get minimap(){return getMinimap();},parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
+window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return nav.sonarCount;},get guideCount(){return nav.guideCount;},get narrateCount(){return tts.narrateCount;},sonar:()=>nav.sonar(players[0]),setHearingLoss,darkRegions,decoLayer,get minimap(){return getMinimap();},parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){return minimapSeenCount();},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
   setOwnerColors,setCbSafe,setRoleColor,resetRoleColors,PCOLOR,HC_ROLE,get ownerColors(){return ownerColors;},get cbSafe(){return cbSafe;},
   setMode,setQuizLevel,get quizLevel(){return quizLevel;},openSilabas,quizMove,quizConfirm,quizErase,get quiz(){return players[0].quiz;},INCL_VERSION,fmtFrac,fracGraphic,speakChoice,get fracNot(){return fracNot;},
   setGameFont,openTypo,get fontKey(){return fontKey;},FONT_GROUPS,get mmSeen2(){return minimapSeenCount();},
   startAttract:()=>attractCtl.startAttract(),stopAttract:()=>attractCtl.stopAttract(),get attract(){return attractCtl.isAttract();}, // attract → game/attract.ts
-  loadTTS,ttsSpeak,narrate,get ttsEngine(){return ttsEngine;},get ttsLoading(){return ttsLoading;},get ttsFailed(){return ttsFailed;},setTtsEngineSel(v){ttsEngineSel=v;},
+  loadTTS:tts.loadTTS,ttsSpeak:tts.ttsSpeak,narrate:tts.narrate,get ttsEngine(){return tts.getEngine();},get ttsLoading(){return tts.loading;},get ttsFailed(){return tts.failed;},setTtsEngineSel(v){tts.setEngineSel(v);},
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
   spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,STREET_Y,
   get elevShafts(){return elevShafts;},elevAt,get BOX(){return BOX;},get wheelchair(){return wheelchair;},setWheelchair,buildElevators,buildRamps,solidAt,surfTop, // debug cadeirante
