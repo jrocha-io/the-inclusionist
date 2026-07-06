@@ -33,10 +33,11 @@ export interface Tts {
   readonly narrateCount: number;
 }
 
-// D1: lazy-CDN + cache OPFS. A lib puxa bundle ESM (jsDelivr) + onnxruntime-web (cdnjs) + fonemizador espeak-ng WASM
-// (jsDelivr, SÓ fonemas) + modelo VITS (HF diffusionstudio/piper-voices). URL configurável p/ espelho LAN futuro.
-const TTS_SOURCES = { 'pt-BR': { engine: 'piper', voice: 'pt_BR-faber-medium',
-  lib: 'https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.4/+esm' } };
+// A LIB (@mintplex-labs/piper-tts-web) vem do npm e é code-split pelo Vite (import dinâmico do MÓDULO → chunk local,
+// carregado no 1º uso; sem CDN, sem warning). O MODELO de voz + os WASM (onnxruntime/espeak) vão pro Cloudflare R2
+// (não HF/CDN, não LAN — escola não tem TI) e ficam em cache OPFS (offline após o 1º uso). O host do modelo/WASM é
+// injetado após confirmar a API da lib no node_modules. Ver ADR-0021. (#69→#38)
+const TTS_SOURCES = { 'pt-BR': { engine: 'piper', voice: 'pt_BR-faber-medium' } };
 
 export function createTts(ctx: TtsCtx): Tts {
   let ttsEngine: TtsEngine | null = null, ttsLoading = false, ttsFailed = false, _ttsPct = 0, _narrateCount = 0;
@@ -57,7 +58,7 @@ export function createTts(ctx: TtsCtx): Tts {
       return;
     }
     ttsLoading = true; const t0 = performance.now(); ctx.srSay('Baixando a voz neural (precisa de internet só no 1º uso)…');
-    import(/* @vite-ignore */ TTS_SOURCES['pt-BR'].lib).then(async (mod) => { // URL de CDN em runtime (configurável) → Vite não analisa; intencional
+    import('@mintplex-labs/piper-tts-web').then(async (mod) => { // npm → Vite code-split num chunk LOCAL (sem CDN, sem warning). Ver ADR-0021
       const session = await mod.TtsSession.create({ voiceId: TTS_SOURCES['pt-BR'].voice,
         progress: (p: { loaded: number; total: number }) => { if (!p || !p.total) return; const pct = Math.round(p.loaded * 100 / p.total); if (pct >= _ttsPct + 25 && pct < 100) { _ttsPct = pct; ctx.srSay('Voz neural: ' + pct + '%.'); } },
         logger: () => {} });

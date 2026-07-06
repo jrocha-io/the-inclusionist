@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
+    "@mintplex-labs/piper-tts-web": "^1.0.4",
     "@release-it/conventional-changelog": "^11.0.1",
     "@types/node": "^22.0.0",
     "@vitest/browser": "^4.0.0",
