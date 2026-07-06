@@ -77,11 +77,18 @@ just another config row. Whether the target hardware can actually run either is 
 ## Testing status (`sherpa-lab.html`)
 - The Dev **self-built** the WASM (mock 0-byte trick → light engine-only `.data`). Artifacts are ES modules — the page
   imports the factory + `createOfflineTts`.
-- **crossOriginIsolated required:** the build has **pthreads**, so `SharedArrayBuffer` needs COOP/COEP. Fixed for the lab
-  with `docs/research/serve.json` (COOP `same-origin` + COEP `require-corp`). **Production decision pending:** enabling
-  site-wide COOP/COEP has knock-on effects (all cross-origin embeds need CORP) — for the game we may instead build sherpa
-  **single-threaded** to avoid isolation entirely. Decide at `tts.ts` integration.
-- The CDN-only `tts-engine-lab.html` was **deleted** (YAGNI). Neural A-B now lives in `sherpa-lab.html`.
+- **SINGLE-THREAD decided.** The first pthread build needed COOP/COEP (`crossOriginIsolated`) for `SharedArrayBuffer` —
+  and that isolation **broke cross-origin caching of the weights in the Service Worker** (offline dead + "failed to fetch"
+  on voice-switch). Fix = build **single-threaded** (drop `-pthread`/`-sPTHREAD_POOL_SIZE`), which removes COOP/COEP
+  entirely; also the right call for the game (site-wide COEP would break other cross-origin resources). `serve.json`
+  deleted. Trade-off: slightly higher RTF single-threaded — measure in the lab (weak-hardware target may have few cores anyway).
+- **PWA persistence:** the lab uses a Service Worker (`sw.js`) cache-first on engine + weights — the same mechanism the
+  game will use (vite-plugin-pwa). Weights carry a download timestamp (localStorage) so the lab shows "já em cache há X".
+- **Playtest findings (TTS ≠ text reader):** models hallucinate on non-text. `ff`→"éfe éfe" (ok); **`/f/` (slashes) →
+  the PHONEME /f/** (useful!) but too fast for a child; alphabet with commas → rushed/garbled; without commas → correct.
+  ⇒ prosody/speed matter a lot; the phoneme layer wants `/x/`-style input at a slow `lengthScale`, or recorded/spliced clips.
+- The CDN-only `tts-engine-lab.html` was **deleted** (YAGNI). Neural A-B now lives in `sherpa-lab.html` (~50 vits-piper
+  voices, split into **medium / high** blocks so the user picks by hardware; RTF per synthesis).
 - **Nothing validated until a passing user test.**
 
 ## Still open

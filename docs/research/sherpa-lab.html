@@ -95,12 +95,14 @@ const reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getE
 const statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
 const setStatus = (c,m) => { statusEl.className='st '+c; statusEl.textContent=m; };
 
-// popular o seletor (optgroup por locale)
-for (const loc in MODELS) {
-  const og = document.createElement('optgroup'); og.label = loc;
-  for (const x of MODELS[loc]) { const o = document.createElement('option'); o.value = x; o.textContent = x.slice(loc.length+1); og.appendChild(o); } // rótulo = voz-qualidade
+// popular o seletor em DOIS BLOCOS: medium (mais leve) e high (mais pesado) — ajuda a decidir por hardware
+const tiers = { medium: [], high: [] };
+for (const loc in MODELS) for (const x of MODELS[loc]) (x.endsWith('-high') ? tiers.high : tiers.medium).push(x);
+[['medium','▼ medium — mais leve (recomendado p/ equipamento fraco)'], ['high','▼ high — mais qualidade, EXIGE MAIS do equipamento']].forEach(([t, label]) => {
+  const og = document.createElement('optgroup'); og.label = label;
+  tiers[t].forEach(x => { const o = document.createElement('option'); o.value = x; o.textContent = x; og.appendChild(o); }); // rótulo = locale-voz-qualidade (limpo)
   voiceSel.appendChild(og);
-}
+});
 
 // montar a tabela + preencher amostras do idioma corrente
 const rows = document.getElementById('rows');
@@ -115,13 +117,18 @@ rateEl.oninput = () => { RATE = parseFloat(rateEl.value); rateValEl.textContent 
 
 // Persistência via Service Worker (PWA): a página só faz fetch; o SW faz cache-first do motor e dos pesos — o MESMO
 // mecanismo do jogo (vite-plugin-pwa). Offline após o 1º uso; nada de pasta manual.
+function humanAge(ms){ const s=Math.round(ms/1000); if(s<60) return s+' s'; const m=Math.round(s/60); if(m<60) return m+' min'; const h=Math.round(m/60); if(h<24) return h+' h'; return Math.round(h/24)+' d'; }
+
 async function getBytes(x, file, force){
   const url = HF+x+'/resolve/main/'+file;
-  if (force) { try { await (await caches.open('sherpa-lab-v1')).delete(url); } catch(e){} } // força re-download (limpa do cache do SW)
+  const tsKey = 'tts_ts_'+url;
+  if (force) { try { await (await caches.open('sherpa-lab-v1')).delete(url); localStorage.removeItem(tsKey); } catch(e){} }
+  let ts = null; try { ts = localStorage.getItem(tsKey); } catch(e){}
   const t0 = performance.now();
-  const r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' '+url);
+  const r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' '+url);   // o SW responde do cache se já baixou
   const buf = await r.arrayBuffer();
-  return { bytes:new Uint8Array(buf), ms:Math.round(performance.now()-t0) };
+  if (!ts) { try { localStorage.setItem(tsKey, String(Date.now())); } catch(e){} }    // 1ª vez → carimba a data do download
+  return { bytes:new Uint8Array(buf), ms:Math.round(performance.now()-t0), cachedSince: ts ? Number(ts) : null };
 }
 
 function useSession(x){ tts = sessions[x]; curVoice = x; const lang = langOf(x); if (lang !== curLang) { curLang = lang; fillSamples(lang); } document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false); }
@@ -138,8 +145,9 @@ async function loadVoice(force){
     const cfg = { offlineTtsModelConfig: { offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
     const t0 = performance.now(); sessions[x] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
     useSession(x);
-    setStatus('ok','pronto: '+x+' — trocar p/ ela agora é instantâneo');
-    labLog('[load '+x+'] onnx '+(o.bytes.length/1e6).toFixed(1)+' MB em '+o.ms+' ms'+(o.ms<80?' (do cache/SW)':' (download)')+' · init '+initMs+' ms · '+langOf(x));
+    const cacheInfo = o.cachedSince ? ('já em cache há '+humanAge(Date.now()-o.cachedSince)) : ('baixado agora em '+o.ms+' ms');
+    setStatus('ok','pronto: '+x+' — '+cacheInfo);
+    labLog('[load '+x+'] onnx '+(o.bytes.length/1e6).toFixed(1)+' MB · '+cacheInfo+' · init '+initMs+' ms · '+langOf(x));
   } catch(err){ setStatus('err', err.message||String(err)); labLog('[load '+x+'] ERRO: '+(err.message||err)); }
   loadBtn.disabled=false; reloadBtn.disabled=false;
 }
@@ -191,7 +199,11 @@ try {
   sherpaModule = await createSherpaModule({ locateFile: (p) => 'sherpa-wasm/tts/' + p });
   labLog('[wasm] runtime pronto.');
   try { labLog('[wasm] FS "/" : ' + sherpaModule.FS.readdir('/').filter(x => x!=='.'&&x!=='..').join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
-  loadBtn.disabled = false; setStatus('ok','motor pronto — escolha a voz (baixa sob demanda do HF).');
+  loadBtn.disabled = false;
+  const first = voiceSel.value;                                   // se a voz selecionada já está em cache, carrega sozinha (rápido) → play ativo
+  const cachedHit = await caches.match(HF+first+'/resolve/main/'+first+'.onnx');
+  if (cachedHit) { labLog('[boot] '+first+' já em cache — carregando…'); await loadVoice(false); }
+  else setStatus('ok','motor pronto — escolha uma voz e clique Carregar (baixa 1×).');
 } catch(err){ labLog('‼ falha ao iniciar o WASM: '+(err.message||err)); setStatus('err','WASM não iniciou (veja o Log)'); }
 </script>
 </body>

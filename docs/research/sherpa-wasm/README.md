@@ -22,6 +22,11 @@ conteúdo. Então, para a **Abordagem B** (motor genérico, voz em runtime), use
 grep EXPORTED_RUNTIME_METHODS wasm/tts/CMakeLists.txt          # já tem 'FS'? pule o sed
 sed -i "s/'ccall'/'ccall','FS','FS_createPath','FS_createDataFile','FS_unlink'/" wasm/tts/CMakeLists.txt
 
+# 1b) SINGLE-THREAD: remove pthreads → dispensa COOP/COEP (crossOriginIsolated), que quebrava o cache cross-origin
+#     dos pesos no Service Worker (offline + "failed to fetch"). Melhor p/ o jogo também (sem COEP no site inteiro).
+sed -i 's/-pthread//g; s/-sPTHREAD_POOL_SIZE=[0-9]*//g' wasm/tts/CMakeLists.txt
+grep -nE 'pthread|PTHREAD' wasm/tts/CMakeLists.txt            # não deve sobrar nada
+
 # 2) mock 0-byte (mantém espeak-ng-data REAL, ~5 MB; se faltar, pegue de qualquer modelo):
 cd wasm/tts/assets && : > model.onnx && : > tokens.txt && ls && cd ../../..
 
@@ -41,7 +46,7 @@ cp "$SRC"/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-on
 
 **2. Servir (Windows):**
 ```powershell
-npx serve docs/research   # lê o serve.json (COOP/COEP, exigido pelo build com pthreads); abra /sherpa-lab.html
+npx serve docs/research   # single-thread: NÃO precisa de COOP/COEP (sem serve.json); abra /sherpa-lab.html
 ```
 
 Na página: escolha a voz no seletor → ▶ nas tarefas. Trocar para uma voz já carregada é **instantâneo** (sessão em memória).
