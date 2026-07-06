@@ -34,9 +34,9 @@ export interface Tts {
 }
 
 // A LIB (@mintplex-labs/piper-tts-web) vem do npm e é code-split pelo Vite (import dinâmico do MÓDULO → chunk local,
-// carregado no 1º uso; sem CDN, sem warning). O MODELO de voz + os WASM (onnxruntime/espeak) vão pro Cloudflare R2
-// (não HF/CDN, não LAN — escola não tem TI) e ficam em cache OPFS (offline após o 1º uso). O host do modelo/WASM é
-// injetado após confirmar a API da lib no node_modules. Ver ADR-0021. (#69→#38)
+// carregado no 1º uso; sem CDN, sem warning). O MODELO de voz fica no HuggingFace e os WASM no cdnjs/jsDelivr (defaults
+// da lib), em cache OPFS (offline após o 1º uso). R2 foi DESCARTADO (ADR-0021): o download único é coberto pelos
+// fallbacks Web Speech (nativo) + eSpeak (embutido); a API da lib só permite trocar o WASM, não o host do modelo. (#69→#38)
 const TTS_SOURCES = { 'pt-BR': { engine: 'piper', voice: 'pt_BR-faber-medium' } };
 
 export function createTts(ctx: TtsCtx): Tts {

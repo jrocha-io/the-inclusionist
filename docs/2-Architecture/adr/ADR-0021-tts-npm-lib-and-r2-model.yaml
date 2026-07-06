@@ -6,69 +6,61 @@ metadata:
   consulted: []
   informed: []
 
-title: Ship neural TTS as an npm-bundled lib + voice model on Cloudflare R2 (supersedes lazy-CDN)
+title: Bundle the neural TTS lib via npm; keep the voice model on its upstream host (R2 rejected)
 
 context-and-problem-statement: |
-  The neural TTS (Piper pt-BR) shipped as "lazy-CDN": the lib (@mintplex-labs/piper-tts-web) fetched from jsDelivr at
-  runtime, which in turn pulled onnxruntime-web (cdnjs), the espeak-ng phonemizer WASM (jsDelivr) and the VITS voice model
-  (~dozens of MB, HuggingFace) — cached in OPFS for offline-after-first-use. Problems: Vite can't statically analyze the
-  CDN `import(url)` (build warning); it depends on third-party CDNs a school network may block; the first-use download of
-  tens of MB over a poor school connection is painful; and every fetch leaks to a third-party CDN (privacy, child-data
-  pillar). The Dev asked to vendor it. Correction to an earlier idea: **schools have NO IT support / no local server** —
-  the best case is a well-meaning teacher — so a "LAN mirror" is not viable.
+  The neural TTS (Piper pt-BR) shipped as "lazy-CDN": `import(jsDelivr URL)` for the lib, which pulls onnxruntime-web
+  (cdnjs), the espeak-ng phonemizer WASM (jsDelivr) and the VITS voice model (~tens of MB, HuggingFace), cached in OPFS.
+  Two issues: (1) Vite can't statically analyze the CDN dynamic import (build warning); (2) the Dev asked whether to
+  self-host the assets (offline/privacy/school-blocking). We evaluated moving the model to Cloudflare R2.
 
 decision-drivers:
-- Offline (pillar) + weak/blocked school connectivity: no reliance on public CDNs; work from OPFS after one fetch.
-- Privacy (LGPD/COPPA): don't fetch from third-party CDNs on children's machines.
-- Deploy constraint: Cloudflare Pages has a 25 MB per-file limit → the model canNOT be bundled into the Pages deploy.
-- No school IT: the solution must need zero on-site setup (rules out a LAN mirror).
-- The Vite build must be clean (no un-analyzable dynamic import).
+- Clean Vite build (no un-analyzable import).
+- Offline (pillar) — but note: the model is fetched ONCE and cached in OPFS; Web Speech + eSpeak are the immediate fallback.
+- Cost/complexity of self-hosting vs the actual benefit.
+- Reading the lib's real API before deciding (research-first).
 
 considered-options:
-- &cdn "Keep lazy-CDN (jsDelivr lib + HF model) + @vite-ignore"
-- &lan "Self-host the model on a per-school LAN mirror"
-- &submodule "Vendor the lib as a git submodule"
-- &npmr2 "Lib as an npm dependency (Vite code-splits a LOCAL chunk) + voice model & WASM on Cloudflare R2, cached in OPFS"
+- &cdn "Keep lazy-CDN import of the lib + @vite-ignore"
+- &npm "Lib as an npm dependency (Vite code-splits a local chunk); voice model + WASM stay on their upstream hosts (HF/cdnjs/jsDelivr), OPFS-cached"
+- &r2 "Also move the voice model + WASM to Cloudflare R2"
 
 pros-and-cons-of-the-options:
   cdn:
     cons:
-    - "Un-analyzable import (warning); CDN may be blocked; third-party fetch leaks; no control over availability."
-  lan:
-    cons:
-    - "Assumes on-site IT/servers that public schools do not have — non-starter."
-  submodule:
-    cons:
-    - "A submodule vendors the lib SOURCE, but the lib still downloads the model + onnxruntime from CDNs at runtime — it does NOT make TTS offline. Wrong tool."
-  npmr2:
+    - "Un-analyzable import → build warning; CDN dependency for the lib CODE."
+  npm:
     pros:
-    - &nowarn "Dynamic import of the npm MODULE is Vite-analyzable → code-split into a local chunk (lazy, no CDN for code, no warning)."
-    - &r2 "Voice model + WASM on Cloudflare R2 (no 25 MB/file limit; not HF/cdnjs) → no CDN block, no third-party leak; OPFS caches → offline after one fetch."
-    - &nosetup "Zero on-site setup (no LAN mirror); R2 is ours to manage."
+    - &nowarn "Dynamic import of the npm MODULE is Vite-analyzable → local code-split chunk, no CDN for the code, no warning."
+    - &simple "No new infra; the model download is one-time + OPFS-cached; Web Speech (native) + eSpeak (embedded) cover the first-use gap."
+  r2:
+    cons:
+    - &apilimit "The lib's API does NOT expose a model-host override (HF_BASE is a fixed const); only `wasmPaths` overrides the WASM. Moving the MODEL to R2 would need a Service-Worker host-rewrite or a lib fork — real cost."
+    - &nobenefit "Little benefit (Dev's call): first-use lazy-download + Web Speech fallback is imperceptible on decent internet; HF is not a less-trusted host than Cloudflare for privacy; blocking is handled by DISCLOSING that weights come from HF once and then run 100% locally. 60 MB is 60 MB on any host."
 
 decision-outcome:
   chosen-option:
-    link: *npmr2
+    link: *npm
     justification: |
-      (1) Add @mintplex-labs/piper-tts-web as an npm dependency and dynamic-import the MODULE (`import('@mintplex-labs/
-      piper-tts-web')`) — Vite code-splits it into a local chunk loaded on first TTS use (no CDN, no build warning).
-      (2) Host the voice model (pt_BR-faber-medium .onnx + .json) and the onnxruntime/espeak WASM on Cloudflare R2, NOT
-      bundled into the CF Pages deploy (25 MB/file limit) and NOT a LAN mirror (no school IT). The lib caches to OPFS →
-      offline after the first fetch. The exact model-host / wasmPaths override is wired AFTER reading the installed lib
-      source in node_modules (research-first — do not code against an unconfirmed API).
+      Add @mintplex-labs/piper-tts-web as an npm dependency and dynamic-import the MODULE (`import('@mintplex-labs/
+      piper-tts-web')`) — Vite code-splits it into a local chunk on first TTS use (no CDN for the code, no warning). KEEP
+      the voice model on HuggingFace and the WASM on cdnjs/jsDelivr (their defaults), OPFS-cached. **R2 is rejected** (Dev):
+      the one-time lazy download is covered by the Web Speech (native, 0-download) + eSpeak NG (embedded) fallbacks; HF is
+      no worse than Cloudflare for privacy; school-blocking is handled by disclosure ("weights download once from HF, then
+      everything runs locally"). The lib API confirms only `wasmPaths` is overridable — the model host is hardcoded — so R2
+      for the model would cost a SW-rewrite or a fork for negligible gain.
   consequences:
     positive:
     - *nowarn
-    - *r2
-    - *nosetup
+    - *simple
     neutral:
-    - "One R2 bucket to own/maintain; the model-host wiring in tts.ts is finalized once the lib's real API is read from node_modules."
+    - "First use of a neural voice fetches its model once from HF (fallback: Web Speech / eSpeak until then)."
+    - "The ENGINE choice (Piper vs Kokoro vs Kitten vs eSpeak vs Web Speech) is still being evaluated — see the TTS lab test page."
     negative:
-    - "First use still needs ONE working connection to fetch the model into OPFS; R2 is an extra service the Dev sets up (bucket + upload)."
+    - "Still depends on HF/cdnjs being reachable for the FIRST fetch of a neural voice."
 
 more-information: |
-  Supersedes the 'lazy-CDN + LAN mirror' note in tts.ts / the TTS plan (docs/plano-tts-fase-f5.md). Dev steps: `npm install`
-  (pulls @mintplex-labs/piper-tts-web); create an R2 bucket + upload the faber-medium model + ort/espeak WASM; hand over the
-  public R2 base URL; validate the build (Vite may need config for the lib's WASM). Then the AI reads
-  node_modules/@mintplex-labs/piper-tts-web to confirm the model-host + wasmPaths API and wires the R2 URL. Avast note
-  (memory): never the interactive `wrangler` OAuth on this machine — use a CLOUDFLARE_API_TOKEN or the R2 dashboard.
+  Supersedes the 'lazy-CDN' note in tts.ts / docs/plano-tts-fase-f5.md. Fallback chain confirmed: Piper/Kokoro/Kitten =
+  neural (download from HF, cached OPFS); eSpeak NG = embedded (no download); Web Speech = native API. eSpeak + Web Speech
+  are the always-available fallbacks. KittenTTS is English-only (no pt-BR/es). Engine comparison for pt/en/es is being
+  measured in the TTS lab page (fonemas · letras · sílabas · palavras · frases).
