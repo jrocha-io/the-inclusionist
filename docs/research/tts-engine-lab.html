@@ -58,6 +58,13 @@
   <button data-lang="es" aria-pressed="false">Español</button>
 </div>
 
+<div class="langbar" aria-label="Velocidade">
+  <label style="display:flex;align-items:center;gap:10px;color:var(--mut);font-size:14px">
+    Velocidade da fala <input id="rate" type="range" min="0.5" max="1.3" step="0.05" value="0.85" style="width:200px"> <span id="rateVal">0.85×</span>
+  </label>
+  <span class="note" style="align-self:center">eSpeak default (175 wpm) é rápido demais p/ alfabetização; aqui é aplicado a eSpeak + Web Speech + Kokoro. Piper (lib antiga) não expõe velocidade.</span>
+</div>
+
 <h2>Motores</h2>
 <div class="engines" id="engines"></div>
 
@@ -106,6 +113,7 @@ const BCP47 = { pt:'pt-BR', en:'en-US', es:'es-ES' };
 const LANGNAME = { pt:'Português', en:'English', es:'Español' };
 
 let LANG = 'pt';
+let RATE = 0.85; // fator de velocidade da fala (1 = normal); aplicado a eSpeak/Web Speech/Kokoro
 const logEl = document.getElementById('log');
 const log = (m) => { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; };
 window.addEventListener('error', e => log('‼ window error: ' + (e.message || (e.error && e.error.message) || e)));
@@ -129,7 +137,7 @@ engines.webspeech = {
   speak(text, lang, voiceId) {
     return new Promise((res, rej) => {
       const ss = window.speechSynthesis; if (!ss) return rej(new Error('sem speechSynthesis')); ss.cancel();
-      const u = new SpeechSynthesisUtterance(text); u.lang = BCP47[lang];
+      const u = new SpeechSynthesisUtterance(text); u.lang = BCP47[lang]; u.rate = RATE;
       const v = engines.webspeech._voices.find(x=>x.voiceURI===voiceId); if (v) u.voice = v;
       u.onstart = () => res(); u.onerror = (e) => rej(new Error(e.error||'speech error'));
       ss.speak(u);
@@ -162,7 +170,7 @@ engines.espeak = {
   async speak(text, lang) {
     if (!engines.espeak._ready) throw new Error('não inicializado');
     const vid = await engines.espeak._ensureVoice(lang);
-    const url = engines.espeak._ms.speak(text, { voice: vid, rawdata:'data-url' }); // [[...]] = fonemas Kirshenbaum
+    const url = engines.espeak._ms.speak(text, { voice: vid, rawdata:'data-url', speed: Math.round(175 * RATE) }); // [[...]] = fonemas Kirshenbaum; speed em wpm (175 default é rápido demais)
     if (!url) throw new Error('meSpeak não gerou áudio (voz '+vid+')');
     return playUrl(url);
   },
@@ -204,13 +212,14 @@ engines.piper = {
 
 /* --- Kokoro-82M (neural, transformers.js) --- */
 engines.kokoro = {
-  id:'kokoro', name:'Kokoro-82M', size:'~80 MB · SÓ INGLÊS (v1.2.1)', neural:true, _tts:null, _voices:null,
+  id:'kokoro', name:'Kokoro-82M', size:'~80 MB · aqui SÓ INGLÊS — pt-BR só via sherpa (build)', neural:true, _tts:null, _voices:null,
   async init(setSt) {
     setSt('warn','baixando lib + modelo (~80 MB no 1º uso)…');
     const mod = await import('https://esm.sh/kokoro-js@1.2.1'); // esm.sh resolve o transformers.js (jsDelivr/+esm falha)
     engines.kokoro._tts = await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype:'q8', device:'wasm' }); // wasm/q8 é o par estável; webgpu pede fp32 e falha sozinho
     try { engines.kokoro._voices = engines.kokoro._tts.list_voices ? engines.kokoro._tts.list_voices() : Object.keys(engines.kokoro._tts.voices||{}); } catch(e){ engines.kokoro._voices = null; }
-    setSt('ok','modelo pronto ('+(navigator.gpu?'WebGPU':'WASM')+')');
+    log('[kokoro] kokoro-js só traz g2p+vozes de INGLÊS no navegador. pt-BR (pb_dora) exige o modelo multi-lang + espeak-ng-data via sherpa-onnx-wasm (build) — fica na integração in-game, ADR-0022.');
+    setSt('ok','pronto — SÓ INGLÊS aqui (pt-BR = sherpa, pendente build)');
   },
   voices() { // kokoro-js@1.2.1 só traz vozes INGLESAS (o log provou: pf_dora inexistente) → mesma lista p/ qq idioma
     const list = engines.kokoro._voices;
@@ -220,7 +229,7 @@ engines.kokoro = {
   },
   async speak(text, lang, voiceId) {
     const vid = voiceId || engines.kokoro.voices(lang)[0].id;
-    const audio = await engines.kokoro._tts.generate(text, { voice: vid });
+    const audio = await engines.kokoro._tts.generate(text, { voice: vid, speed: RATE }); // speed best-effort (ignorado se a versão não suportar)
     const blob = audio.toBlob ? await audio.toBlob() : audio; // RawAudio → Blob
     return playUrl(URL.createObjectURL(blob));
   },
@@ -318,6 +327,10 @@ document.querySelectorAll('.langbar button').forEach(b => b.onclick = () => {
   // re-disable neural cells that aren't loaded yet
   ENGINE_ORDER.forEach(id=>{ if(engines[id].neural) enableCells(id, ready(id)); });
 });
+
+/* velocidade */
+const rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
+rateEl.oninput = () => { RATE = parseFloat(rateEl.value); rateValEl.textContent = RATE.toFixed(2) + '×'; };
 
 /* boot */
 buildEngines();
