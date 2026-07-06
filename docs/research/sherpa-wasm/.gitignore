@@ -2,5 +2,4 @@
 # Regenerate with fetch-sherpa-wasm.ps1. Only the script + README are versioned.
 *
 !.gitignore
-!fetch-sherpa-wasm.ps1
 !README.md

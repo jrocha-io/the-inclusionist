@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-# sherpa-wasm — assets locais para o `sherpa-lab.html`
+# sherpa-wasm — motor WASM local para o `sherpa-lab.html`
 
-Roda VITS/Piper pt-BR no navegador via **sherpa-onnx-wasm**. Os artefatos WASM são **gerados por você** (o build oficial
-exige um modelo em `assets/` — não há bundle público reaproveitável), e as vozes pt-BR são escritas no FS virtual em
-runtime (`FS.writeFile`). Base da decisão: **[ADR-0022](../../2-Architecture/adr/ADR-0022-tts-sherpa-onnx-wasm-runtime.yaml)**.
+Roda VITS/Piper no navegador via **sherpa-onnx-wasm**. Só o **motor** é gerado por você (o build oficial exige um modelo
+em `assets/` — não há bundle público reaproveitável); as **vozes** o `sherpa-lab.html` baixa **sob demanda do HF do
+csukuangfj** e escreve no FS virtual em runtime (`FS.writeFile`). Decisão: **[ADR-0022](../../2-Architecture/adr/ADR-0022-tts-sherpa-onnx-wasm-runtime.yaml)**.
 
-Nada aqui é versionado (é grande) — o `.gitignore` só mantém o script + este README.
+Só o `.gitignore` + este README são versionados; a pasta `tts/` (o motor, grande) fica ignorada.
 
 ## Como usar (você roda — eu não tenho Node/WSL/WASM no sandbox)
 
@@ -39,25 +39,26 @@ cp "$SRC"/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-on
 > (`FS.writeFile`), e sem `FS` exportado dá `Module.FS undefined`. **Rebuild com o `FS` exportado é obrigatório.** Aproveite
 > e use o mock (0 byte) → `.data` leve e todas as vozes em runtime.
 
-**2. Baixar os modelos pt-BR + servir (Windows):**
+**2. Servir (Windows):**
 ```powershell
-pwsh docs/research/sherpa-wasm/fetch-sherpa-wasm.ps1   # miro/faber/jeff (só .onnx + tokens.txt)
-npx serve docs/research                                 # abra /sherpa-lab.html (porta pode variar)
+npx serve docs/research   # lê o serve.json (COOP/COEP, exigido pelo build com pthreads); abra /sherpa-lab.html
 ```
 
-Na página: escolha a voz → **Carregar** (baixa o `.onnx` local + escreve no FS) → ▶ nas tarefas. Ajuste a velocidade.
+Na página: escolha a voz no seletor → baixa **sob demanda do HF** (só ela; cacheada em Cache API) → ▶ nas tarefas. Trocar
+para uma voz já baixada é **instantâneo** (sessão em memória). Sem pré-download — o lab busca cada `.onnx` de
+`huggingface.co/csukuangfj/vits-piper-<X>/<X>.onnx`.
 
 ## Se der erro, o que o Log diz
 
-- **`FS "/" contém: …`** — mostra o que o `.data` do bundle assou. Confirme que existe um `espeak-ng-data` aí; se o
-  nome/caminho for outro, é só ajustar `dataDir` no `sherpa-lab.html`.
-- **`HTTP 404 em sherpa-wasm/…`** — o download não trouxe o arquivo (nome do modelo/asset mudou); ajusto o script.
-- **erro ao criar `OfflineTts`** — provável divergência no *shape* do config vs. a versão do `sherpa-onnx-tts.js`
-  baixado; me diga a mensagem e eu alinho ao wrapper local.
+- **`FS "/" : espeak-ng-data, …`** — confirma que o `.data` do motor tem o `espeak-ng-data` (o `dataDir` do config).
+- **`Module.FS undefined`** — o build não exportou o `FS` → refaça o passo 1 (o `sed` do `EXPORTED_RUNTIME_METHODS`).
+- **CORS/COEP no fetch do HF** — a isolação cross-origin bloqueou o download da voz; me avise (fallback: pré-download
+  local, ou build single-thread sem COOP/COEP).
+- **`HTTP 404` no `.onnx`** — o nome do repo/arquivo divergiu do padrão `vits-piper-<X>/<X>.onnx`; me diga qual voz.
 
-## Por que um modelo de "recheio" + troca em runtime
+## Por que o mock 0-byte + troca em runtime
 
-O build assa `model.onnx` + `tokens.txt` + `espeak-ng-data` no `.data`. O `espeak-ng-data` é **multilíngue** (contém pt)
-e o motor é **agnóstico de voz** — então o modelo assado (faber) serve de padrão offline, e qualquer outra voz pt-BR é
-escrita por cima em runtime (`FS.writeFile`). Para produção (jogo), os `.onnx` irão pro **R2** e o build entra no Vite
-(ADR-0022) — isto aqui é o banco de provas.
+O build assa `model.onnx` + `tokens.txt` + `espeak-ng-data` no `.data`, mas o CMake só checa a EXISTÊNCIA — então mocks
+de 0 byte passam e o `.data` fica leve (~5 MB, só o `espeak-ng-data`, multilíngue). O motor é **agnóstico de voz**:
+qualquer `.onnx` é escrito em runtime (`FS.writeFile`). Para produção (jogo), os `.onnx` irão pro **R2** (ou HF) e o build
+entra no Vite (ADR-0022) — isto aqui é o banco de provas.

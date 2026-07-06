@@ -1,55 +1,49 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!--
-  sherpa-lab — testa VITS/Piper pt-BR (miro-high, faber-medium, jeff-medium) via sherpa-onnx-wasm, SEM compilar:
-  reusa o bundle wasm pronto do Space inglês (motor + espeak-ng-data assados) e escreve o modelo pt-BR no FS em runtime.
-  PRÉ-REQUISITO: rodar  docs/research/sherpa-wasm/fetch-sherpa-wasm.ps1  (baixa wasm + modelos) e servir a pasta:
-    npx serve docs/research   → abrir /sherpa-lab.html
-  ⚠️ Página NÃO testada pelo autor (sem Node/WASM no sandbox) — 1ª versão; o Log mostra cada passo p/ ajuste. ADR-0022.
+  sherpa-lab — testa TODOS os modelos vits-piper (medium/high) do Fangjun Kuang (csukuangfj) via sherpa-onnx-wasm.
+  Cada voz é buscada SOB DEMANDA direto do HF do Kuang (só baixa o que você seleciona), escrita no FS do WASM e
+  cacheada (Cache API + sessão em memória → troca instantânea). Métricas por síntese: RTF, tempo de síntese, duração,
+  init, MB. Requer o motor WASM em sherpa-wasm/tts/ (ver README) + servir com COOP/COEP (serve.json). ADR-0022.
 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sherpa-lab — VITS/Piper pt-BR</title>
+<title>sherpa-lab — vits-piper (csukuangfj)</title>
 <style>
   :root { color-scheme: dark; --bg:#14161a; --panel:#1e2128; --line:#30343d; --ink:#e8eaed; --mut:#9aa0aa; --acc:#5aa0ff; --ok:#4bd07a; --warn:#f2c200; --err:#ff6b6b; }
   * { box-sizing:border-box; }
   body { margin:0; font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:20px; }
   h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:14px; margin:18px 0 8px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; }
   a { color:var(--acc); } code { background:#0d0f12; padding:1px 5px; border-radius:4px; }
-  .sub { color:var(--mut); margin:0 0 14px; max-width:75ch; }
-  .bar { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:12px 0; }
-  select, button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:15px; cursor:pointer; }
-  button.primary { border-color:var(--acc); background:#22304a; }
-  button:disabled { opacity:.45; cursor:not-allowed; }
+  .sub { color:var(--mut); margin:0 0 14px; max-width:80ch; }
+  .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:12px 0; }
+  select, button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:15px; cursor:pointer; }
+  button.primary { border-color:var(--acc); background:#22304a; } button:disabled { opacity:.45; cursor:not-allowed; }
   .st { font-size:14px; min-height:1.4em; } .st.ok{color:var(--ok)} .st.warn{color:var(--warn)} .st.err{color:var(--err)}
   table { border-collapse:collapse; width:100%; margin-top:8px; }
   th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
   th { background:var(--panel); color:var(--mut); font-size:13px; }
-  td.task { width:55%; } td.task textarea { width:100%; min-height:2.6em; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px; font:14px/1.4 inherit; }
+  td.task { width:58%; } td.task textarea { width:100%; min-height:2.6em; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px; font:14px/1.4 inherit; }
   td.task .lbl { font-weight:600; display:block; margin-bottom:4px; }
-  .cell { display:flex; align-items:center; gap:8px; } .cell .ms { color:var(--mut); font-variant-numeric:tabular-nums; font-size:13px; }
-  #log { background:#0d0f12; border:1px solid var(--line); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,Consolas,monospace; color:var(--mut); max-height:220px; overflow:auto; white-space:pre-wrap; margin-top:8px; }
+  .cell { display:flex; align-items:center; gap:8px; } .cell .rtf { color:var(--mut); font-variant-numeric:tabular-nums; font-size:13px; min-width:9ch; }
+  .cell .rtf.good{color:var(--ok)} .cell .rtf.slow{color:var(--warn)}
+  #log { background:#0d0f12; border:1px solid var(--line); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,Consolas,monospace; color:var(--mut); max-height:260px; overflow:auto; white-space:pre-wrap; margin-top:8px; }
 </style>
 </head>
 <body>
-<h1>sherpa-lab — VITS/Piper pt-BR (neural, offline)</h1>
+<h1>sherpa-lab — vits-piper (csukuangfj) neural, offline-após-1º-uso</h1>
 <p class="sub">
-  Roda os modelos <b>miro-high</b> · <b>faber-medium</b> · <b>jeff-medium</b> via sherpa-onnx-wasm, trocando a voz em
-  runtime (<code>FS.writeFile</code>). Rode antes o <code>sherpa-wasm/fetch-sherpa-wasm.ps1</code> e sirva a pasta.
-  Velocidade ajustável (a alfabetização precisa de fala lenta). Fonema de verdade continua sendo do eSpeak (no outro lab).
+  Todos os modelos <b>vits-piper</b> medium/high do <a href="https://huggingface.co/csukuangfj/models">Fangjun Kuang</a>
+  para en_US · en_GB · pt_BR · pt_PT · es_AR · es_ES · es_MX. Escolha a voz → baixa sob demanda (só ela) → ▶ nas tarefas.
+  <b>RTF</b> (real-time factor = tempo de síntese ÷ duração do áudio; &lt;1 = mais rápido que o tempo real) é a métrica
+  de performance principal. Créditos em <a href="../CREDITS.md">CREDITS.md</a>.
 </p>
 
 <div class="bar">
-  <label>Voz <select id="voice">
-    <option value="vits-piper-pt_BR-faber-medium">faber-medium (pt-BR)</option>
-    <option value="vits-piper-pt_BR-jeff-medium">jeff-medium (pt-BR)</option>
-    <option value="vits-piper-pt_BR-miro-high">miro-high (pt-BR, high)</option>
-    <option value="vits-piper-pt_BR-dii-high">dii-high (pt-PT→pt-BR)</option>
-    <option value="vits-piper-pt_PT-miro-high">miro-high (pt-PT)</option>
-  </select></label>
-  <button id="loadBtn" class="primary" disabled>Carregar voz</button>
+  <label>Voz <select id="voice"></select></label>
+  <button id="loadBtn" class="primary" disabled>Carregar</button>
   <button id="reloadBtn" disabled>Baixar novamente</button>
   <button id="clearBtn">Limpar vozes baixadas</button>
   <label>Velocidade <input id="rate" type="range" min="0.5" max="1.3" step="0.05" value="0.85"><span id="rateVal">0.85×</span></label>
@@ -59,126 +53,139 @@
 <h2>Tarefas</h2>
 <table><tbody id="rows"></tbody></table>
 
-<h2>Log</h2>
+<h2>Log (métricas)</h2>
 <div id="log"></div>
 
-<!-- Os artefatos do build são ES MODULES (glue = "export default Module" + import.meta; wrapper = "export createOfflineTts").
-     Por isso carregamos via IMPORT de módulo — não <script> clássico (que dava "Unexpected token 'export'"/"import.meta"). -->
 <script>
   window.labLog = function(m){ var el=document.getElementById('log'); el.textContent += m+'\n'; el.scrollTop=el.scrollHeight; };
   window.addEventListener('error', function(e){ window.labLog('‼ window error: '+(e.message||e)); });
   window.addEventListener('unhandledrejection', function(e){ window.labLog('‼ rejeição: '+((e.reason&&e.reason.message)||e.reason||e)); });
 </script>
 <script type="module">
-import createSherpaModule from './sherpa-wasm/tts/sherpa-onnx-wasm-main-tts.js'; // factory Emscripten ESM
-import { createOfflineTts } from './sherpa-wasm/tts/sherpa-onnx-tts.js';         // wrapper
+import createSherpaModule from './sherpa-wasm/tts/sherpa-onnx-wasm-main-tts.js';
+import { createOfflineTts } from './sherpa-wasm/tts/sherpa-onnx-tts.js';
 const labLog = window.labLog;
 let sherpaModule = null;
-  var TASKS = [
-    { id:'phon',  label:'1 · Fonemas (sherpa não é p/ fonema cru — referência)', text:'a, é, i, ó, u, fê, sê, jê, erre, esse' },
-    { id:'letr',  label:'2 · Soletrar letras', text:'a, bê, cê, dê, e, efe, gê, agá, i, jota, ká, ele, eme, ene, ó, pê, quê, erre, esse, tê, u, vê, dáblio, xis, ípsilon, zê' },
-    { id:'silab', label:'3 · Soletrar sílabas', text:'ba be bi bo bu, ca ce ci co cu, da de di do du, fa fe fi fo fu' },
-    { id:'palav', label:'4 · Palavras soltas', text:'casa, bola, gato, escola, pato, dado, sapo, uva' },
-    { id:'frase', label:'5 · Frases', text:'O gato preto subiu no telhado da casa amarela.' },
-  ];
-  var RATE = 0.85, tts = null, curVoice = null;
-  var sessions = {}; // voz -> OfflineTts já criado (troca instantânea, sem re-fetch/re-init do modelo de 63 MB)
-  var voiceSel = document.getElementById('voice'), loadBtn = document.getElementById('loadBtn');
-  var reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getElementById('clearBtn');
-  var statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
-  function setStatus(cls,msg){ statusEl.className='st '+cls; statusEl.textContent=msg; }
 
-  // monta a tabela
-  var rows = document.getElementById('rows');
-  TASKS.forEach(function(t){
-    var tr = document.createElement('tr');
-    tr.innerHTML = '<td class="task"><span class="lbl">'+t.label+'</span><textarea data-t="'+t.id+'">'+t.text+'</textarea></td>'
-                 + '<td><div class="cell"><button data-speak="'+t.id+'" disabled>▶</button><span class="ms" data-ms="'+t.id+'"></span></div></td>';
-    rows.appendChild(tr);
-  });
+// ---- modelos (vits-piper medium/high do csukuangfj), agrupados por locale. Valor = sufixo do repo (= nome do .onnx) ----
+const MODELS = {
+  pt_BR: ['pt_BR-faber-medium','pt_BR-cadu-medium','pt_BR-miro-high','pt_BR-dii-high'],
+  pt_PT: ['pt_PT-tugao-medium','pt_PT-miro-high','pt_PT-dii-high'],
+  en_US: ['en_US-amy-medium','en_US-arctic-medium','en_US-bryce-medium','en_US-glados-high','en_US-hfc_female-medium','en_US-hfc_male-medium','en_US-joe-medium','en_US-john-medium','en_US-kristin-medium','en_US-kusal-medium','en_US-l2arctic-medium','en_US-lessac-medium','en_US-lessac-high','en_US-libritts_r-medium','en_US-libritts-high','en_US-ljspeech-medium','en_US-ljspeech-high','en_US-miro-high','en_US-norman-medium','en_US-reza_ibrahim-medium','en_US-ryan-medium','en_US-ryan-high','en_US-sam-medium'],
+  en_GB: ['en_GB-alan-medium','en_GB-alba-medium','en_GB-aru-medium','en_GB-cori-medium','en_GB-cori-high','en_GB-dii-high','en_GB-jenny_dioco-medium','en_GB-miro-high','en_GB-northern_english_male-medium','en_GB-semaine-medium','en_GB-southern_english_female-medium','en_GB-southern_english_male-medium','en_GB-vctk-medium'],
+  es_AR: ['es_AR-daniela-high'],
+  es_ES: ['es_ES-davefx-medium','es_ES-glados-medium','es_ES-miro-high','es_ES-sharvard-medium'],
+  es_MX: ['es_MX-ald-medium','es_MX-claude-high'],
+};
+const HF = 'https://huggingface.co/csukuangfj/vits-piper-'; // + <X>/resolve/main/<X>.onnx  (+ /tokens.txt)
+const langOf = (x) => x.slice(0,2) === 'pt' ? 'pt' : (x.slice(0,2) === 'es' ? 'es' : 'en');
 
-  rateEl.oninput = function(){ RATE = parseFloat(rateEl.value); rateValEl.textContent = RATE.toFixed(2)+'×'; };
+const SAMPLES = {
+  pt: { phon:'a, é, i, ó, u, fê, sê', letr:'a, bê, cê, dê, é, efe, gê, agá, i, jota, ká, ele, eme, ene, ó, pê, quê, erre, esse, tê, u, vê, xis, zê', silab:'ba be bi bo bu, ca ce ci co cu, da de di do du', palav:'casa, bola, gato, escola, pato, uva', frase:'O gato preto subiu no telhado da casa amarela.' },
+  en: { phon:'a, e, i, o, u, ef, es', letr:'ay, bee, see, dee, ee, ef, gee, aitch, eye, jay, kay, el, em, en, oh, pee, cue, ar, ess, tee, you, vee, ex, zee', silab:'ba be bi bo bu, ca ce ci co cu, da de di do du', palav:'house, ball, cat, school, duck, apple', frase:'The black cat climbed onto the roof of the yellow house.' },
+  es: { phon:'a, e, i, o, u, efe, ese', letr:'a, be, ce, de, e, efe, ge, hache, i, jota, ka, ele, eme, ene, eñe, o, pe, cu, erre, ese, te, u, uve, equis, zeta', silab:'ba be bi bo bu, ca ce ci co cu, da de di do du', palav:'casa, pelota, gato, escuela, pato, uva', frase:'El gato negro subió al tejado de la casa amarilla.' },
+};
+const TASKS = [{id:'phon',label:'1 · Fonemas'},{id:'letr',label:'2 · Soletrar letras'},{id:'silab',label:'3 · Sílabas'},{id:'palav',label:'4 · Palavras'},{id:'frase',label:'5 · Frases'}];
 
-  // Cache API: persiste os bytes das vozes entre reloads/trocas — só re-baixa se forçado ou se limpo.
-  async function cachedBytes(url, force){
-    var cache = await caches.open('sherpa-voices');
-    if (!force) { var hit = await cache.match(url); if (hit) { labLog('[cache] '+url+' (do cache, sem baixar)'); return new Uint8Array(await hit.arrayBuffer()); } }
-    var r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' em '+url);
-    var buf = await r.arrayBuffer(); await cache.put(url, new Response(buf));
-    labLog('[fetch] '+url+' ('+(buf.byteLength/1e6).toFixed(1)+' MB) → guardado no cache');
-    return new Uint8Array(buf);
-  }
+let RATE = 0.85, tts = null, curVoice = null, curLang = 'pt';
+const sessions = {}; // repo -> OfflineTts (troca instantânea)
+const voiceSel = document.getElementById('voice'), loadBtn = document.getElementById('loadBtn');
+const reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getElementById('clearBtn');
+const statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
+const setStatus = (c,m) => { statusEl.className='st '+c; statusEl.textContent=m; };
 
-  function useSession(v){ tts = sessions[v]; curVoice = v; document.querySelectorAll('button[data-speak]').forEach(function(b){ b.disabled=false; }); }
+// popular o seletor (optgroup por locale)
+for (const loc in MODELS) {
+  const og = document.createElement('optgroup'); og.label = loc;
+  for (const x of MODELS[loc]) { const o = document.createElement('option'); o.value = x; o.textContent = x.slice(loc.length+1); og.appendChild(o); } // rótulo = voz-qualidade
+  voiceSel.appendChild(og);
+}
 
-  async function loadVoice(force){
-    var v = voiceSel.value; loadBtn.disabled = true; reloadBtn.disabled = true;
-    if (!force && sessions[v]) { useSession(v); setStatus('ok','pronto: '+v+' — já carregada (troca instantânea)'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
-    if (force && sessions[v]) { try { sessions[v].free && sessions[v].free(); } catch(e){} delete sessions[v]; }
-    setStatus('warn',(force?'re-baixando ':'carregando ')+v+' — 1ª vez desta voz (~63 MB, demora só agora)…');
-    try {
-      var onnx  = await cachedBytes('sherpa-wasm/'+v+'/model.onnx', force);
-      var tok   = await cachedBytes('sherpa-wasm/'+v+'/tokens.txt', force);
-      sherpaModule.FS.writeFile('model.onnx', onnx);   // não afeta sessões já criadas (elas já têm o modelo na memória)
-      sherpaModule.FS.writeFile('tokens.txt', tok);
-      // Só o VITS: o wrapper preenche Matcha/Kokoro/Kitten/etc. com defaults quando a chave está AUSENTE; passar {} quebra (undefined.length).
-      var cfg = { offlineTtsModelConfig: { offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 }, numThreads:1, debug:1, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
-      var t0 = performance.now();
-      sessions[v] = createOfflineTts(sherpaModule, cfg);
-      var dt = Math.round(performance.now()-t0);
-      useSession(v);
-      setStatus('ok','pronto: '+v+' ('+dt+' ms; trocar p/ ela agora é instantâneo)');
-      labLog('['+v+'] OfflineTts criado em '+dt+' ms.');
-    } catch(err){ setStatus('err', err.message||String(err)); labLog('['+v+'] ERRO ao carregar: '+(err.message||err)); }
-    loadBtn.disabled = false; reloadBtn.disabled = false;
-  }
+// montar a tabela + preencher amostras do idioma corrente
+const rows = document.getElementById('rows');
+TASKS.forEach(t => { const tr = document.createElement('tr');
+  tr.innerHTML = '<td class="task"><span class="lbl">'+t.label+'</span><textarea data-t="'+t.id+'"></textarea></td>'
+               + '<td><div class="cell"><button data-speak="'+t.id+'" disabled>▶</button><span class="rtf" data-rtf="'+t.id+'"></span></div></td>';
+  rows.appendChild(tr); });
+function fillSamples(lang){ TASKS.forEach(t => { document.querySelector('textarea[data-t="'+t.id+'"]').value = SAMPLES[lang][t.id]; }); }
+fillSamples('pt');
 
-  async function clearVoices(){
-    for (var k in sessions) { try { sessions[k].free && sessions[k].free(); } catch(e){} } sessions = {}; tts = null; curVoice = null;
-    try { var ok = await caches.delete('sherpa-voices'); labLog('[cache] vozes '+(ok?'limpas (download + sessões).':'já estavam vazias.')); setStatus('warn','vozes limpas — a próxima carga baixa e recria.'); }
-    catch(e){ labLog('[cache] erro ao limpar: '+(e.message||e)); }
-  }
+rateEl.oninput = () => { RATE = parseFloat(rateEl.value); rateValEl.textContent = RATE.toFixed(2)+'×'; };
 
-  function playSamples(samples, sampleRate){
-    return new Promise(function(res,rej){ try {
-      var peak = 0; for (var i=0;i<samples.length;i++){ var a = samples[i]<0?-samples[i]:samples[i]; if(a>peak) peak=a; }
-      var gain = peak>0.0001 ? Math.min(4, 0.9/peak) : 1;   // normaliza o pico p/ ~0.9 (miro sai baixo); teto 4× p/ não estourar ruído
-      var AC = window.AudioContext||window.webkitAudioContext; var ac = new AC();
-      var buf = ac.createBuffer(1, samples.length, sampleRate); var ch = buf.getChannelData(0);
-      for (var j=0;j<samples.length;j++) ch[j] = samples[j]*gain;
-      var src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination);
-      src.onended = function(){ ac.close && ac.close(); }; src.start(); res();
-    } catch(e){ rej(e); } });
-  }
+async function cachedBytes(url, force){
+  const cache = await caches.open('sherpa-voices');
+  if (!force) { const hit = await cache.match(url); if (hit) return { bytes:new Uint8Array(await hit.arrayBuffer()), ms:0, cached:true }; }
+  const t0 = performance.now(); const r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' em '+url);
+  const buf = await r.arrayBuffer(); await cache.put(url, new Response(buf));
+  return { bytes:new Uint8Array(buf), ms:Math.round(performance.now()-t0), cached:false };
+}
 
-  async function speak(id, btn){
-    if(!tts){ return; }
-    var text = document.querySelector('textarea[data-t="'+id+'"]').value.trim(); if(!text) return;
-    var ms = document.querySelector('span[data-ms="'+id+'"]'); ms.textContent='…'; btn.disabled=true;
-    var t0 = performance.now();
-    try {
-      var audio = tts.generate({ text:text, sid:0, speed:RATE }); // {samples, sampleRate}
-      var synth = Math.round(performance.now()-t0);
-      await playSamples(audio.samples, audio.sampleRate);
-      ms.textContent = synth+' ms'; labLog('['+curVoice+'/'+id+'] '+synth+' ms · '+audio.samples.length+' amostras @ '+audio.sampleRate+' Hz');
-    } catch(err){ ms.textContent='erro'; labLog('['+curVoice+'/'+id+'] ERRO: '+(err.message||err)); }
-    btn.disabled=false;
-  }
+function useSession(x){ tts = sessions[x]; curVoice = x; const lang = langOf(x); if (lang !== curLang) { curLang = lang; fillSamples(lang); } document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false); }
 
-  document.querySelectorAll('button[data-speak]').forEach(function(b){ b.onclick=function(){ speak(b.dataset.speak, b); }; });
-  loadBtn.onclick = function(){ loadVoice(false); };      // usa cache/sessão se já tiver
-  reloadBtn.onclick = function(){ loadVoice(true); };     // força re-download + recria a sessão
-  clearBtn.onclick = clearVoices;
-  voiceSel.onchange = function(){ loadVoice(false); };    // trocar no seletor já carrega (instantâneo se já em cache)
-
-  // boot: instancia o motor WASM (factory ESM) e habilita a UI
-  labLog('carregando o motor WASM (módulo ESM)…');
+async function loadVoice(force){
+  const x = voiceSel.value; loadBtn.disabled = true; reloadBtn.disabled = true;
+  if (!force && sessions[x]) { useSession(x); setStatus('ok','pronto: '+x+' — já carregada (instantânea)'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
+  if (force && sessions[x]) { try { sessions[x].free && sessions[x].free(); } catch(e){} delete sessions[x]; }
+  setStatus('warn',(force?'re-baixando ':'baixando ')+x+' do HF (1ª vez desta voz)…');
   try {
-    sherpaModule = await createSherpaModule({ locateFile: function(p){ return 'sherpa-wasm/tts/' + p; } });
-    labLog('[wasm] runtime pronto.');
-    try { labLog('[wasm] FS "/" contém: ' + sherpaModule.FS.readdir('/').filter(function(x){ return x!=='.'&&x!=='..'; }).join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
-    loadBtn.disabled = false; setStatus('ok','motor pronto — escolha a voz e clique Carregar.');
-  } catch(err){ labLog('‼ falha ao iniciar o WASM: '+(err.message||err)); setStatus('err','WASM não iniciou (veja o Log)'); }
+    const o = await cachedBytes(HF+x+'/resolve/main/'+x+'.onnx', force);
+    const t = await cachedBytes(HF+x+'/resolve/main/tokens.txt', force);
+    sherpaModule.FS.writeFile('model.onnx', o.bytes); sherpaModule.FS.writeFile('tokens.txt', t.bytes);
+    const cfg = { offlineTtsModelConfig: { offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
+    const t0 = performance.now(); sessions[x] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
+    useSession(x);
+    setStatus('ok','pronto: '+x+' — trocar p/ ela agora é instantâneo');
+    labLog('[load '+x+'] '+(o.cached?'cache':o.ms+'ms download')+' · modelo '+(o.bytes.length/1e6).toFixed(1)+' MB · init '+initMs+' ms · '+langOf(x));
+  } catch(err){ setStatus('err', err.message||String(err)); labLog('[load '+x+'] ERRO: '+(err.message||err)); }
+  loadBtn.disabled=false; reloadBtn.disabled=false;
+}
+
+async function clearVoices(){
+  for (const k in sessions) { try { sessions[k].free && sessions[k].free(); } catch(e){} delete sessions[k]; }
+  tts=null; curVoice=null;
+  try { const ok = await caches.delete('sherpa-voices'); labLog('[cache] vozes '+(ok?'limpas (download + sessões).':'já vazias.')); setStatus('warn','vozes limpas.'); } catch(e){ labLog('[cache] erro: '+(e.message||e)); }
+}
+
+function playSamples(samples, sampleRate){
+  return new Promise((res,rej) => { try {
+    let peak = 0; for (let i=0;i<samples.length;i++){ const a = samples[i]<0?-samples[i]:samples[i]; if(a>peak) peak=a; }
+    const gain = peak>0.0001 ? Math.min(4, 0.9/peak) : 1;
+    const AC = window.AudioContext||window.webkitAudioContext; const ac = new AC();
+    const buf = ac.createBuffer(1, samples.length, sampleRate); const ch = buf.getChannelData(0);
+    for (let j=0;j<samples.length;j++) ch[j] = samples[j]*gain;
+    const src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination);
+    src.onended = () => { ac.close && ac.close(); }; src.start(); res();
+  } catch(e){ rej(e); } });
+}
+
+async function speak(id, btn){
+  if (!tts) { setStatus('warn','carregue uma voz primeiro'); return; }
+  const text = document.querySelector('textarea[data-t="'+id+'"]').value.trim(); if(!text) return;
+  const cell = document.querySelector('span[data-rtf="'+id+'"]'); cell.textContent='…'; cell.className='rtf'; btn.disabled=true;
+  try {
+    const t0 = performance.now(); const audio = tts.generate({ text:text, sid:0, speed:RATE }); const synthMs = performance.now()-t0;
+    const dur = audio.samples.length / audio.sampleRate; const rtf = (synthMs/1000)/dur;
+    cell.textContent = 'RTF '+rtf.toFixed(2); cell.className = 'rtf '+(rtf<0.5?'good':rtf<1?'':'slow');
+    labLog('['+curVoice+' · '+id+'] síntese '+Math.round(synthMs)+' ms · áudio '+dur.toFixed(2)+' s · RTF '+rtf.toFixed(2)+' · '+audio.sampleRate+' Hz · '+audio.samples.length+' amostras');
+    await playSamples(audio.samples, audio.sampleRate);
+  } catch(err){ cell.textContent='erro'; labLog('['+curVoice+' · '+id+'] ERRO: '+(err.message||err)); }
+  btn.disabled=false;
+}
+
+document.querySelectorAll('button[data-speak]').forEach(b => b.onclick = () => speak(b.dataset.speak, b));
+loadBtn.onclick = () => loadVoice(false);
+reloadBtn.onclick = () => loadVoice(true);
+clearBtn.onclick = clearVoices;
+voiceSel.onchange = () => loadVoice(false);
+
+// boot
+labLog('carregando o motor WASM (módulo ESM)…');
+try {
+  sherpaModule = await createSherpaModule({ locateFile: (p) => 'sherpa-wasm/tts/' + p });
+  labLog('[wasm] runtime pronto.');
+  try { labLog('[wasm] FS "/" : ' + sherpaModule.FS.readdir('/').filter(x => x!=='.'&&x!=='..').join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
+  loadBtn.disabled = false; setStatus('ok','motor pronto — escolha a voz (baixa sob demanda do HF).');
+} catch(err){ labLog('‼ falha ao iniciar o WASM: '+(err.message||err)); setStatus('err','WASM não iniciou (veja o Log)'); }
 </script>
 </body>
 </html>
