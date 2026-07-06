@@ -139,23 +139,22 @@ engines.webspeech = {
 
 /* --- eSpeak NG via meSpeak (embedded formant synth) --- */
 engines.espeak = {
-  id:'espeak', name:'eSpeak NG', size:'embutido · ~2–4 MB', neural:false, _ready:false, _voiceId:{},
+  id:'espeak', name:'eSpeak NG', size:'embutido · ~2–4 MB', neural:false, _ready:false, _voiceId:{}, _base:'https://cdn.jsdelivr.net/npm/mespeak@2.0.2/',
   async init(setSt) {
     setSt('warn','carregando meSpeak…');
-    await loadScript('https://cdn.jsdelivr.net/npm/mespeak@2.0.2/mespeak.full.js')
-      .catch(() => loadScript('https://unpkg.com/mespeak@2.0.2/mespeak.full.js'));
-    if (!window.meSpeak) throw new Error('meSpeak global ausente após carregar o script');
-    // mespeak.full.js já traz config + voz en. pt/es carregadas sob demanda em speak().
-    engines.espeak._ready = true; setSt('ok','pronto (en embutido; pt/es sob demanda)');
+    // entry REAL = src/index.js (não mespeak.full.js) + config à parte. Fallback p/ unpkg.
+    await loadScript(engines.espeak._base+'src/index.js').catch(() => { engines.espeak._base='https://unpkg.com/mespeak@2.0.2/'; return loadScript(engines.espeak._base+'src/index.js'); });
+    if (!window.meSpeak) throw new Error('meSpeak global ausente após carregar src/index.js (é CommonJS? checar)');
+    const cfg = await (await fetch(engines.espeak._base+'src/mespeak_config.json')).json();
+    window.meSpeak.loadConfig(cfg);
+    engines.espeak._ready = true; setSt('ok','pronto (config carregada; vozes sob demanda)');
   },
-  async _ensureVoice(lang) { // meSpeak.loadVoice(url, cb) → devolve o id registrado da voz
+  async _ensureVoice(lang) { // busca o JSON da voz e passa o OBJETO p/ meSpeak.loadVoice; id vem de voice_id
     if (engines.espeak._voiceId[lang]) return engines.espeak._voiceId[lang];
-    const candidates = { pt:['pt','pt-pt'], en:['en/en-us','en/en'], es:['es','es-la'] }[lang] || ['en/en-us'];
-    for (const c of candidates) for (const base of ['https://cdn.jsdelivr.net/npm/mespeak@2.0.2/voices/','https://unpkg.com/mespeak@2.0.2/voices/']) {
-      const id = await new Promise((res) => { try { window.meSpeak.loadVoice(base + c + '.json', (ok, vid) => res(ok ? (vid || c) : null)); } catch (e) { res(null); } });
-      if (id) { engines.espeak._voiceId[lang] = id; log('[espeak] voz '+lang+' carregada como "'+id+'" ('+c+')'); return id; }
-    }
-    throw new Error('nenhuma voz eSpeak p/ '+lang+' (paths testados: '+candidates.join(', ')+')');
+    const file = { pt:'voices/pt.json', en:'voices/en/en-us.json', es:'voices/es.json' }[lang] || 'voices/en/en-us.json';
+    const v = await (await fetch(engines.espeak._base+file)).json();
+    window.meSpeak.loadVoice(v);
+    const id = v.voice_id || lang; engines.espeak._voiceId[lang] = id; log('[espeak] voz '+lang+' = "'+id+'"'); return id;
   },
   voices() { return []; }, // eSpeak: 1 voz por idioma
   async speak(text, lang) {
@@ -169,7 +168,7 @@ engines.espeak = {
 
 /* --- Piper (neural VITS, ONNX) --- */
 engines.piper = {
-  id:'piper', name:'Piper', size:'~20–63 MB/voz', neural:true, _mod:null, _sessions:{}, _voiceList:null,
+  id:'piper', name:'Piper', size:'~20–63 MB/voz', neural:true, _mod:null, _session:null, _curVoice:null, _voiceList:null,
   async init(setSt) {
     setSt('warn','baixando lib…');
     engines.piper._mod = await import('https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web/+esm');
@@ -190,13 +189,13 @@ engines.piper = {
   },
   async speak(text, lang, voiceId, setSt) {
     const vid = voiceId || engines.piper.voices(lang)[0].id;
-    let session = engines.piper._sessions[vid];
-    if (!session) {
+    if (engines.piper._curVoice !== vid) { // a lib é SINGLETON e NÃO recarrega o modelo ao trocar voiceId → zeramos _instance p/ forçar sessão nova
+      try { engines.piper._mod.TtsSession._instance = null; } catch(e){}
       if (setSt) setSt('warn','baixando modelo '+vid+'…');
-      session = await engines.piper._mod.TtsSession.create({ voiceId: vid, progress:(pr)=>{ if(pr&&pr.total&&setSt) setSt('warn', vid+': '+Math.round(pr.loaded*100/pr.total)+'%'); }, logger:()=>{} });
-      engines.piper._sessions[vid] = session; if (setSt) setSt('ok','modelo pronto');
+      engines.piper._session = await engines.piper._mod.TtsSession.create({ voiceId: vid, progress:(pr)=>{ if(pr&&pr.total&&setSt) setSt('warn', vid+': '+Math.round(pr.loaded*100/pr.total)+'%'); }, logger:()=>{} });
+      engines.piper._curVoice = vid; if (setSt) setSt('ok','modelo pronto: '+vid);
     }
-    const wav = await session.predict(text); // Blob
+    const wav = await engines.piper._session.predict(text); // Blob
     return playUrl(URL.createObjectURL(wav));
   },
 };
@@ -207,7 +206,7 @@ engines.kokoro = {
   async init(setSt) {
     setSt('warn','baixando lib + modelo (~80 MB no 1º uso)…');
     const mod = await import('https://esm.sh/kokoro-js@1.2.1'); // esm.sh resolve o transformers.js (jsDelivr/+esm falha)
-    engines.kokoro._tts = await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype:'q8', device: (navigator.gpu?'webgpu':'wasm') });
+    engines.kokoro._tts = await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype:'q8', device:'wasm' }); // wasm/q8 é o par estável; webgpu pede fp32 e falha sozinho
     try { engines.kokoro._voices = engines.kokoro._tts.list_voices ? engines.kokoro._tts.list_voices() : Object.keys(engines.kokoro._tts.voices||{}); } catch(e){ engines.kokoro._voices = null; }
     setSt('ok','modelo pronto ('+(navigator.gpu?'WebGPU':'WASM')+')');
   },
