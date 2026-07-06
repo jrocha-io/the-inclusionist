@@ -3,7 +3,7 @@
   "version": "4.164.25",
   "private": true,
   "type": "module",
-  "description": "The Inclusionist — jogo educativo a11y-first (PixiJS). Toolchain: Vite (dev/build) + TypeScript (migração incremental, docs/plano-typescript-vite.md) + Vitest. Deploy = dist/ no Cloudflare Pages.",
+  "description": "The Inclusionist — an accessibility-first (WCAG 2.2) educational 2D pixel-art platformer built with PixiJS; the MVP game of the EdSP educational-game engine for Brazilian basic education.",
   "license": "GPL-3.0-or-later",
   "engines": {
     "node": ">=24"
