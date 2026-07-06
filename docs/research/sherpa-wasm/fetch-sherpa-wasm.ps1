@@ -1,33 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Baixa um bundle sherpa-onnx-wasm TTS PRONTO (Space inglês do k2-fsa — SEM compilar Emscripten) +
-# modelos VITS/Piper pt-BR. Reusamos o motor + o espeak-ng-data já assados no .data do bundle; os
-# modelos pt-BR são escritos no FS do WASM em runtime pela página (sherpa-lab.html).
+# Baixa os modelos VITS/Piper pt-BR (miro/faber/jeff) para o sherpa-lab.html.
+# Os artefatos WASM (sherpa-onnx-wasm-main-tts.{js,wasm,data} + sherpa-onnx-tts.js) você GERA você mesmo no WSL
+# (emsdk + ./build-wasm-simd-tts.sh, com faber-medium de recheio) e copia para esta mesma pasta — ver README.md.
+# O espeak-ng-data vem assado no .data do seu build; aqui só baixamos os .onnx + tokens.txt das vozes.
 #
-# Uso (PowerShell 7+, na raiz do repo ou em qualquer lugar):
-#   pwsh docs/research/sherpa-wasm/fetch-sherpa-wasm.ps1
+# Uso (PowerShell 7+):  pwsh docs/research/sherpa-wasm/fetch-sherpa-wasm.ps1
 # Depois:  npx serve docs/research   → abra /sherpa-lab.html
-#
 # Requisitos: Invoke-WebRequest (nativo) + `tar` (nativo no Windows 10+; extrai .tar.bz2).
 
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 
-# 1) Bundle WASM pronto (motor Emscripten + wrapper + espeak-ng-data assado no .data)
-$space = 'https://huggingface.co/spaces/k2-fsa/web-assembly-tts-sherpa-onnx-en/resolve/main'
-$wasm  = @(
-  'sherpa-onnx-wasm-main-tts.js',    # glue Emscripten (define/usa o global Module)
-  'sherpa-onnx-wasm-main-tts.wasm',
-  'sherpa-onnx-wasm-main-tts.data',  # FS pré-carregado: inclui espeak-ng-data (multilíngue!)
-  'sherpa-onnx-tts.js'               # wrapper: define createOfflineTts(Module, config)
-)
-foreach ($f in $wasm) {
-  $out = Join-Path $dir $f
-  Write-Host "[wasm] baixando $f ..."
-  Invoke-WebRequest -Uri "$space/$f" -OutFile $out
-}
-
-# 2) Modelos pt-BR (só precisamos do .onnx + tokens.txt de cada um; o espeak-ng-data vem do bundle)
+# Modelos pt-BR (só precisamos do .onnx + tokens.txt de cada um; o espeak-ng-data vem do SEU build wasm)
 $models = @('vits-piper-pt_BR-miro-high', 'vits-piper-pt_BR-faber-medium', 'vits-piper-pt_BR-jeff-medium')
 $rel = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models'
 foreach ($m in $models) {
