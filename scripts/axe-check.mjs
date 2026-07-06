@@ -14,7 +14,9 @@ const URL = process.env.AXE_URL || 'http://localhost:4173/';
 
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage();
+  // @axe-core/playwright needs a page from an explicit context (browser.newPage() → "Please use browser.newContext()").
+  const context = await browser.newContext();
+  const page = await context.newPage();
   await page.goto(URL, { waitUntil: 'networkidle' });
   // let the a11y shell settle (fonts/DOM); the canvas render itself isn't axe-scannable — its a11y is the DOM shell.
   await page.waitForSelector('#sr-status', { timeout: 10_000 });
