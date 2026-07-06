@@ -13,6 +13,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "validate": "npm run typecheck && vitest run && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:node": "vitest run --project node",
