@@ -1,5 +1,4 @@
 {
-  "_comment": "Faz o `npx serve docs/research` mandar os headers COOP/COEP → self.crossOriginIsolated = true, exigido pelo build WASM com pthreads do sherpa (SharedArrayBuffer). Sem isto: 'SharedArrayBuffer transfer requires self.crossOriginIsolated'.",
   "headers": [
     {
       "source": "**",
