@@ -26,7 +26,7 @@ import { createAudioAmbient } from './platform/audio-ambient.js'; // Tier 2 (áu
 import { createTts } from './platform/tts.js'; // Tier 2 (#38): narração por voz (Piper neural lazy + fallback Web Speech)
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE, initCharacterSprites } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
-import { cloudWrapX } from './render/scene-sky.js'; // Tier 2 (#43): deriva das nuvens de tela (corrige o bug #21)
+import { cloudWrapX, createSceneSky } from './render/scene-sky.js'; // Tier 2 (#43): céu — nuvens (#21) + decor viva da v3
 import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
 import { outlineCanvas, spriteToCanvas } from './render/sprite-fx.js'; // Fase 2: voz do letramento (pt-BR sempre-ativa)
 if(typeof window!=='undefined') window.__tiles = tiles; // hook de teste (Preview); world.js passa a usar na etapa 2
@@ -1130,98 +1130,22 @@ const CLOUD_TEX=[0,1].map(v=>{ const w=v?46:30,h=v?12:9,cv=makeCanvas(w,h),c=cv.
 const BIRD_TEX=[0,1].map(f=>{ const cv=makeCanvas(7,4),c=cv.getContext('2d'); c.fillStyle='#20242e';
   if(f===0){ c.fillRect(0,0,3,1); c.fillRect(4,0,3,1); c.fillRect(2,1,3,1); } else { c.fillRect(0,2,3,1); c.fillRect(4,2,3,1); c.fillRect(2,1,3,1); }
   return tex(cv); });
-let clouds=[], birds=[], _birdT=500;
-(function seedClouds(){ for(let i=0;i<7;i++){ const s=new PIXI.Sprite(CLOUD_TEX[i%2]); s.alpha=0.5+((i*37)%30)/100;
-  s.x=(i*173)%WORLD_PX_W; s.y=8+((i*61)%Math.floor(WORLD_PX_H*0.30)); s._v=0.02+((i*13)%10)/300; skyLayer.addChild(s); clouds.push(s); } })();
-function stepSky(dt){ if(rm.decor){ if(birds.length){ birds.forEach(b=>{skyLayer.removeChild(b.s); b.s.destroy();}); birds=[]; } return; }
-  for(const c of clouds){ c.x+=c._v*dt; if(c.x>WORLD_PX_W+50)c.x=-50; }
-  if(birds.length<3 && ++_birdT>=520){ _birdT=randInt(0,300); const dir=rnd()<0.5?1:-1;
-    const s=new PIXI.Sprite(BIRD_TEX[0]); s.scale.x=dir; s.x=dir>0?-10:WORLD_PX_W+10; s.y=12+rnd()*WORLD_PX_H*0.25; skyLayer.addChild(s);
-    birds.push({s,dir,f:0,t:0}); }
-  for(let i=birds.length-1;i>=0;i--){ const b=birds[i]; b.s.x+=b.dir*0.7*dt; b.t+=dt; if(b.t>=8){ b.t=0; b.f=1-b.f; b.s.texture=BIRD_TEX[b.f]; }
-    if(b.s.x<-16||b.s.x>WORLD_PX_W+16){ skyLayer.removeChild(b.s); b.s.destroy(); birds.splice(i,1); } } }
+// clouds/birds + seedClouds + stepSky extraídos p/ render/scene-sky.ts (#43). skyLayer/CLOUD_TEX/BIRD_TEX ficam aqui
+// (criação = z-order do render-graph) e são injetados. Uso no loop: sceneSky.stepSky(dt).
 /* ===================== L6 (fiel à v3): decoração viva por tema — fórmulas COPIADAS da v3.1.100 =====================
    Tela: estrelas (starsG, atrás dos morros) · nuvens+pássaros (skyDecoG, à frente dos morros) · névoa (fogG, frente).
    Mundo: grama+flores c/ vento (grassG, atrás do player) · minhocas/vagalumes/borboletas (themeFxG, FRENTE, como na v3). */
 const grassG=new PIXI.Graphics(); lifeLayer.addChildAt(grassG,0);
 const themeFxG=new PIXI.Graphics(); camera.addChild(themeFxG);
-function drawV3Cloud(g,x,y,col){ // drawCloud v3: laje + 3 puffs + sombra
-  g.beginFill(hexN(col[0])).drawRect(x,y+6,24,6).drawRect(x+2,y+4,8,4).drawRect(x+3,y+2,6,2)
-   .drawRect(x+8,y+2,12,6).drawRect(x+10,y,8,2).drawRect(x+16,y+4,8,4).endFill();
-  g.beginFill(hexN(col[1])).drawRect(x+1,y+11,22,1).endFill(); }
-function drawV3Grass(g,tx,ty,fl,t){ const x=tx*TILE,y=ty*TILE; // drawSurfaceGrass v3 (tufos ao vento + flor ocasional)
-  const wind=rm.decor?0:Math.sin(t*0.045+tx*0.6);
-  g.beginFill(hexN(fl.base)).drawRect(x,y,TILE,2).endFill();
-  g.beginFill(hexN(fl.top)).drawRect(x,y,TILE,1).endFill();
-  const seed=(tx*1103515245+12345)>>>0;
-  for(let i=0;i<6;i++){ const bx=(seed>>(i*4))&15, bh=2+((seed>>(i*4+4))&1);
-    g.beginFill(hexN((i&1)?fl.bDk:fl.bLt));
-    for(let h=0;h<bh;h++){ const dx=Math.round(wind*(h/Math.max(1,bh-1))*1.5); g.drawRect(x+bx+dx,y-1-h,1,1); }
-    g.endFill(); }
-  if((seed>>9)%7===0){ const fx=x+4+(seed%7), sh=4, cy=y-sh-2;
-    g.beginFill(hexN(fl.bDk)); let topDx=0;
-    for(let h=0;h<sh;h++){ topDx=Math.round(wind*(h/sh)*2.4); g.drawRect(fx+topDx,y-1-h,1,1); } g.endFill();
-    const bxC=fx+topDx;
-    g.beginFill(hexN(fl.petals[(seed>>>17)%fl.petals.length])).drawRect(bxC-1,cy+1,3,1).drawRect(bxC,cy,1,3).endFill(); // >>> (a v3 usava >> e o canvas2d engolia o índice negativo; o PIXI lança)
-    g.beginFill(hexN(fl.center)).drawRect(bxC,cy+1,1,1).endFill(); } }
-function stepV3Decor(){ const T=CENARIOS[CENARIO]||{};
-  starsG.clear(); skyDecoG.clear(); fogG.clear(); grassG.clear(); themeFxG.clear();
-  if(!T.v3 || DIRECT_CFG[vizMode]) return; // Cidade tem o próprio céu; alto contraste dispensa decor (viewHC da v3)
-  const t=fxClock, d=T.decor, vw=LOGICAL_W, vh=LOGICAL_H, reduzido=rm.decor;
-  // --- TELA: estrelas (sparkles v3) — cintilam a ~0,3Hz
-  if(!reduzido && d.includes('sparkles')){ const top=Math.max(1,Math.floor(vh*0.7));
-    for(let i=0;i<22;i++){ const a=0.3+0.35*Math.sin(t*0.03+i*1.3); if(a<=0.05)continue;
-      starsG.beginFill(0xffffff,a).drawRect((i*73)%vw,(i*49)%top,1,1).endFill(); } }
-  // --- TELA: nuvens (3, derivas 0.08/0.05/0.11) e pássaros (3, em "v" batendo asas) — v3 exato
-  if(d.includes('nuvens')){ const col=T.cloud, defs=[{y:6,sp:0.08,off:0},{y:20,sp:0.05,off:130},{y:12,sp:0.11,off:250}];
-    for(const c0 of defs){ const x=cloudWrapX((reduzido?0:t)*c0.sp+c0.off, -44, vw+64); drawV3Cloud(skyDecoG,x,c0.y,col); } } // #21a: sub-pixel (helper, sem Math.round); cadência v3 (-44/vw+64) preservada
-  if(!reduzido && d.includes('passaros')){ skyDecoG.beginFill(0x282837,0.7);
-    for(let i=0;i<3;i++){ const bx=((t*(0.25+i*0.07)+i*90)%(vw+20))-10, by=14+i*9+Math.sin(t*0.04+i)*2, f=Math.sin(t*0.2+i)>0?1:2;
-      const X=Math.round(bx),Y=Math.round(by); skyDecoG.drawRect(X-2,Y+f,2,1).drawRect(X+1,Y+f,2,1).drawRect(X,Y,1,1); }
-    skyDecoG.endFill(); }
-  // --- TELA: névoa do amanhecer (3 camadas onduladas que derivam) — v3 exato, na FRENTE
-  if(d.includes('nevoa')){ const base=Math.floor(vh*0.72);
-    const Ls=[{y:base,drift:0.30,amp:3,op:0.06,freq:0.080},{y:base+6,drift:0.55,amp:4,op:0.08,freq:0.060},{y:base+13,drift:0.85,amp:5,op:0.10,freq:0.050}];
-    for(const L of Ls){ fogG.beginFill(0xdee2ec,L.op);
-      for(let x=0;x<vw;x+=2){ const top=L.y+Math.round(L.amp*Math.sin((x+(reduzido?0:t)*L.drift)*L.freq)); fogG.drawRect(x,top,2,vh-top); }
-      fogG.endFill(); } }
-  // --- MUNDO (culled por jogador, com dedupe): grama em TODA superfície + minhocas/vagalumes/borboletas
-  const fl=THEME_FLORA[CENARIO], seen=new Set();
-  for(const pl of players){ if(pl.quit)continue;
-    const camX=Math.max(0,Math.min(pl.x-vw/2,WORLD_PX_W-vw)), camY=Math.max(0,Math.min((pl.y-BOX.h/2)-vh/2,WORLD_PX_H-vh));
-    const tx0=Math.max(0,Math.floor(camX/TILE)-1), tx1=Math.min(WORLD_W-1,Math.floor((camX+vw)/TILE)+1);
-    const ty0=Math.max(0,Math.floor(camY/TILE)-1), ty1=Math.min(WORLD_H-1,Math.floor((camY+vh)/TILE)+1);
-    for(let tx=tx0;tx<=tx1;tx++){
-      for(let ty=ty0;ty<=ty1;ty++){
-        if(!(solidAt(tx,ty)&&!solidAt(tx,ty-1)&&tileAt(tx,ty-1)!==3&&tileAt(tx,ty-1)!==9))continue; // grama/minhoca/borboleta NÃO na lava (ty-1!==9)
-        const k=tx+','+ty; if(seen.has('g'+k))continue; seen.add('g'+k);
-        if(fl)drawV3Grass(grassG,tx,ty,fl,t);
-        if(d.includes('minhocas')&&(((tx%4)+4)%4)===0&&!seen.has('w'+tx)){ seen.add('w'+tx); // drawWorms v3: 1/4 colunas, 5 segmentos ondulando
-          themeFxG.beginFill(0xc47b8a); const bx=tx*TILE+5, by=ty*TILE+4;
-          for(let s2=0;s2<5;s2++)themeFxG.drawRect(bx+s2,by+Math.round(reduzido?0:Math.sin(t*0.15+tx*0.7+s2*0.8)),1,1);
-          themeFxG.endFill(); }
-        if(!reduzido&&d.includes('borboletas')&&(tx*374761393>>>0)%5===0&&!seen.has('b'+tx)){ seen.add('b'+tx); // drawButterflies v3: 1/5 colunas
-          const cols=[0xff8c42,0xffd166,0xef476f,0xfca5d4,0xf4a261,0xe9c46a], h=(tx*374761393)>>>0;
-          const groundY=ty*TILE, wx=tx*TILE+8+14*Math.sin(t*0.015+tx)+5*Math.cos(t*0.04+tx);
-          const rise=8+26*(0.5+0.5*Math.sin(t*0.012+tx*1.3)), wy=groundY-rise+4*Math.sin(t*0.05+tx);
-          const flap=Math.abs(Math.sin(t*0.4+tx*0.7)), w=1+Math.round(flap*2), X=Math.round(wx),Y=Math.round(wy);
-          themeFxG.beginFill(cols[h%cols.length]).drawRect(X-w,Y,w,2).drawRect(X+2,Y,w,2).endFill();
-          themeFxG.beginFill(0x3a2a1a).drawRect(X,Y,2,2).endFill(); }
-        break; // uma superfície por coluna (como a v3: break após achar o topo)
-      } }
-    if(!reduzido&&d.includes('vagalumes')){ const cell=64; // drawFireflies v3: grade hash fixa no mundo, só no ar
-      const cx0=Math.floor(camX/cell)-1,cx1=Math.floor((camX+vw)/cell)+1,cy0=Math.floor(camY/cell)-1,cy1=Math.floor((camY+vh)/cell)+1;
-      for(let cyi=cy0;cyi<=cy1;cyi++)for(let cxi=cx0;cxi<=cx1;cxi++){
-        const h=((cxi*73856093)^(cyi*19349663))>>>0; if(h%3!==0)continue;
-        const k='f'+cxi+','+cyi; if(seen.has(k))continue; seen.add(k);
-        const ph=((h>>4)%628)/100;
-        const wx=cxi*cell+8+(h%(cell-16))+8*Math.sin(t*0.013+ph), wy=cyi*cell+8+((h>>9)%(cell-16))+6*Math.cos(t*0.017+ph*1.3);
-        const a=0.45+0.45*Math.sin(t*0.05+ph); if(a<=0.06)continue;
-        if(solidAt(Math.floor(wx/TILE),Math.floor(wy/TILE)))continue;
-        themeFxG.beginFill(0xfff096,a*0.35).drawRect(wx-1,wy-1,3,3).endFill();
-        themeFxG.beginFill(0xffffbe,a).drawRect(wx,wy,1,1).endFill(); } }
-  }
-}
+// Lógica do céu (stepSky/stepV3Decor + nuvens/pássaros/estrelas/névoa/grama/bichos) extraída p/ render/scene-sky.ts (#43).
+// As 6 camadas acima são criadas AQUI (z-order do render-graph, intocado) e INJETADAS; o módulo só as anima. getFxClock é lazy.
+const sceneSky = createSceneSky({ skyLayer, starsG, skyDecoG, fogG, grassG, themeFxG, CLOUD_TEX, BIRD_TEX, SpriteCtor: PIXI.Sprite,
+  hexN, rnd, randInt, WORLD_PX_W, WORLD_PX_H, WORLD_W, WORLD_H, TILE, LOGICAL_W, LOGICAL_H, BOX,
+  CENARIOS, THEME_FLORA, DIRECT_CFG, solidAt, tileAt,
+  getCenario: () => CENARIO, getVizMode: () => vizMode, getPlayers: () => players, getFxClock: () => fxClock, getRm: () => rm });
+// drawV3Cloud + drawV3Grass extraídos p/ render/scene-sky.ts (#43) — funções de desenho puras usadas por stepV3Decor.
+// stepV3Decor (decor viva da v3: estrelas/nuvens/pássaros/névoa/grama/minhocas/vagalumes/borboletas) extraído p/
+// render/scene-sky.ts (#43). Camadas injetadas. Uso no loop: sceneSky.stepV3Decor().
 function applyCenarioVida(){ const city=CENARIO==='cidade';
   carLayer.visible=city; cityDecoG.visible=city; skyLayer.visible=city; // trânsito/deco/céu-da-cidade SÓ na Cidade
   if(!city&&cars.length){ cars.forEach(c=>{ carLayer.removeChild(c.s); c.s.destroy(); }); cars=[]; } }
@@ -1653,8 +1577,8 @@ function update(dt){
   attractCtl.recordTick(); // ?record=1: grava o P1 (fora da demo, jogando) em localStorage
   stepLife(dt); // L5: vida ambiente (pombos/gatos/cães/adultos) — cosmética, atrás do player
   stepTraffic(dt); // L5: carros (frente, na rua da base) + semáforo
-  stepSky(dt); // L5: nuvens + pássaros no céu
-  stepV3Decor(); // L6: decoração viva da v3 (estrelas/nuvens/pássaros/névoa/grama/minhocas/vagalumes/borboletas)
+  sceneSky.stepSky(dt); // L5: nuvens + pássaros no céu
+  sceneSky.stepV3Decor(); // L6: decoração viva da v3 (estrelas/nuvens/pássaros/névoa/grama/minhocas/vagalumes/borboletas)
   stepTileFx(); // tiles vivos da v3: água (ondas/corais/algas/peixes, FORE) + lava (tracinhos)
   if(ended)return;
   players.forEach((p,i)=>{ if(p.quit&&p.jumpEdge){ p.jumpEdge=false; respawnPlayer(i); } }); // L1: quem saiu re-entra pelo PULO do teclado (ou START do pad, no pollPads)
@@ -2864,7 +2788,7 @@ window.__incl={app,get player(){return players[0];},players,get numPlayers(){ret
   updateWeather,get rainLevel(){return _rainLevel;},set weatherT(v){_weatherT=v;},get weatherT(){return _weatherT;},rm,
   spawnCreature,stepLife,get creatures(){return creatures;},spawnCar,get cars(){return cars;},SEM,STREET_Y,
   get elevShafts(){return elevShafts;},elevAt,get BOX(){return BOX;},get wheelchair(){return wheelchair;},setWheelchair,buildElevators,buildRamps,solidAt,surfTop, // debug cadeirante
-  get clouds(){return clouds;},get birds(){return birds;},stepSky,CENARIOS,stepV3Decor,
+  get clouds(){return sceneSky.getClouds();},get birds(){return sceneSky.getBirds();},stepSky:(dt)=>sceneSky.stepSky(dt),CENARIOS,stepV3Decor:()=>sceneSky.stepV3Decor(),
   get decorCounts(){ const n=g=>g.geometry&&g.geometry.graphicsData?g.geometry.graphicsData.length:0; return {stars:n(starsG),skyDeco:n(skyDecoG),fog:n(fogG),grass:n(grassG),front:n(themeFxG)}; }};
 { const v='v'+INCL_VERSION; document.title=`The Inclusionist · ${v} (PixiJS)`; // versão: fonte única = INCL_VERSION
   const e1=document.querySelector('h1 .ver'); if(e1)e1.textContent='· '+v;
