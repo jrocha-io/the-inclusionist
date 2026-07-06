@@ -76,5 +76,5 @@ Protótipo (MVP em construção). Ratificações pendentes: Lighthouse mobile, h
 ## Origem
 
 Antecedido por um *tracer bullet* de 102 versões (v1.0.0 → v3.1.100) que ratificou empiricamente a
-arquitetura acessível; o monólito final está preservado em `legacy/v3.1.100.html`. A v4 é a
-reescrita sobre PixiJS.
+arquitetura acessível; o monólito final (`v3.1.100.html`, ~3454 linhas) está preservado no **histórico
+git** (recuperável por `git log --all --oneline -- legacy/v3.1.100.html`). A v4 é a reescrita sobre PixiJS.
