@@ -10,16 +10,28 @@ Nada aqui é versionado (é grande) — o `.gitignore` só mantém o script + es
 ## Como usar (você roda — eu não tenho Node/WSL/WASM no sandbox)
 
 **1. Gerar os artefatos WASM (WSL + emscripten 4.0.23, uma vez):**
+
+O `CMakeLists.txt` só valida a **existência** de `model.onnx` + `tokens.txt` + `espeak-ng-data/` em `assets/` — não lê o
+conteúdo. Então, para a **Abordagem B** (motor genérico, voz em runtime), use **mocks de 0 byte** e o `.data` sai leve
+(~5 MB, só o espeak-ng-data). O modelo real é escrito por cima em runtime pela página.
+
 ```bash
-# emsdk ativo no MESMO bash:  source ~/emsdk/emsdk_env.sh  &&  emcc -v  (deve dizer 4.0.23)
+# emsdk ativo no MESMO bash:  source ~/emsdk/emsdk_env.sh  &&  emcc -v  (precisa dizer 4.0.23)
 cd ~/sherpa-onnx/wasm/tts/assets
-wget -q https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-faber-medium.tar.bz2
-tar xf vits-piper-pt_BR-faber-medium.tar.bz2
-cp vits-piper-pt_BR-faber-medium/*.onnx model.onnx && cp vits-piper-pt_BR-faber-medium/tokens.txt . && cp -r vits-piper-pt_BR-faber-medium/espeak-ng-data .
+# espeak-ng-data REAL precisa estar aqui (~5 MB). Se faltar, pegue de qualquer modelo:
+#   wget -q https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-faber-medium.tar.bz2 \
+#     && tar xf vits-piper-pt_BR-faber-medium.tar.bz2 && cp -r vits-piper-pt_BR-faber-medium/espeak-ng-data .
+: > model.onnx        # mock 0 byte — só passa o guard do CMake
+: > tokens.txt        # idem
+ls                    # deve ter: model.onnx (0B)  tokens.txt (0B)  espeak-ng-data/
 cd ~/sherpa-onnx/wasm/tts && ./build-wasm-simd-tts.sh
-# copie os 4 artefatos p/ ESTA pasta:
-cp ~/sherpa-onnx/build-wasm-simd-tts/install/bin/wasm/tts/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-onnx-wasm-main-tts.data,sherpa-onnx-tts.js} /mnt/c/Users/candi/Claude/SP-the-inclusionist-tracer/docs/research/sherpa-wasm/
+# copie os 4 artefatos p/ docs/research/sherpa-wasm/tts/ (a página aponta pra lá):
+mkdir -p /mnt/c/Users/candi/Claude/SP-the-inclusionist-tracer/docs/research/sherpa-wasm/tts
+cp ~/sherpa-onnx/build-wasm-simd-tts/install/bin/wasm/tts/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-onnx-wasm-main-tts.data,sherpa-onnx-tts.js} /mnt/c/Users/candi/Claude/SP-the-inclusionist-tracer/docs/research/sherpa-wasm/tts/
 ```
+
+> Seu build atual (com **faber embutido**) já funciona para testar agora — o mock acima é o build **leve** para
+> produção/quando quiser. Com mock, TODAS as vozes (inclusive faber) entram em runtime.
 
 **2. Baixar os modelos pt-BR + servir (Windows):**
 ```powershell

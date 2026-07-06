@@ -73,7 +73,7 @@ decision-outcome:
     - *maint
     neutral:
     - "The CDN-only lab can't run sherpa (needs a build) → it is KEPT for eSpeak + Web Speech comparison; the neural A-B (miro/faber/jeff/Kokoro) happens in-game or in a Dev-built harness."
-    - "eSpeak remains the phoneme layer; sherpa the words+sentences layer — the 'voice layers by content type' split still holds. Web Speech + eSpeak kept as fallbacks."
+    - "sherpa = words+sentences (and letters/syllables via Piper, which reads letters well). The PHONEME layer is UNDER REVIEW: playtest rejected eSpeak as too robotic (unusable for speech therapists / literacy teachers), so 'eSpeak = phonemes' from the earlier plan is NOT settled — open research on how to voice true isolated phonemes naturally. Web Speech + eSpeak stay as last-resort fallbacks only."
     negative:
     - *build
     - "Larger first-load footprint (WASM engine + espeak-ng-data + model) — mitigated by caching + a small default voice."

@@ -48,6 +48,8 @@
     <option value="vits-piper-pt_BR-jeff-medium">jeff-medium</option>
   </select></label>
   <button id="loadBtn" class="primary" disabled>Carregar voz</button>
+  <button id="reloadBtn" disabled>Baixar novamente</button>
+  <button id="clearBtn">Limpar vozes baixadas</button>
   <label>Velocidade <input id="rate" type="range" min="0.5" max="1.3" step="0.05" value="0.85"><span id="rateVal">0.85×</span></label>
   <span id="status" class="st warn">carregando o motor WASM…</span>
 </div>
@@ -91,6 +93,7 @@
   ];
   var RATE = 0.85, tts = null, curVoice = null;
   var voiceSel = document.getElementById('voice'), loadBtn = document.getElementById('loadBtn');
+  var reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getElementById('clearBtn');
   var statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
   function setStatus(cls,msg){ statusEl.className='st '+cls; statusEl.textContent=msg; }
 
@@ -105,13 +108,21 @@
 
   rateEl.oninput = function(){ RATE = parseFloat(rateEl.value); rateValEl.textContent = RATE.toFixed(2)+'×'; };
 
-  async function fetchBytes(url){ var r = await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status+' em '+url); return new Uint8Array(await r.arrayBuffer()); }
+  // Cache API: persiste os bytes das vozes entre reloads/trocas — só re-baixa se forçado ou se limpo.
+  async function cachedBytes(url, force){
+    var cache = await caches.open('sherpa-voices');
+    if (!force) { var hit = await cache.match(url); if (hit) { labLog('[cache] '+url+' (do cache, sem baixar)'); return new Uint8Array(await hit.arrayBuffer()); } }
+    var r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' em '+url);
+    var buf = await r.arrayBuffer(); await cache.put(url, new Response(buf));
+    labLog('[fetch] '+url+' ('+(buf.byteLength/1e6).toFixed(1)+' MB) → guardado no cache');
+    return new Uint8Array(buf);
+  }
 
-  async function loadVoice(){
-    var v = voiceSel.value; loadBtn.disabled = true; setStatus('warn','baixando '+v+'…');
+  async function loadVoice(force){
+    var v = voiceSel.value; loadBtn.disabled = true; reloadBtn.disabled = true; setStatus('warn',(force?'re-baixando ':'carregando ')+v+'…');
     try {
-      var onnx  = await fetchBytes('sherpa-wasm/'+v+'/model.onnx');
-      var tok   = await fetchBytes('sherpa-wasm/'+v+'/tokens.txt');
+      var onnx  = await cachedBytes('sherpa-wasm/'+v+'/model.onnx', force);
+      var tok   = await cachedBytes('sherpa-wasm/'+v+'/tokens.txt', force);
       sherpaModule.FS.writeFile('model.onnx', onnx);
       sherpaModule.FS.writeFile('tokens.txt', tok);
       labLog('['+v+'] model.onnx ('+ (onnx.length/1e6).toFixed(1) +' MB) + tokens.txt escritos no FS.');
@@ -130,7 +141,12 @@
       setStatus('ok','pronto: '+v);
       labLog('['+v+'] OfflineTts criado.');
     } catch(err){ setStatus('err', err.message||String(err)); labLog('['+v+'] ERRO ao carregar: '+(err.message||err)); }
-    loadBtn.disabled = false;
+    loadBtn.disabled = false; reloadBtn.disabled = false;
+  }
+
+  async function clearVoices(){
+    try { var ok = await caches.delete('sherpa-voices'); labLog('[cache] vozes baixadas '+(ok?'limpas.':'já estavam vazias.')); setStatus('warn','cache de vozes limpo — a próxima carga baixa de novo.'); }
+    catch(e){ labLog('[cache] erro ao limpar: '+(e.message||e)); }
   }
 
   function playSamples(samples, sampleRate){
@@ -157,7 +173,9 @@
   }
 
   document.querySelectorAll('button[data-speak]').forEach(function(b){ b.onclick=function(){ speak(b.dataset.speak, b); }; });
-  loadBtn.onclick = loadVoice;
+  loadBtn.onclick = function(){ loadVoice(false); };      // usa cache se já baixou
+  reloadBtn.onclick = function(){ loadVoice(true); };     // força re-download
+  clearBtn.onclick = clearVoices;
 
   // habilita o botão Carregar quando o WASM terminar de iniciar
   window.__sherpaBoot = function(){ loadBtn.disabled = false; setStatus('ok','motor pronto — escolha a voz e clique Carregar.'); };
