@@ -101,8 +101,9 @@ navegador) e deixo o Dev rodar o Vitest. Padrões: **ZOMBIES** (didático) + **R
 
 ## 7. Onde achar (não duplico aqui — fato duplicado apodrece)
 
-- **Mapa da documentação:** `docs/ARCHITECTURE.md` (estrutura de arquivos) + `CONTRIBUTING.md` na raiz (como
-  trabalhamos + modelo de documentação). **Comece por aí.**
+- **Mapa da documentação:** `docs/ARCHITECTURE.md` (estrutura de arquivos) + `docs/CONTRIBUTING.md` (como
+  trabalhamos + modelo de documentação). **Comece por aí.** (Health files — CONTRIBUTING/CREDITS/SECURITY —
+  vivem em `docs/`, não na raiz; o GitHub os reconhece lá. `.github/` = só automação.)
 - **Documentação canônica por fase SDD:** `docs/1-Discovery/` (**software/engine**: User-Stories·NFR·Design·Event-Storming),
   `docs/educational/` (**camada currículo/pedagogia, pt-BR**: Learning-Objectives·Curriculum-Map·Pedagogical-Model + planos educacionais),
   `docs/2-Architecture/` (C4·adr **YADR**·Feature-Flags·DFD·STRIDE·CI-CD·learning-interop·backend-cloud-roadmap·K8s),

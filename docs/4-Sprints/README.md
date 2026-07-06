@@ -7,5 +7,5 @@ The **doing** phase (SDD section d). Artifacts:
 - **[Frontend.md](Frontend.md)** — the two UIs: DOM activities (light-DOM Web Components + Atomic Design + Storybook,
   per ADR-0002) vs the canvas game (screenshot harness).
 
-The cross-cutting "how we work" summary is in [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md); the detail lives in the
+The cross-cutting "how we work" summary is in [`../CONTRIBUTING.md`](../CONTRIBUTING.md); the detail lives in the
 files above.

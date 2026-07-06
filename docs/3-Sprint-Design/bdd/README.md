@@ -2,7 +2,7 @@
 
 Every educational activity we turn into a minigame gets a **Gherkin `.feature`** describing its **expected
 pedagogical behavior** — the acceptance layer of the *curriculum* side of our two-layer model (the *engine* side uses
-user stories + Vitest; rationale in `../../../CONTRIBUTING.md`).
+user stories + Vitest; rationale in `../../CONTRIBUTING.md`).
 
 This is the artifact we should already have had: it is what lets a **pedagogue / BNCC reviewer / auditor** — not just a
 programmer — read and validate what an activity is supposed to do.

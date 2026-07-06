@@ -1,6 +1,6 @@
 # educational/ — camada de currículo e pedagogia (pt-BR, domínio)
 
-A **camada currículo** do modelo de duas camadas (ver `../../CONTRIBUTING.md`). Aqui vive o **conteúdo pedagógico** —
+A **camada currículo** do modelo de duas camadas (ver `../CONTRIBUTING.md`). Aqui vive o **conteúdo pedagógico** —
 *o que* se aprende, por quem, em que ordem, e como se prova o domínio. Software e mecânica de jogo ficam em
 `../1-Discovery/` e no código; **aqui não entra software**.
 

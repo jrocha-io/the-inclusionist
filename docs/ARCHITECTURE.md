@@ -4,7 +4,7 @@
 > find *what to read and what to change*. Where every file lives, what each canonical document holds, and how each role
 > (programmer, AI, reviewer) uses it. **Any change to structure, a filename, or a naming convention is reflected here
 > in the same commit** — a stale map is worse than none. For *why* we document the way we do (the artifact model, the
-> two-layer requirements, "a doc becomes a test/task/ADR"), see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+> two-layer requirements, "a doc becomes a test/task/ADR"), see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 >
 > **Naming conventions:** ADRs = `ADR-NNNN-slug.yaml` (YADR); domain blueprints = `<domain>.idd.md` (Instructional
 > Design) / `.ld.md` (Learning Design); studies live in `research/`; dead docs are deleted (git history is the archive).
@@ -21,11 +21,14 @@ SP-the-inclusionist-tracer/
 ├── dist/                     # build output (git-ignored) → deployed to Cloudflare Pages
 ├── docs/                     # documentation — see §2
 ├── tests/                    # Vitest: *.node.test.js (logic) + *.browser.test.js (render/DOM)
-├── .github/workflows/ci.yml  # CI: typecheck + vitest + build
+├── .github/                  # automation only: workflows (ci · a11y · codeql) + dependabot.yml
 ├── vite.config.ts  tsconfig.json  package.json  .release-it.json  .node-version
-├── CLAUDE.md                 # AI operating rules (entry index for the agent)
-└── CONTRIBUTING.md           # how we work + our documentation model
+└── CLAUDE.md                 # AI operating rules (entry index for the agent)
 ```
+
+> **Community-health files** (`CONTRIBUTING.md`, `CREDITS.md`, `SECURITY.md`) live in **`docs/`**, not the root:
+> GitHub auto-detects them there (root · `.github/` · `docs/` are all valid), keeping the root lean and `.github/`
+> for automation only.
 
 ## 2. Documentation layout (`docs/`)
 
@@ -37,6 +40,9 @@ Organized by **SDD lifecycle phase** (numbered), mirroring the schema we adopt (
 docs/
 ├── ARCHITECTURE.md            # THIS FILE — the map (start here)
 ├── ROADMAP.md                 # strategy + why-this-order; phases live in the GitHub Project (issues #22–#28)
+├── CONTRIBUTING.md            # how we work + our documentation model      (GitHub health file)
+├── CREDITS.md                 # acknowledgements / attributions
+├── SECURITY.md                # vulnerability reporting policy             (GitHub health file)
 ├── 1-Discovery/               # SOFTWARE / engine requirements & design (NOT pedagogy — that's educational/)
 │   ├── User-Stories.md        #   engine/game features — negotiable layer
 │   ├── NFR.md                 #   non-functional reqs + the 10 pillars      ← ADR-0010
@@ -96,7 +102,7 @@ docs/
 >
 > **Not in `docs/`:** the **executable backlog** lives in **GitHub Projects + Issues** (`jrocha-io/the-inclusionist`),
 > not in a Markdown file. The **roadmap** is the GitHub Project *The Inclusionist Roadmap* (phase issues #22–#28);
-> `ROADMAP.md` keeps only the strategy/why-this-order. See `../CONTRIBUTING.md`.
+> `ROADMAP.md` keeps only the strategy/why-this-order. See `CONTRIBUTING.md`.
 
 | File / folder | Holds | Used by |
 |---|---|---|
