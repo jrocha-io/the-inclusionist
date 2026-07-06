@@ -19,6 +19,7 @@ import { PAD_DESIGNS, TOUCH_ACT_LABELS, TOUCH_DEFAULT } from './input/devices.js
 import { keys, padCur, padPrevAct, padPrevStart, PAD_DEAD, held } from './input/state.js'; // Fase 2.22: estado de input + held
 import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, initAudioMixer, catNode, setCatGain, tone, tonePan, noiseBuffer, noiseHit, _footCount } from './platform/audio.js'; // Fase 2: base + mestre + mixer + sínteses (oscilador + ruído)
 import { gameSay } from './platform/speech.js';
+import { createAudioJingles } from './platform/audio-jingles.js'; // Tier 2 (áudio r1): jingles de vitória/enigma/fogos
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE, initCharacterSprites } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
 import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
@@ -622,15 +623,9 @@ function narrate(text){ if(!soundOn||!audioCat.tts.on||!text)return; _narrateCou
 // Escolhe uma voz pt-BR (Brasil), evitando pt-PT (José: sílabas soavam "estranhas / pt-pt?"). Não cacheia — getVoices é barato e carrega assíncrono.
 // ptbrVoice + gameSay (voz do letramento) extraídos p/ platform/speech.js (Fase 2).
 // tone (synth de oscilador básico) extraído p/ platform/audio.js (Fase 2).
-function firework(when){ if(!soundOn||volume<=0)return; try{ const ac=ensureAC(); if(!ac)return; const t=ac.currentTime+(when||0);
-  const o=ac.createOscillator(),g=ac.createGain(); o.type='sine'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(1200,t+0.35); // assobio subindo
-  const out=catNode('earcons')||audioOut()||ac.destination;
-  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.12*volume,t+0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+0.36); o.connect(g).connect(out); o.start(t); o.stop(t+0.4);
-  [0,0.04,0.09,0.15,0.22].forEach((dt,i)=>{ const po=ac.createOscillator(),pg=ac.createGain(),tt=t+0.36+dt; po.type='square'; po.frequency.setValueAtTime(180+((i*131)%520),tt); // estouro/crepitar
-    pg.gain.setValueAtTime(0.18*volume,tt); pg.gain.exponentialRampToValueAtTime(0.0001,tt+0.09); po.connect(pg).connect(out); po.start(tt); po.stop(tt+0.11); }); }catch(e){} }
-function playVictory(){ [[523,0],[659,0.12],[784,0.24],[1047,0.36],[988,0.52],[1319,0.64]].forEach(([f,w])=>tone(f,0.16,'square',w,0.22)); [0.2,0.8,1.35,1.9].forEach(w=>firework(w)); }
-// Enigma resolvido (Zelda OoT): frase ascendente DOCE em onda senoidal, volume baixo — NUNCA agressiva (José: nada de Duolingo)
-function playPuzzleSolved(){ [[659,0],[784,0.13],[988,0.26],[1319,0.42]].forEach(([f,w])=>tone(f,0.32,'sine',w,0.12)); tone(1047,0.6,'sine',0.42,0.07); } // E5 G5 B5 E6 + C6 de fundo
+// Jingles (vitória · enigma · fogos) extraídos p/ platform/audio-jingles.ts (Tier 2, áudio rodada 1). DI por closure:
+// soundOn/volume vivos via getters (o mixer os reatribui). firework é interno ao módulo (só playVictory o usa).
+const jingles = createAudioJingles({ tone, ensureAC, catNode, audioOut, getSoundOn: () => soundOn, getVolume: () => volume });
 
 /* ===================== Pixi ===================== */
 PIXI.settings.ROUND_PIXELS=true;
@@ -2030,7 +2025,7 @@ function quizWin(pl,q){ // 3 VITÓRIAS = 1 MOEDA em TODOS os minigames, sem exce
   q.celebrating=true;
   const ov=quizEl(pl), dots=ov&&ov.querySelector('.quiz-wins');
   if(dots){ dots.querySelectorAll('.qw-dot').forEach(d=>d.classList.add('on')); dots.classList.add('celebrate'); }
-  playPuzzleSolved(); if(typeof burstSparkle==='function')burstSparkle(pl.x, pl.y-16, 0xffe08a, 10); // faíscas gentis
+  jingles.playPuzzleSolved(); if(typeof burstSparkle==='function')burstSparkle(pl.x, pl.y-16, 0xffe08a, 10); // faíscas gentis
   if(actCat()==='alf' && q.word)gameSay(q.word); // letramento: refala a palavra na 3ª vitória também
   srSay(quizWho(pl)+'Muito bem! Você ganhou a moeda!');
   setTimeout(()=>{ pl.alfWins=0; quizTake(pl,q); }, 900); } // deixa a 3ª luz + animação aparecerem antes de fechar
@@ -2091,7 +2086,7 @@ function updateHud(){
   if(numPlayers<=1) $('#hud-coins').textContent=String(players[0].collected);
   else $('#hud-coins').textContent=players.map((p,i)=>`P${i+1}:${p.collected}`).join('  ');
 }
-function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); playVictory(); $('#hud-objective').textContent='Concluído! 🎉';
+function win(pl){ ended=true; if(captionsOn)showCaption('🔊 Vitória! 🎆'); jingles.playVictory(); $('#hud-objective').textContent='Concluído! 🎉';
   if(pl&&pl.sprite) for(let i=0;i<4;i++) burstSparkle(pl.x+(rnd()-0.5)*24, pl.y-BOX.h/2-rnd()*12, PCOLOR[i]||0xffd23f, 10); // JUICE: confete nas 4 cores
   const who = numPlayers>1 ? `Jogador ${(pl?pl.i:0)+1} venceu! ` : '';
   $('#win-msg').textContent=`${who}Coletou as ${COIN_TARGET} moedas.`;
