@@ -17,9 +17,11 @@
     "test:watch": "vitest",
     "test:node": "vitest run --project node",
     "test:browser": "vitest run --project browser",
+    "test:a11y": "node scripts/axe-check.mjs",
     "release": "release-it"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@release-it/conventional-changelog": "^11.0.1",
     "@types/node": "^22.0.0",
     "@vitest/browser": "^4.0.0",
