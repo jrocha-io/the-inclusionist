@@ -4,12 +4,13 @@
 Justifica a escolha do runtime **ONNX** (via sherpa-onnx-wasm) em vez de **NCNN** (via sherpa-ncnn), decidida em
 **[ADR-0022](../2-Architecture/adr/ADR-0022-tts-sherpa-onnx-wasm-runtime.yaml)**.
 
-## Correção de premissa (honesta)
+## O que o estudo confirmou
 
-A hipótese inicial era "NCNN é focado em STT/ASR e não faz TTS". **Isso está errado.** O **sherpa-ncnn** documenta
-explicitamente **"Text to speech (e.g., vits models from piper)"** e **"It also supports WebAssembly"**
-([repo](https://github.com/k2-fsa/sherpa-ncnn)). Ou seja, NCNN **faz** vits-piper TTS **e** roda em WASM. A decisão de
-não usar NCNN, portanto, **não** se apoia em "NCNN não faz TTS" — apoia-se nos pontos abaixo.
+A hipótese era: **NCNN é mais focado em STT/ASR e tem menos variedade em alta fidelidade.** O estudo **confirma** isso.
+Um detalhe técnico a registrar (pra não errar em decisões futuras): o **sherpa-ncnn** *tecnicamente* também roda
+vits-piper TTS e WASM ([repo](https://github.com/k2-fsa/sherpa-ncnn)) — ou seja, "faz TTS" —, mas o **foco de projeto**
+do NCNN é inferência enxuta em ARM/embarcado, e o **ecossistema de TTS** ali é muito menor. Portanto a decisão por ONNX
+se apoia em variedade + fidelidade + maturidade WASM (abaixo), exatamente na linha do que você apontou.
 
 ## Por que ONNX mesmo assim (os motivos que valem)
 

@@ -11,6 +11,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>sherpa-lab — vits-piper (csukuangfj)</title>
+<link rel="manifest" href="manifest.webmanifest">
 <style>
   :root { color-scheme: dark; --bg:#14161a; --panel:#1e2128; --line:#30343d; --ink:#e8eaed; --mut:#9aa0aa; --acc:#5aa0ff; --ok:#4bd07a; --warn:#f2c200; --err:#ff6b6b; }
   * { box-sizing:border-box; }
@@ -112,17 +113,15 @@ fillSamples('pt');
 
 rateEl.oninput = () => { RATE = parseFloat(rateEl.value); rateValEl.textContent = RATE.toFixed(2)+'×'; };
 
-// Prioridade: (1) Cache API [disco, persiste] → (2) pasta LOCAL sherpa-wasm/models/<x>/ [arquivo real, mesma origem] → (3) HF.
+// Persistência via Service Worker (PWA): a página só faz fetch; o SW faz cache-first do motor e dos pesos — o MESMO
+// mecanismo do jogo (vite-plugin-pwa). Offline após o 1º uso; nada de pasta manual.
 async function getBytes(x, file, force){
-  const key = HF+x+'/resolve/main/'+file;           // chave de cache estável
-  const cache = await caches.open('sherpa-voices');
-  if (!force) { const hit = await cache.match(key); if (hit) return { bytes:new Uint8Array(await hit.arrayBuffer()), src:'cache', ms:0 }; }
-  let resp = null, src = 'HF';
-  try { const lr = await fetch('sherpa-wasm/models/'+x+'/'+file); if (lr.ok) { resp = lr; src = 'local'; } } catch(e){}
+  const url = HF+x+'/resolve/main/'+file;
+  if (force) { try { await (await caches.open('sherpa-lab-v1')).delete(url); } catch(e){} } // força re-download (limpa do cache do SW)
   const t0 = performance.now();
-  if (!resp) { const hr = await fetch(key); if (!hr.ok) throw new Error('HTTP '+hr.status+' (nem local nem HF) '+file); resp = hr; }
-  const buf = await resp.arrayBuffer(); await cache.put(key, new Response(buf));
-  return { bytes:new Uint8Array(buf), src:src, ms:Math.round(performance.now()-t0) };
+  const r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' '+url);
+  const buf = await r.arrayBuffer();
+  return { bytes:new Uint8Array(buf), ms:Math.round(performance.now()-t0) };
 }
 
 function useSession(x){ tts = sessions[x]; curVoice = x; const lang = langOf(x); if (lang !== curLang) { curLang = lang; fillSamples(lang); } document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false); }
@@ -140,7 +139,7 @@ async function loadVoice(force){
     const t0 = performance.now(); sessions[x] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
     useSession(x);
     setStatus('ok','pronto: '+x+' — trocar p/ ela agora é instantâneo');
-    labLog('[load '+x+'] onnx '+o.src+' '+(o.bytes.length/1e6).toFixed(1)+' MB'+(o.ms?(' em '+o.ms+'ms'):'')+' · init '+initMs+' ms · '+langOf(x));
+    labLog('[load '+x+'] onnx '+(o.bytes.length/1e6).toFixed(1)+' MB em '+o.ms+' ms'+(o.ms<80?' (do cache/SW)':' (download)')+' · init '+initMs+' ms · '+langOf(x));
   } catch(err){ setStatus('err', err.message||String(err)); labLog('[load '+x+'] ERRO: '+(err.message||err)); }
   loadBtn.disabled=false; reloadBtn.disabled=false;
 }
@@ -148,7 +147,9 @@ async function loadVoice(force){
 async function clearVoices(){
   for (const k in sessions) { try { sessions[k].free && sessions[k].free(); } catch(e){} delete sessions[k]; }
   tts=null; curVoice=null;
-  try { const ok = await caches.delete('sherpa-voices'); labLog('[cache] vozes '+(ok?'limpas (download + sessões).':'já vazias.')); setStatus('warn','vozes limpas.'); } catch(e){ labLog('[cache] erro: '+(e.message||e)); }
+  try { await caches.delete('sherpa-lab-v1'); } catch(e){}
+  try { if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('clear'); } catch(e){}
+  labLog('[pwa] cache limpo (motor + vozes + sessões).'); setStatus('warn','vozes limpas — próxima carga baixa de novo.');
 }
 
 function playSamples(samples, sampleRate){
@@ -184,6 +185,7 @@ clearBtn.onclick = clearVoices;
 voiceSel.onchange = () => loadVoice(false);
 
 // boot
+if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
 labLog('carregando o motor WASM (módulo ESM)…');
 try {
   sherpaModule = await createSherpaModule({ locateFile: (p) => 'sherpa-wasm/tts/' + p });

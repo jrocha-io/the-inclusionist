@@ -46,17 +46,15 @@ npx serve docs/research   # lê o serve.json (COOP/COEP, exigido pelo build com 
 
 Na página: escolha a voz no seletor → ▶ nas tarefas. Trocar para uma voz já carregada é **instantâneo** (sessão em memória).
 
-## Onde ficam os pesos (ordem de prioridade)
+## Persistência dos pesos — via PWA (como no jogo)
 
-1. **Cache API** (`caches` → `sherpa-voices`) — **disco persistente** do navegador (sobrevive a reload e a fechar/reabrir;
-   **não** é memória, **não** re-baixa). Veja em DevTools → Application → Cache Storage → `sherpa-voices`.
-2. **Pasta local `sherpa-wasm/models/<X>/`** — **arquivos reais** que você controla (inspeciona, reusa, hospeda no R2). O
-   lab carrega **daqui primeiro** (mesma origem, offline). Baixe as que quiser com:
-   ```powershell
-   pwsh docs/research/sherpa-wasm/download-voices.ps1   # edite a lista $VOICES; salva em models/<X>/
-   ```
-3. **HF do csukuangfj** — fallback: se não estiver no cache nem na pasta, o lab busca de
-   `huggingface.co/csukuangfj/vits-piper-<X>/<X>.onnx`. (`models/` é git-ignored — é grande.)
+O lab é um **PWA**: um **Service Worker** (`docs/research/sw.js`) faz **cache-first** do motor WASM (`sherpa-wasm/tts/*`) e
+dos pesos das vozes (baixados de `huggingface.co/csukuangfj/…`). É **exatamente** o mecanismo que o jogo usará
+(`vite-plugin-pwa`): baixa uma vez → roda **offline** depois → pesos no **Cache Storage** (disco, persistente, não é memória).
+
+- Ver em DevTools → Application → **Cache Storage → `sherpa-lab-v1`** (motor + `.onnx` das vozes já usadas).
+- **Baixar novamente** força o re-download da voz atual; **Limpar vozes baixadas** apaga o cache do SW.
+- Nada de download manual — o lab baixa in-page **sob demanda** (só a voz selecionada).
 
 ## Se der erro, o que o Log diz
 
