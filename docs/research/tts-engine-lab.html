@@ -81,21 +81,21 @@ const TASKS = [
 ];
 const SAMPLES = {
   pt: {
-    phon:  'a  é  i  ó  u   f  s  x  j  r  m  n  l',
+    phon:  '[[a]] [[E]] [[i]] [[O]] [[u]]  [[f]] [[s]] [[S]] [[Z]] [[x]]  [[m]] [[n]] [[l]] [[r]]',
     letr:  'a, bê, cê, dê, e, efe, gê, agá, i, jota, ká, ele, eme, ene, ó, pê, quê, erre, esse, tê, u, vê, dáblio, xis, ípsilon, zê',
     silab: 'ba be bi bo bu, ca ce ci co cu, da de di do du, fa fe fi fo fu',
     palav: 'casa, bola, gato, escola, pato, dado, sapo, uva',
     frase: 'O gato preto subiu no telhado da casa amarela.',
   },
   en: {
-    phon:  'a  e  i  o  u   f  s  th  sh  ch   m  n  l  r',
+    phon:  "[[a]] [[E]] [[i]] [[oU]] [[u]]  [[f]] [[s]] [[T]] [[S]] [[tS]]  [[m]] [[n]] [[l]] [[r]]",
     letr:  'ay, bee, see, dee, ee, ef, gee, aitch, eye, jay, kay, el, em, en, oh, pee, cue, ar, ess, tee, you, vee, double-u, ex, wy, zee',
     silab: 'ba be bi bo bu, ca ce ci co cu, da de di do du',
     palav: 'house, ball, cat, school, duck, dog, frog, apple',
     frase: 'The black cat climbed onto the roof of the yellow house.',
   },
   es: {
-    phon:  'a  e  i  o  u   f  s  j  rr   m  n  l  r  ñ',
+    phon:  '[[a]] [[e]] [[i]] [[o]] [[u]]  [[f]] [[s]] [[x]] [[rr]] [[J]]  [[m]] [[n]] [[l]] [[r]]',
     letr:  'a, be, ce, de, e, efe, ge, hache, i, jota, ka, ele, eme, ene, eñe, o, pe, cu, erre, ese, te, u, uve, doble uve, equis, i griega, zeta',
     silab: 'ba be bi bo bu, ca ce ci co cu, da de di do du',
     palav: 'casa, pelota, gato, escuela, pato, dado, sapo, uva',
@@ -108,6 +108,9 @@ const LANGNAME = { pt:'Português', en:'English', es:'Español' };
 let LANG = 'pt';
 const logEl = document.getElementById('log');
 const log = (m) => { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+window.addEventListener('error', e => log('‼ window error: ' + (e.message || (e.error && e.error.message) || e)));
+window.addEventListener('unhandledrejection', e => log('‼ promise rejeitada: ' + ((e.reason && e.reason.message) || e.reason || e)));
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('script não carregou: ' + src)); document.head.appendChild(s); }); }
 
 /* ------------------------------------------------------------------ engines ---- */
 // Each engine: { id, name, size, neural, voices(lang)->[{id,label}], init(), speak(text,lang,voiceId)->{el|onstart} }
@@ -136,32 +139,30 @@ engines.webspeech = {
 
 /* --- eSpeak NG via meSpeak (embedded formant synth) --- */
 engines.espeak = {
-  id:'espeak', name:'eSpeak NG', size:'embutido · ~2–4 MB', neural:false, _ready:false, _loaded:{},
+  id:'espeak', name:'eSpeak NG', size:'embutido · ~2–4 MB', neural:false, _ready:false, _voiceId:{},
   async init(setSt) {
     setSt('warn','carregando meSpeak…');
-    await new Promise((res, rej) => { const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/mespeak@2.0.2/mespeak.full.js'; s.onload=res; s.onerror=()=>rej(new Error('script meSpeak não carregou')); document.head.appendChild(s); });
-    if (!window.meSpeak) throw new Error('meSpeak global ausente');
-    // mespeak.full.js já traz config + voz en. Vozes extras (pt/es) carregadas sob demanda em speak().
-    engines.espeak._ready = true; setSt('ok','pronto (voz en embutida; pt/es sob demanda)');
+    await loadScript('https://cdn.jsdelivr.net/npm/mespeak@2.0.2/mespeak.full.js')
+      .catch(() => loadScript('https://unpkg.com/mespeak@2.0.2/mespeak.full.js'));
+    if (!window.meSpeak) throw new Error('meSpeak global ausente após carregar o script');
+    // mespeak.full.js já traz config + voz en. pt/es carregadas sob demanda em speak().
+    engines.espeak._ready = true; setSt('ok','pronto (en embutido; pt/es sob demanda)');
   },
-  _voiceCode(lang) { return { pt:'pt-br', en:'en/en-us', es:'es' }[lang] || 'en/en-us'; }, // caminhos eSpeak dentro do pacote meSpeak
-  async _ensureVoice(lang, setSt) {
-    const code = engines.espeak._voiceCode(lang); if (engines.espeak._loaded[code]) return code;
-    // meSpeak.loadVoice aceita URL do JSON de voz; tentamos alguns nomes comuns do pacote.
-    const candidates = { pt:['pt-br','pt'], en:['en/en-us','en'], es:['es','es-la'] }[lang] || ['en/en-us'];
-    for (const c of candidates) {
-      const url = 'https://cdn.jsdelivr.net/npm/mespeak@2.0.2/voices/'+c+'.json';
-      const okc = await new Promise((res)=>{ try { window.meSpeak.loadVoice(url, (ok)=>res(ok? c : false)); } catch(e){ res(false); } });
-      if (okc) { engines.espeak._loaded[okc] = true; return okc; }
+  async _ensureVoice(lang) { // meSpeak.loadVoice(url, cb) → devolve o id registrado da voz
+    if (engines.espeak._voiceId[lang]) return engines.espeak._voiceId[lang];
+    const candidates = { pt:['pt','pt-pt'], en:['en/en-us','en/en'], es:['es','es-la'] }[lang] || ['en/en-us'];
+    for (const c of candidates) for (const base of ['https://cdn.jsdelivr.net/npm/mespeak@2.0.2/voices/','https://unpkg.com/mespeak@2.0.2/voices/']) {
+      const id = await new Promise((res) => { try { window.meSpeak.loadVoice(base + c + '.json', (ok, vid) => res(ok ? (vid || c) : null)); } catch (e) { res(null); } });
+      if (id) { engines.espeak._voiceId[lang] = id; log('[espeak] voz '+lang+' carregada como "'+id+'" ('+c+')'); return id; }
     }
-    throw new Error('nenhuma voz eSpeak p/ '+lang+' no CDN (tente outro pacote)');
+    throw new Error('nenhuma voz eSpeak p/ '+lang+' (paths testados: '+candidates.join(', ')+')');
   },
   voices() { return []; }, // eSpeak: 1 voz por idioma
-  async speak(text, lang, _v) {
+  async speak(text, lang) {
     if (!engines.espeak._ready) throw new Error('não inicializado');
-    const code = await engines.espeak._ensureVoice(lang, ()=>{});
-    const url = window.meSpeak.speak(text, { voice: engines.espeak._loaded[code] ? code : undefined, rawdata:'data-url' });
-    if (!url) throw new Error('meSpeak não gerou áudio');
+    const vid = await engines.espeak._ensureVoice(lang);
+    const url = window.meSpeak.speak(text, { voice: vid, rawdata:'data-url' }); // [[...]] = fonemas Kirshenbaum
+    if (!url) throw new Error('meSpeak não gerou áudio (voz '+vid+')');
     return playUrl(url);
   },
 };
@@ -205,7 +206,7 @@ engines.kokoro = {
   id:'kokoro', name:'Kokoro-82M', size:'~80 MB (q8, todos idiomas)', neural:true, _tts:null, _voices:null,
   async init(setSt) {
     setSt('warn','baixando lib + modelo (~80 MB no 1º uso)…');
-    const mod = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
+    const mod = await import('https://esm.sh/kokoro-js@1.2.1'); // esm.sh resolve o transformers.js (jsDelivr/+esm falha)
     engines.kokoro._tts = await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype:'q8', device: (navigator.gpu?'webgpu':'wasm') });
     try { engines.kokoro._voices = engines.kokoro._tts.list_voices ? engines.kokoro._tts.list_voices() : Object.keys(engines.kokoro._tts.voices||{}); } catch(e){ engines.kokoro._voices = null; }
     setSt('ok','modelo pronto ('+(navigator.gpu?'WebGPU':'WASM')+')');
@@ -256,9 +257,12 @@ function buildEngines() {
     const st = card.querySelector('.st'), sel = card.querySelector('select');
     engEls[id] = { card, st, sel };
     const setSt = (cls,msg)=>{ st.className='st '+cls; st.textContent=msg; };
-    const doInit = async () => { try { await e.init(setSt); refreshVoices(id); enableCells(id,true); } catch(err){ setSt('err', err.message||String(err)); log('['+id+'] init erro: '+(err.message||err)); } };
-    if (e.neural) card.querySelector('.load').onclick = () => { card.querySelector('.load').disabled=true; doInit(); };
-    else doInit(); // não-neurais inicializam sozinhos
+    const doInit = async () => { try { await e.init(setSt); try { localStorage.setItem('lab_load_'+id,'1'); } catch(e2){} refreshVoices(id); enableCells(id,true); } catch(err){ setSt('err', err.message||String(err)); log('['+id+'] init erro: '+(err.message||err)); } };
+    if (e.neural) {
+      card.querySelector('.load').onclick = () => { card.querySelector('.load').disabled=true; doInit(); };
+      let auto=false; try { auto = localStorage.getItem('lab_load_'+id)==='1'; } catch(e2){}
+      if (auto) { card.querySelector('.load').disabled=true; log('['+id+'] auto-carregando (já usado antes; modelo vem do cache OPFS)…'); doInit(); }
+    } else doInit(); // não-neurais inicializam sozinhos
   }
 }
 function refreshVoices(id) {
@@ -275,7 +279,8 @@ function buildMatrix() {
   for (const t of TASKS) {
     const tr = document.createElement('tr');
     const td = document.createElement('td'); td.className='task';
-    td.innerHTML = `<span class="lbl">${t.label}</span><textarea data-task="${t.id}">${SAMPLES[LANG][t.id]}</textarea>`;
+    const hint = t.id==='phon' ? `<div class="note" style="margin-top:4px">Só o <b>eSpeak</b> lê <code>[[…]]</code> como fonema (Kirshenbaum). Nos demais os colchetes são removidos e os símbolos viram texto — é a limitação sendo mostrada.</div>` : '';
+    td.innerHTML = `<span class="lbl">${t.label}</span><textarea data-task="${t.id}">${SAMPLES[LANG][t.id]}</textarea>${hint}`;
     tr.appendChild(td);
     for (const id of ENGINE_ORDER) {
       const cell = document.createElement('td');
@@ -289,7 +294,8 @@ function buildMatrix() {
 }
 
 async function speakCell(engId, taskId, btn) {
-  const text = document.querySelector('textarea[data-task="'+taskId+'"]').value.trim(); if (!text) return;
+  let text = document.querySelector('textarea[data-task="'+taskId+'"]').value.trim(); if (!text) return;
+  if (taskId==='phon' && engId!=='espeak') text = text.replace(/\[\[|\]\]/g,' ').replace(/\s+/g,' ').trim(); // só eSpeak entende [[fonema]]
   const voiceId = engEls[engId].sel ? engEls[engId].sel.value : '';
   const msEl = document.querySelector('span[data-ms="'+engId+'-'+taskId+'"]');
   msEl.textContent = '…'; msEl.className='ms'; btn.disabled = true;

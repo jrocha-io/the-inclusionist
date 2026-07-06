@@ -33,7 +33,33 @@ companion **[TTS engine lab](./tts-engine-lab.html)** (open it in a browser and 
   the *phoneme* drills where robotic clarity actually helps); Web Speech is zero-download but not a
   guaranteed-offline or consistent-quality baseline.
 
+## Phoneme input — can each engine speak a *sound* (/k/, /f/, /a/) instead of a letter name?
+
+This is the crux for **alfabetização**: the "phonemes" drill must speak the *sound*, not the letter
+name. From the docs:
+
+| Engine | Phoneme input? | How |
+|---|---|---|
+| **Web Speech** | ❌ **No** | The API takes **plain text only**; SSML/`<phoneme>` is not in the spec — Chrome strips it or reads the tags literally. Best you can do is pseudo-spelling. |
+| **eSpeak NG** | ✅ **Yes (native)** | Phonemes in **`[[…]]`** using **Kirshenbaum** ASCII-IPA, e.g. `[[k]]`, `[[h@'loU]]`; stressed syllable marked with `'`. **This is the engine for the phoneme drill.** |
+| **Piper** | ⚠️ Indirect only | Phonemizes text via espeak-ng internally, but `@mintplex-labs/piper-tts-web` exposes only `predict(text)` — no raw-phoneme entry. Reads isolated letters/phonemes poorly (it is sentence-trained). |
+| **Kokoro** | ❌ Not via the JS lib | `kokoro-js` documents **text input only**; no phoneme option. |
+
+**Implication (matches the playtest):** the neural engines (Piper/Kokoro) are for **words and
+sentences**, where they sound natural — they are the *wrong* tool for isolated phonemes and even for
+spelling letters/syllables (Web Speech said "bê-á" for *ba*, "i" for *ê*; Piper read letters with a
+strange low-volume accent). The **phoneme + spell-letter + spell-syllable** layers should be
+**eSpeak** (tiny, offline, deterministic, real phoneme input). Reserve neural TTS for words/sentences.
+
+> The lab's "Fonemas" row now holds **Kirshenbaum** tokens in `[[…]]`; eSpeak speaks them as true
+> phonemes, while the other engines get the brackets stripped and read the tokens as text — which is
+> exactly the limitation, made visible.
+
 ## Sources
+- Phoneme input: [MDN SpeechSynthesisUtterance.text](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisUtterance/text),
+  [MDN compat #15663 (SSML not universal)](https://github.com/mdn/browser-compat-data/issues/15663),
+  [espeak-ng Kirshenbaum phonemes](https://github.com/espeak-ng/espeak-ng/blob/master/docs/phonemes/kirshenbaum.md),
+  [espeak phonemes reference](https://espeak.sourceforge.net/phonemes.html), [kokoro-js (npm)](https://www.npmjs.com/package/kokoro-js).
 - KittenTTS — size (<25 MB), 8 voices, English focus: [KittenML/KittenTTS (GitHub)](https://github.com/KittenML/KittenTTS),
   [kitten-tts-nano-0.1 (Hugging Face)](https://huggingface.co/KittenML/kitten-tts-nano-0.1),
   [Show HN: Kitten TTS – 25MB CPU-Only](https://news.ycombinator.com/item?id=44807868).
