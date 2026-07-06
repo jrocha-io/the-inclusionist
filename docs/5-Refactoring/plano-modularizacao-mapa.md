@@ -45,7 +45,7 @@ Legenda de acoplamento: 🟢 folha (≈zero deps de jogo) · 🟡 subsistema coe
 |---|---|---|---|
 | ~~`platform/audio-cues.js`~~ | **NÃO é um módulo só** — a superfície de cues é heterogênea; decomposta em 4 rodadas por acoplamento crescente (abaixo). `platform/audio.js` já tem a base (audioCtx/mixer/tone/noiseHit). | — | — |
 | `platform/audio-jingles.ts` ✅ | **[áudio r1 — FEITO]** jingles SEM estado de jogo: `playVictory`/`playPuzzleSolved`/`firework` | 625–633 | audio.js (tone/ensureAC/catNode) |
-| `platform/audio-earcons.ts` 🟡 | **[áudio r2]** earcons + legendas: `sfx`/`doorSound` (+ `showCaption`/`captionsOn`) | 461–474, 527–530 | audio.js, DOM (caption) |
+| `platform/audio-earcons.ts` ✅ | **[áudio r2 — FEITO]** earcons + ponte c/ legendas: `sfx`/`doorSound` (`showCaption`/`captionsOn` ficam no game.js — UI alterna, `win()` reusa — e entram por injeção) | 461–474, 527–530 | audio.js, showCaption (inj.) |
 | `platform/audio-nav.ts` 🟡 | **[áudio r3]** pistas espaciais a11y (cego/baixa-visão): `playerCtx`/`caneProbe`/`caneTap`/`waterNav`/`sonar`/`panFor`/`needsAudioCues`/`surfaceUnder` + contadores | 489–540 | audio.js, tiles, players, coins |
 | `platform/audio-ambient.ts` 🟡 | **[áudio r4]** ambiente + guia (clima VISUAL `updateWeather`/`drawWeather` vai p/ render): `buildAmbient`/`updateAmbient`/`thunder`/`updateGuide` | 542–575 | audio.js, players, tiles |
 | `platform/tts.js` 🟡 | TTS neural (F5): `loadTTS`/`ttsSpeak`/`narrate`/`speakWebSpeech`/`populateTTSEngines`/`populateTTSVoices` + estado dos motores | 670–711, 2874–2887 | audio.js, audioCat |

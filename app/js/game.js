@@ -20,6 +20,7 @@ import { keys, padCur, padPrevAct, padPrevStart, PAD_DEAD, held } from './input/
 import { audioCtx, ensureAC, SFX, soundOn, volume, setSoundOn, setVolume, audioOut, hearingLoss, setHearingLossGraph, setMasterMuted, audioCat, initAudioMixer, catNode, setCatGain, tone, tonePan, noiseBuffer, noiseHit, _footCount } from './platform/audio.js'; // Fase 2: base + mestre + mixer + sínteses (oscilador + ruído)
 import { gameSay } from './platform/speech.js';
 import { createAudioJingles } from './platform/audio-jingles.js'; // Tier 2 (áudio r1): jingles de vitória/enigma/fogos
+import { createAudioEarcons } from './platform/audio-earcons.js'; // Tier 2 (áudio r2): earcons (sfx) + porta + legendas
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE, initCharacterSprites } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
 import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
@@ -459,20 +460,10 @@ function loadPlayerA11y(p,i){ try{ const v=localStorage.getItem('incl_viz_p'+i);
 function setToggleMove(i,on){ const p=players[i]; if(!p)return; p.toggleMove=on; try{localStorage.setItem('incl_togglemove_p'+i,on?'1':'0');}catch(e){} if(!on)p.walkDir=0;
   srSay((numPlayers>1?'Jogador '+(i+1)+': ':'')+'Movimento por alternância '+(on?'ligado: toque a direção para andar sem segurar; toque de novo para parar; segure para ir mais rápido. O pulo não interrompe a caminhada.':'desligado.')); }
 function showCaption(txt){ const el=$('#caption'); if(!el||!txt)return; el.textContent=txt; el.classList.add('show'); clearTimeout(capTimer); capTimer=setTimeout(()=>{el.classList.remove('show'); el.textContent='';},1300); }
-function sfx(name){
-  const c=SFX[name]; if(!c)return;
-  if(captionsOn && c.cap) showCaption(c.cap);   // legenda (visual + aria-live via role=status)
-  if(!soundOn || volume<=0) return;
-  try{
-    if(!ensureAC()) return; // audioCtx via platform/audio.js
-    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    o.type=c.t; o.frequency.value=c.f; g.gain.value=0.0001; o.connect(g).connect(catNode('earcons')||audioOut()||audioCtx.destination);
-    const t=audioCtx.currentTime;
-    g.gain.exponentialRampToValueAtTime(Math.max(0.02,0.25*volume), t+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+c.d);
-    o.start(t); o.stop(t+c.d+0.02);
-  }catch(e){}
-}
+// Earcons + ponte com legendas extraídos p/ platform/audio-earcons.ts (Tier 2, áudio rodada 2). captionsOn/showCaption
+// VIVEM aqui (UI alterna captionsOn; win() reusa showCaption) → entram por injeção. Chamado como earcons.sfx(...).
+const earcons = createAudioEarcons({ SFX, ensureAC, catNode, audioOut, noiseHit,
+  getSoundOn: () => soundOn, getVolume: () => volume, getCaptionsOn: () => captionsOn, showCaption });
 // ===== Vitória: jingle 8-bit ascendente + fogos de artifício (assobio subindo → estouro/crepitar) =====
 // ensureAC() (ciclo do AudioContext) extraído p/ platform/audio.js (Fase 2).
 // Modo empatia — perda auditiva: passa-baixas (perda de agudos) + EXPANSÃO DESCENDENTE (frames fracos abafados → dificulta a fala).
@@ -525,10 +516,7 @@ function waterNav(pl){ const dir=pl.facing<0?-1:1, tx=Math.floor(pl.x/TILE), tyF
   else if(floorBelow && held(pl,'down')) noiseHit('areia', 0, pc);        // fundo (chão)
   else played=false;
   if(played){ pl.wnT=0; _waterNavCount++; } else pl.wnT=17; }              // sem contato = SEM som (pronto p/ tocar ao encostar)
-function doorSound(mat){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; try{ // porta: rangido (madeira) ou clangor (ferro) + baque
-  const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime; o.type=mat==='ferro'?'square':'sawtooth'; o.frequency.setValueAtTime(mat==='ferro'?520:200,t); o.frequency.exponentialRampToValueAtTime(mat==='ferro'?300:110,t+0.3);
-  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.14*volume,t+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
-  o.connect(g).connect(catNode('interact')||audioOut()||ac.destination); o.start(t); o.stop(t+0.4); noiseHit(mat==='ferro'?'ferro':'madeira'); }catch(e){} }
+// doorSound extraído p/ platform/audio-earcons.ts (Tier 2, áudio rodada 2). Chamado como earcons.doorSound(...).
 // ===== F3: espacialização (pan pela direção, tom pela distância) + sonar + guarda de beirada =====
 function panFor(wx,pl){ return Math.max(-1,Math.min(1,(wx-pl.x)/(LOGICAL_W*0.55))); } // esquerda −1 … direita +1
 // tonePan (synth de oscilador com pan) extraído p/ platform/audio.js (Fase 2).
@@ -1548,7 +1536,7 @@ function triggerLava(pl){
   if(pl.hurtTimer>0)return;
   setCoins(pickCoins(COIN_TARGET, coinPools())); rebuildCoins();
   players.forEach(p=>p.collected=0); collected=0; updateHud();
-  sfx('hurt'); pl.hurtTimer=60; pl.vy=-10; pl.vx=(rnd()<0.5?-1:1)*5;
+  earcons.sfx('hurt'); pl.hurtTimer=60; pl.vy=-10; pl.vx=(rnd()<0.5?-1:1)*5;
   addShake(3,14); addHitstop(4); // JUICE: dano é o impacto mais forte do jogo
   srAlert('Cuidado! Tocou na lava. As moedas voltaram para posições aleatórias.');
 }
@@ -1573,12 +1561,12 @@ function stepPlayer(pl,dt){
   if(pl.jumpEdge)pl.jumpBuffer=7; else if(pl.jumpBuffer>0)pl.jumpBuffer--;
   // E18: ventosa (homem-aranha) — gruda na parede ao apertar Correr no ar; solta com Pular
   if(pl.clinging && (pl.onLadder||pl.inWater||pl.activePower!=='wallcling' || pl.onGround || clingSides(pl).D)) pl.clinging=false; // E18d: pés numa superfície estável (sólido logo abaixo) ENCERRAM; pendurado no teto (pés p/ cima) ou na parede alta continua
-  if(pl.activePower==='wallcling' && !pl.clinging && pl.runEdge && !pl.onGround && !pl.onLadder && !pl.inWater && firstClingSide(pl)){ pl.clinging=true; pl.clingN=firstClingSide(pl); pl.vy=0; pl.vx=0; pl.jumpBuffer=0; sfx('power'); srSay('Modo aranha! Engatinha em paredes e teto; contorna quinas. Correr solta.'); }
-  else if(pl.clinging && pl.runEdge){ pl.clinging=false; sfx('power'); srSay('Soltou da superfície.'); } // E18b: CANCELA só com Correr (não com Pular); a caixa não larga a superfície antes disso
+  if(pl.activePower==='wallcling' && !pl.clinging && pl.runEdge && !pl.onGround && !pl.onLadder && !pl.inWater && firstClingSide(pl)){ pl.clinging=true; pl.clingN=firstClingSide(pl); pl.vy=0; pl.vx=0; pl.jumpBuffer=0; earcons.sfx('power'); srSay('Modo aranha! Engatinha em paredes e teto; contorna quinas. Correr solta.'); }
+  else if(pl.clinging && pl.runEdge){ pl.clinging=false; earcons.sfx('power'); srSay('Soltou da superfície.'); } // E18b: CANCELA só com Correr (não com Pular); a caixa não larga a superfície antes disso
   if(!pl.clinging) pl.clingN=null;
   // TROCAR PODER / SONAR: tap curto no swap = troca poder; SEGURAR o swap ou o acorde swap+especial = SONAR (F3).
   const doSwap=()=>{ if(!pl.owned.length)return; const seq=['off',...pl.owned]; let idx=seq.indexOf(pl.activePower); pl.activePower=seq[(idx+1)%seq.length];
-    pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); srSay(pl.activePower==='off'?'Sem poder ativo.':(POWER_MSG[pl.activePower]||'Poder ativado!')); };
+    pl.clinging=false; pl.flying=false; earcons.sfx('power'); showPower(pl); srSay(pl.activePower==='off'?'Sem poder ativo.':(POWER_MSG[pl.activePower]||'Poder ativado!')); };
   const swapNow=held(pl,'swap');
   if(swapNow){ pl._swapT+=dt;
     if(!pl._swapSonar && (pl._swapT>18 || held(pl,'especial'))){ pl._swapSonar=true; sonar(pl); } // segurar ~0,3s OU acorde swap+especial
@@ -1589,7 +1577,7 @@ function stepPlayer(pl,dt){
   pl.jumpEdge=false; pl.runEdge=false; pl.swapEdge=false; pl.specialEdge=false;
   // E16c: voo é ALTERNADO pelo Pulo NO AR (com o poder ativo): pula no ar → liga; pula voando → desliga.
   // Tocar o solo ou a água também encerra. (Antes ligava ao coletar; agora exige o pulo no ar.)
-  if(pl.activePower==='fly' && pl.jumpBuffer>0 && !pl.onGround){ pl.flying=!pl.flying; pl.jumpBuffer=0; sfx('power'); srSay(pl.flying?'Voo ativado! Cima/Baixo sobem e descem; Pular encerra.':'Voo encerrado.'); }
+  if(pl.activePower==='fly' && pl.jumpBuffer>0 && !pl.onGround){ pl.flying=!pl.flying; pl.jumpBuffer=0; earcons.sfx('power'); srSay(pl.flying?'Voo ativado! Cima/Baixo sobem e descem; Pular encerra.':'Voo encerrado.'); }
   if(pl.flying && (pl.onGround||pl.inWater||pl.activePower!=='fly')) pl.flying=false;
   let fired=false;
   if(pl.clinging){
@@ -1608,7 +1596,7 @@ function stepPlayer(pl,dt){
         if(Math.abs(dy)<=ELEV_SPEED){ pl.y=pl.elevTarget; pl.vy=0; pl.elevTarget=null; } else pl.vy=Math.sign(dy)*ELEV_SPEED; }
     } else {
       if(held(pl,'up'))pl.vy=-TUNE.climbSpeed; else if(held(pl,'down'))pl.vy=TUNE.climbSpeed;
-      if(pl.jumpBuffer>0){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; sfx('jump'); hideTips(); }
+      if(pl.jumpBuffer>0){ pl.vy=(pl.activePower==='ultrajump')?-TUNE.ultraJumpVel:jumpVel(pl,pl.activePower==='superjump'?9:5); pl.onLadder=false; pl.jumpBuffer=0; earcons.sfx('jump'); hideTips(); }
     }
   } else if(pl.flying){ // voo ATIVO: Cima sobe / Baixo desce / plana parado. Pular alterna (tratado acima)
     pl.waterStroke=0; const fs=turbo?3.9:2.6;
@@ -1628,7 +1616,7 @@ function stepPlayer(pl,dt){
       if(pl.onGround&&pl.jumpBuffer>0&&!wheelchair){ // E18: pulo encadeado (bunny-hop). Cadeirante: sem pulo.
         if(run && isBouncyGroundBelow(pl) && pl.jumpChain>0) pl.jumpChain=Math.min(pl.jumpChain+1,3); else pl.jumpChain=1;
         pl.vy = (pl.activePower==='ultrajump') ? -TUNE.ultraJumpVel : jumpVel(pl, pl.activePower==='superjump'?9:[0,5,8,9][pl.jumpChain]);
-        pl.onGround=false; pl.jumpBuffer=0; fired=true; sfx('jump'); hideTips();
+        pl.onGround=false; pl.jumpBuffer=0; fired=true; earcons.sfx('jump'); hideTips();
         setSquash(pl,0.16); puffDust(pl.x,pl.y,3); // JUICE: estica ao saltar + poeira do impulso
       }
       pl.vy=Math.min(pl.vy,TUNE.maxFall);
@@ -1679,7 +1667,7 @@ function stepPlayer(pl,dt){
     if(box.x<cn.x+sz-ox&&box.x+box.w>cn.x-ox&&box.y<cn.y+sz-ox&&box.y+box.h>cn.y-ox){
       if(MODE==='somasub'&&cn.shape){ if(!pl.quiz) openQuiz(pl,i,cn.shape); }       // L3: quiz POR JOGADOR (MP incluso)
       else if(MODE==='silabas'&&cn.letter){ if(!pl.quiz) openSilabas(pl,i,cn.letter); }
-      else { takeCoin(cn); coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; sfx('coin'); // some p/ todas as telas (item tem 1 dono)
+      else { takeCoin(cn); coinSprites[i].visible=false; pl.collected++; if(pl===player)collected=pl.collected; earcons.sfx('coin'); // some p/ todas as telas (item tem 1 dono)
         burstSparkle(cn.x+5,cn.y+5,ownerColors?(PCOLOR[cn.owner]||0xffd23f):0xffd23f,8); // JUICE: brilho na cor do dono (segue a opção)
         updateHud(); { const msg=(numPlayers>1?`Jogador ${pl.i+1}: `:'')+`Moeda ${pl.collected} de ${COIN_TARGET}.`; srSay(msg); narrate(msg); }
         if(pl.collected>=COIN_TARGET)win(pl); }
@@ -1689,13 +1677,13 @@ function stepPlayer(pl,dt){
     if(box.x<pu.x+12 && box.x+box.w>pu.x && box.y<pu.y+12 && box.y+box.h>pu.y){
       takePu(pu,pl.i); if((numPlayers<=1||pu.kind==='key') && pu.sprite)pu.sprite.visible=false; const who=numPlayers>1?`Jogador ${pl.i+1}: `:''; // chave: some p/ todos; demais: por viewport (no draw)
       burstSparkle(pu.x+6,pu.y+6,0xfff1a8,10); addHitstop(3); // JUICE: power-up = brilho dourado + micro hit-stop
-      if(pu.kind==='key'){ pl.hasKey=true; sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); } // chave individual: só quem pegou fica com ela (mas o portão, aberto, vale p/ todos)
-      else if(pu.kind==='runcane'){ pl.runCane=true; sfx('power'); const pm=who+'Bengala de corrida! Agora dá para correr — segure Correr.'; srSay(pm); narrate(pm); } // cego: habilita correr (bengala com roda)
-      else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); narrate(pm); } // entra no inventário; ativo = o último pego
+      if(pu.kind==='key'){ pl.hasKey=true; earcons.sfx('key'); srAlert(who+'pegou a chave. Toque no portão para abri-lo.'); } // chave individual: só quem pegou fica com ela (mas o portão, aberto, vale p/ todos)
+      else if(pu.kind==='runcane'){ pl.runCane=true; earcons.sfx('power'); const pm=who+'Bengala de corrida! Agora dá para correr — segure Correr.'; srSay(pm); narrate(pm); } // cego: habilita correr (bengala com roda)
+      else { if(!pl.owned.includes(pu.kind))pl.owned.push(pu.kind); pl.activePower=pu.kind; pl.clinging=false; pl.flying=false; earcons.sfx('power'); showPower(pl); const pm=who+(POWER_MSG[pu.kind]||'Poder ativado!'); srSay(pm+' (Trocar poder cicla entre os coletados.)'); narrate(pm); } // entra no inventário; ativo = o último pego
     }});
   if(gate && !gateOpen && pl.hasKey){ // portão (vários tiles) abre se o portador da chave o toca (margem: vale por cima/ao lado)
     const m=4; for(const gt of gate){ const X=gt.tx*TILE, Y=gt.ty*TILE;
-      if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); sfx('gate'); doorSound('madeira'); srAlert('Portão aberto!'); addShake(2,12); break; } } // JUICE: portão pesado sacode a tela
+      if(box.x<X+TILE+m && box.x+box.w>X-m && box.y<Y+TILE+m && box.y+box.h>Y-m){ gateOpen=true; rebuildExtras(); earcons.sfx('gate'); earcons.doorSound('madeira'); srAlert('Portão aberto!'); addShake(2,12); break; } } // JUICE: portão pesado sacode a tela
   }
   // animação por frames (E15). 'moving' baseado no INPUT (direção segurada), NÃO em vx — a colisão
   // zera vx por frames e isso resetava o ciclo (só apareciam 2 quadros). Assim os 8 quadros tocam contínuos.
@@ -1935,9 +1923,9 @@ function quizSpeakSel(pl){ const q=pl.quiz; if(!q)return; // fala o item sob o c
   else if(q.kind==='alf') srSay(q.braille?brailleText(it):(LETTER_NAME[it]||it)); // 4 nome da letra · 5 SÓ os pontos da cela ("a"→"um")
 }
 function placeLetter(pl,ch){ const q=pl.quiz; if(!q)return; const idx=q.boxes.indexOf(null); if(idx<0)return;
-  q.boxes[idx]=ch; sfx('place'); srSay(q.braille?brailleText(ch):(LETTER_NAME[ch]||ch)); renderQuiz(pl); } // braille: só os PONTOS
+  q.boxes[idx]=ch; earcons.sfx('place'); srSay(q.braille?brailleText(ch):(LETTER_NAME[ch]||ch)); renderQuiz(pl); } // braille: só os PONTOS
 function eraseLastLetter(pl){ const q=pl.quiz; if(!q)return; for(let i=q.boxes.length-1;i>=0;i--){ if(q.boxes[i]!==null){ q.boxes[i]=null; break; } } renderQuiz(pl); }
-function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; sfx('place');
+function placeSilaba(pl,sy){ const q=pl.quiz; if(!q)return; const idx=q.boxes[0]===null?0:(q.boxes[1]===null?1:-1); if(idx<0)return; q.boxes[idx]=sy; earcons.sfx('place');
   if(q.hearSyl){ srSay(disp(sy)); gameSay(sy); } else { srSay(soletra(sy)); narrate(soletra(sy)); } // Descobrindo: confirmação + refala a sílaba (sempre); Montando: SOLETRA as letras (só c/ TTS)
   renderQuiz(pl); }
 function eraseLastSilaba(pl){ const q=pl.quiz; if(!q)return; if(q.boxes[1]!==null)q.boxes[1]=null; else if(q.boxes[0]!==null)q.boxes[0]=null; renderQuiz(pl); }
@@ -2001,8 +1989,8 @@ function renderQuiz(pl){
   ov.hidden=false; hideTouchControls(); // quiz aberto = menu na tela → sem controle virtual
 }
 function quizErase(pl){ const q=pl.quiz; if(!q)return; // ESPECIAL: apaga a última sílaba/letra (jogos que MONTAM a palavra; NÃO no Descobrindo palavras/pre)
-  if(q.kind==='silabas'){ eraseLastSilaba(pl); sfx('place'); }
-  else if(q.kind==='alf'){ eraseLastLetter(pl); sfx('place'); } }
+  if(q.kind==='silabas'){ eraseLastSilaba(pl); earcons.sfx('place'); }
+  else if(q.kind==='alf'){ eraseLastLetter(pl); earcons.sfx('place'); } }
 function quizMove(pl,d){ const q=pl.quiz; if(!q)return;
   const max = (q.kind==='silabas'||q.kind==='alf') ? q.options.length+1 : q.choices.length-1;
   const min = (q.kind==='pre'||q.kind==='silabas') ? -1 : 0; // -1 = a PALAVRA do topo (selecionável p/ repetir a fala) — jogos 1..3
@@ -2034,13 +2022,13 @@ function quizConfirm(pl){
   if(q.sel===-1 && q.word){ gameSay(q.word); return; } // PALAVRA do topo selecionada → repete a fala (VLibras gesticula, na etapa do modo surdo)
   if(q.revealed){ // SEM PENALIDADE na alfabetização: a moeda fica no lugar (nova pergunta ao tocar); matemática re-sorteia a figura
     if(actCat()==='alf'){ closeQuiz(pl); } else { respawnFigure(q.coinIndex); closeQuiz(pl); } return; }
-  if(q.kind==='braille'){ sfx('coin'); srSay(quizWho(pl)+'Coletado!'); quizWin(pl,q); return; }
+  if(q.kind==='braille'){ earcons.sfx('coin'); srSay(quizWho(pl)+'Coletado!'); quizWin(pl,q); return; }
   if(q.kind==='pre'){ // nível 1: acertou a escrita?
     if(q.choices[q.sel]===q.word){
-      sfx('correct'); srSay(`${quizWho(pl)}Acertou! ${disp(q.word)}: ${soletra(q.word)}.`); quizWin(pl,q);
+      earcons.sfx('correct'); srSay(`${quizWho(pl)}Acertou! ${disp(q.word)}: ${soletra(q.word)}.`); quizWin(pl,q);
     } else { q.tries++;
       if(q.tries>=2){ q.revealed=true; srAlert(`${quizWho(pl)}A certa é ${disp(q.word)}: ${soletra(q.word)}. Pule para seguir.`); }
-      else { sfx('wrong'); srSay('Tente de novo.'); }
+      else { earcons.sfx('wrong'); srSay('Tente de novo.'); }
       renderQuiz(pl); }
     return;
   }
@@ -2048,10 +2036,10 @@ function quizConfirm(pl){
     const N=q.options.length;
     if(q.sel<N){ placeLetter(pl,q.options[q.sel]); return; }
     if(q.sel===N){ eraseLastLetter(pl); return; }
-    if(q.boxes.join('')===q.word){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); }
+    if(q.boxes.join('')===q.word){ earcons.sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); }
     else { q.tries++;
       if(q.tries>=2){ q.revealed=true; q.boxes=q.word.split(''); srAlert(`${quizWho(pl)}A palavra é ${disp(q.word)}: ${soletra(q.word)}. Pule para seguir.`); }
-      else { q.boxes=q.boxes.map(()=>null); sfx('wrong'); srSay('Tente de novo.'); }
+      else { q.boxes=q.boxes.map(()=>null); earcons.sfx('wrong'); srSay('Tente de novo.'); }
       renderQuiz(pl); }
     return;
   }
@@ -2059,17 +2047,17 @@ function quizConfirm(pl){
     const N=q.options.length;
     if(q.sel<N){ placeSilaba(pl,q.options[q.sel]); return; }
     if(q.sel===N){ eraseLastSilaba(pl); return; }
-    if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); }
+    if(q.boxes[0]===q.correct[0] && q.boxes[1]===q.correct[1]){ earcons.sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); }
     else { q.tries++;
       if(q.tries>=2){ q.revealed=true; q.boxes=q.correct.slice(); srAlert(`${quizWho(pl)}A palavra é ${disp(q.word)}. Pule para seguir.`); }
-      else { q.boxes=[null,null]; sfx('wrong'); srSay('Tente de novo.'); }
+      else { q.boxes=[null,null]; earcons.sfx('wrong'); srSay('Tente de novo.'); }
       renderQuiz(pl);
     }
     return;
   }
-  if(cKey(q.choices[q.sel])===q.answer){ sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); } // matemática também: 3 vitórias = 1 moeda (compara pela CHAVE, não pela exibição)
+  if(cKey(q.choices[q.sel])===q.answer){ earcons.sfx('correct'); srSay(quizWho(pl)+'Acertou!'); quizWin(pl,q); } // matemática também: 3 vitórias = 1 moeda (compara pela CHAVE, não pela exibição)
   else { q.tries++;
-    if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${speakChoice(q.answer)}. Pule para seguir.`);} else sfx('wrong'); srSay('Tente de novo.');
+    if(q.tries>=2){q.revealed=true; srAlert(`${quizWho(pl)}A resposta é ${speakChoice(q.answer)}. Pule para seguir.`);} else earcons.sfx('wrong'); srSay('Tente de novo.');
     renderQuiz(pl);
   }
 }
