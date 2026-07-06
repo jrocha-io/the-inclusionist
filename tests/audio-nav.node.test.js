@@ -39,7 +39,8 @@ const pl = (o = {}) => ({ x: 32, y: 32, facing: 1, viz: 'cego', i: 0, ...o });
 
 describe('platform/audio-nav', () => {
   it('[Zero/One] caneProbe: água à frente = "agua"', () => {
-    const { nav } = setup({ world: makeWorld({ '3,2': 3 }) }); // tile (3, footTy=2) é água
+    // A bengala sonda À FRENTE: ax = floor((x + w/2 + TILE*0.6)/TILE) = floor((32+6+9.6)/16) = 2; footTy = 2. Logo (2,2).
+    const { nav } = setup({ world: makeWorld({ '2,2': 3 }) }); // (2,2) = água à frente
     expect(nav.caneProbe(pl())).toBe('agua');
   });
 
@@ -49,12 +50,12 @@ describe('platform/audio-nav', () => {
   });
 
   it('[One] caneProbe: escada (tile 4) à frente = "madeira"', () => {
-    const { nav } = setup({ world: makeWorld({ '3,2': 4 }) });
+    const { nav } = setup({ world: makeWorld({ '2,2': 4 }) });
     expect(nav.caneProbe(pl())).toBe('madeira');
   });
 
   it('[Simple] caneProbe: chão sólido = material do tema (cidade → "piso")', () => {
-    const { nav } = setup({ world: makeWorld({ '3,2': 2 }), cenario: 'cidade' });
+    const { nav } = setup({ world: makeWorld({ '2,2': 2 }), cenario: 'cidade' });
     expect(nav.caneProbe(pl())).toBe('piso');
   });
 
@@ -63,7 +64,7 @@ describe('platform/audio-nav', () => {
     nav.caneTap(pl());
     expect(tone.some((t) => t.cat === 'guard')).toBe(true);
     expect(nav.caneCount).toBe(1);
-    const s2 = setup({ world: makeWorld({ '3,2': 2 }), cenario: 'cidade' });
+    const s2 = setup({ world: makeWorld({ '2,2': 2 }), cenario: 'cidade' });
     s2.nav.caneTap(pl());
     expect(s2.hits).toEqual([{ mat: 'piso', pan: 0.5 }]);
   });
