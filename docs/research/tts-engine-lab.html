@@ -140,27 +140,29 @@ engines.webspeech = {
 /* --- eSpeak NG via meSpeak (embedded formant synth) --- */
 engines.espeak = {
   id:'espeak', name:'eSpeak NG', size:'embutido · ~2–4 MB', neural:false, _ready:false, _voiceId:{}, _base:'https://cdn.jsdelivr.net/npm/mespeak@2.0.2/',
+  _ms: null,
   async init(setSt) {
-    setSt('warn','carregando meSpeak…');
-    // entry REAL = src/index.js (não mespeak.full.js) + config à parte. Fallback p/ unpkg.
-    await loadScript(engines.espeak._base+'src/index.js').catch(() => { engines.espeak._base='https://unpkg.com/mespeak@2.0.2/'; return loadScript(engines.espeak._base+'src/index.js'); });
-    if (!window.meSpeak) throw new Error('meSpeak global ausente após carregar src/index.js (é CommonJS? checar)');
+    setSt('warn','carregando meSpeak (esm.sh)…');
+    // src/index.js é CommonJS puro → NÃO vira window.meSpeak. esm.sh transpila CJS→ESM e devolve o objeto meSpeak.
+    const mod = await import('https://esm.sh/mespeak@2.0.2');
+    engines.espeak._ms = mod.default || mod.meSpeak || mod;
+    if (!engines.espeak._ms || typeof engines.espeak._ms.speak !== 'function') throw new Error('módulo meSpeak sem .speak (export inesperado): ' + Object.keys(mod).join(','));
     const cfg = await (await fetch(engines.espeak._base+'src/mespeak_config.json')).json();
-    window.meSpeak.loadConfig(cfg);
+    engines.espeak._ms.loadConfig(cfg);
     engines.espeak._ready = true; setSt('ok','pronto (config carregada; vozes sob demanda)');
   },
-  async _ensureVoice(lang) { // busca o JSON da voz e passa o OBJETO p/ meSpeak.loadVoice; id vem de voice_id
+  async _ensureVoice(lang) { // busca o JSON da voz e passa o OBJETO p/ loadVoice; id vem de voice_id
     if (engines.espeak._voiceId[lang]) return engines.espeak._voiceId[lang];
     const file = { pt:'voices/pt.json', en:'voices/en/en-us.json', es:'voices/es.json' }[lang] || 'voices/en/en-us.json';
     const v = await (await fetch(engines.espeak._base+file)).json();
-    window.meSpeak.loadVoice(v);
+    engines.espeak._ms.loadVoice(v);
     const id = v.voice_id || lang; engines.espeak._voiceId[lang] = id; log('[espeak] voz '+lang+' = "'+id+'"'); return id;
   },
   voices() { return []; }, // eSpeak: 1 voz por idioma
   async speak(text, lang) {
     if (!engines.espeak._ready) throw new Error('não inicializado');
     const vid = await engines.espeak._ensureVoice(lang);
-    const url = window.meSpeak.speak(text, { voice: vid, rawdata:'data-url' }); // [[...]] = fonemas Kirshenbaum
+    const url = engines.espeak._ms.speak(text, { voice: vid, rawdata:'data-url' }); // [[...]] = fonemas Kirshenbaum
     if (!url) throw new Error('meSpeak não gerou áudio (voz '+vid+')');
     return playUrl(url);
   },
@@ -179,11 +181,11 @@ engines.piper = {
     const p = { pt:'pt', en:'en', es:'es' }[lang];
     const list = engines.piper._voiceList;
     if (Array.isArray(list)) {
-      const out = list.map(v => (v && (v.key||v.id||v.voiceId||v.name)) ).filter(Boolean).filter(k=>String(k).toLowerCase().startsWith(p));
+      const out = list.map(v => (v && (v.key||v.id||v.voiceId||v.name)) ).filter(Boolean).filter(k=>String(k).toLowerCase().startsWith(p) && !/edresson/i.test(k)); // edresson-low = inutilizável (José)
       if (out.length) return out.map(k=>({id:k,label:k}));
     }
     // fallback: IDs conhecidos
-    return ({ pt:[{id:'pt_BR-faber-medium',label:'pt_BR-faber-medium'},{id:'pt_BR-edresson-low',label:'pt_BR-edresson-low'}],
+    return ({ pt:[{id:'pt_BR-faber-medium',label:'pt_BR-faber-medium'}],
               en:[{id:'en_US-hfc_female-medium',label:'en_US-hfc_female-medium'},{id:'en_US-amy-medium',label:'en_US-amy-medium'}],
               es:[{id:'es_ES-davefx-medium',label:'es_ES-davefx-medium'},{id:'es_MX-ald-medium',label:'es_MX-ald-medium'}] })[lang];
   },
@@ -202,7 +204,7 @@ engines.piper = {
 
 /* --- Kokoro-82M (neural, transformers.js) --- */
 engines.kokoro = {
-  id:'kokoro', name:'Kokoro-82M', size:'~80 MB (q8, todos idiomas)', neural:true, _tts:null, _voices:null,
+  id:'kokoro', name:'Kokoro-82M', size:'~80 MB · SÓ INGLÊS (v1.2.1)', neural:true, _tts:null, _voices:null,
   async init(setSt) {
     setSt('warn','baixando lib + modelo (~80 MB no 1º uso)…');
     const mod = await import('https://esm.sh/kokoro-js@1.2.1'); // esm.sh resolve o transformers.js (jsDelivr/+esm falha)
@@ -210,14 +212,11 @@ engines.kokoro = {
     try { engines.kokoro._voices = engines.kokoro._tts.list_voices ? engines.kokoro._tts.list_voices() : Object.keys(engines.kokoro._tts.voices||{}); } catch(e){ engines.kokoro._voices = null; }
     setSt('ok','modelo pronto ('+(navigator.gpu?'WebGPU':'WASM')+')');
   },
-  voices(lang) {
-    const pref = { pt:['p'], en:['a','b'], es:['e'] }[lang]; // Kokoro voice-name prefixes
+  voices() { // kokoro-js@1.2.1 só traz vozes INGLESAS (o log provou: pf_dora inexistente) → mesma lista p/ qq idioma
     const list = engines.kokoro._voices;
     const names = Array.isArray(list) ? list : (list && typeof list==='object' ? Object.keys(list) : null);
-    if (names) { const out = names.filter(n=>pref.includes(String(n)[0])); if (out.length) return out.map(n=>({id:n,label:n})); }
-    return ({ pt:[{id:'pf_dora',label:'pf_dora'},{id:'pm_alex',label:'pm_alex'},{id:'pm_santa',label:'pm_santa'}],
-              en:[{id:'af_heart',label:'af_heart'},{id:'am_adam',label:'am_adam'}],
-              es:[{id:'ef_dora',label:'ef_dora'},{id:'em_alex',label:'em_alex'}] })[lang];
+    if (names && names.length) return names.map(n=>({id:n,label:n+' (en)'}));
+    return [{id:'af_heart',label:'af_heart (en)'},{id:'am_adam',label:'am_adam (en)'}];
   },
   async speak(text, lang, voiceId) {
     const vid = voiceId || engines.kokoro.voices(lang)[0].id;

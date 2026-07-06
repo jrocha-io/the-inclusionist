@@ -19,7 +19,7 @@ companion **[TTS engine lab](./tts-engine-lab.html)** (open it in a browser and 
 | **Web Speech API** | Native OS voices | **0** | OS-dependent | OS-dependent | OS-dependent | ⚠️ not guaranteed (some browsers synth in the cloud) | Good but **inconsistent per device** | **Fallback** (zero-download) |
 | **eSpeak NG** | Formant synth (WASM) | **~2–4 MB** | 1 (formant) | 1 | 1 | ✅ embedded | Robotic but intelligible; **great for isolated phonemes** | **Fallback** (embedded) + phoneme reference |
 | **Piper** | Neural VITS (ONNX) | **~20 MB** (low) · **~63 MB** (medium) *per voice* | **2** (`edresson-low`, `faber-medium`) | ~20+ (US/GB) | ~5 (ES/MX) | ✅ after 1st download (OPFS) | Natural, solid | **Primary candidate** (already wired) |
-| **Kokoro-82M** | Neural (StyleTTS2-like) | **~80 MB** (q8) · ~160 (fp16) · ~330 (fp32) — *one model, all langs* | ~3 (`pf_*`/`pm_*`) | many (`a*`/`b*`) | ~3 (`e*`) | ✅ after 1st download | Often **best** naturalness | **Alternative candidate** (heavier, WebGPU helps) |
+| **Kokoro-82M** | Neural (StyleTTS2-like) | **~80 MB** (q8) | **0 in the browser lib** ⚠️ | many (`a*`/`b*`) | 0 in lib | ✅ after 1st download | Excellent (English) | **OUT for pt/es** — `kokoro-js@1.2.1` ships **English voices only** |
 | **KittenTTS** | Neural (tiny) | ~15–25 MB (int8) … ~80 MB | **0** | 8 (4M/4F) | **0** | ✅ | Decent for the size | **English-only today → not usable for pt/es** |
 
 ### Reading the table for our case
@@ -32,6 +32,17 @@ companion **[TTS engine lab](./tts-engine-lab.html)** (open it in a browser and 
 - **eSpeak NG + Web Speech** are the fallbacks: eSpeak is tiny + embedded + fully offline (ideal for
   the *phoneme* drills where robotic clarity actually helps); Web Speech is zero-download but not a
   guaranteed-offline or consistent-quality baseline.
+
+## Empirical findings so far (browser lab, pt-BR)
+
+- **Kokoro-js & KittenTTS are English-only in the browser** → both out for pt-BR. (Kokoro's error listed only `af_*/am_*/bf_*/bm_*` voices.)
+- **Piper (`@mintplex-labs/piper-tts-web`) knows exactly 2 pt-BR voices** — `edresson-low`, `faber-medium` (+ `pt_PT-tugão`). Its `PATH_MAP` is fixed and `HF_BASE` (rhasspy/piper-voices) is hardcoded, so community voices such as `dii-high` / `miro-high` (csukuangfj re-hosts) **cannot** be loaded by this lib.
+  - `edresson-low`: unusable — **dropped**.
+  - `faber-medium`: standard-BR accent on **sentences** (good); a slightly "Angolan" accent on isolated letters/syllables/words.
+  - `pt_PT-tugão-medium`: European Portuguese + audible hiss — wrong accent for BR.
+- **eSpeak**: the npm `mespeak` ships only CommonJS source (no browser bundle) → must be imported via **esm.sh** to run in the browser.
+
+**Tightened recommendation:** isolated **phonemes/letters/syllables → eSpeak**; **words + sentences → Piper `faber-medium`** (its weak spot is exactly the isolated-token layers we hand to eSpeak). Higher-quality pt-BR voices (`dii-high` / `miro-high`) would need a different runtime — see the open question at the end.
 
 ## Phoneme input — can each engine speak a *sound* (/k/, /f/, /a/) instead of a letter name?
 
