@@ -16,18 +16,24 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $models = @('vits-piper-pt_BR-miro-high', 'vits-piper-pt_BR-faber-medium', 'vits-piper-pt_BR-jeff-medium')
 $rel = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models'
 foreach ($m in $models) {
-  $tar = Join-Path $dir "$m.tar.bz2"
-  Write-Host "[modelo] baixando $m ..."
-  Invoke-WebRequest -Uri "$rel/$m.tar.bz2" -OutFile $tar
-  Write-Host "[modelo] extraindo $m ..."
-  tar -xf $tar -C $dir
-  # normaliza p/ nomes fixos que a página espera: <modelo>/model.onnx e <modelo>/tokens.txt
-  $onnx   = Get-ChildItem -Path (Join-Path $dir $m) -Recurse -Filter *.onnx   | Select-Object -First 1
-  $tokens = Get-ChildItem -Path (Join-Path $dir $m) -Recurse -Filter tokens.txt | Select-Object -First 1
-  if ($onnx)   { Copy-Item $onnx.FullName   (Join-Path $dir "$m/model.onnx")  -Force }
-  if ($tokens) { Copy-Item $tokens.FullName (Join-Path $dir "$m/tokens.txt")  -Force }
-  Remove-Item $tar -Force
-  Write-Host "[modelo] $m -> $m/model.onnx (+ tokens.txt)"
+  try {
+    $tar = Join-Path $dir "$m.tar.bz2"
+    Write-Host "[modelo] baixando $m ..."
+    Invoke-WebRequest -Uri "$rel/$m.tar.bz2" -OutFile $tar
+    Write-Host "[modelo] extraindo $m ..."
+    tar -xf $tar -C $dir
+    $vd = Join-Path $dir $m
+    # normaliza p/ os nomes que a página espera: <modelo>/model.onnx e <modelo>/tokens.txt
+    # (o tokens.txt já vem com o nome certo — só copiar se a origem for DIFERENTE do destino)
+    $onnx = Get-ChildItem -Path $vd -Recurse -Filter *.onnx | Select-Object -First 1
+    $dst  = Join-Path $vd 'model.onnx'
+    if ($onnx -and ($onnx.FullName -ne $dst)) { Copy-Item $onnx.FullName $dst -Force }
+    $tok  = Get-ChildItem -Path $vd -Recurse -Filter tokens.txt | Select-Object -First 1
+    $tdst = Join-Path $vd 'tokens.txt'
+    if ($tok -and ($tok.FullName -ne $tdst)) { Copy-Item $tok.FullName $tdst -Force }
+    Remove-Item $tar -Force
+    Write-Host "[modelo] $m -> ok (model.onnx + tokens.txt)"
+  } catch { Write-Warning "[modelo] $m falhou: $($_.Exception.Message)" }
 }
 
 Write-Host ""

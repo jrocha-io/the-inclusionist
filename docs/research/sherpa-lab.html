@@ -66,7 +66,7 @@
   window.addEventListener('error', function(e){ labLog('‼ window error: '+(e.message||e)); });
   window.addEventListener('unhandledrejection', function(e){ labLog('‼ rejeição: '+((e.reason&&e.reason.message)||e.reason||e)); });
   var Module = {
-    locateFile: function(path){ return 'sherpa-wasm/' + path; }, // .wasm e .data ficam em sherpa-wasm/
+    locateFile: function(path){ return 'sherpa-wasm/tts/' + path; }, // artefatos do build ficam em sherpa-wasm/tts/
     setStatus: function(s){ if(s) labLog('[wasm] '+s); },
     onRuntimeInitialized: function(){
       sherpaReady = true; sherpaModule = Module;
@@ -77,8 +77,8 @@
     }
   };
 </script>
-<script src="sherpa-wasm/sherpa-onnx-wasm-main-tts.js"></script>
-<script src="sherpa-wasm/sherpa-onnx-tts.js"></script>
+<script src="sherpa-wasm/tts/sherpa-onnx-wasm-main-tts.js"></script>
+<script src="sherpa-wasm/tts/sherpa-onnx-tts.js"></script>
 
 <script>
 (function(){
