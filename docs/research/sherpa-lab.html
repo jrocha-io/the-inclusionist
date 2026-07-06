@@ -1,0 +1,169 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!--
+  sherpa-lab — testa VITS/Piper pt-BR (miro-high, faber-medium, jeff-medium) via sherpa-onnx-wasm, SEM compilar:
+  reusa o bundle wasm pronto do Space inglês (motor + espeak-ng-data assados) e escreve o modelo pt-BR no FS em runtime.
+  PRÉ-REQUISITO: rodar  docs/research/sherpa-wasm/fetch-sherpa-wasm.ps1  (baixa wasm + modelos) e servir a pasta:
+    npx serve docs/research   → abrir /sherpa-lab.html
+  ⚠️ Página NÃO testada pelo autor (sem Node/WASM no sandbox) — 1ª versão; o Log mostra cada passo p/ ajuste. ADR-0022.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sherpa-lab — VITS/Piper pt-BR</title>
+<style>
+  :root { color-scheme: dark; --bg:#14161a; --panel:#1e2128; --line:#30343d; --ink:#e8eaed; --mut:#9aa0aa; --acc:#5aa0ff; --ok:#4bd07a; --warn:#f2c200; --err:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:20px; }
+  h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:14px; margin:18px 0 8px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; }
+  a { color:var(--acc); } code { background:#0d0f12; padding:1px 5px; border-radius:4px; }
+  .sub { color:var(--mut); margin:0 0 14px; max-width:75ch; }
+  .bar { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:12px 0; }
+  select, button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:15px; cursor:pointer; }
+  button.primary { border-color:var(--acc); background:#22304a; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .st { font-size:14px; min-height:1.4em; } .st.ok{color:var(--ok)} .st.warn{color:var(--warn)} .st.err{color:var(--err)}
+  table { border-collapse:collapse; width:100%; margin-top:8px; }
+  th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+  th { background:var(--panel); color:var(--mut); font-size:13px; }
+  td.task { width:55%; } td.task textarea { width:100%; min-height:2.6em; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px; font:14px/1.4 inherit; }
+  td.task .lbl { font-weight:600; display:block; margin-bottom:4px; }
+  .cell { display:flex; align-items:center; gap:8px; } .cell .ms { color:var(--mut); font-variant-numeric:tabular-nums; font-size:13px; }
+  #log { background:#0d0f12; border:1px solid var(--line); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,Consolas,monospace; color:var(--mut); max-height:220px; overflow:auto; white-space:pre-wrap; margin-top:8px; }
+</style>
+</head>
+<body>
+<h1>sherpa-lab — VITS/Piper pt-BR (neural, offline)</h1>
+<p class="sub">
+  Roda os modelos <b>miro-high</b> · <b>faber-medium</b> · <b>jeff-medium</b> via sherpa-onnx-wasm, trocando a voz em
+  runtime (<code>FS.writeFile</code>). Rode antes o <code>sherpa-wasm/fetch-sherpa-wasm.ps1</code> e sirva a pasta.
+  Velocidade ajustável (a alfabetização precisa de fala lenta). Fonema de verdade continua sendo do eSpeak (no outro lab).
+</p>
+
+<div class="bar">
+  <label>Voz <select id="voice">
+    <option value="vits-piper-pt_BR-miro-high">miro-high (high)</option>
+    <option value="vits-piper-pt_BR-faber-medium">faber-medium</option>
+    <option value="vits-piper-pt_BR-jeff-medium">jeff-medium</option>
+  </select></label>
+  <button id="loadBtn" class="primary" disabled>Carregar voz</button>
+  <label>Velocidade <input id="rate" type="range" min="0.5" max="1.3" step="0.05" value="0.85"><span id="rateVal">0.85×</span></label>
+  <span id="status" class="st warn">carregando o motor WASM…</span>
+</div>
+
+<h2>Tarefas</h2>
+<table><tbody id="rows"></tbody></table>
+
+<h2>Log</h2>
+<div id="log"></div>
+
+<!-- Module GLOBAL definido ANTES do glue (padrão do demo oficial do sherpa). locateFile resolve .wasm/.data. -->
+<script>
+  var sherpaReady = false, sherpaModule = null;
+  var logEl = document.getElementById('status');
+  function labLog(m){ var el=document.getElementById('log'); el.textContent += m+'\n'; el.scrollTop=el.scrollHeight; }
+  window.addEventListener('error', function(e){ labLog('‼ window error: '+(e.message||e)); });
+  window.addEventListener('unhandledrejection', function(e){ labLog('‼ rejeição: '+((e.reason&&e.reason.message)||e.reason||e)); });
+  var Module = {
+    locateFile: function(path){ return 'sherpa-wasm/' + path; }, // .wasm e .data ficam em sherpa-wasm/
+    setStatus: function(s){ if(s) labLog('[wasm] '+s); },
+    onRuntimeInitialized: function(){
+      sherpaReady = true; sherpaModule = Module;
+      labLog('[wasm] runtime pronto.');
+      try { labLog('[wasm] FS "/" contém: ' + Module.FS.readdir('/').filter(function(x){return x!=='.'&&x!=='..';}).join(', ')); }
+      catch(e){ labLog('[wasm] não consegui ler FS /: '+e.message); }
+      window.__sherpaBoot && window.__sherpaBoot();
+    }
+  };
+</script>
+<script src="sherpa-wasm/sherpa-onnx-wasm-main-tts.js"></script>
+<script src="sherpa-wasm/sherpa-onnx-tts.js"></script>
+
+<script>
+(function(){
+  var TASKS = [
+    { id:'phon',  label:'1 · Fonemas (sherpa não é p/ fonema cru — referência)', text:'a, é, i, ó, u, fê, sê, jê, erre, esse' },
+    { id:'letr',  label:'2 · Soletrar letras', text:'a, bê, cê, dê, e, efe, gê, agá, i, jota, ká, ele, eme, ene, ó, pê, quê, erre, esse, tê, u, vê, dáblio, xis, ípsilon, zê' },
+    { id:'silab', label:'3 · Soletrar sílabas', text:'ba be bi bo bu, ca ce ci co cu, da de di do du, fa fe fi fo fu' },
+    { id:'palav', label:'4 · Palavras soltas', text:'casa, bola, gato, escola, pato, dado, sapo, uva' },
+    { id:'frase', label:'5 · Frases', text:'O gato preto subiu no telhado da casa amarela.' },
+  ];
+  var RATE = 0.85, tts = null, curVoice = null;
+  var voiceSel = document.getElementById('voice'), loadBtn = document.getElementById('loadBtn');
+  var statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
+  function setStatus(cls,msg){ statusEl.className='st '+cls; statusEl.textContent=msg; }
+
+  // monta a tabela
+  var rows = document.getElementById('rows');
+  TASKS.forEach(function(t){
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td class="task"><span class="lbl">'+t.label+'</span><textarea data-t="'+t.id+'">'+t.text+'</textarea></td>'
+                 + '<td><div class="cell"><button data-speak="'+t.id+'" disabled>▶</button><span class="ms" data-ms="'+t.id+'"></span></div></td>';
+    rows.appendChild(tr);
+  });
+
+  rateEl.oninput = function(){ RATE = parseFloat(rateEl.value); rateValEl.textContent = RATE.toFixed(2)+'×'; };
+
+  async function fetchBytes(url){ var r = await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status+' em '+url); return new Uint8Array(await r.arrayBuffer()); }
+
+  async function loadVoice(){
+    var v = voiceSel.value; loadBtn.disabled = true; setStatus('warn','baixando '+v+'…');
+    try {
+      var onnx  = await fetchBytes('sherpa-wasm/'+v+'/model.onnx');
+      var tok   = await fetchBytes('sherpa-wasm/'+v+'/tokens.txt');
+      sherpaModule.FS.writeFile('model.onnx', onnx);
+      sherpaModule.FS.writeFile('tokens.txt', tok);
+      labLog('['+v+'] model.onnx ('+ (onnx.length/1e6).toFixed(1) +' MB) + tokens.txt escritos no FS.');
+      // dataDir = espeak-ng-data já assado no bundle. Se o FS root usar outro nome, o Log de FS "/" acima mostra.
+      var cfg = {
+        offlineTtsModelConfig: {
+          offlineTtsVitsModelConfig: { model:'model.onnx', lexicon:'', tokens:'tokens.txt', dataDir:'espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 },
+          offlineTtsMatchaModelConfig:{}, offlineTtsKokoroModelConfig:{}, offlineTtsKittenModelConfig:{}, offlineTtsZipVoiceModelConfig:{}, offlineTtsPocketModelConfig:{},
+          numThreads:1, debug:1, provider:'cpu'
+        }, ruleFsts:'', ruleFars:'', maxNumSentences:1
+      };
+      if (tts && tts.free) { try { tts.free(); } catch(e){} }
+      tts = createOfflineTts(sherpaModule, cfg);
+      curVoice = v;
+      document.querySelectorAll('button[data-speak]').forEach(function(b){ b.disabled=false; });
+      setStatus('ok','pronto: '+v);
+      labLog('['+v+'] OfflineTts criado.');
+    } catch(err){ setStatus('err', err.message||String(err)); labLog('['+v+'] ERRO ao carregar: '+(err.message||err)); }
+    loadBtn.disabled = false;
+  }
+
+  function playSamples(samples, sampleRate){
+    return new Promise(function(res,rej){ try {
+      var AC = window.AudioContext||window.webkitAudioContext; var ac = new AC();
+      var buf = ac.createBuffer(1, samples.length, sampleRate); buf.getChannelData(0).set(samples);
+      var src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination);
+      src.onended = function(){ ac.close && ac.close(); }; src.start(); res();
+    } catch(e){ rej(e); } });
+  }
+
+  async function speak(id, btn){
+    if(!tts){ return; }
+    var text = document.querySelector('textarea[data-t="'+id+'"]').value.trim(); if(!text) return;
+    var ms = document.querySelector('span[data-ms="'+id+'"]'); ms.textContent='…'; btn.disabled=true;
+    var t0 = performance.now();
+    try {
+      var audio = tts.generate({ text:text, sid:0, speed:RATE }); // {samples, sampleRate}
+      var synth = Math.round(performance.now()-t0);
+      await playSamples(audio.samples, audio.sampleRate);
+      ms.textContent = synth+' ms'; labLog('['+curVoice+'/'+id+'] '+synth+' ms · '+audio.samples.length+' amostras @ '+audio.sampleRate+' Hz');
+    } catch(err){ ms.textContent='erro'; labLog('['+curVoice+'/'+id+'] ERRO: '+(err.message||err)); }
+    btn.disabled=false;
+  }
+
+  document.querySelectorAll('button[data-speak]').forEach(function(b){ b.onclick=function(){ speak(b.dataset.speak, b); }; });
+  loadBtn.onclick = loadVoice;
+
+  // habilita o botão Carregar quando o WASM terminar de iniciar
+  window.__sherpaBoot = function(){ loadBtn.disabled = false; setStatus('ok','motor pronto — escolha a voz e clique Carregar.'); };
+  if (sherpaReady) window.__sherpaBoot();
+  labLog('página pronta; aguardando o runtime WASM (se travar aqui, o glue/.data não carregou — cheque o fetch-sherpa-wasm.ps1 e o npx serve).');
+})();
+</script>
+</body>
+</html>
