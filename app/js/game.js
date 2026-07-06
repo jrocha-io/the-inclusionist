@@ -43,6 +43,7 @@ const INCL_VERSION = String((typeof __BUILD__ !== 'undefined' && __BUILD__.versi
 /* ===================== constantes ===================== */
 // Constantes puras extraídas para core/constants.js (modularização Fase B).
 import { LOGICAL_W, LOGICAL_H, TILE, COIN_TARGET, TUNE, JUMP_BASE, ANIM, EASY, TILE_TYPES, TILE_COLOR } from './core/constants.js';
+import { Z } from './core/layers.js'; // #69/ADR-0020: ordem-z canônica (nomeada) do render
 import { rnd, randInt, shuffle } from './core/rng.js'; // Fase 2.26: RNG semeado (Tier 1)
 import { initCollision, caneBlockPx, isSolidType, tileAt, solidTile, solidAt, surfTop, isWcRampRiser, rampSurfaceY } from './core/collision.js'; // Estágio 4: colisão de grade (determinística; ctx por closures)
 import { BOX, SPAWN_X, SPAWN_Y, makePlayer, jumpVel, isBouncyGroundBelow, touchingWall, clingSides, firstClingSide, spiderReattach, wrapConvex } from './game/player.js'; // Estágio 4: entidade + geometria de colisão do jogador
@@ -1182,7 +1183,7 @@ function stepTileFx(){ lavaFxG.clear(); waterFxG.clear();
 }
 const playerSprite=new PIXI.Sprite(TEX_IDLE[0]); playerSprite.anchor.set(0.5,1); camera.addChild(playerSprite);
 players[0].sprite=playerSprite;
-camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); // FRENTE do player TAMBÉM no boot solo; a água/corais ficou no decoLayer (fundo)
+// (re-add-ao-topo removido — carLayer/themeFxG/fogG posicionados pelo zIndex canônico do bloco R1, logo abaixo; #69)
 /* ===================== L2: JUICE — micro-efeitos de resposta (toggles independentes no ?debug) =====================
    Cada efeito respeita o Movimento Reduzido do jogador: partículas→rm.particles, cintilar→rm.items,
    tremor de tela→rm.parallax (movimento de câmera), squash→rmWalk (personagem). Hit-stop é PAUSA, não movimento. */
@@ -1193,6 +1194,18 @@ function saveJuice(){ try{ localStorage.setItem('incl_juice',JSON.stringify(JUIC
 const easeOut3=t=>1-Math.pow(1-t,3); // easing padrão (recuperação do squash, fade das partículas)
 let particles=[], fxClock=0, hitstopT=0, shakeT=0, shakeDur=1, shakeMag=0;
 const fxG=new PIXI.Graphics(); camera.addChild(fxG); // acima dos players (re-erguida em ensureSprites)
+// ===== R1 (#69, ADR-0020): ORDEM-Z CANÔNICA do MUNDO — zIndex declarativo (core/layers.ts) sobrepõe os
+// addChildAt(getChildIndex) + os re-add-ao-topo (que ficam redundantes: o zIndex decide a ordem). Filhos ANINHADOS
+// (grassG/cityDecoG/lavaFxG no lifeLayer; waterFxG no decoLayer) mantêm a ordem interna do pai. Alvo: no-op visual.
+camera.sortableChildren = true;
+parallaxLayers[0].zIndex = Z.PARALLAX_4; starsG.zIndex = 3500; parallaxLayers[1].zIndex = Z.PARALLAX_3; parallaxLayers[2].zIndex = Z.PARALLAX_2;
+skyDecoG.zIndex = 6500; skyLayer.zIndex = 6700; abandonG.zIndex = Z.BG_DECOR - 100; decoLayer.zIndex = Z.BG_DECOR;
+worldSprite.zIndex = Z.TILES;
+rampLayer.zIndex = Z.SCENERY_INTERACT; ropeLayer.zIndex = Z.SCENERY_INTERACT + 10; elevLayer.zIndex = Z.SCENERY_INTERACT + 20;
+lifeLayer.zIndex = Z.FAUNA_BACK; extraLayer.zIndex = Z.ITEMS - 500; coinContainer.zIndex = Z.ITEMS;
+playerSprite.zIndex = Z.PLAYER; caneLayer.zIndex = Z.PLAYER + 10; chairLayer.zIndex = Z.PLAYER + 20;
+fxG.zIndex = Z.VFX_FRONT; carLayer.zIndex = Z.VEHICLES; themeFxG.zIndex = Z.FAUNA_FRONT; fogG.zIndex = Z.WEATHER - 500;
+darkLayer.zIndex = Z.DARK_WORLD; easyHitbox.zIndex = Z.WORLD_A11Y;
 function spawnParticle(x,y,vx,vy,life,color,size,grav){ if(particles.length>=160)particles.shift(); particles.push({x,y,vx,vy,life,max:life,color,size,g:grav||0}); }
 function puffDust(x,y,n){ if(!JUICE.dust||rm.particles)return; for(let i=0;i<n;i++)
   spawnParticle(x+(rnd()-0.5)*8, y-1-rnd()*2, (rnd()-0.5)*0.9, -0.2-rnd()*0.4, 14+rnd()*10, 0xcfc6b8, rnd()<0.4?2:1, 0.02); }
@@ -1216,8 +1229,8 @@ applyCrt();
 /* E11: sprites por jogador + render multi-viewport (render-to-texture) */
 let allPSprites=[playerSprite];
 function ensureSprites(){
-  for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); camera.addChild(s); allPSprites.push(s); }
-  camera.addChild(fxG); camera.addChild(carLayer); camera.addChild(themeFxG); camera.addChild(fogG); // re-adicionar = mover ao topo (partículas, CARROS, decor-front e névoa à frente dos players)
+  for(let i=allPSprites.length;i<numPlayers;i++){ const s=new PIXI.Sprite(TEX_IDLE[0]); s.anchor.set(0.5,1); s.zIndex=Z.PLAYER; camera.addChild(s); allPSprites.push(s); }
+  // (re-add-ao-topo removido — fxG/carLayer/themeFxG/fogG governados pelo zIndex canônico (bloco R1); sortableChildren re-ordena; #69)
   allPSprites.forEach((s,i)=>{ s.visible=i<numPlayers; s.tint=PCOLOR[i]||0xffffff; if(i<numPlayers)players[i].sprite=s; });
 }
 let vpTex=[], vpSpr=[], vpFrames=null, vpDots=[];
