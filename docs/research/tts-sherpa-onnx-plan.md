@@ -53,8 +53,10 @@ just another config row. Whether the target hardware can actually run either is 
    then cache in **OPFS/Cache API** → offline afterwards. Weights fetch once, then 100% local; disclosed to schools.
 3. **`platform/tts.ts` rewrite:** replace the `@mintplex-labs` dynamic import with the sherpa client. Keep the closure-DI
    shape, the mixer gate, and the Web Speech immediate fallback. **Route by content type** (the layered decision):
-   - phoneme · spell-letter · spell-syllable → **eSpeak** (meSpeak via esm.sh; raw `[[…]]` phonemes),
-   - words · sentences → **sherpa (miro-high)**,
+   - phoneme → **pre-recorded/spliced human clips** (~34 pt-BR) — NOT eSpeak (rejected: robotic) and NOT live TTS
+     (Piper/sherpa can't voice isolated phonemes; SSML `<phoneme>` is stripped; only a `lexicon.txt` hack exists). Duolingo
+     does audio-splicing (speak a word, cut the target sound). Authoring-time.
+   - spell-letter · spell-syllable · words · sentences → **sherpa** (Piper faber/miro; reads letters/syllables fine),
    - not-yet-loaded / failure → **Web Speech**.
 4. **PWA:** `vite-plugin-pwa` must cache the WASM + `espeak-ng-data` (precache) and the model (runtime cache) so the 2nd
    launch is offline. Add a size budget note (WASM+data+model ≈ tens of MB).
@@ -68,11 +70,21 @@ just another config row. Whether the target hardware can actually run either is 
 - **Keep** the standalone lab AND keep eSpeak + Web Speech as fallbacks (browser-inconsistent/dated, but zero-download
   and occasionally the only thing that works).
 
-## Still open
-- How the sherpa WASM + `espeak-ng-data` ship in Vite/`dist` and get precached for PWA/offline.
-- **Nothing here is validated yet** — eSpeak isn't even confirmed working in the browser lab. No item is "done" until a
-  passing user test says so.
+## MVP voice scope (Dev)
+- **MVP:** get **Piper faber + miro** and **Kokoro pb_alex + pb_dora** all working in `sherpa-lab.html`.
+- **Post-MVP:** the **10 Piper + 10 Kokoro** custom-timbre track (train new voices — fills the pt-BR female gap).
 
-## Status of the standalone lab (KEPT)
-The CDN-only lab **cannot** run sherpa (needs a build), so it stays for **eSpeak + Web Speech**. The neural A-B (miro vs
-faber vs jeff vs Kokoro) happens **in-game** once the sherpa runtime is wired, or in a small Dev-built harness.
+## Testing status (`sherpa-lab.html`)
+- The Dev **self-built** the WASM (mock 0-byte trick → light engine-only `.data`). Artifacts are ES modules — the page
+  imports the factory + `createOfflineTts`.
+- **crossOriginIsolated required:** the build has **pthreads**, so `SharedArrayBuffer` needs COOP/COEP. Fixed for the lab
+  with `docs/research/serve.json` (COOP `same-origin` + COEP `require-corp`). **Production decision pending:** enabling
+  site-wide COOP/COEP has knock-on effects (all cross-origin embeds need CORP) — for the game we may instead build sherpa
+  **single-threaded** to avoid isolation entirely. Decide at `tts.ts` integration.
+- The CDN-only `tts-engine-lab.html` was **deleted** (YAGNI). Neural A-B now lives in `sherpa-lab.html`.
+- **Nothing validated until a passing user test.**
+
+## Still open
+- How the sherpa WASM + `espeak-ng-data` ship in Vite/`dist` and get precached for PWA/offline (+ single-thread vs COOP/COEP).
+- Kokoro in the lab: needs `kokoro-multi-lang-v1_0` (~340 MB: model + `voices.bin` + tokens) and the **sid** index for
+  `pb_dora`/`pb_alex` (sherpa selects Kokoro speaker by integer sid, not name).
