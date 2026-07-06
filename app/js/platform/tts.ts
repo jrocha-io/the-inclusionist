@@ -33,10 +33,10 @@ export interface Tts {
   readonly narrateCount: number;
 }
 
-// A LIB (@mintplex-labs/piper-tts-web) vem do npm e é code-split pelo Vite (import dinâmico do MÓDULO → chunk local,
-// carregado no 1º uso; sem CDN, sem warning). O MODELO de voz fica no HuggingFace e os WASM no cdnjs/jsDelivr (defaults
-// da lib), em cache OPFS (offline após o 1º uso). R2 foi DESCARTADO (ADR-0021): o download único é coberto pelos
-// fallbacks Web Speech (nativo) + eSpeak (embutido); a API da lib só permite trocar o WASM, não o host do modelo. (#69→#38)
+// ⚠️ MIGRAÇÃO PENDENTE (ADR-0022): esta implementação com @mintplex-labs/piper-tts-web será SUBSTITUÍDA por
+// sherpa-onnx-wasm (loader universal, modelos VITS/Piper + Kokoro-multi-lang carregados de qq URL R2 em runtime via
+// FS.writeFile; lazy-fetch; eSpeak/Web Speech de fallback). @mintplex-labs foi descontinuado e só carrega 2 vozes pt-BR.
+// Enquanto a migração não vem: a lib vem do npm (code-split pelo Vite no 1º uso), modelo do HF em cache OPFS. (#69→#38)
 const TTS_SOURCES = { 'pt-BR': { engine: 'piper', voice: 'pt_BR-faber-medium' } };
 
 export function createTts(ctx: TtsCtx): Tts {

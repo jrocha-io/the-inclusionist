@@ -18,9 +18,12 @@ context-and-problem-statement: |
 
 decision-drivers:
 - Voice freedom: run high-quality pt-BR voices (miro-high) + faber/jeff-medium, not just what one lib's map allows.
-- Host freedom: load models from any CORS URL (HF, our own CDN) — decouples us from a lib's hardcoded host.
+- Host freedom: load models from any CORS URL — decouples us from a lib's hardcoded host.
 - Offline (pillar): WASM + model cached (OPFS/Cache API) → offline after the first fetch; schools have no IT/LAN.
 - Stability/maintenance: sherpa-onnx (k2-fsa) is actively maintained across 12 languages/platforms; Mintplex is not.
+- **Tiered quality by hardware** (Dev): the baseline must run on the weakest school machine in use, BUT better hardware
+  must be allowed to opt into better voices (e.g. Kokoro multi-lang, a ~340 MB model) — progressive enhancement, not
+  lowest-common-denominator-only.
 - Research-first: validated model availability + the lib API before deciding.
 
 considered-options:
@@ -48,20 +51,29 @@ decision-outcome:
     link: *sherpa
     justification: |
       Adopt **sherpa-onnx-wasm** as the neural TTS runtime and drop @mintplex-labs (and Kokoro-js/Kitten for pt-BR).
-      Target pt-BR voices from the k2-fsa `tts-models` release: **miro-high** (high quality) + **faber-medium** +
-      **jeff-medium** (all real pt-BR; `dii` is pt-PT, `dora-high` does not exist for pt-BR). Load models at runtime
-      from a CORS URL into the WASM FS (universal loader), so voice/host are not baked in. **eSpeak** (meSpeak via
-      esm.sh) stays as the engine for the raw **phoneme / spell-letter / spell-syllable** drills (sherpa/Piper take text,
-      not phonemes); neural TTS is for **words + sentences**. The ADR-0021 stance carries forward: **no Cloudflare R2**;
-      weights fetch once from a public host (HF or our CDN) and then run 100% locally, disclosed to schools.
+      **Approach B (universal loader):** build the sherpa-wasm engine WITHOUT a baked model; at runtime fetch each
+      voice's files → `FS.writeFile` → init `OfflineTts`. Voices are then a config/JSON table — adding one is a data
+      change, not a code change. **Tiered by hardware:**
+        · baseline pt-BR VITS/Piper from k2-fsa `tts-models`: **miro-high** (high) + **faber-medium** + **jeff-medium**
+          (all real pt-BR; `dii` is pt-PT, there is no pt-BR `dora-high`); and
+        · a HIGH-END option for better machines: **Kokoro multi-lang** via sherpa (`kokoro-multi-lang-v1_0.onnx` ~340 MB
+          + `voices.bin` + `tokens.txt` + `dataDir`; pt-BR voices `pb_dora`/`pb_alex`).
+      **Default = lazy-fetch** (nothing bundled): use **eSpeak** (and Web Speech) to talk WHILE the neural model
+      downloads, then decide per device whether Piper/Kokoro actually runs. **eSpeak stays** the engine for the raw
+      **phoneme / spell-letter / spell-syllable** drills (sherpa takes text, not phonemes); neural does **words +
+      sentences**. **Web Speech + eSpeak are kept as fallbacks** even if rarely hit (browser-inconsistent / dated, but
+      zero-download).
+      **Hosting = Cloudflare R2** (REVERSES ADR-0021's 'no R2'): HuggingFace does not have the bandwidth to serve raw
+      un-tarred model files; R2 (CORS `*`) hosts the `.onnx`/`tokens.txt`/`voices.bin`/`espeak-ng-data`. Weights still
+      fetch once and then run 100% locally, cached (OPFS/Cache API), disclosed to schools.
   consequences:
     positive:
     - *any
     - *offline
     - *maint
     neutral:
-    - "The standalone lab has done its job (ruled Kokoro/Kitten out, showed faber's limits); sherpa work lands in the GAME (Vite + Dev build), not the CDN-only lab."
-    - "eSpeak remains the phoneme layer; sherpa/Piper the words+sentences layer — the 'voice layers by content type' split still holds."
+    - "The CDN-only lab can't run sherpa (needs a build) → it is KEPT for eSpeak + Web Speech comparison; the neural A-B (miro/faber/jeff/Kokoro) happens in-game or in a Dev-built harness."
+    - "eSpeak remains the phoneme layer; sherpa the words+sentences layer — the 'voice layers by content type' split still holds. Web Speech + eSpeak kept as fallbacks."
     negative:
     - *build
     - "Larger first-load footprint (WASM engine + espeak-ng-data + model) — mitigated by caching + a small default voice."
@@ -70,8 +82,12 @@ decision-outcome:
     offline on the 2nd load. Then tts.ts routes phoneme/letter/syllable → eSpeak, words/sentences → sherpa.
 
 more-information: |
-  Supersedes the LIB half of ADR-0021 (npm @mintplex-labs); the 'no R2 / weights from HF / disclose' half is retained.
-  Open implementation questions (tracked in the plan): (a) js-tts-wrapper `SherpaOnnxWasmTTSClient` (build-baked model)
-  vs a raw sherpa-wasm engine build + runtime FS model loading (universal, any URL) — Dev's build call; (b) how the WASM
-  + espeak-ng-data ship in Vite/`dist` and are cached for PWA/offline; (c) model hosting (HF vs our CDN). Plan +
-  expected-results table: docs/research/tts-sherpa-onnx-plan.md. Models: k2-fsa/sherpa-onnx releases (tag tts-models).
+  Supersedes the LIB half of ADR-0021 (npm @mintplex-labs). The 'no R2, weights from HF' half is **REVERSED**: models now
+  live on **Cloudflare R2** (HF lacks raw-file bandwidth); the 'fetch once → 100% local → disclose to schools' principle
+  is retained. Dev decisions locked this round: **Approach B** (universal loader); **R2** hosting; **lazy-fetch** default
+  (eSpeak/Web Speech cover the download gap); **keep** eSpeak + Web Speech as fallbacks; **tiered by hardware** (baseline
+  VITS/Piper for weak machines, Kokoro multi-lang opt-in for better ones). Still open: how the WASM + espeak-ng-data ship
+  in Vite/`dist` and are cached for PWA/offline. **NOT YET VALIDATED by a passing user test** — even eSpeak is still
+  unconfirmed in the browser lab; nothing here is "done" until José tests it. Plan: docs/research/tts-sherpa-onnx-plan.md.
+  VITS/Piper models: k2-fsa/sherpa-onnx releases (tag tts-models). Kokoro multi-lang: kokoro-multi-lang-v1_0.onnx (~340 MB)
+  + voices.bin + tokens.txt + dataDir (sherpa config `kokoro:{model,voices,tokens,dataDir}`, voice `pb_dora`/`pb_alex`).
