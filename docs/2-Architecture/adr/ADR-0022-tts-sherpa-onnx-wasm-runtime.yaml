@@ -91,3 +91,5 @@ more-information: |
   unconfirmed in the browser lab; nothing here is "done" until José tests it. Plan: docs/research/tts-sherpa-onnx-plan.md.
   VITS/Piper models: k2-fsa/sherpa-onnx releases (tag tts-models). Kokoro multi-lang: kokoro-multi-lang-v1_0.onnx (~340 MB)
   + voices.bin + tokens.txt + dataDir (sherpa config `kokoro:{model,voices,tokens,dataDir}`, voice `pb_dora`/`pb_alex`).
+  Why ONNX and not NCNN (sherpa-ncnn also does vits-piper TTS + WASM): docs/research/tts-ncnn-vs-onnx.md — ONNX wins on
+  voice-ecosystem breadth + fidelity + WASM maturity for a browser; NCNN's edge (tiny ARM binary) isn't our bottleneck.

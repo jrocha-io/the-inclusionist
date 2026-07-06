@@ -112,12 +112,17 @@ fillSamples('pt');
 
 rateEl.oninput = () => { RATE = parseFloat(rateEl.value); rateValEl.textContent = RATE.toFixed(2)+'×'; };
 
-async function cachedBytes(url, force){
+// Prioridade: (1) Cache API [disco, persiste] → (2) pasta LOCAL sherpa-wasm/models/<x>/ [arquivo real, mesma origem] → (3) HF.
+async function getBytes(x, file, force){
+  const key = HF+x+'/resolve/main/'+file;           // chave de cache estável
   const cache = await caches.open('sherpa-voices');
-  if (!force) { const hit = await cache.match(url); if (hit) return { bytes:new Uint8Array(await hit.arrayBuffer()), ms:0, cached:true }; }
-  const t0 = performance.now(); const r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' em '+url);
-  const buf = await r.arrayBuffer(); await cache.put(url, new Response(buf));
-  return { bytes:new Uint8Array(buf), ms:Math.round(performance.now()-t0), cached:false };
+  if (!force) { const hit = await cache.match(key); if (hit) return { bytes:new Uint8Array(await hit.arrayBuffer()), src:'cache', ms:0 }; }
+  let resp = null, src = 'HF';
+  try { const lr = await fetch('sherpa-wasm/models/'+x+'/'+file); if (lr.ok) { resp = lr; src = 'local'; } } catch(e){}
+  const t0 = performance.now();
+  if (!resp) { const hr = await fetch(key); if (!hr.ok) throw new Error('HTTP '+hr.status+' (nem local nem HF) '+file); resp = hr; }
+  const buf = await resp.arrayBuffer(); await cache.put(key, new Response(buf));
+  return { bytes:new Uint8Array(buf), src:src, ms:Math.round(performance.now()-t0) };
 }
 
 function useSession(x){ tts = sessions[x]; curVoice = x; const lang = langOf(x); if (lang !== curLang) { curLang = lang; fillSamples(lang); } document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false); }
@@ -128,14 +133,14 @@ async function loadVoice(force){
   if (force && sessions[x]) { try { sessions[x].free && sessions[x].free(); } catch(e){} delete sessions[x]; }
   setStatus('warn',(force?'re-baixando ':'baixando ')+x+' do HF (1ª vez desta voz)…');
   try {
-    const o = await cachedBytes(HF+x+'/resolve/main/'+x+'.onnx', force);
-    const t = await cachedBytes(HF+x+'/resolve/main/tokens.txt', force);
+    const o = await getBytes(x, x+'.onnx', force);
+    const t = await getBytes(x, 'tokens.txt', force);
     sherpaModule.FS.writeFile('model.onnx', o.bytes); sherpaModule.FS.writeFile('tokens.txt', t.bytes);
     const cfg = { offlineTtsModelConfig: { offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
     const t0 = performance.now(); sessions[x] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
     useSession(x);
     setStatus('ok','pronto: '+x+' — trocar p/ ela agora é instantâneo');
-    labLog('[load '+x+'] '+(o.cached?'cache':o.ms+'ms download')+' · modelo '+(o.bytes.length/1e6).toFixed(1)+' MB · init '+initMs+' ms · '+langOf(x));
+    labLog('[load '+x+'] onnx '+o.src+' '+(o.bytes.length/1e6).toFixed(1)+' MB'+(o.ms?(' em '+o.ms+'ms'):'')+' · init '+initMs+' ms · '+langOf(x));
   } catch(err){ setStatus('err', err.message||String(err)); labLog('[load '+x+'] ERRO: '+(err.message||err)); }
   loadBtn.disabled=false; reloadBtn.disabled=false;
 }

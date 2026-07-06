@@ -44,9 +44,19 @@ cp "$SRC"/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-on
 npx serve docs/research   # lê o serve.json (COOP/COEP, exigido pelo build com pthreads); abra /sherpa-lab.html
 ```
 
-Na página: escolha a voz no seletor → baixa **sob demanda do HF** (só ela; cacheada em Cache API) → ▶ nas tarefas. Trocar
-para uma voz já baixada é **instantâneo** (sessão em memória). Sem pré-download — o lab busca cada `.onnx` de
-`huggingface.co/csukuangfj/vits-piper-<X>/<X>.onnx`.
+Na página: escolha a voz no seletor → ▶ nas tarefas. Trocar para uma voz já carregada é **instantâneo** (sessão em memória).
+
+## Onde ficam os pesos (ordem de prioridade)
+
+1. **Cache API** (`caches` → `sherpa-voices`) — **disco persistente** do navegador (sobrevive a reload e a fechar/reabrir;
+   **não** é memória, **não** re-baixa). Veja em DevTools → Application → Cache Storage → `sherpa-voices`.
+2. **Pasta local `sherpa-wasm/models/<X>/`** — **arquivos reais** que você controla (inspeciona, reusa, hospeda no R2). O
+   lab carrega **daqui primeiro** (mesma origem, offline). Baixe as que quiser com:
+   ```powershell
+   pwsh docs/research/sherpa-wasm/download-voices.ps1   # edite a lista $VOICES; salva em models/<X>/
+   ```
+3. **HF do csukuangfj** — fallback: se não estiver no cache nem na pasta, o lab busca de
+   `huggingface.co/csukuangfj/vits-piper-<X>/<X>.onnx`. (`models/` é git-ignored — é grande.)
 
 ## Se der erro, o que o Log diz
 
