@@ -90,7 +90,9 @@ export function createAudioNav(ctx: AudioNavCtx): AudioNav {
   }
 
   function waterNav(pl: Player): void { // NADO CEGO: guia por contato com bordas + superfície
-    const dir = pl.facing < 0 ? -1 : 1, tx = Math.floor(pl.x / ctx.TILE), tyF = Math.floor((pl.y - 1) / ctx.TILE), tyH = Math.floor((pl.y - ctx.BOX.h) / ctx.TILE);
+    // dir tipado como number (não 1|-1) DE PROPÓSITO: o original usa `dir!==0` (sempre true aqui, pois facing é ±1) —
+    // preservo essa guarda sempre-verdadeira exatamente; alargar o tipo satisfaz o tsc sem mudar o comportamento.
+    const dir: number = pl.facing < 0 ? -1 : 1, tx = Math.floor(pl.x / ctx.TILE), tyF = Math.floor((pl.y - 1) / ctx.TILE), tyH = Math.floor((pl.y - ctx.BOX.h) / ctx.TILE);
     const wallAhead = ctx.solidAt(tx + dir, tyF) || ctx.solidAt(tx + dir, tyH); // parede lateral (azulejo)
     const floorBelow = ctx.solidAt(tx, tyF + 1); // chão (fundo)
     const openAbove = ctx.tileAt(tx, tyH - 1) !== 3 && !ctx.solidAt(tx, tyH - 1); // acima da cabeça é ar → dá p/ subir/sair
