@@ -57,7 +57,7 @@ export function createTts(ctx: TtsCtx): Tts {
       return;
     }
     ttsLoading = true; const t0 = performance.now(); ctx.srSay('Baixando a voz neural (precisa de internet só no 1º uso)…');
-    import(TTS_SOURCES['pt-BR'].lib).then(async (mod) => {
+    import(/* @vite-ignore */ TTS_SOURCES['pt-BR'].lib).then(async (mod) => { // URL de CDN em runtime (configurável) → Vite não analisa; intencional
       const session = await mod.TtsSession.create({ voiceId: TTS_SOURCES['pt-BR'].voice,
         progress: (p: { loaded: number; total: number }) => { if (!p || !p.total) return; const pct = Math.round(p.loaded * 100 / p.total); if (pct >= _ttsPct + 25 && pct < 100) { _ttsPct = pct; ctx.srSay('Voz neural: ' + pct + '%.'); } },
         logger: () => {} });
