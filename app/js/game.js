@@ -1200,13 +1200,16 @@ const fxG=new PIXI.Graphics(); camera.addChild(fxG); // acima dos players (re-er
 // (grassG/cityDecoG/lavaFxG no lifeLayer; waterFxG no decoLayer) mantêm a ordem interna do pai. Alvo: no-op visual.
 camera.sortableChildren = true;
 parallaxLayers[0].zIndex = Z.PARALLAX_4; starsG.zIndex = 3500; parallaxLayers[1].zIndex = Z.PARALLAX_3; parallaxLayers[2].zIndex = Z.PARALLAX_2;
-skyDecoG.zIndex = 6500; skyLayer.zIndex = 6700; abandonG.zIndex = Z.BG_DECOR - 100; decoLayer.zIndex = Z.BG_DECOR;
+skyDecoG.zIndex = 6500; skyLayer.zIndex = 6700; decoLayer.zIndex = Z.BG_DECOR;
+// Área SECRETA (darkRegions): conteúdo (abandonG) + escuridão que o cobre — camada do MEIO, à frente dos tiles mas ATRÁS
+// da fauna/itens/player (NÃO é o DARK_WORLD de modo cego). Senão a escuridão da região cobre borboletas/grama. (#69)
+abandonG.zIndex = Z.TILES + 400; // 8400 — conteúdo secreto, sobre os tiles
 worldSprite.zIndex = Z.TILES;
 rampLayer.zIndex = Z.SCENERY_INTERACT; ropeLayer.zIndex = Z.SCENERY_INTERACT + 10; elevLayer.zIndex = Z.SCENERY_INTERACT + 20;
 lifeLayer.zIndex = Z.FAUNA_BACK; extraLayer.zIndex = Z.ITEMS - 500; coinContainer.zIndex = Z.ITEMS;
 playerSprite.zIndex = Z.PLAYER; caneLayer.zIndex = Z.PLAYER + 10; chairLayer.zIndex = Z.PLAYER + 20;
 fxG.zIndex = Z.VFX_FRONT; carLayer.zIndex = Z.VEHICLES; themeFxG.zIndex = Z.FAUNA_FRONT; themeFxBackG.zIndex = Z.FLORA_BACK + 500; fogG.zIndex = Z.WEATHER - 500;
-darkLayer.zIndex = Z.DARK_WORLD; easyHitbox.zIndex = Z.WORLD_A11Y;
+darkLayer.zIndex = Z.TILES + 500; easyHitbox.zIndex = Z.WORLD_A11Y; // darkLayer = escuridão da área SECRETA (meio, atrás dos atores), NÃO DARK_WORLD (#69)
 function spawnParticle(x,y,vx,vy,life,color,size,grav){ if(particles.length>=160)particles.shift(); particles.push({x,y,vx,vy,life,max:life,color,size,g:grav||0}); }
 function puffDust(x,y,n){ if(!JUICE.dust||rm.particles)return; for(let i=0;i<n;i++)
   spawnParticle(x+(rnd()-0.5)*8, y-1-rnd()*2, (rnd()-0.5)*0.9, -0.2-rnd()*0.4, 14+rnd()*10, 0xcfc6b8, rnd()<0.4?2:1, 0.02); }
