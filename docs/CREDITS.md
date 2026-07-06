@@ -40,3 +40,21 @@ SOFTWARE.
 
 > Nota: confirmar o ano/linha exata de copyright no `LICENSE` do repositório do Clarity e alinhar aqui antes de
 > qualquer distribuição formal. MIT é compatível com GPL-3.0 (as porções MIT mantêm seu aviso; o todo é GPL-3.0).
+
+## Voz neural (TTS) — Next-gen Kaldi, Piper, eSpeak NG
+
+A narração por voz roda **inteiramente no navegador/offline** graças ao trabalho excepcional de:
+
+- **[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)** (projeto **Next-gen Kaldi / k2-fsa**, **Apache-2.0**) — o motor
+  de inferência TTS em WebAssembly. Um agradecimento especial a **Fangjun Kuang** ([@csukuangfj](https://github.com/csukuangfj)),
+  engenheiro-líder do Next-gen Kaldi (sherpa-onnx, k2, icefall, kaldi-native-fbank; coautor de trabalhos como
+  [ZipVoice](https://github.com/k2-fsa/ZipVoice)), que **empacotou as vozes Piper no formato ONNX/sherpa** (repositórios
+  `vits-piper-*`) — inclusive **portando a `dii` de pt-PT para pt-BR** — tornando este uso possível. Obrigado.
+- **[Piper](https://github.com/rhasspy/piper)** (Michael Hansen / rhasspy, **MIT**) — o sistema TTS VITS por trás das vozes.
+- **[eSpeak NG](https://github.com/espeak-ng/espeak-ng)** (**GPL-3.0**) — a fonemização (`espeak-ng-data`) usada pelas vozes.
+- **Vozes pt-BR** (`faber`, `jeff`, `miro`, `cadu`) e pt-PT (`dii`) — treinadas pela comunidade Piper a partir de datasets
+  de locutores; a licença de cada voz está no `MODEL_CARD` do respectivo pacote e deve ser confirmada por voz antes de
+  distribuição formal.
+
+> Os pesos das vozes são **baixados uma vez** (de um host público) e rodam **100% localmente** depois — nenhum áudio de
+> criança sai do dispositivo. Ver `docs/2-Architecture/adr/ADR-0022-tts-sherpa-onnx-wasm-runtime.yaml`.

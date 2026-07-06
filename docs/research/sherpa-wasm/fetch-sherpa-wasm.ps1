@@ -13,7 +13,8 @@ $dir = $PSScriptRoot
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 
 # Modelos pt-BR (só precisamos do .onnx + tokens.txt de cada um; o espeak-ng-data vem do SEU build wasm)
-$models = @('vits-piper-pt_BR-miro-high', 'vits-piper-pt_BR-faber-medium', 'vits-piper-pt_BR-jeff-medium')
+# Empacotados por Fangjun Kuang (csukuangfj / k2-fsa) no formato sherpa. dii = pt-PT portado ao pt-BR.
+$models = @('vits-piper-pt_BR-faber-medium', 'vits-piper-pt_BR-jeff-medium', 'vits-piper-pt_BR-miro-high', 'vits-piper-pt_BR-dii-high', 'vits-piper-pt_PT-miro-high')
 $rel = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models'
 foreach ($m in $models) {
   try {

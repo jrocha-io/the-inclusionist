@@ -43,9 +43,11 @@
 
 <div class="bar">
   <label>Voz <select id="voice">
-    <option value="vits-piper-pt_BR-miro-high">miro-high (high)</option>
-    <option value="vits-piper-pt_BR-faber-medium">faber-medium</option>
-    <option value="vits-piper-pt_BR-jeff-medium">jeff-medium</option>
+    <option value="vits-piper-pt_BR-faber-medium">faber-medium (pt-BR)</option>
+    <option value="vits-piper-pt_BR-jeff-medium">jeff-medium (pt-BR)</option>
+    <option value="vits-piper-pt_BR-miro-high">miro-high (pt-BR, high)</option>
+    <option value="vits-piper-pt_BR-dii-high">dii-high (pt-PT→pt-BR)</option>
+    <option value="vits-piper-pt_PT-miro-high">miro-high (pt-PT)</option>
   </select></label>
   <button id="loadBtn" class="primary" disabled>Carregar voz</button>
   <button id="reloadBtn" disabled>Baixar novamente</button>
@@ -80,6 +82,7 @@ let sherpaModule = null;
     { id:'frase', label:'5 · Frases', text:'O gato preto subiu no telhado da casa amarela.' },
   ];
   var RATE = 0.85, tts = null, curVoice = null;
+  var sessions = {}; // voz -> OfflineTts já criado (troca instantânea, sem re-fetch/re-init do modelo de 63 MB)
   var voiceSel = document.getElementById('voice'), loadBtn = document.getElementById('loadBtn');
   var reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getElementById('clearBtn');
   var statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
@@ -106,42 +109,43 @@ let sherpaModule = null;
     return new Uint8Array(buf);
   }
 
+  function useSession(v){ tts = sessions[v]; curVoice = v; document.querySelectorAll('button[data-speak]').forEach(function(b){ b.disabled=false; }); }
+
   async function loadVoice(force){
-    var v = voiceSel.value; loadBtn.disabled = true; reloadBtn.disabled = true; setStatus('warn',(force?'re-baixando ':'carregando ')+v+'…');
+    var v = voiceSel.value; loadBtn.disabled = true; reloadBtn.disabled = true;
+    if (!force && sessions[v]) { useSession(v); setStatus('ok','pronto: '+v+' — já carregada (troca instantânea)'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
+    if (force && sessions[v]) { try { sessions[v].free && sessions[v].free(); } catch(e){} delete sessions[v]; }
+    setStatus('warn',(force?'re-baixando ':'carregando ')+v+' — 1ª vez desta voz (~63 MB, demora só agora)…');
     try {
       var onnx  = await cachedBytes('sherpa-wasm/'+v+'/model.onnx', force);
       var tok   = await cachedBytes('sherpa-wasm/'+v+'/tokens.txt', force);
-      sherpaModule.FS.writeFile('model.onnx', onnx);
+      sherpaModule.FS.writeFile('model.onnx', onnx);   // não afeta sessões já criadas (elas já têm o modelo na memória)
       sherpaModule.FS.writeFile('tokens.txt', tok);
-      labLog('['+v+'] model.onnx ('+ (onnx.length/1e6).toFixed(1) +' MB) + tokens.txt escritos no FS.');
-      // dataDir = espeak-ng-data já assado no bundle. Se o FS root usar outro nome, o Log de FS "/" acima mostra.
-      // NÃO passar os sub-configs Matcha/Kokoro/Kitten/etc.: o wrapper preenche defaults seguros só quando a chave está
-      // AUSENTE. Passar {} deixa config.acousticModel = undefined → lengthBytesUTF8(undefined) → "reading 'length'".
-      var cfg = {
-        offlineTtsModelConfig: {
-          offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 },
-          numThreads:1, debug:1, provider:'cpu'
-        }, ruleFsts:'', ruleFars:'', maxNumSentences:1
-      };
-      if (tts && tts.free) { try { tts.free(); } catch(e){} }
-      tts = createOfflineTts(sherpaModule, cfg);
-      curVoice = v;
-      document.querySelectorAll('button[data-speak]').forEach(function(b){ b.disabled=false; });
-      setStatus('ok','pronto: '+v);
-      labLog('['+v+'] OfflineTts criado.');
+      // Só o VITS: o wrapper preenche Matcha/Kokoro/Kitten/etc. com defaults quando a chave está AUSENTE; passar {} quebra (undefined.length).
+      var cfg = { offlineTtsModelConfig: { offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 }, numThreads:1, debug:1, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
+      var t0 = performance.now();
+      sessions[v] = createOfflineTts(sherpaModule, cfg);
+      var dt = Math.round(performance.now()-t0);
+      useSession(v);
+      setStatus('ok','pronto: '+v+' ('+dt+' ms; trocar p/ ela agora é instantâneo)');
+      labLog('['+v+'] OfflineTts criado em '+dt+' ms.');
     } catch(err){ setStatus('err', err.message||String(err)); labLog('['+v+'] ERRO ao carregar: '+(err.message||err)); }
     loadBtn.disabled = false; reloadBtn.disabled = false;
   }
 
   async function clearVoices(){
-    try { var ok = await caches.delete('sherpa-voices'); labLog('[cache] vozes baixadas '+(ok?'limpas.':'já estavam vazias.')); setStatus('warn','cache de vozes limpo — a próxima carga baixa de novo.'); }
+    for (var k in sessions) { try { sessions[k].free && sessions[k].free(); } catch(e){} } sessions = {}; tts = null; curVoice = null;
+    try { var ok = await caches.delete('sherpa-voices'); labLog('[cache] vozes '+(ok?'limpas (download + sessões).':'já estavam vazias.')); setStatus('warn','vozes limpas — a próxima carga baixa e recria.'); }
     catch(e){ labLog('[cache] erro ao limpar: '+(e.message||e)); }
   }
 
   function playSamples(samples, sampleRate){
     return new Promise(function(res,rej){ try {
+      var peak = 0; for (var i=0;i<samples.length;i++){ var a = samples[i]<0?-samples[i]:samples[i]; if(a>peak) peak=a; }
+      var gain = peak>0.0001 ? Math.min(4, 0.9/peak) : 1;   // normaliza o pico p/ ~0.9 (miro sai baixo); teto 4× p/ não estourar ruído
       var AC = window.AudioContext||window.webkitAudioContext; var ac = new AC();
-      var buf = ac.createBuffer(1, samples.length, sampleRate); buf.getChannelData(0).set(samples);
+      var buf = ac.createBuffer(1, samples.length, sampleRate); var ch = buf.getChannelData(0);
+      for (var j=0;j<samples.length;j++) ch[j] = samples[j]*gain;
       var src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination);
       src.onended = function(){ ac.close && ac.close(); }; src.start(); res();
     } catch(e){ rej(e); } });
@@ -162,9 +166,10 @@ let sherpaModule = null;
   }
 
   document.querySelectorAll('button[data-speak]').forEach(function(b){ b.onclick=function(){ speak(b.dataset.speak, b); }; });
-  loadBtn.onclick = function(){ loadVoice(false); };      // usa cache se já baixou
-  reloadBtn.onclick = function(){ loadVoice(true); };     // força re-download
+  loadBtn.onclick = function(){ loadVoice(false); };      // usa cache/sessão se já tiver
+  reloadBtn.onclick = function(){ loadVoice(true); };     // força re-download + recria a sessão
   clearBtn.onclick = clearVoices;
+  voiceSel.onchange = function(){ loadVoice(false); };    // trocar no seletor já carrega (instantâneo se já em cache)
 
   // boot: instancia o motor WASM (factory ESM) e habilita a UI
   labLog('carregando o motor WASM (módulo ESM)…');
