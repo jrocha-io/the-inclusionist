@@ -22,6 +22,7 @@ import { gameSay } from './platform/speech.js';
 import { createAudioJingles } from './platform/audio-jingles.js'; // Tier 2 (áudio r1): jingles de vitória/enigma/fogos
 import { createAudioEarcons } from './platform/audio-earcons.js'; // Tier 2 (áudio r2): earcons (sfx) + porta + legendas
 import { createAudioNav } from './platform/audio-nav.js'; // Tier 2 (áudio r3): pistas espaciais (bengala/sonar/guarda/guia/nado)
+import { createAudioAmbient } from './platform/audio-ambient.js'; // Tier 2 (áudio r4): trilha de ambiente + trovão
 import { TEX_IDLE, TEX_WALK, TEX_RUN, FLAVORS, TEX_JUMP_UP, TEX_JUMP_DOWN, TEX_CLIMB, TEX_FLY, TEX_CLING_WALL, TEX_CLING_CEIL, TEX_SWIM, TEX_SWIMIDLE, initCharacterSprites } from './render/sprites.js';
 import { makeCanvas, tex, pixDisc } from './render/canvas.js';
 import { coinCanvas, coinTexture, treeCanvas, treeTexture, powerupCanvas } from './render/props.js';
@@ -488,29 +489,21 @@ const nav = createAudioNav({ tileAt, solidAt, held, tonePan, noiseHit, srSay, na
   getCoins: () => coins, getPlayers: () => players, getNumPlayers: () => numPlayers, getCenario: () => CENARIO,
   getModoCego: () => modoCego, getAudioCtx: () => audioCtx, getSoundOn: () => soundOn, getAudioCat: () => audioCat });
 // ===== F4: camadas de AMBIENTE (loops sintetizados) + PISTA/GUIA auditivo (beacon em laço) =====
-let _ambient=null, _rainLevel=0, _weatherT=0; // _guideCount vive agora em platform/audio-nav.ts (r3)
-function buildAmbient(ac){ const cat=catNode('ambient'); if(!cat)return null;
-  const n=(ac.sampleRate*2)|0, buf=ac.createBuffer(1,n,ac.sampleRate), d=buf.getChannelData(0); let last=0; for(let i=0;i<n;i++){ const w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; } // ruído rosa em loop
-  const mk=(type,freq,q,vol)=>{ const s=ac.createBufferSource(); s.buffer=buf; s.loop=true; const f=ac.createBiquadFilter(); f.type=type; f.frequency.value=freq; if(q)f.Q.value=q; const g=ac.createGain(); g.gain.value=vol; s.connect(f).connect(g).connect(cat); try{s.start();}catch(e){} return g; };
-  return { hum:mk('lowpass',480,0,0.055), wind:mk('highpass',3200,0,0.028), water:mk('bandpass',820,1.4,0), rain:mk('highpass',1700,0,0) }; } // trânsito/rumor · folhas/vento · água(proximidade) · chuva(ciclo)
-function updateAmbient(){ if(!audioCtx||!soundOn||!audioCat.ambient.on){ return; } if(!_ambient){ _ambient=buildAmbient(audioCtx); if(!_ambient)return; }
-  const ac=audioCtx, pl=players[0], px=Math.floor(pl.x/TILE), py=Math.floor(pl.y/TILE);
-  let nearWater=0; for(let dx=-3;dx<=3;dx++)for(let dy=-3;dy<=3;dy++){ if(tileAt(px+dx,py+dy)===3) nearWater=Math.max(nearWater,1-Math.hypot(dx,dy)/4.2); }
-  _ambient.water.gain.setTargetAtTime(0.15*nearWater, ac.currentTime, 0.3);
-  _ambient.rain.gain.setTargetAtTime(0.09*_rainLevel, ac.currentTime, 0.5); } // chuva: gain segue _rainLevel (calculado em updateWeather); 0 = silêncio total
+let _rainLevel=0, _weatherT=0; // _rainLevel = ponte clima→áudio (updateWeather escreve; audio-ambient lê). _ambient/_guideCount migraram
+// Trilha de ambiente sintetizada + trovão extraídos p/ platform/audio-ambient.ts (Tier 2, áudio r4). O clima VISUAL fica no
+// game.js (updateWeather/drawWeather) e migra p/ render depois. Uso: ambient.updateAmbient / ambient.thunder.
+const ambient = createAudioAmbient({ ensureAC, getAudioCtx: () => audioCtx, catNode, audioOut, noiseBuffer, tileAt, TILE,
+  getSoundOn: () => soundOn, getVolume: () => volume, getAudioCat: () => audioCat, getPlayers: () => players, getRainLevel: () => _rainLevel });
 // ===== CLIMA: chuva de verdade (visual + trovão), o áudio segue o visual =====
 let weatherLayer=null, _rainDrops=null, _flash=0, _thunderCD=240; // weatherLayer criado após o `app` existir
-function thunder(inten){ if(!soundOn||volume<=0)return; const ac=ensureAC(); if(!ac)return; try{ // rumor grave sintetizado (intensidade variável)
-  const src=ac.createBufferSource(); src.buffer=noiseBuffer(ac); src.loop=true; const bq=ac.createBiquadFilter(); bq.type='lowpass'; bq.frequency.value=140+Math.random()*220; bq.Q.value=0.7;
-  const g=ac.createGain(),t=ac.currentTime, dur=0.7+inten*1.4; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.min(0.55,0.2*inten)*volume,t+0.04); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  src.connect(bq).connect(g).connect(catNode('ambient')||audioOut()||ac.destination); src.start(t); src.stop(t+dur+0.1); }catch(e){} }
+// thunder (rumor do trovão) extraído p/ platform/audio-ambient.ts (Tier 2, áudio r4). Chamado por updateWeather como ambient.thunder.
 function updateWeather(){ _weatherT++;
   // L5 (rotina do José): tempo bom nos primeiros 30s; depois LOOP de 60s = garoa 5s → chuva 5s → garoa 5s → bom 45s.
   // rm.decor (Movimento Reduzido de cena) desliga a chuva visual — o áudio segue o visual (updateAmbient lê _rainLevel).
   const sec=_weatherT/60; let lvl=0;
   if(sec>=30 && !rm.decor && CENARIO==='cidade'){ const c=(sec-30)%60; lvl = c<5 ? 0.35 : c<10 ? 1 : c<15 ? 0.35 : 0; } // garoa=0,35 · chuva=1 — SÓ NA CIDADE (nenhum tema v3 tem chuva)
   const step=1/30; _rainLevel += Math.max(-step, Math.min(step, lvl-_rainLevel)); if(Math.abs(lvl-_rainLevel)<0.02)_rainLevel=lvl; // rampa ~1s (sem ligar "seco")
-  if(_rainLevel>0.45){ _thunderCD--; if(_thunderCD<=0){ _thunderCD=200+Math.floor(rnd()*420); const inten=0.35+rnd()*0.65; _flash=Math.max(_flash,inten); thunder(inten); } } // trovão SÓ na chuva forte
+  if(_rainLevel>0.45){ _thunderCD--; if(_thunderCD<=0){ _thunderCD=200+Math.floor(rnd()*420); const inten=0.35+rnd()*0.65; _flash=Math.max(_flash,inten); ambient.thunder(inten); } } // trovão SÓ na chuva forte
   if(_flash>0) _flash=Math.max(0,_flash-0.05); }
 function drawWeather(){ if(!weatherLayer)return; const g=weatherLayer; if(weatherLayer.parent===app.stage) app.stage.setChildIndex(weatherLayer, app.stage.children.length-1); g.clear();
   const W=app.screen.width, H=app.screen.height; if(_rainLevel<=0 && _flash<=0) return;
@@ -2895,7 +2888,7 @@ startLoop(app.ticker, (dt)=>{ pollPads(); update(dt); draw();
   attractCtl.titleIdleTick(titleG.visible); // attract após 60s parado no menu (José)
   setMinimapVisible(!titleG.visible&&numPlayers<=1); document.body.classList.toggle('at-title',titleG.visible); // HUD/minimapa não vazam no menu
   fpsTick();
-  if(phase==='playing'){ updateWeather(); updateAmbient(); nav.updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
+  if(phase==='playing'){ updateWeather(); ambient.updateAmbient(); nav.updateGuide(); } }); // F4: clima + ambiente + guia auditivo (só durante o jogo)
 window.__incl={app,get player(){return players[0];},players,get numPlayers(){return numPlayers;},setNumPlayers,activateScreens,fitsN,isMobile,pollPads,update,openPadWiz,padWizTick,padMapFor,get padWiz(){return padWiz;},get phase(){return phase;},get padPrev(){return padPrevAct;},get coins(){return coins;},get collected(){return players[0].collected;},get powerups(){return powerups;},get gateOpen(){return gateOpen;},get gate(){return gate;},get ended(){return ended;},restartGame,get hcMode(){return hcMode;},setHC(v){setPlayerViz(0,v?'hc-direto':'normal');},get vizMode(){return players[0].viz;},applyViz(v){setPlayerViz(0,v);},setPlayerViz,VIZ_MODES,get footCount(){return _footCount;},get sonarCount(){return nav.sonarCount;},get guideCount(){return nav.guideCount;},get narrateCount(){return _narrateCount;},sonar:()=>nav.sonar(players[0]),setHearingLoss,darkRegions,decoLayer,get minimap(){return getMinimap();},parallaxLayers,PARALLAX,setCenario,get cenario(){return CENARIO;},
   get mmSeen(){return minimapSeenCount();},get MODE(){return MODE;},get letterCase(){return letterCase;},get blindMode(){return blindMode;},brailleText,tileAt,WORLD_W,WORLD_H,TUNE,
   JUICE,addShake,addHitstop,burstSparkle,puffDust,draw,get particles(){return particles;},get hitstopT(){return hitstopT;},get shakeT(){return shakeT;},CRT,applyCrt,setLq,get lqT(){return lqT;},
