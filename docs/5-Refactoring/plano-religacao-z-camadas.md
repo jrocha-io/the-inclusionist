@@ -35,8 +35,8 @@ usar `sortableChildren=true` + `layer.zIndex=Z.*`; **overlay** (DOM) usa `z-inde
 | **`extraLayer`** — portão | 798/803 | addChild | `SCENERY_INTERACT+50` | R2 |
 | **`extraLayer`** — power-ups | 798/802 | addChild | `ITEMS+100` | R2 |
 | `lavaFxG` (tracinhos de lava) | 1154 | lifeLayer.addChildAt 0 | `VFX_BACK` | R2 |
-| `lifeLayer` (bichos da cidade) | 953 | addChild | `FAUNA_DECOR` | R2 |
-| `grassG` (grama) | 1138 | lifeLayer.addChildAt 0 | `FAUNA_DECOR-100` | R2 |
+| `lifeLayer` (bichos da cidade) | 953 | addChild | `FAUNA_BACK` | R1 |
+| `grassG` (grama/flores) | 1138 | lifeLayer.addChildAt 0 | `FLORA_BACK` | R1 |
 | `coinContainer` (moedas/letras/formas) | 724 | addChild | `ITEMS` | R2 |
 | `playerSprite` / `allPSprites` | 1183/1219 | addChild | `PLAYER` | R2 |
 | `caneLayer` (bengala) | 926 | addChild | `PLAYER+10` | R2 |
@@ -44,9 +44,11 @@ usar `sortableChildren=true` + `layer.zIndex=Z.*`; **overlay** (DOM) usa `z-inde
 | `easyHitbox` (hitbox modo fácil) | 828 | addChild | `WORLD_A11Y` | R3 |
 | `fxG` (partículas/juice) | 1195 | addChild + re-add topo | `VFX_FRONT` | R3 |
 | `carLayer` (carros) | 1037 | addChild + re-add topo | `VEHICLES` | R3 |
-| `themeFxG` (minhocas/vagalumes/borboletas v3) | 1139 | addChild + re-add topo | `FOREGROUND` | R3 |
-| `fogG` (névoa) | 685 | addChild + re-add topo | `WEATHER-500` | R3 |
-| `darkLayer` (escurecimento cego) | 742 | addChild | `DARK_WORLD` | R3 |
+| `themeFxG` (minhocas/vagalumes/borboletas v3, à frente) | 1139 | addChild + re-add topo | `FAUNA_FRONT` | R1 |
+| `fogG` (névoa) | 685 | addChild + re-add topo | `WEATHER-500` | R1 |
+| `darkLayer` (escurecimento cego) | 742 | addChild | `DARK_WORLD` | R1 |
+
+> `FLORA_FRONT` fica **reservada** (folhagem que tampa o player) — sem elemento hoje; entra quando houver planta de primeiro-plano.
 
 ### GLOBAL / OVERLAY (na `app.stage` PIXI ou no DOM)
 | Elemento | onde | z atual | → `Z.*` | Rodada |
@@ -69,11 +71,17 @@ usar `sortableChildren=true` + `layer.zIndex=Z.*`; **overlay** (DOM) usa `z-inde
 | filtros a11y (HC / CB / empatia) | (hoje no canvas) | — | **POST_FX** (último; cobre menu) | R5 |
 
 ## Rodadas (build + teste do Dev entre cada)
-- **R1 — Mundo (fundo):** fundação (`sortableChildren`) + céu/parallax/sky-anim/bg-decor. *Testar:* ordem do fundo nos 4 temas + Cidade.
-- **R2 — Mundo (núcleo):** tiles → cenário interativo (rampa/corda/elevador/**portão**) → lava/fauna/grama → moedas/**power-ups** → player (+bengala/cadeira). *Testar:* itens ATRÁS do player; portão; cadeirante/cego.
-- **R3 — Mundo (frente):** vfx-front, carros, bichos-v3-frente, névoa, escurecimento, world-a11y. *Testar:* partículas/carros/névoa/modo cego.
-- **R4 — Overlay (DOM + stage):** HUD, minimapa, molduras MP, toque, quiz, pause, modais, menus, título. *Testar:* menu sobre HUD; modais empilham; título.
-- **R5 — Pós-fx (fix de comportamento):** CRT + filtros a11y cobrindo **tudo, inclusive menu**; `A11Y_CORRECTION` por último; a11y **suprime** o CRT decorativo; overlay troca p/ **paleta CB-safe**. *Testar:* daltonismo no menu; alto-contraste no menu; CRT sem degradar a11y.
+> **Correção (sortableChildren é tudo-ou-nada por container):** um filho sem `zIndex` vira 0 e desaba pro fundo. Logo o
+> MUNDO inteiro (a `camera`) migra **numa rodada só** — todos os filhos ganham `zIndex` de uma vez, reproduzindo a ordem
+> atual (**no-op visual**). Não dá pra fatiar fundo/núcleo/frente sem quebrar no meio → as ~24 linhas de MUNDO são **R1**.
+
+- **R1 — MUNDO inteiro (atômico):** `camera.sortableChildren=true` + `zIndex=Z.*` em TODOS os filhos da câmera (céu →
+  world-a11y), removendo os `addChildAt(getChildIndex)` e os re-add-ao-topo. Alvo = **no-op visual**. *Testar:* 4 temas v3
+  + Cidade + cego/cadeirante — nada muda de ordem; itens atrás do player; portão; carros/névoa na frente.
+- **R2 — OVERLAY (stage global + DOM):** `app.stage.sortableChildren` p/ `camera`(base)/`weatherLayer`/`titleG`/viewports;
+  `z-index:Z.*` no CSS p/ HUD/minimapa/toque/quiz/pause/modais/menus. *Testar:* menu sobre HUD; modais empilham; título; MP.
+- **R3 — PÓS-FX (fix de comportamento):** CRT + filtros a11y cobrindo **tudo, inclusive menu**; `A11Y_CORRECTION` por
+  último; a11y **suprime** o CRT decorativo; overlay troca p/ **paleta CB-safe**. *Testar:* daltonismo/alto-contraste **no menu**.
 
 ## Pontos que a religação já corrige (bônus)
 - **`extraLayer` misturava** portão (cenário) + power-ups (itens) → separados em `SCENERY_INTERACT` vs `ITEMS`.
