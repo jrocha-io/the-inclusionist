@@ -16,8 +16,7 @@ conteúdo. Então, para a **Abordagem B** (motor genérico, voz em runtime), use
 (~5 MB, só o espeak-ng-data). O modelo real é escrito por cima em runtime pela página.
 
 ```bash
-cd /caminho/do/seu/clone/sherpa-onnx     # ex.: ~/_github/sherpa-onnx — o build-wasm-simd-tts.sh fica na RAIZ do repo
-# emsdk ativo no MESMO bash:  source ~/emsdk/emsdk_env.sh  &&  emcc -v  (precisa dizer 4.0.23)
+# rode a partir da RAIZ do clone do sherpa-onnx (onde fica build-wasm-simd-tts.sh), com emsdk ativo (emcc -v = 4.0.23)
 
 # 1) FS exportado (Abordagem B): o build padrão NÃO exporta FS → Module.FS=undefined → sem FS.writeFile.
 grep EXPORTED_RUNTIME_METHODS wasm/tts/CMakeLists.txt          # já tem 'FS'? pule o sed
@@ -32,7 +31,8 @@ rm -rf build-wasm-simd-tts && ./build-wasm-simd-tts.sh   # warnings de openfst/f
 # 4) achar a saída e copiar os 4 artefatos por cima:
 SRC=$(dirname "$(find build-wasm-simd-tts -name sherpa-onnx-wasm-main-tts.js | head -1)")
 ls -lh "$SRC"/sherpa-onnx-wasm-main-tts.data              # ~5 MB (mock) = não assou modelo; ~60 MB = assou (refaça o mock)
-cp "$SRC"/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-onnx-wasm-main-tts.data,sherpa-onnx-tts.js} /mnt/c/Users/candi/Claude/SP-the-inclusionist-tracer/docs/research/sherpa-wasm/tts/
+cp "$SRC"/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-onnx-wasm-main-tts.data,sherpa-onnx-tts.js} \
+   "$INCLUSIONIST/docs/research/sherpa-wasm/tts/"   # $INCLUSIONIST = seu checkout deste repo (ex.: export INCLUSIONIST=...)
 ```
 
 > ⚠️ O 1º build (faber embutido, **sem** `FS` exportado) **não serve** para a página — ela escreve o modelo em runtime
