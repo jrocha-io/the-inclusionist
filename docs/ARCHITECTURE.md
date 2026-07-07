@@ -88,8 +88,14 @@ docs/
 │   ├── Security-Pipeline.md   #   SAST/Dependabot (now) · DAST (backend) · Pentest (scheduled)
 │   └── SLO.md                 #   SLI/SLO/Error-Budget/SLA (backend, rigor by tier)
 ├── 7-Async-Systems/           # phase g — message contracts · idempotency · ordering · DLQ · chaos (all deferred)
-└── research/                  # cross-cutting: studies that back decisions  ← PESQUISA-*, ESTUDO-FONTES, …
+└── research/                  # cross-cutting: studies that back decisions  ← PESQUISA-*, ESTUDO-FONTES, tts-*.md
 ```
+
+> **Labs saem de `research/` e viram produto (ADR-0023/0024).** O TTS-Lab (hoje o monólito `research/sherpa-lab.html`)
+> migra, em rodadas (plano: `5-Refactoring/plano-tts-lab-modularizacao.md`), para **repositório próprio** (`tts-lab`,
+> submódulo em `labs/tts-lab/`, deploy no domínio `labs.`), consumindo **pacotes versionados** `@jrocha-io/*`
+> (`tts`/`audio`/`logging`/`model-fetch`) de um repo `inclusionist-commons` publicado no **GitHub Packages**. Os
+> **estudos** (`research/tts-*.md`) permanecem aqui; só o **código** do lab sai da árvore de docs.
 
 > **Dead docs are NOT kept in the tree (YAGNI).** `git history` is the archive — retired docs (the E1–E13 roadmap,
 > VERTICAL-SLICE, TODO, PLANO-EXECUCAO, DIRETRIZES-VISUAIS, README-app-v4, reorganizacao-deploy, and the `imagens-ref/`
