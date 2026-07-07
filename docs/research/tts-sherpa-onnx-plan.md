@@ -89,6 +89,10 @@ just another config row. Whether the target hardware can actually run either is 
   ⇒ prosody/speed matter a lot; the phoneme layer wants `/x/`-style input at a slow `lengthScale`, or recorded/spliced clips.
 - The CDN-only `tts-engine-lab.html` was **deleted** (YAGNI). Neural A-B now lives in `sherpa-lab.html` (~50 vits-piper
   voices, split into **medium / high** blocks so the user picks by hardware; RTF per synthesis).
+- **RTF measured (Dev hardware, single-thread):** Piper medium/high ≈ **0.78**; Kokoro **int8** ≈ **4.83** (≈6× slower —
+  10–14 s to synth a 2–3 s clip). Kokoro fp32 will be worse. ⇒ single-thread Kokoro is likely too slow for real-time on
+  weak hardware; Piper leads on speed. Also fixed a "green but no sound" bug — the ~10 s synchronous synth staled the
+  click gesture, so a freshly-created AudioContext was autoplay-blocked; use one persistent AudioContext warmed on click.
 - **Nothing validated until a passing user test.**
 
 ## Still open

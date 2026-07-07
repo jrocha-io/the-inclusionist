@@ -19,7 +19,14 @@
   h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:14px; margin:18px 0 8px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; }
   a { color:var(--acc); } code { background:#0d0f12; padding:1px 5px; border-radius:4px; }
   .sub { color:var(--mut); margin:0 0 14px; max-width:80ch; }
-  .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:12px 0; }
+  .bar { display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; margin:12px 0; }
+  .voices { display:flex; flex-direction:column; gap:6px; }
+  .voices label { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:14px; }
+  .voices select { min-width:230px; }
+  .ctrls { display:flex; flex-direction:column; gap:8px; }
+  #prog { position:fixed; left:0; right:0; bottom:0; height:3px; background:#0d0f12; display:none; z-index:9; }
+  #prog.on { display:block; }
+  #progBar { height:100%; width:0; background:var(--acc); transition:width .12s; }
   select, button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:15px; cursor:pointer; }
   button.primary { border-color:var(--acc); background:#22304a; } button:disabled { opacity:.45; cursor:not-allowed; }
   .st { font-size:14px; min-height:1.4em; } .st.ok{color:var(--ok)} .st.warn{color:var(--warn)} .st.err{color:var(--err)}
@@ -43,30 +50,19 @@
 </p>
 
 <div class="bar">
-  <label>Médio <select id="voiceMed"></select></label>
-  <label>High <span style="color:var(--warn)">(exige mais do equipamento)</span> <select id="voiceHigh"></select></label>
-  <label>Kokoro <span style="color:var(--mut)">(int8 multi-lang)</span> <select id="voiceKokoro">
-    <option value="">—</option>
-    <optgroup label="pt-BR">
-      <option value="kokoro:pf_dora:42:pt-br">pf_dora (F)</option>
-      <option value="kokoro:pm_alex:43:pt-br">pm_alex (M)</option>
-      <option value="kokoro:pm_santa:44:pt-br">pm_santa (M)</option>
-    </optgroup>
-    <optgroup label="es">
-      <option value="kokoro:ef_dora:28:es">ef_dora (F)</option>
-      <option value="kokoro:em_alex:29:es">em_alex (M)</option>
-    </optgroup>
-    <optgroup label="en-US">
-      <option value="kokoro:af_heart:3:en-us">af_heart (F)</option>
-      <option value="kokoro:am_adam:11:en-us">am_adam (M)</option>
-    </optgroup>
-  </select></label>
-  <button id="loadBtn" class="primary" disabled>Carregar</button>
-  <button id="reloadBtn" disabled>Baixar novamente</button>
-  <button id="clearBtn">Limpar vozes baixadas</button>
-  <label>Velocidade <input id="rate" type="range" min="0.5" max="1.3" step="0.05" value="0.85"><span id="rateVal">0.85×</span></label>
-  <span id="status" class="st warn">carregando o motor WASM…</span>
+  <div class="voices">
+    <label>Piper médio <select id="voiceMed"></select></label>
+    <label>Piper high <span style="color:var(--warn)">(pesado)</span> <select id="voiceHigh"></select></label>
+    <label>Kokoro int8 <select id="voiceKokoro"></select></label>
+    <label>Kokoro fp32 <span style="color:var(--warn)">(325 MB, lento)</span> <select id="voiceKokoroFp32"></select></label>
+  </div>
+  <div class="ctrls">
+    <div><button id="loadBtn" class="primary" disabled>Carregar</button> <button id="reloadBtn" disabled>Baixar novamente</button> <button id="clearBtn">Limpar vozes</button></div>
+    <label>Velocidade <input id="rate" type="range" min="0.5" max="1.3" step="0.05" value="0.85"><span id="rateVal">0.85×</span></label>
+    <span id="status" class="st warn">carregando o motor WASM…</span>
+  </div>
 </div>
+<div id="prog"><div id="progBar"></div></div>
 
 <h2>Tarefas</h2>
 <table><tbody id="rows"></tbody></table>
@@ -99,7 +95,15 @@ const MODELS = {
   es_MX: ['es_MX-ald-medium','es_MX-claude-high'],
 };
 const HF = 'https://huggingface.co/csukuangfj/'; // + <repo>/resolve/main/<file>
-const KOKORO_REPO = 'kokoro-int8-multi-lang-v1_0';  // 1 modelo, várias vozes por sid (pb_dora=39, pb_alex=38)
+const KOKORO = {                                     // 1 modelo, várias vozes por sid; int8 leve, fp32 grande
+  int8: { repo:'kokoro-int8-multi-lang-v1_0', file:'model.int8.onnx' },
+  fp32: { repo:'kokoro-multi-lang-v1_0',      file:'model.onnx' },
+};
+const KOKORO_VOICES = [ ['pt-BR', [['pf_dora',42,'pt-br'],['pm_alex',43,'pt-br'],['pm_santa',44,'pt-br']]], ['es', [['ef_dora',28,'es'],['em_alex',29,'es']]], ['en-US', [['af_heart',3,'en-us'],['am_adam',11,'en-us']]] ];
+function fillKokoro(sel, variant){
+  const o0 = document.createElement('option'); o0.value=''; o0.textContent='—'; sel.appendChild(o0);
+  KOKORO_VOICES.forEach(([label, list]) => { const og=document.createElement('optgroup'); og.label=label; list.forEach(([name,sid,lang]) => { const o=document.createElement('option'); o.value='kokoro:'+name+':'+sid+':'+lang+':'+variant; o.textContent=name; og.appendChild(o); }); sel.appendChild(og); });
+}
 const langOf = (x) => x.slice(0,2) === 'pt' ? 'pt' : (x.slice(0,2) === 'es' ? 'es' : 'en');
 
 const SAMPLES = {
@@ -111,7 +115,7 @@ const TASKS = [{id:'phon',label:'1 · Fonemas'},{id:'letr',label:'2 · Soletrar 
 
 let RATE = 0.85, tts = null, curVoice = null, curLang = 'pt', curSid = 0;
 const sessions = {}; // repo -> OfflineTts (troca instantânea)
-const voiceMed = document.getElementById('voiceMed'), voiceHigh = document.getElementById('voiceHigh'), voiceKokoro = document.getElementById('voiceKokoro'), loadBtn = document.getElementById('loadBtn');
+const voiceMed = document.getElementById('voiceMed'), voiceHigh = document.getElementById('voiceHigh'), voiceKokoro = document.getElementById('voiceKokoro'), voiceKokoroFp32 = document.getElementById('voiceKokoroFp32'), loadBtn = document.getElementById('loadBtn');
 const reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getElementById('clearBtn');
 const statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
 const setStatus = (c,m) => { statusEl.className='st '+c; statusEl.textContent=m; };
@@ -127,6 +131,7 @@ function fillByLocale(sel, wantHigh){
   }
 }
 fillByLocale(voiceMed, false); fillByLocale(voiceHigh, true);
+fillKokoro(voiceKokoro, 'int8'); fillKokoro(voiceKokoroFp32, 'fp32');
 let lastSel = voiceMed;                                   // a última caixa mexida define a voz ativa
 function selectedVoice(){ return lastSel.value; }
 
@@ -145,6 +150,11 @@ rateEl.oninput = () => { RATE = parseFloat(rateEl.value); rateValEl.textContent 
 // mecanismo do jogo (vite-plugin-pwa). Offline após o 1º uso; nada de pasta manual.
 function humanAge(ms){ const s=Math.round(ms/1000); if(s<60) return s+' s'; const m=Math.round(s/60); if(m<60) return m+' min'; const h=Math.round(m/60); if(h<24) return h+' h'; return Math.round(h/24)+' d'; }
 
+const progEl = document.getElementById('prog'), progBar = document.getElementById('progBar');
+function progShow(){ progEl.classList.add('on'); progBar.style.width='0%'; }
+function progSet(f){ progBar.style.width = Math.max(2, Math.round(f*100))+'%'; }
+function progHide(){ progEl.classList.remove('on'); }
+
 async function getBytes(repo, file, force){
   const url = HF+repo+'/resolve/main/'+file;
   const tsKey = 'tts_ts_'+url;
@@ -152,9 +162,15 @@ async function getBytes(repo, file, force){
   let ts = null; try { ts = localStorage.getItem(tsKey); } catch(e){}
   const t0 = performance.now();
   const r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' '+url);   // o SW responde do cache se já baixou
-  const buf = await r.arrayBuffer();
+  const total = +(r.headers.get('content-length') || 0);
+  let bytes;
+  if (r.body && r.body.getReader) {                                     // streaming → barra de progresso
+    const reader = r.body.getReader(); const chunks = []; let loaded = 0; progShow();
+    try { for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); loaded += value.length; if (total) progSet(loaded/total); } } finally { progHide(); }
+    bytes = new Uint8Array(loaded); let off = 0; for (const c of chunks) { bytes.set(c, off); off += c.length; }
+  } else { bytes = new Uint8Array(await r.arrayBuffer()); }
   if (!ts) { try { localStorage.setItem(tsKey, String(Date.now())); } catch(e){} }    // 1ª vez → carimba a data do download
-  return { bytes:new Uint8Array(buf), ms:Math.round(performance.now()-t0), cachedSince: ts ? Number(ts) : null };
+  return { bytes:bytes, ms:Math.round(performance.now()-t0), cachedSince: ts ? Number(ts) : null };
 }
 
 function useSession(x){ tts = sessions[x]; curVoice = x; const lang = langOf(x); if (lang !== curLang) { curLang = lang; fillSamples(lang); } document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false); }
@@ -181,27 +197,27 @@ async function loadVoice(force){
   loadBtn.disabled=false; reloadBtn.disabled=false;
 }
 
-async function loadKokoro(x, force){                 // 1 modelo, várias vozes por sid; sessão por IDIOMA (multi-lang exige lang)
-  const parts = x.split(':'); const name = parts[1], sid = Number(parts[2]), lang = parts[3];
+async function loadKokoro(x, force){                 // 1 modelo, várias vozes por sid; sessão por VARIANTE+IDIOMA (multi-lang exige lang)
+  const parts = x.split(':'); const name = parts[1], sid = Number(parts[2]), lang = parts[3], variant = parts[4]; const kk = KOKORO[variant];
   const uiLang = lang.slice(0,2) === 'pt' ? 'pt' : (lang.slice(0,2) === 'es' ? 'es' : 'en');
   curSid = sid; if (curLang !== uiLang) { curLang = uiLang; fillSamples(uiLang); }
-  const key = 'kokoro-' + lang;                      // lang entra no init → 1 sessão por idioma; trocar sid no mesmo idioma reusa
+  const key = 'kokoro-' + variant + '-' + lang;      // lang entra no init → 1 sessão por variante+idioma; trocar sid reusa
   loadBtn.disabled = true; reloadBtn.disabled = true;
   const enablePlay = () => document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false);
   if (!force && sessions[key]) { tts = sessions[key]; curVoice = 'kokoro-'+name; enablePlay(); setStatus('ok','pronto: kokoro '+name+' (sid '+sid+', '+lang+') — já carregado'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
   if (force && sessions[key]) { try { sessions[key].free && sessions[key].free(); } catch(e){} delete sessions[key]; }
-  setStatus('warn','baixando Kokoro int8 (~114 MB modelo + ~28 MB vozes; só na 1ª vez)…');
+  setStatus('warn','baixando Kokoro '+variant+' (modelo + ~28 MB de vozes; só na 1ª vez)…');
   try {
-    const m = await getBytes(KOKORO_REPO, 'model.int8.onnx', force);
-    const v = await getBytes(KOKORO_REPO, 'voices.bin', force);
-    const t = await getBytes(KOKORO_REPO, 'tokens.txt', force);
+    const m = await getBytes(kk.repo, kk.file, force);
+    const v = await getBytes(kk.repo, 'voices.bin', force);
+    const t = await getBytes(kk.repo, 'tokens.txt', force);
     sherpaModule.FS.writeFile('kokoro.onnx', m.bytes); sherpaModule.FS.writeFile('kokoro-voices.bin', v.bytes); sherpaModule.FS.writeFile('kokoro-tokens.txt', t.bytes);
     const cfg = { offlineTtsModelConfig: { offlineTtsKokoroModelConfig: { model:'./kokoro.onnx', voices:'./kokoro-voices.bin', tokens:'./kokoro-tokens.txt', dataDir:'./espeak-ng-data', lexicon:'', lang:lang }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
     const t0 = performance.now(); sessions[key] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
     tts = sessions[key]; curVoice = 'kokoro-'+name; enablePlay();
     const cacheInfo = m.cachedSince ? ('já em cache há '+humanAge(Date.now()-m.cachedSince)) : ('baixado agora em '+m.ms+' ms');
-    setStatus('ok','pronto: kokoro '+name+' (sid '+sid+') — '+cacheInfo);
-    labLog('[load kokoro '+name+' sid '+sid+'] modelo '+(m.bytes.length/1e6).toFixed(1)+' MB + voices '+(v.bytes.length/1e6).toFixed(1)+' MB · '+cacheInfo+' · init '+initMs+' ms');
+    setStatus('ok','pronto: kokoro '+variant+' '+name+' (sid '+sid+', '+lang+') — '+cacheInfo);
+    labLog('[load kokoro '+variant+' '+name+' sid '+sid+' '+lang+'] modelo '+(m.bytes.length/1e6).toFixed(1)+' MB + voices '+(v.bytes.length/1e6).toFixed(1)+' MB · '+cacheInfo+' · init '+initMs+' ms');
   } catch(err){ setStatus('err', err.message||String(err)); labLog('[load kokoro '+name+'] ERRO: '+(err.message||err)); }
   loadBtn.disabled=false; reloadBtn.disabled=false;
 }
@@ -214,20 +230,26 @@ async function clearVoices(){
   labLog('[pwa] cache limpo (motor + vozes + sessões).'); setStatus('warn','vozes limpas — próxima carga baixa de novo.');
 }
 
+// AudioContext ÚNICO e persistente. A síntese do Kokoro bloqueia ~10s; se eu criasse um AC novo depois, o gesto do
+// clique já teria "expirado" e o navegador barraria o áudio (autoplay policy) → era o "verde mas sem som".
+let audioCtx = null;
+function getAC(){ const AC = window.AudioContext||window.webkitAudioContext; if (!audioCtx) audioCtx = new AC(); if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch(e){} } return audioCtx; }
+
 function playSamples(samples, sampleRate){
   return new Promise((res,rej) => { try {
     let peak = 0; for (let i=0;i<samples.length;i++){ const a = samples[i]<0?-samples[i]:samples[i]; if(a>peak) peak=a; }
     const gain = peak>0.0001 ? Math.min(4, 0.9/peak) : 1;
-    const AC = window.AudioContext||window.webkitAudioContext; const ac = new AC();
+    const ac = getAC();
     const buf = ac.createBuffer(1, samples.length, sampleRate); const ch = buf.getChannelData(0);
     for (let j=0;j<samples.length;j++) ch[j] = samples[j]*gain;
     const src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination);
-    src.onended = () => { ac.close && ac.close(); }; src.start(); res();
+    src.start(); res();
   } catch(e){ rej(e); } });
 }
 
 async function speak(id, btn){
   if (!tts) { setStatus('warn','carregue uma voz primeiro'); return; }
+  getAC();                                             // aquece o AudioContext AGORA (gesto do clique), antes da síntese longa
   const text = document.querySelector('textarea[data-t="'+id+'"]').value.trim(); if(!text) return;
   const cell = document.querySelector('span[data-rtf="'+id+'"]'); cell.textContent='…'; cell.className='rtf'; btn.disabled=true;
   try {
@@ -247,6 +269,7 @@ clearBtn.onclick = clearVoices;
 voiceMed.onchange = () => { lastSel = voiceMed; loadVoice(false); };
 voiceHigh.onchange = () => { lastSel = voiceHigh; loadVoice(false); };
 voiceKokoro.onchange = () => { if (voiceKokoro.value) { lastSel = voiceKokoro; loadVoice(false); } };
+voiceKokoroFp32.onchange = () => { if (voiceKokoroFp32.value) { lastSel = voiceKokoroFp32; loadVoice(false); } };
 
 // boot
 if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
