@@ -32,6 +32,22 @@ régua de qualidade; fazer o Kokoro **caber** (RTF < 1). Estudo em rodadas.
   bom). A pré-síntese pode tornar o problema de velocidade **irrelevante** para a alfabetização, cujo vocabulário é
   **finito e pequeno** (≈34 fonemas + letras + sílabas + palavras-chave).
 
+## Rodada 2 — multi-thread (sherpa CPU) MEDIDO = morto
+
+`?engine=tts&threads=4` + `crossOriginIsolated=true` → Kokoro fp32 **RTF ~2.2** (era ~2.5 single-thread). **Ganho ~zero.**
+O sherpa-wasm-CPU não paraleliza o Kokoro. **Avenida 3 descartada.** (Piper na mesma máquina: RTF ~0.25 — rápido.)
+
+## DECISÃO (Dev)
+
+**Kokoro → `onnxruntime-web` (WebGPU); Piper fica no sherpa.** Prioridade: **fazer o Kokoro rápido primeiro** (meta < 2 s,
+ideal < 1 s); a **fonemização pt-BR é passo POSTERIOR** (não gravar fonemas, não pré-síntese — foi cortado). Também pesa
+contra o Piper: qualidade **imprevisível** entre modelos + **1 download por voz** (pt/en/es = ~3 GB), inviável.
+
+## Rodada 3 — provar a velocidade no WebGPU (em teste)
+
+`docs/research/kokoro-webgpu-lab.html`: roda o Kokoro-82M via **kokoro-js (onnxruntime-web + WebGPU)** com voz EN só p/
+**medir o RTF** (idioma não muda a velocidade; g2p pt-BR vem depois). Se RTF < 1 → caminho provado.
+
 ## Próximas rodadas
 
 - **Rodada 2 (medir):** rodar `?engine=tts&threads=4` (sherpa CPU multi-thread) e anotar o RTF real do Kokoro fp32 —
