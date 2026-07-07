@@ -43,7 +43,8 @@
 </p>
 
 <div class="bar">
-  <label>Voz <select id="voice"></select></label>
+  <label>Médio <select id="voiceMed"></select></label>
+  <label>High <span style="color:var(--warn)">(exige mais do equipamento)</span> <select id="voiceHigh"></select></label>
   <button id="loadBtn" class="primary" disabled>Carregar</button>
   <button id="reloadBtn" disabled>Baixar novamente</button>
   <button id="clearBtn">Limpar vozes baixadas</button>
@@ -90,19 +91,24 @@ const TASKS = [{id:'phon',label:'1 · Fonemas'},{id:'letr',label:'2 · Soletrar 
 
 let RATE = 0.85, tts = null, curVoice = null, curLang = 'pt';
 const sessions = {}; // repo -> OfflineTts (troca instantânea)
-const voiceSel = document.getElementById('voice'), loadBtn = document.getElementById('loadBtn');
+const voiceMed = document.getElementById('voiceMed'), voiceHigh = document.getElementById('voiceHigh'), loadBtn = document.getElementById('loadBtn');
 const reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getElementById('clearBtn');
 const statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
 const setStatus = (c,m) => { statusEl.className='st '+c; statusEl.textContent=m; };
 
-// popular o seletor em DOIS BLOCOS: medium (mais leve) e high (mais pesado) — ajuda a decidir por hardware
-const tiers = { medium: [], high: [] };
-for (const loc in MODELS) for (const x of MODELS[loc]) (x.endsWith('-high') ? tiers.high : tiers.medium).push(x);
-[['medium','▼ medium — mais leve (recomendado p/ equipamento fraco)'], ['high','▼ high — mais qualidade, EXIGE MAIS do equipamento']].forEach(([t, label]) => {
-  const og = document.createElement('optgroup'); og.label = label;
-  tiers[t].forEach(x => { const o = document.createElement('option'); o.value = x; o.textContent = x; og.appendChild(o); }); // rótulo = locale-voz-qualidade (limpo)
-  voiceSel.appendChild(og);
-});
+// DUAS caixas (médio / high), cada uma agrupada por IDIOMA (optgroup por locale)
+function fillByLocale(sel, wantHigh){
+  for (const loc in MODELS) {
+    const list = MODELS[loc].filter(x => x.endsWith('-high') === wantHigh);
+    if (!list.length) continue;
+    const og = document.createElement('optgroup'); og.label = loc;
+    list.forEach(x => { const o = document.createElement('option'); o.value = x; o.textContent = x.slice(loc.length+1); og.appendChild(o); }); // rótulo = voz-qualidade
+    sel.appendChild(og);
+  }
+}
+fillByLocale(voiceMed, false); fillByLocale(voiceHigh, true);
+let lastSel = voiceMed;                                   // a última caixa mexida define a voz ativa
+function selectedVoice(){ return lastSel.value; }
 
 // montar a tabela + preencher amostras do idioma corrente
 const rows = document.getElementById('rows');
@@ -134,7 +140,7 @@ async function getBytes(x, file, force){
 function useSession(x){ tts = sessions[x]; curVoice = x; const lang = langOf(x); if (lang !== curLang) { curLang = lang; fillSamples(lang); } document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false); }
 
 async function loadVoice(force){
-  const x = voiceSel.value; loadBtn.disabled = true; reloadBtn.disabled = true;
+  const x = selectedVoice(); loadBtn.disabled = true; reloadBtn.disabled = true;
   if (!force && sessions[x]) { useSession(x); setStatus('ok','pronto: '+x+' — já carregada (instantânea)'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
   if (force && sessions[x]) { try { sessions[x].free && sessions[x].free(); } catch(e){} delete sessions[x]; }
   setStatus('warn',(force?'re-baixando ':'baixando ')+x+' do HF (1ª vez desta voz)…');
@@ -190,7 +196,8 @@ document.querySelectorAll('button[data-speak]').forEach(b => b.onclick = () => s
 loadBtn.onclick = () => loadVoice(false);
 reloadBtn.onclick = () => loadVoice(true);
 clearBtn.onclick = clearVoices;
-voiceSel.onchange = () => loadVoice(false);
+voiceMed.onchange = () => { lastSel = voiceMed; loadVoice(false); };
+voiceHigh.onchange = () => { lastSel = voiceHigh; loadVoice(false); };
 
 // boot
 if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
@@ -200,7 +207,7 @@ try {
   labLog('[wasm] runtime pronto.');
   try { labLog('[wasm] FS "/" : ' + sherpaModule.FS.readdir('/').filter(x => x!=='.'&&x!=='..').join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
   loadBtn.disabled = false;
-  const first = voiceSel.value;                                   // se a voz selecionada já está em cache, carrega sozinha (rápido) → play ativo
+  const first = selectedVoice();                                  // se a voz selecionada já está em cache, carrega sozinha (rápido) → play ativo
   const cachedHit = await caches.match(HF+first+'/resolve/main/'+first+'.onnx');
   if (cachedHit) { labLog('[boot] '+first+' já em cache — carregando…'); await loadVoice(false); }
   else setStatus('ok','motor pronto — escolha uma voz e clique Carregar (baixa 1×).');
