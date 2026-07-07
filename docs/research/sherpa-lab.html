@@ -239,7 +239,7 @@ function getAC(){ const AC = window.AudioContext||window.webkitAudioContext; if 
 function playSamples(samples, sampleRate){
   return new Promise((res,rej) => { try {
     let peak = 0; for (let i=0;i<samples.length;i++){ const a = samples[i]<0?-samples[i]:samples[i]; if(a>peak) peak=a; }
-    const gain = peak>0.0001 ? Math.min(4, 0.9/peak) : 1;
+    const gain = peak>0.0001 ? Math.min(1.4, 0.9/peak) : 1;   // teto BAIXO: 4× amplificava o ruído dos modelos high (chiado "rádio AM")
     const ac = getAC();
     const buf = ac.createBuffer(1, samples.length, sampleRate); const ch = buf.getChannelData(0);
     for (let j=0;j<samples.length;j++) ch[j] = samples[j]*gain;

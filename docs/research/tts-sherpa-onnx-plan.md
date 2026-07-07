@@ -99,6 +99,12 @@ just another config row. Whether the target hardware can actually run either is 
   [Adrian Lyjak — quantizing Kokoro to ONNX](https://www.adrianlyjak.com/p/onnx/).
 - **"Green but no sound" fixed:** the ~10 s synchronous Kokoro synth staled the click gesture → a freshly-created
   AudioContext was autoplay-blocked. Use one persistent AudioContext, warmed on the click.
+- **Two AI mis-attributions corrected:** (1) the earlier "Piper ≈ 0.78, that's the single-thread price" was WRONG — that
+  was a **cold first-inference** (ORT graph-opt + arena warmup on a model's first synth); single-thread Piper's steady
+  state is ~0.3. The genuinely slow one is Kokoro (8× heavier). (2) the sudden "high-model hiss / AM-radio" was **my
+  volume normalization** (peak-gain up to 4×) amplifying the models' noise floor — capped it to 1.4×.
+- **`tts/` is the ready multi-thread build** (not the old faber build): `.data` = 18 MB mock+espeak, `Module["FS"]`
+  exported, has the pthread `.worker.js`. So multi-thread needs **no rebuild** — serve + open `?engine=tts&threads=4`.
 - **Multi-thread IS viable (earlier COEP blame was wrong):** MDN — cross-origin **CORS** fetches are NOT blocked by COEP
   (HF sends `ACAO:*`), and `COEP: credentialless` (Chrome) gives `crossOriginIsolated` without CORP. Lever = **pthread
   build + `numThreads>1` + COOP/COEP** (I had `numThreads:1`). Lab now takes `?engine=tts-multi-thread&threads=4`.
