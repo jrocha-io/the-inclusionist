@@ -244,6 +244,7 @@ try {
   });
   labLog('[wasm] runtime pronto.');
   try { labLog('[wasm] FS "/" : ' + sherpaModule.FS.readdir('/').filter(x => x!=='.'&&x!=='..').join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
+  try { const ed = sherpaModule.FS.readdir('/espeak-ng-data'); const need = ['phontab','phonindex','phondata','intonations']; labLog('[wasm] espeak-ng-data: ' + need.map(f => f+'='+(ed.includes(f)?'ok':'FALTA')).join(' ') + ' (' + ed.filter(x=>x!=='.'&&x!=='..').length + ' entradas)'); } catch(e){ labLog('[wasm] espeak-ng-data: '+e.message); }
   loadBtn.disabled = false;
   const first = selectedVoice();                                  // se a voz selecionada já está em cache, carrega sozinha (rápido) → play ativo
   const cachedHit = await caches.match(HF+'vits-piper-'+first+'/resolve/main/'+first+'.onnx');
