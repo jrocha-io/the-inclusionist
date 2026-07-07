@@ -70,10 +70,11 @@ const labLog = window.labLog;
 let sherpaModule = null;
 
 // ---- modelos (vits-piper medium/high do csukuangfj), agrupados por locale. Valor = sufixo do repo (= nome do .onnx) ----
+// Verificado via API do HF (csukuangfj) — só repos vits-piper medium/high que EXISTEM. onnx = <X>.onnx.
 const MODELS = {
-  pt_BR: ['pt_BR-faber-medium','pt_BR-cadu-medium','pt_BR-miro-high','pt_BR-dii-high'],
+  pt_BR: ['pt_BR-faber-medium','pt_BR-miro-high','pt_BR-dii-high'],
   pt_PT: ['pt_PT-tugao-medium','pt_PT-miro-high','pt_PT-dii-high'],
-  en_US: ['en_US-amy-medium','en_US-arctic-medium','en_US-bryce-medium','en_US-glados-high','en_US-hfc_female-medium','en_US-hfc_male-medium','en_US-joe-medium','en_US-john-medium','en_US-kristin-medium','en_US-kusal-medium','en_US-l2arctic-medium','en_US-lessac-medium','en_US-lessac-high','en_US-libritts_r-medium','en_US-libritts-high','en_US-ljspeech-medium','en_US-ljspeech-high','en_US-miro-high','en_US-norman-medium','en_US-reza_ibrahim-medium','en_US-ryan-medium','en_US-ryan-high','en_US-sam-medium'],
+  en_US: ['en_US-amy-medium','en_US-arctic-medium','en_US-bryce-medium','en_US-glados-high','en_US-hfc_female-medium','en_US-hfc_male-medium','en_US-joe-medium','en_US-john-medium','en_US-kristin-medium','en_US-kusal-medium','en_US-l2arctic-medium','en_US-lessac-medium','en_US-lessac-high','en_US-libritts_r-medium','en_US-libritts-high','en_US-ljspeech-medium','en_US-ljspeech-high','en_US-miro-high','en_US-norman-medium','en_US-ryan-medium','en_US-ryan-high'],
   en_GB: ['en_GB-alan-medium','en_GB-alba-medium','en_GB-aru-medium','en_GB-cori-medium','en_GB-cori-high','en_GB-dii-high','en_GB-jenny_dioco-medium','en_GB-miro-high','en_GB-northern_english_male-medium','en_GB-semaine-medium','en_GB-southern_english_female-medium','en_GB-southern_english_male-medium','en_GB-vctk-medium'],
   es_AR: ['es_AR-daniela-high'],
   es_ES: ['es_ES-davefx-medium','es_ES-glados-medium','es_ES-miro-high','es_ES-sharvard-medium'],
