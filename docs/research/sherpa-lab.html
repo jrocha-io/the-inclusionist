@@ -63,8 +63,8 @@
   window.addEventListener('unhandledrejection', function(e){ window.labLog('‼ rejeição: '+((e.reason&&e.reason.message)||e.reason||e)); });
 </script>
 <script type="module">
-import createSherpaModule from './sherpa-wasm/tts/sherpa-onnx-wasm-main-tts.js';
-import { createOfflineTts } from './sherpa-wasm/tts/sherpa-onnx-tts.js';
+import createSherpaModule from './sherpa-wasm/tts-single-thread/sherpa-onnx-wasm-main-tts.js';
+import { createOfflineTts } from './sherpa-wasm/tts-single-thread/sherpa-onnx-tts.js';
 const labLog = window.labLog;
 let sherpaModule = null;
 
@@ -122,7 +122,7 @@ function humanAge(ms){ const s=Math.round(ms/1000); if(s<60) return s+' s'; cons
 async function getBytes(x, file, force){
   const url = HF+x+'/resolve/main/'+file;
   const tsKey = 'tts_ts_'+url;
-  if (force) { try { await (await caches.open('sherpa-lab-v1')).delete(url); localStorage.removeItem(tsKey); } catch(e){} }
+  if (force) { try { await (await caches.open('sherpa-lab-v2')).delete(url); localStorage.removeItem(tsKey); } catch(e){} }
   let ts = null; try { ts = localStorage.getItem(tsKey); } catch(e){}
   const t0 = performance.now();
   const r = await fetch(url); if (!r.ok) throw new Error('HTTP '+r.status+' '+url);   // o SW responde do cache se já baixou
@@ -155,7 +155,7 @@ async function loadVoice(force){
 async function clearVoices(){
   for (const k in sessions) { try { sessions[k].free && sessions[k].free(); } catch(e){} delete sessions[k]; }
   tts=null; curVoice=null;
-  try { await caches.delete('sherpa-lab-v1'); } catch(e){}
+  try { await caches.delete('sherpa-lab-v2'); } catch(e){}
   try { if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('clear'); } catch(e){}
   labLog('[pwa] cache limpo (motor + vozes + sessões).'); setStatus('warn','vozes limpas — próxima carga baixa de novo.');
 }
@@ -196,7 +196,7 @@ voiceSel.onchange = () => loadVoice(false);
 if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
 labLog('carregando o motor WASM (módulo ESM)…');
 try {
-  sherpaModule = await createSherpaModule({ locateFile: (p) => 'sherpa-wasm/tts/' + p });
+  sherpaModule = await createSherpaModule({ locateFile: (p) => 'sherpa-wasm/tts-single-thread/' + p });
   labLog('[wasm] runtime pronto.');
   try { labLog('[wasm] FS "/" : ' + sherpaModule.FS.readdir('/').filter(x => x!=='.'&&x!=='..').join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
   loadBtn.disabled = false;
