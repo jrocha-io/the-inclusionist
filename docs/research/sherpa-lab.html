@@ -51,9 +51,9 @@
 
 <div class="bar">
   <div class="voices">
-    <label>Piper médio <select id="voiceMed"></select></label>
-    <label>Piper high <span style="color:var(--warn)">(pesado)</span> <select id="voiceHigh"></select></label>
-    <label>Kokoro <span style="color:var(--warn)">(fp32, 325 MB, lento)</span> <select id="voiceKokoroFp32"></select></label>
+    <label><input type="radio" name="active" value="med" checked> Piper médio <select id="voiceMed"></select></label>
+    <label><input type="radio" name="active" value="high"> Piper high <span style="color:var(--warn)">(pesado)</span> <select id="voiceHigh"></select></label>
+    <label><input type="radio" name="active" value="kok"> Kokoro <span style="color:var(--warn)">(fp32, 325 MB, lento)</span> <select id="voiceKokoroFp32"></select></label>
   </div>
   <div class="ctrls">
     <div><button id="loadBtn" class="primary" disabled>Carregar</button> <button id="reloadBtn" disabled>Baixar novamente</button> <button id="clearBtn">Limpar vozes</button></div>
@@ -139,8 +139,9 @@ function fillByLocale(sel, wantHigh){
 }
 fillByLocale(voiceMed, false); fillByLocale(voiceHigh, true);
 fillKokoro(voiceKokoroFp32, 'fp32');
-let lastSel = voiceMed;                                   // a última caixa mexida define a voz ativa
-function selectedVoice(){ return lastSel.value; }
+// o radio button diz qual das 3 caixas está valendo (ponto de vista humano); carrega SÓ no botão Carregar
+function activeSel(){ const v = (document.querySelector('input[name=active]:checked')||{}).value; return v==='high' ? voiceHigh : (v==='kok' ? voiceKokoroFp32 : voiceMed); }
+function selectedVoice(){ return activeSel().value; }
 
 // montar a tabela + preencher amostras do idioma corrente
 const rows = document.getElementById('rows');
@@ -273,9 +274,10 @@ document.querySelectorAll('button[data-speak]').forEach(b => b.onclick = () => s
 loadBtn.onclick = () => loadVoice(false);
 reloadBtn.onclick = () => loadVoice(true);
 clearBtn.onclick = clearVoices;
-voiceMed.onchange = () => { lastSel = voiceMed; loadVoice(false); };
-voiceHigh.onchange = () => { lastSel = voiceHigh; loadVoice(false); };
-voiceKokoroFp32.onchange = () => { if (voiceKokoroFp32.value) { lastSel = voiceKokoroFp32; loadVoice(false); } };
+// mexer numa caixa marca o radio dela (NÃO carrega — só o botão Carregar carrega)
+voiceMed.onchange = () => { document.querySelector('input[name=active][value=med]').checked = true; };
+voiceHigh.onchange = () => { document.querySelector('input[name=active][value=high]').checked = true; };
+voiceKokoroFp32.onchange = () => { document.querySelector('input[name=active][value=kok]').checked = true; };
 
 // boot
 if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
@@ -291,10 +293,7 @@ try {
   try { labLog('[wasm] FS "/" : ' + sherpaModule.FS.readdir('/').filter(x => x!=='.'&&x!=='..').join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
   try { const ed = sherpaModule.FS.readdir('/espeak-ng-data'); const need = ['phontab','phonindex','phondata','intonations']; labLog('[wasm] espeak-ng-data: ' + need.map(f => f+'='+(ed.includes(f)?'ok':'FALTA')).join(' ') + ' (' + ed.filter(x=>x!=='.'&&x!=='..').length + ' entradas)'); } catch(e){ labLog('[wasm] espeak-ng-data: '+e.message); }
   loadBtn.disabled = false;
-  const first = selectedVoice();                                  // se a voz selecionada já está em cache, carrega sozinha (rápido) → play ativo
-  const cachedHit = await caches.match(HF+'vits-piper-'+first+'/resolve/main/'+first+'.onnx');
-  if (cachedHit) { labLog('[boot] '+first+' já em cache — carregando…'); await loadVoice(false); }
-  else setStatus('ok','motor pronto — escolha uma voz e clique Carregar (baixa 1×).');
+  setStatus('ok','motor pronto — marque o radio da voz e clique Carregar.');
 } catch(err){ labLog('‼ falha ao iniciar o WASM: '+(err.message||err)); setStatus('err','WASM não iniciou (veja o Log)'); }
 </script>
 </body>
