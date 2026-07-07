@@ -53,8 +53,7 @@
   <div class="voices">
     <label>Piper médio <select id="voiceMed"></select></label>
     <label>Piper high <span style="color:var(--warn)">(pesado)</span> <select id="voiceHigh"></select></label>
-    <label>Kokoro int8 <select id="voiceKokoro"></select></label>
-    <label>Kokoro fp32 <span style="color:var(--warn)">(325 MB, lento)</span> <select id="voiceKokoroFp32"></select></label>
+    <label>Kokoro <span style="color:var(--warn)">(fp32, 325 MB, lento)</span> <select id="voiceKokoroFp32"></select></label>
   </div>
   <div class="ctrls">
     <div><button id="loadBtn" class="primary" disabled>Carregar</button> <button id="reloadBtn" disabled>Baixar novamente</button> <button id="clearBtn">Limpar vozes</button></div>
@@ -98,9 +97,8 @@ const MODELS = {
   es_MX: ['es_MX-ald-medium','es_MX-claude-high'],
 };
 const HF = 'https://huggingface.co/csukuangfj/'; // + <repo>/resolve/main/<file>
-const KOKORO = {                                     // 1 modelo, várias vozes por sid; int8 leve, fp32 grande
-  int8: { repo:'kokoro-int8-multi-lang-v1_0', file:'model.int8.onnx' },
-  fp32: { repo:'kokoro-multi-lang-v1_0',      file:'model.onnx' },
+const KOKORO = {                                     // int8 REMOVIDO: no onnxruntime-web (WASM) sai mudo E é ~3× mais lento que o fp32
+  fp32: { repo:'kokoro-multi-lang-v1_0', file:'model.onnx' },
 };
 const KOKORO_VOICES = [ ['pt-BR', [['pf_dora',42,'pt-br'],['pm_alex',43,'pt-br'],['pm_santa',44,'pt-br']]], ['es', [['ef_dora',28,'es'],['em_alex',29,'es']]], ['en-US', [['af_heart',3,'en-us'],['am_adam',11,'en-us']]] ];
 function fillKokoro(sel, variant){
@@ -118,7 +116,7 @@ const TASKS = [{id:'phon',label:'1 · Fonemas'},{id:'letr',label:'2 · Soletrar 
 
 let RATE = 0.85, tts = null, curVoice = null, curLang = 'pt', curSid = 0;
 const sessions = {}; // repo -> OfflineTts (troca instantânea)
-const voiceMed = document.getElementById('voiceMed'), voiceHigh = document.getElementById('voiceHigh'), voiceKokoro = document.getElementById('voiceKokoro'), voiceKokoroFp32 = document.getElementById('voiceKokoroFp32'), loadBtn = document.getElementById('loadBtn');
+const voiceMed = document.getElementById('voiceMed'), voiceHigh = document.getElementById('voiceHigh'), voiceKokoroFp32 = document.getElementById('voiceKokoroFp32'), loadBtn = document.getElementById('loadBtn');
 const reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getElementById('clearBtn');
 const statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
 const setStatus = (c,m) => { statusEl.className='st '+c; statusEl.textContent=m; };
@@ -134,7 +132,7 @@ function fillByLocale(sel, wantHigh){
   }
 }
 fillByLocale(voiceMed, false); fillByLocale(voiceHigh, true);
-fillKokoro(voiceKokoro, 'int8'); fillKokoro(voiceKokoroFp32, 'fp32');
+fillKokoro(voiceKokoroFp32, 'fp32');
 let lastSel = voiceMed;                                   // a última caixa mexida define a voz ativa
 function selectedVoice(){ return lastSel.value; }
 
@@ -271,7 +269,6 @@ reloadBtn.onclick = () => loadVoice(true);
 clearBtn.onclick = clearVoices;
 voiceMed.onchange = () => { lastSel = voiceMed; loadVoice(false); };
 voiceHigh.onchange = () => { lastSel = voiceHigh; loadVoice(false); };
-voiceKokoro.onchange = () => { if (voiceKokoro.value) { lastSel = voiceKokoro; loadVoice(false); } };
 voiceKokoroFp32.onchange = () => { if (voiceKokoroFp32.value) { lastSel = voiceKokoroFp32; loadVoice(false); } };
 
 // boot

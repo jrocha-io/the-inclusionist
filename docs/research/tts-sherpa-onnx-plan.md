@@ -92,7 +92,11 @@ just another config row. Whether the target hardware can actually run either is 
 - **RTF measured (Dev hardware, single-thread):** **Piper faber-medium ≈ 0.28–0.34** (sub-second — the winner: fast,
   good, 63 MB); miro/dii-high ≈ 0.30 (miro-high had audible hiss once). **Kokoro fp32 ≈ 2.5**, **int8 ≈ 5.6**.
   ⇒ Piper leads decisively on speed; Kokoro is ~8× slower single-thread and its quality edge is **not yet confirmed**.
-- **Kokoro int8 is SILENT** (produces samples but no audio) — treat as broken; use **fp32** only. (Confirm in docs.)
+- **Kokoro int8 = dead end (removed).** Root cause confirmed: it's an **onnxruntime-web (WASM) limitation**, not our bug —
+  in the WASM backend int8 quantized models produce **silent/wrong output** AND run **~3× slower than fp32** (matches the
+  measured int8 RTF 5.6 > fp32 2.5). So "fixing" it is pointless (no speed win). Use **fp32**; speed comes from
+  **multi-thread**, not int8. Refs: [ONNX quantization docs](https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html),
+  [Adrian Lyjak — quantizing Kokoro to ONNX](https://www.adrianlyjak.com/p/onnx/).
 - **"Green but no sound" fixed:** the ~10 s synchronous Kokoro synth staled the click gesture → a freshly-created
   AudioContext was autoplay-blocked. Use one persistent AudioContext, warmed on the click.
 - **Multi-thread IS viable (earlier COEP blame was wrong):** MDN — cross-origin **CORS** fetches are NOT blocked by COEP
