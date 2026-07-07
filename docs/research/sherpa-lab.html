@@ -75,13 +75,19 @@
   window.addEventListener('unhandledrejection', function(e){ window.labLog('‼ rejeição: '+((e.reason&&e.reason.message)||e.reason||e)); });
   // Espelha o console no Log — o sherpa/Emscripten imprime o MOTIVO do exit(-1) via console.error/log (não via printErr).
   ['error','warn','log'].forEach(function(k){ var o = console[k].bind(console); console[k] = function(){ try { window.labLog('[c.'+k+'] ' + Array.prototype.map.call(arguments, function(x){ return typeof x==='string' ? x : ((x && x.message) || String(x)); }).join(' ')); } catch(e){} return o.apply(console, arguments); }; });
+  // Config por URL — lida AQUI (antes do módulo) p/ aparecer no Log mesmo se o import do engine falhar.
+  var _p = new URLSearchParams(location.search);
+  window.__ENGINE = _p.get('engine') || 'tts-single-thread';
+  window.__THREADS = Math.max(1, +(_p.get('threads') || 1));
+  window.labLog('[cfg] engine=' + window.__ENGINE + ' · numThreads=' + window.__THREADS + ' · crossOriginIsolated=' + self.crossOriginIsolated + ' · location.search=' + (location.search || '(VAZIO → a query não chegou! cleanUrls do serve?)'));
 </script>
 <script type="module">
-const params = new URLSearchParams(location.search);
-const ENGINE = params.get('engine') || 'tts-single-thread';   // ?engine=tts-multi-thread p/ o build pthread
-const THREADS = Math.max(1, +(params.get('threads') || 1));   // ?threads=4 — só acelera com o build pthread + crossOriginIsolated
-const { default: createSherpaModule } = await import('./sherpa-wasm/' + ENGINE + '/sherpa-onnx-wasm-main-tts.js');
-const { createOfflineTts } = await import('./sherpa-wasm/' + ENGINE + '/sherpa-onnx-tts.js');
+const ENGINE = window.__ENGINE, THREADS = window.__THREADS;   // lidos no <script> clássico (aparecem no Log mesmo se o import falhar)
+let createSherpaModule, createOfflineTts;
+try {
+  ({ default: createSherpaModule } = await import('./sherpa-wasm/' + ENGINE + '/sherpa-onnx-wasm-main-tts.js'));
+  ({ createOfflineTts } = await import('./sherpa-wasm/' + ENGINE + '/sherpa-onnx-tts.js'));
+} catch (e) { window.labLog('‼ falha ao importar o engine "' + ENGINE + '" (a pasta sherpa-wasm/' + ENGINE + '/ existe e tem os 2 .js?): ' + (e.message || e)); throw e; }
 const labLog = window.labLog;
 let sherpaModule = null;
 
@@ -273,7 +279,7 @@ voiceKokoroFp32.onchange = () => { if (voiceKokoroFp32.value) { lastSel = voiceK
 
 // boot
 if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
-labLog('[cfg] engine=' + ENGINE + ' · numThreads=' + THREADS + ' · crossOriginIsolated=' + self.crossOriginIsolated + (THREADS > 1 && !self.crossOriginIsolated ? ' ⚠️ threads>1 SEM isolamento → não paraleliza (falta COOP/COEP)' : ''));
+if (THREADS > 1 && !self.crossOriginIsolated) labLog('⚠️ numThreads>1 mas crossOriginIsolated=false → NÃO paraleliza (COOP/COEP não pegou).');
 labLog('carregando o motor WASM (módulo ESM)…');
 try {
   sherpaModule = await createSherpaModule({
