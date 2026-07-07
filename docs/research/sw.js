@@ -23,11 +23,17 @@ function cacheable(url) {
   return url.includes('/sherpa-wasm/tts') || url.includes('/sherpa-lab.html') || url.includes('huggingface.co/csukuangfj/');
 }
 self.addEventListener('fetch', (e) => {
-  if (!cacheable(e.request.url)) return;               // deixa o resto passar direto
+  const url = e.request.url;
+  if (!cacheable(url)) return;                          // deixa o resto passar direto
+  const htmlFirst = url.includes('/sherpa-lab.html') || url.endsWith('/'); // o HTML muda → network-first (sempre fresco)
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
-    const hit = await c.match(e.request, { ignoreVary: true });
-    if (hit) return hit;                               // cache-first (pesos grandes → offline após 1º uso)
+    if (htmlFirst) {
+      try { const resp = await fetch(e.request); if (resp && resp.ok) c.put(e.request, resp.clone()); return resp; }
+      catch (err) { const hit = await c.match(e.request, { ignoreVary: true }); if (hit) return hit; throw err; }
+    }
+    const hit = await c.match(e.request, { ignoreVary: true }); // motor + pesos = imutáveis → cache-first (offline após 1º uso)
+    if (hit) return hit;
     const resp = await fetch(e.request);
     if (resp && resp.ok) { try { await c.put(e.request, resp.clone()); } catch (err) { /* opaque/erro: ignora */ } }
     return resp;
