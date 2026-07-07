@@ -1,10 +1,16 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!--
-  sherpa-lab — testa TODOS os modelos vits-piper (medium/high) do Fangjun Kuang (csukuangfj) via sherpa-onnx-wasm.
-  Cada voz é buscada SOB DEMANDA direto do HF do Kuang (só baixa o que você seleciona), escrita no FS do WASM e
-  cacheada (Cache API + sessão em memória → troca instantânea). Métricas por síntese: RTF, tempo de síntese, duração,
-  init, MB. Requer o motor WASM em sherpa-wasm/tts/ (ver README) + servir com COOP/COEP (serve.json). ADR-0022.
+  TTS Lab — bancada de comparação, TRÊS motores em seções empilhadas (nenhum modelo é removido: mesmo ruim serve de
+  benchmark; esta página fica separada do produto, mas acessível na web):
+    1 (topo)  eSpeak NG (meSpeak WASM) + Web Speech  — fallbacks de zero download.
+    2 (meio)  sherpa-onnx-wasm  — Piper médio/high + Kokoro fp32; radio escolhe a caixa ativa, carrega SÓ no botão;
+              toggle multi-thread (recarrega c/ ?engine=tts&threads=4); lista de vozes baixadas ao lado. Vozes do
+              Fangjun Kuang (csukuangfj) buscadas sob demanda do HF → FS do WASM → cache (offline após 1º uso).
+    3 (base)  WebGPU (onnxruntime-web via kokoro-js)  — Kokoro fp32 + fp16 (+ q8), device webgpu/wasm; voz EN só p/
+              medir RTF (g2p pt-BR é passo futuro). O quantizado só falha no sherpa-CPU, não aqui.
+  Métrica dos neurais: RTF (síntese ÷ duração; <1 = mais rápido que o tempo real). Servir com COOP/COEP (serve.json)
+  p/ o multi-thread do sherpa. Motor WASM em sherpa-wasm/{tts,tts-single-thread}/ (ver README). ADR-0022.
 -->
 <html lang="pt-BR">
 <head>
@@ -38,17 +44,41 @@
   .cell { display:flex; align-items:center; gap:8px; } .cell .rtf { color:var(--mut); font-variant-numeric:tabular-nums; font-size:13px; min-width:9ch; }
   .cell .rtf.good{color:var(--ok)} .cell .rtf.slow{color:var(--warn)}
   #log { background:#0d0f12; border:1px solid var(--line); border-radius:8px; padding:10px; font:12px/1.5 ui-monospace,Consolas,monospace; color:var(--mut); max-height:260px; overflow:auto; white-space:pre-wrap; margin-top:8px; }
+  section.lab { border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:0 0 18px; background:#171a1f; }
+  h2.sec { font-size:15px; margin:0 0 10px; color:var(--ink); text-transform:none; letter-spacing:0; }
+  .secmut { color:var(--mut); font-weight:400; }
+  .toggle { display:flex; align-items:center; gap:8px; font-size:14px; }
+  .dlwrap { display:flex; flex-direction:column; gap:6px; } .dlwrap > label { color:var(--mut); font-size:13px; }
+  .dl { width:230px; min-height:92px; background:var(--bg); color:var(--mut); border:1px solid var(--line); border-radius:8px; padding:6px; font:12px/1.4 ui-monospace,Consolas,monospace; resize:vertical; }
 </style>
 </head>
 <body>
-<h1>sherpa-lab — vits-piper (csukuangfj) neural, offline-após-1º-uso</h1>
+<h1>TTS Lab — três motores empilhados <span class="secmut" style="font-size:14px">(fallback · sherpa · WebGPU)</span></h1>
 <p class="sub">
-  Todos os modelos <b>vits-piper</b> medium/high do <a href="https://huggingface.co/csukuangfj/models">Fangjun Kuang</a>
-  para en_US · en_GB · pt_BR · pt_PT · es_AR · es_ES · es_MX. Escolha a voz → baixa sob demanda (só ela) → ▶ nas tarefas.
-  <b>RTF</b> (real-time factor = tempo de síntese ÷ duração do áudio; &lt;1 = mais rápido que o tempo real) é a métrica
-  de performance principal. Créditos em <a href="../CREDITS.md">CREDITS.md</a>.
+  Bancada de comparação de TTS para o jogo — página separada do produto. <b>Nenhum modelo é removido</b> (mesmo ruim,
+  serve de benchmark). <b>RTF</b> (tempo de síntese ÷ duração do áudio; &lt;1 = mais rápido que o tempo real) é a métrica
+  principal dos motores neurais; os fallbacks reportam o tempo até o 1º áudio. Modelos vits-piper/Kokoro do
+  <a href="https://huggingface.co/csukuangfj/models">Fangjun Kuang</a>; créditos em <a href="../CREDITS.md">CREDITS.md</a>.
 </p>
 
+<section class="lab" id="secFallback">
+  <h2 class="sec">1 · eSpeak NG + Web Speech <span class="secmut">— fallbacks de zero download (sempre disponíveis)</span></h2>
+  <div class="bar">
+    <div class="voices">
+      <label class="toggle"><input type="radio" name="fbEngine" value="webspeech" checked> Web Speech <span class="secmut">(nativo do SO)</span></label>
+      <label class="toggle"><input type="radio" name="fbEngine" value="espeak"> eSpeak NG <span class="secmut">(meSpeak WASM · esm.sh)</span></label>
+    </div>
+    <div class="ctrls">
+      <label>Idioma <select id="fbLang"><option value="pt">pt</option><option value="en">en</option><option value="es">es</option></select></label>
+      <label>Voz (Web Speech) <select id="fbVoice"><option value="">(padrão do SO)</option></select></label>
+      <span id="fbStatus" class="st"></span>
+    </div>
+  </div>
+  <table><tbody id="fbRows"></tbody></table>
+</section>
+
+<section class="lab" id="secSherpa">
+  <h2 class="sec">2 · sherpa-onnx-wasm <span class="secmut">— Piper médio/high + Kokoro fp32 (offline após 1º uso)</span></h2>
 <div class="bar">
   <div class="voices">
     <label><input type="radio" name="active" value="med" checked> Piper médio <select id="voiceMed"></select></label>
@@ -58,13 +88,36 @@
   <div class="ctrls">
     <div><button id="loadBtn" class="primary" disabled>Carregar</button> <button id="reloadBtn" disabled>Baixar novamente</button> <button id="clearBtn">Limpar vozes</button></div>
     <label>Velocidade <input id="rate" type="range" min="0.5" max="1.3" step="0.05" value="0.85"><span id="rateVal">0.85×</span></label>
+    <label class="toggle"><input type="checkbox" id="shMt"> multi-thread <span class="secmut">(recarrega; exige COOP/COEP)</span></label>
     <span id="status" class="st warn">carregando o motor WASM…</span>
+  </div>
+  <div class="dlwrap">
+    <label>vozes baixadas (cache offline)</label>
+    <textarea id="shDownloaded" class="dl" readonly>—</textarea>
   </div>
 </div>
 <div id="prog"><div id="progBar"></div></div>
 
 <h2>Tarefas</h2>
 <table><tbody id="rows"></tbody></table>
+</section>
+
+<section class="lab" id="secWebgpu">
+  <h2 class="sec">3 · WebGPU <span class="secmut">— onnxruntime-web/kokoro-js · Kokoro fp32 + fp16 (voz EN só p/ medir velocidade; g2p pt-BR é passo futuro)</span></h2>
+  <div class="bar">
+    <div class="voices">
+      <label>Precisão <select id="wgDtype"><option value="fp32">fp32</option><option value="fp16">fp16</option><option value="q8">q8</option></select></label>
+      <label>Dispositivo <select id="wgDevice"><option value="webgpu">webgpu</option><option value="wasm">wasm (CPU)</option></select></label>
+      <label>Voz (EN) <select id="wgVoice"><option value="af_heart">af_heart (F)</option><option value="am_adam">am_adam (M)</option><option value="af_bella">af_bella (F)</option></select></label>
+    </div>
+    <div class="ctrls">
+      <div><button id="wgLoad" class="primary">Carregar (WebGPU)</button></div>
+      <span id="wgGpu" class="st"></span>
+      <span id="wgStatus" class="st"></span>
+    </div>
+  </div>
+  <table><tbody id="wgRows"></tbody></table>
+</section>
 
 <h2>Log (métricas)</h2>
 <div id="log"></div>
@@ -80,6 +133,36 @@
   window.__ENGINE = _p.get('engine') || 'tts-single-thread';
   window.__THREADS = Math.max(1, +(_p.get('threads') || 1));
   window.labLog('[cfg] engine=' + window.__ENGINE + ' · numThreads=' + window.__THREADS + ' · crossOriginIsolated=' + self.crossOriginIsolated + ' · location.search=' + (location.search || '(VAZIO → a query não chegou! cleanUrls do serve?)'));
+  // Helpers COMPARTILHADOS pelas seções 1 (fallback) e 3 (WebGPU) — a seção 2 (sherpa) tem os seus próprios, intocados.
+  window.LAB = {
+    SAMPLES: {
+      pt: { phon:'a, é, i, ó, u, fê, sê', letr:'a, bê, cê, dê, é, efe, gê, agá, i, jota, ká, ele, eme, ene, ó, pê, quê, erre, esse, tê, u, vê, xis, zê', silab:'ba be bi bo bu, ca ce ci co cu, da de di do du', palav:'casa, bola, gato, escola, pato, uva', frase:'O gato preto subiu no telhado da casa amarela.' },
+      en: { phon:'a, e, i, o, u, ef, es', letr:'ay, bee, see, dee, ee, ef, gee, aitch, eye, jay, kay, el, em, en, oh, pee, cue, ar, ess, tee, you, vee, ex, zee', silab:'ba be bi bo bu, ca ce ci co cu, da de di do du', palav:'house, ball, cat, school, duck, apple', frase:'The black cat climbed onto the roof of the yellow house.' },
+      es: { phon:'a, e, i, o, u, efe, ese', letr:'a, be, ce, de, e, efe, ge, hache, i, jota, ka, ele, eme, ene, eñe, o, pe, cu, erre, ese, te, u, uve, equis, zeta', silab:'ba be bi bo bu, ca ce ci co cu, da de di do du', palav:'casa, pelota, gato, escuela, pato, uva', frase:'El gato negro subió al tejado de la casa amarilla.' },
+    },
+    TASKS: [{id:'phon',label:'1 · Fonemas'},{id:'letr',label:'2 · Soletrar letras'},{id:'silab',label:'3 · Sílabas'},{id:'palav',label:'4 · Palavras'},{id:'frase',label:'5 · Frases'}],
+    rate: function(){ var el=document.getElementById('rate'); return el ? parseFloat(el.value) : 0.85; },
+    buildTable: function(tbodyId, speakFn){
+      var self=this, tb=document.getElementById(tbodyId);
+      this.TASKS.forEach(function(t){ var tr=document.createElement('tr');
+        tr.innerHTML='<td class="task"><span class="lbl">'+t.label+'</span><textarea data-t="'+t.id+'"></textarea></td><td><div class="cell"><button>▶</button><span class="rtf"></span></div></td>';
+        tb.appendChild(tr);
+        var btn=tr.querySelector('button'), m=tr.querySelector('.rtf'), ta=tr.querySelector('textarea');
+        btn.onclick=function(){ speakFn(ta.value.trim(), m, btn); };
+      });
+      return function(lang){ tb.querySelectorAll('textarea').forEach(function(ta,i){ ta.value=self.SAMPLES[lang][self.TASKS[i].id]; }); };
+    },
+    // AudioContext único e persistente (mesmo motivo da seção 2: síntese longa não pode invalidar o gesto do clique).
+    playFloat: function(samples, rate){ try {
+      if (samples instanceof Int16Array){ var f=new Float32Array(samples.length); for(var k=0;k<samples.length;k++) f[k]=samples[k]/32768; samples=f; }
+      var AC=window.AudioContext||window.webkitAudioContext; if(!window.__labAC) window.__labAC=new AC(); var ac=window.__labAC; if(ac.state==='suspended'){ try{ac.resume();}catch(e){} }
+      var peak=0; for(var i=0;i<samples.length;i++){ var a=samples[i]<0?-samples[i]:samples[i]; if(a>peak)peak=a; }
+      var g=peak>0.0001?Math.min(1.4,0.9/peak):1;
+      var b=ac.createBuffer(1,samples.length,rate), ch=b.getChannelData(0); for(var j=0;j<samples.length;j++) ch[j]=samples[j]*g;
+      var s=ac.createBufferSource(); s.buffer=b; s.connect(ac.destination); s.start();
+    } catch(e){ window.labLog('[play] '+(e.message||e)); } },
+    warmAC: function(){ try{ var AC=window.AudioContext||window.webkitAudioContext; if(!window.__labAC) window.__labAC=new AC(); if(window.__labAC.state==='suspended') window.__labAC.resume(); }catch(e){} },
+  };
 </script>
 <script type="module">
 const ENGINE = window.__ENGINE, THREADS = window.__THREADS;   // lidos no <script> clássico (aparecem no Log mesmo se o import falhar)
@@ -271,9 +354,15 @@ async function speak(id, btn){
 }
 
 document.querySelectorAll('button[data-speak]').forEach(b => b.onclick = () => speak(b.dataset.speak, b));
-loadBtn.onclick = () => loadVoice(false);
-reloadBtn.onclick = () => loadVoice(true);
-clearBtn.onclick = clearVoices;
+loadBtn.onclick = () => loadVoice(false).then(refreshDownloaded);
+reloadBtn.onclick = () => loadVoice(true).then(refreshDownloaded);
+clearBtn.onclick = () => clearVoices().then(refreshDownloaded);
+// multi-thread: alterna engine tts (pthread, numThreads=4) ↔ tts-single-thread e RECARREGA (o build binário muda)
+const shMt = document.getElementById('shMt'); shMt.checked = (ENGINE === 'tts');
+shMt.onchange = () => { const u = new URL(location.href); if (shMt.checked){ u.searchParams.set('engine','tts'); u.searchParams.set('threads','4'); } else { u.searchParams.set('engine','tts-single-thread'); u.searchParams.set('threads','1'); } location.href = u.toString(); };
+// lista de vozes baixadas — varre TODAS as caches por repos csukuangfj (robusto ao nome de cache do SW)
+async function refreshDownloaded(){ try { const names = await caches.keys(); const repos = new Set(); for (const n of names){ const c = await caches.open(n); const reqs = await c.keys(); reqs.forEach(r => { const m = r.url.match(/csukuangfj\/([^/]+)\/resolve/); if (m) repos.add(m[1]); }); } const el = document.getElementById('shDownloaded'); if (el) el.value = [...repos].sort().join('\n') || '(nenhuma baixada ainda)'; } catch(e){} }
+refreshDownloaded();
 // mexer numa caixa marca o radio dela (NÃO carrega — só o botão Carregar carrega)
 voiceMed.onchange = () => { document.querySelector('input[name=active][value=med]').checked = true; };
 voiceHigh.onchange = () => { document.querySelector('input[name=active][value=high]').checked = true; };
@@ -295,6 +384,93 @@ try {
   loadBtn.disabled = false;
   setStatus('ok','motor pronto — marque o radio da voz e clique Carregar.');
 } catch(err){ labLog('‼ falha ao iniciar o WASM: '+(err.message||err)); setStatus('err','WASM não iniciou (veja o Log)'); }
+</script>
+
+<!-- ===== SEÇÃO 1 · fallbacks (módulo próprio: independente do engine do sherpa) ===== -->
+<script type="module">
+const L = window.LAB;
+const fbLang = document.getElementById('fbLang'), fbVoice = document.getElementById('fbVoice'), fbStatus = document.getElementById('fbStatus');
+const fbEngineOf = () => (document.querySelector('input[name=fbEngine]:checked')||{}).value;
+const fbSt = (c,m) => { fbStatus.className='st '+c; fbStatus.textContent=m; };
+const BCP = { pt:'pt-BR', en:'en-US', es:'es-ES' };
+
+let wsVoices = [];
+function loadWSVoices(){
+  wsVoices = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+  const p = fbLang.value, opts = wsVoices.filter(v => v.lang.toLowerCase().startsWith(p));
+  fbVoice.innerHTML = '<option value="">(padrão do SO)</option>' + opts.map(v => '<option value="'+v.voiceURI+'">'+v.name+' ('+v.lang+')</option>').join('');
+}
+if (window.speechSynthesis){ loadWSVoices(); speechSynthesis.onvoiceschanged = loadWSVoices; } else fbSt('warn','Web Speech indisponível neste navegador');
+
+let ms = null, msLang = null;                        // eSpeak NG via meSpeak (WASM) — carrega sob demanda
+async function ensureMeSpeak(lang){
+  if (!ms){ fbSt('warn','carregando eSpeak (meSpeak)…'); const mod = await import('https://esm.sh/mespeak@2.0.2'); ms = mod.default || mod; const cfg = await (await fetch('https://cdn.jsdelivr.net/npm/mespeak@2.0.2/src/mespeak_config.json')).json(); ms.loadConfig(cfg); }
+  if (msLang !== lang){ const vf = { pt:'voices/pt.json', en:'voices/en/en-us.json', es:'voices/es.json' }[lang]; const v = await (await fetch('https://cdn.jsdelivr.net/npm/mespeak@2.0.2/'+vf)).json(); ms.loadVoice(v); msLang = lang; }
+  return ms;
+}
+
+const fillFb = L.buildTable('fbRows', speakFb); fillFb(fbLang.value);
+fbLang.onchange = () => { fillFb(fbLang.value); loadWSVoices(); };
+document.querySelectorAll('input[name=fbEngine]').forEach(r => r.onchange = () => fbSt('',''));
+
+async function speakFb(text, metric, btn){
+  if (!text) return; L.warmAC(); metric.textContent='…'; metric.className='rtf'; btn.disabled = true; const t0 = performance.now();
+  try {
+    if (fbEngineOf() === 'webspeech'){
+      const ss = window.speechSynthesis; if (!ss) throw new Error('sem Web Speech');
+      ss.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = BCP[fbLang.value]; u.rate = L.rate();
+      const v = wsVoices.find(x => x.voiceURI === fbVoice.value); if (v) u.voice = v;
+      u.onstart = () => { metric.textContent = Math.round(performance.now()-t0)+' ms'; };
+      u.onend   = () => { btn.disabled = false; };
+      u.onerror = (e) => { metric.textContent='erro'; btn.disabled = false; window.labLog('[webspeech] '+(e.error||'erro')); };
+      ss.speak(u); return;                            // assíncrono: reabilita nos callbacks
+    }
+    const e = await ensureMeSpeak(fbLang.value);
+    const url = e.speak(text, { rawdata:'data-url', speed: Math.round(175 * L.rate()) });
+    if (!url) throw new Error('meSpeak retornou vazio');
+    metric.textContent = Math.round(performance.now()-t0)+' ms'; fbSt('ok','eSpeak ok'); await new Audio(url).play();
+  } catch(err){ metric.textContent='erro'; fbSt('err', err.message||String(err)); window.labLog('[fallback] ERRO: '+(err.message||err)); }
+  btn.disabled = false;
+}
+</script>
+
+<!-- ===== SEÇÃO 3 · WebGPU (módulo próprio: onnxruntime-web via kokoro-js) ===== -->
+<script type="module">
+const L = window.LAB;
+const wgDtype=document.getElementById('wgDtype'), wgDevice=document.getElementById('wgDevice'), wgVoice=document.getElementById('wgVoice');
+const wgLoad=document.getElementById('wgLoad'), wgStatus=document.getElementById('wgStatus'), wgGpu=document.getElementById('wgGpu');
+const wgSt=(c,m)=>{ wgStatus.className='st '+c; wgStatus.textContent=m; };
+wgGpu.textContent = 'navigator.gpu = ' + (navigator.gpu ? 'presente' : 'AUSENTE (use wasm)'); wgGpu.className='st '+(navigator.gpu?'ok':'warn');
+if (!navigator.gpu) wgDevice.value = 'wasm';
+
+let tts=null, loadedTag='';
+const fillWg = L.buildTable('wgRows', speakWg); fillWg('en');   // g2p do kokoro-js é EN — mede só velocidade
+document.querySelectorAll('#wgRows button').forEach(b=>b.disabled=true);
+
+wgLoad.onclick = async () => {
+  wgLoad.disabled=true; const dtype=wgDtype.value, device=wgDevice.value; loadedTag=dtype+'/'+device;
+  wgSt('warn','baixando kokoro-js + modelo '+dtype+' ('+device+', 1ª vez)…'); L.warmAC();
+  try {
+    const mod = await import('https://esm.sh/kokoro-js@1.2.1');
+    tts = await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype:dtype, device:device });
+    document.querySelectorAll('#wgRows button').forEach(b=>b.disabled=false);
+    wgSt('ok','pronto ('+loadedTag+') — ▶ nas tarefas'); window.labLog('[webgpu] kokoro-js pronto: '+loadedTag);
+  } catch(err){ wgSt('err', err.message||String(err)); window.labLog('[webgpu] ERRO: '+(err.message||err)); wgLoad.disabled=false; }
+};
+
+async function speakWg(text, metric, btn){
+  if (!tts){ wgSt('warn','clique Carregar (WebGPU)'); return; } if (!text) return; L.warmAC();
+  metric.textContent='…'; metric.className='rtf'; btn.disabled=true;
+  try {
+    const t0=performance.now(); const audio=await tts.generate(text, { voice: wgVoice.value }); const synthMs=performance.now()-t0;
+    let s = audio.audio || audio.data || audio; if (s && s.audio) s = s.audio;        // RawAudio → Float32Array
+    const rate = audio.sampling_rate || audio.sampleRate || 24000, dur = s.length/rate, rtf=(synthMs/1000)/dur;
+    metric.textContent='RTF '+rtf.toFixed(2); metric.className='rtf '+(rtf<0.5?'good':rtf<1?'':'slow');
+    window.labLog('[webgpu '+loadedTag+' · '+Math.round(synthMs)+'ms] áudio '+dur.toFixed(2)+'s · RTF '+rtf.toFixed(2)+' · '+rate+'Hz · '+s.length+' amostras');
+    L.playFloat(s, rate);
+  } catch(err){ metric.textContent='erro'; window.labLog('[webgpu speak] ERRO: '+(err.message||err)); }
+  btn.disabled=false;
+}
 </script>
 </body>
 </html>
