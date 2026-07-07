@@ -42,6 +42,7 @@ One file per deliberate architectural decision, in **YADR** format — the YAML 
 | [ADR-0020](ADR-0020-canonical-z-order-and-post-fx.yaml) | Canonical Z-order registry (world/overlay, PIXI+DOM) + post-FX filter chain | accepted |
 | [ADR-0021](ADR-0021-tts-npm-lib-and-r2-model.yaml) | Neural TTS: npm-bundled lib; voice model stays on HuggingFace, OPFS-cached (R2 rejected; supersedes lazy-CDN) | ~~superseded by 0022~~ |
 | [ADR-0022](ADR-0022-tts-sherpa-onnx-wasm-runtime.yaml) | Neural TTS runtime = sherpa-onnx-wasm (any VITS/Piper .onnx, any CORS host, offline); pt-BR miro-high/faber/jeff; eSpeak keeps phonemes | accepted |
+| [ADR-0023](ADR-0023-research-labs-are-first-class-apps.yaml) | Research labs (TTS lab et al.) are first-class TS/Vite/DI/tested apps (ports/adapters), not throwaway spikes; staged migration | accepted |
 
 > ADRs 0011–0019 replaced the informal `REGISTRO-DE-DECISOES.md` log (a decision is an ADR). The exhaustive per-row
 > detail of the old log is in git history; these ADRs carry the decisions + rationale.
