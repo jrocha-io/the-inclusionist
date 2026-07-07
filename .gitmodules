@@ -1,0 +1,3 @@
+[submodule "labs/tts-lab"]
+	path = labs/tts-lab
+	url = https://github.com/jrocha-io/tts-lab.git
