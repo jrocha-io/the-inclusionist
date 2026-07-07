@@ -67,6 +67,8 @@
   window.labLog = function(m){ var el=document.getElementById('log'); el.textContent += m+'\n'; el.scrollTop=el.scrollHeight; };
   window.addEventListener('error', function(e){ window.labLog('‼ window error: '+(e.message||e)); });
   window.addEventListener('unhandledrejection', function(e){ window.labLog('‼ rejeição: '+((e.reason&&e.reason.message)||e.reason||e)); });
+  // Espelha o console no Log — o sherpa/Emscripten imprime o MOTIVO do exit(-1) via console.error/log (não via printErr).
+  ['error','warn','log'].forEach(function(k){ var o = console[k].bind(console); console[k] = function(){ try { window.labLog('[c.'+k+'] ' + Array.prototype.map.call(arguments, function(x){ return typeof x==='string' ? x : ((x && x.message) || String(x)); }).join(' ')); } catch(e){} return o.apply(console, arguments); }; });
 </script>
 <script type="module">
 import createSherpaModule from './sherpa-wasm/tts-single-thread/sherpa-onnx-wasm-main-tts.js';
