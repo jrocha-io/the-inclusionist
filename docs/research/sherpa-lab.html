@@ -45,6 +45,11 @@
 <div class="bar">
   <label>Médio <select id="voiceMed"></select></label>
   <label>High <span style="color:var(--warn)">(exige mais do equipamento)</span> <select id="voiceHigh"></select></label>
+  <label>Kokoro <span style="color:var(--mut)">(int8 multi-lang)</span> <select id="voiceKokoro">
+    <option value="">—</option>
+    <option value="kokoro:pb_dora:39">pb_dora (pt-BR F)</option>
+    <option value="kokoro:pb_alex:38">pb_alex (pt-BR M)</option>
+  </select></label>
   <button id="loadBtn" class="primary" disabled>Carregar</button>
   <button id="reloadBtn" disabled>Baixar novamente</button>
   <button id="clearBtn">Limpar vozes baixadas</button>
@@ -80,7 +85,8 @@ const MODELS = {
   es_ES: ['es_ES-davefx-medium','es_ES-glados-medium','es_ES-miro-high','es_ES-sharvard-medium'],
   es_MX: ['es_MX-ald-medium','es_MX-claude-high'],
 };
-const HF = 'https://huggingface.co/csukuangfj/vits-piper-'; // + <X>/resolve/main/<X>.onnx  (+ /tokens.txt)
+const HF = 'https://huggingface.co/csukuangfj/'; // + <repo>/resolve/main/<file>
+const KOKORO_REPO = 'kokoro-int8-multi-lang-v1_0';  // 1 modelo, várias vozes por sid (pb_dora=39, pb_alex=38)
 const langOf = (x) => x.slice(0,2) === 'pt' ? 'pt' : (x.slice(0,2) === 'es' ? 'es' : 'en');
 
 const SAMPLES = {
@@ -90,9 +96,9 @@ const SAMPLES = {
 };
 const TASKS = [{id:'phon',label:'1 · Fonemas'},{id:'letr',label:'2 · Soletrar letras'},{id:'silab',label:'3 · Sílabas'},{id:'palav',label:'4 · Palavras'},{id:'frase',label:'5 · Frases'}];
 
-let RATE = 0.85, tts = null, curVoice = null, curLang = 'pt';
+let RATE = 0.85, tts = null, curVoice = null, curLang = 'pt', curSid = 0;
 const sessions = {}; // repo -> OfflineTts (troca instantânea)
-const voiceMed = document.getElementById('voiceMed'), voiceHigh = document.getElementById('voiceHigh'), loadBtn = document.getElementById('loadBtn');
+const voiceMed = document.getElementById('voiceMed'), voiceHigh = document.getElementById('voiceHigh'), voiceKokoro = document.getElementById('voiceKokoro'), loadBtn = document.getElementById('loadBtn');
 const reloadBtn = document.getElementById('reloadBtn'), clearBtn = document.getElementById('clearBtn');
 const statusEl = document.getElementById('status'), rateEl = document.getElementById('rate'), rateValEl = document.getElementById('rateVal');
 const setStatus = (c,m) => { statusEl.className='st '+c; statusEl.textContent=m; };
@@ -126,8 +132,8 @@ rateEl.oninput = () => { RATE = parseFloat(rateEl.value); rateValEl.textContent 
 // mecanismo do jogo (vite-plugin-pwa). Offline após o 1º uso; nada de pasta manual.
 function humanAge(ms){ const s=Math.round(ms/1000); if(s<60) return s+' s'; const m=Math.round(s/60); if(m<60) return m+' min'; const h=Math.round(m/60); if(h<24) return h+' h'; return Math.round(h/24)+' d'; }
 
-async function getBytes(x, file, force){
-  const url = HF+x+'/resolve/main/'+file;
+async function getBytes(repo, file, force){
+  const url = HF+repo+'/resolve/main/'+file;
   const tsKey = 'tts_ts_'+url;
   if (force) { try { await (await caches.open('sherpa-lab-v2')).delete(url); localStorage.removeItem(tsKey); } catch(e){} }
   let ts = null; try { ts = localStorage.getItem(tsKey); } catch(e){}
@@ -141,13 +147,16 @@ async function getBytes(x, file, force){
 function useSession(x){ tts = sessions[x]; curVoice = x; const lang = langOf(x); if (lang !== curLang) { curLang = lang; fillSamples(lang); } document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false); }
 
 async function loadVoice(force){
-  const x = selectedVoice(); loadBtn.disabled = true; reloadBtn.disabled = true;
+  const x = selectedVoice(); if (!x) return;
+  if (x.startsWith('kokoro:')) return loadKokoro(x, force);
+  curSid = 0;                                       // vits/piper = single-speaker (sid 0)
+  loadBtn.disabled = true; reloadBtn.disabled = true;
   if (!force && sessions[x]) { useSession(x); setStatus('ok','pronto: '+x+' — já carregada (instantânea)'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
   if (force && sessions[x]) { try { sessions[x].free && sessions[x].free(); } catch(e){} delete sessions[x]; }
   setStatus('warn',(force?'re-baixando ':'baixando ')+x+' do HF (1ª vez desta voz)…');
   try {
-    const o = await getBytes(x, x+'.onnx', force);
-    const t = await getBytes(x, 'tokens.txt', force);
+    const o = await getBytes('vits-piper-'+x, x+'.onnx', force);
+    const t = await getBytes('vits-piper-'+x, 'tokens.txt', force);
     sherpaModule.FS.writeFile('model.onnx', o.bytes); sherpaModule.FS.writeFile('tokens.txt', t.bytes);
     const cfg = { offlineTtsModelConfig: { offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
     const t0 = performance.now(); sessions[x] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
@@ -156,6 +165,29 @@ async function loadVoice(force){
     setStatus('ok','pronto: '+x+' — '+cacheInfo);
     labLog('[load '+x+'] onnx '+(o.bytes.length/1e6).toFixed(1)+' MB · '+cacheInfo+' · init '+initMs+' ms · '+langOf(x));
   } catch(err){ setStatus('err', err.message||String(err)); labLog('[load '+x+'] ERRO: '+(err.message||err)); }
+  loadBtn.disabled=false; reloadBtn.disabled=false;
+}
+
+async function loadKokoro(x, force){                 // 1 modelo, várias vozes por sid; espeak-ng-data vem do build
+  const parts = x.split(':'); const name = parts[1], sid = Number(parts[2]);
+  curSid = sid; if (curLang !== 'pt') { curLang = 'pt'; fillSamples('pt'); }   // pb_* são pt-BR
+  loadBtn.disabled = true; reloadBtn.disabled = true;
+  const enablePlay = () => document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false);
+  if (!force && sessions['kokoro']) { tts = sessions['kokoro']; curVoice = 'kokoro-'+name; enablePlay(); setStatus('ok','pronto: kokoro '+name+' (sid '+sid+') — modelo já carregado'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
+  if (force && sessions['kokoro']) { try { sessions['kokoro'].free && sessions['kokoro'].free(); } catch(e){} delete sessions['kokoro']; }
+  setStatus('warn','baixando Kokoro int8 (~114 MB modelo + ~28 MB vozes; só na 1ª vez)…');
+  try {
+    const m = await getBytes(KOKORO_REPO, 'model.int8.onnx', force);
+    const v = await getBytes(KOKORO_REPO, 'voices.bin', force);
+    const t = await getBytes(KOKORO_REPO, 'tokens.txt', force);
+    sherpaModule.FS.writeFile('kokoro.onnx', m.bytes); sherpaModule.FS.writeFile('kokoro-voices.bin', v.bytes); sherpaModule.FS.writeFile('kokoro-tokens.txt', t.bytes);
+    const cfg = { offlineTtsModelConfig: { offlineTtsKokoroModelConfig: { model:'./kokoro.onnx', voices:'./kokoro-voices.bin', tokens:'./kokoro-tokens.txt', dataDir:'./espeak-ng-data', lexicon:'', lang:'' }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
+    const t0 = performance.now(); sessions['kokoro'] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
+    tts = sessions['kokoro']; curVoice = 'kokoro-'+name; enablePlay();
+    const cacheInfo = m.cachedSince ? ('já em cache há '+humanAge(Date.now()-m.cachedSince)) : ('baixado agora em '+m.ms+' ms');
+    setStatus('ok','pronto: kokoro '+name+' (sid '+sid+') — '+cacheInfo);
+    labLog('[load kokoro '+name+' sid '+sid+'] modelo '+(m.bytes.length/1e6).toFixed(1)+' MB + voices '+(v.bytes.length/1e6).toFixed(1)+' MB · '+cacheInfo+' · init '+initMs+' ms');
+  } catch(err){ setStatus('err', err.message||String(err)); labLog('[load kokoro '+name+'] ERRO: '+(err.message||err)); }
   loadBtn.disabled=false; reloadBtn.disabled=false;
 }
 
@@ -184,7 +216,7 @@ async function speak(id, btn){
   const text = document.querySelector('textarea[data-t="'+id+'"]').value.trim(); if(!text) return;
   const cell = document.querySelector('span[data-rtf="'+id+'"]'); cell.textContent='…'; cell.className='rtf'; btn.disabled=true;
   try {
-    const t0 = performance.now(); const audio = tts.generate({ text:text, sid:0, speed:RATE }); const synthMs = performance.now()-t0;
+    const t0 = performance.now(); const audio = tts.generate({ text:text, sid:curSid, speed:RATE }); const synthMs = performance.now()-t0;
     const dur = audio.samples.length / audio.sampleRate; const rtf = (synthMs/1000)/dur;
     cell.textContent = 'RTF '+rtf.toFixed(2); cell.className = 'rtf '+(rtf<0.5?'good':rtf<1?'':'slow');
     labLog('['+curVoice+' · '+id+'] síntese '+Math.round(synthMs)+' ms · áudio '+dur.toFixed(2)+' s · RTF '+rtf.toFixed(2)+' · '+audio.sampleRate+' Hz · '+audio.samples.length+' amostras');
@@ -199,6 +231,7 @@ reloadBtn.onclick = () => loadVoice(true);
 clearBtn.onclick = clearVoices;
 voiceMed.onchange = () => { lastSel = voiceMed; loadVoice(false); };
 voiceHigh.onchange = () => { lastSel = voiceHigh; loadVoice(false); };
+voiceKokoro.onchange = () => { if (voiceKokoro.value) { lastSel = voiceKokoro; loadVoice(false); } };
 
 // boot
 if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
@@ -209,7 +242,7 @@ try {
   try { labLog('[wasm] FS "/" : ' + sherpaModule.FS.readdir('/').filter(x => x!=='.'&&x!=='..').join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
   loadBtn.disabled = false;
   const first = selectedVoice();                                  // se a voz selecionada já está em cache, carrega sozinha (rápido) → play ativo
-  const cachedHit = await caches.match(HF+first+'/resolve/main/'+first+'.onnx');
+  const cachedHit = await caches.match(HF+'vits-piper-'+first+'/resolve/main/'+first+'.onnx');
   if (cachedHit) { labLog('[boot] '+first+' já em cache — carregando…'); await loadVoice(false); }
   else setStatus('ok','motor pronto — escolha uma voz e clique Carregar (baixa 1×).');
 } catch(err){ labLog('‼ falha ao iniciar o WASM: '+(err.message||err)); setStatus('err','WASM não iniciou (veja o Log)'); }
