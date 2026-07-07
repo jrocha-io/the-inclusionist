@@ -93,8 +93,15 @@ just another config row. Whether the target hardware can actually run either is 
 
 ## Still open
 - How the sherpa WASM + `espeak-ng-data` ship in Vite/`dist` and get precached for PWA/offline (+ single-thread vs COOP/COEP).
-- Kokoro in the lab: needs `kokoro-multi-lang-v1_0` (~340 MB: model + `voices.bin` + tokens) via `offlineTtsKokoroModelConfig`.
-  Speaker is chosen by **integer sid** (not name): **`pb_alex` = sid 38 (M)**, **`pb_dora` = sid 39 (F)** — from
-  <https://huggingface.co/csukuangfj/kokoro-multi-lang-v1_0/tree/main>.
+- **Kokoro in the lab (working setup, hard-won):** use the **int8** repo `csukuangfj/kokoro-int8-multi-lang-v1_0`
+  (`model.int8.onnx` ~114 MB + `voices.bin` ~28 MB + `tokens.txt`); reuse the build's baked `espeak-ng-data` as `dataDir`.
+  - A **multi-lang** Kokoro (version ≥ 2) **ABORTS with `exit(-1)`** unless you pass `--kokoro-lang` OR `--kokoro-lexicon`
+    (source: `offline-tts-kokoro-impl.h::InitFrontend`). For pt-BR set `lang: 'pt-br'` (the espeak-ng code — verified: the
+    Piper pt_BR configs use `"espeak":{"voice":"pt-br"}`); es → `'es'`, en → `'en-us'`. `lang` bakes into the session, so
+    **one OfflineTts per language**; switching sid within a language reuses it.
+  - Real speaker **sids** (from the model's own `id2speaker`, NOT the earlier wrong 38/39): pt-BR **`pf_dora`=42 (F)**,
+    **`pm_alex`=43 (M)**, **`pm_santa`=44 (M)**; es **`ef_dora`=28**, **`em_alex`=29**; en `af_heart`=3, `am_adam`=11 (…53 total).
+  - Debugging tip that unlocked this: sherpa logs the abort reason via **`console.error`** (not Emscripten `printErr`);
+    the lab now mirrors `console.*` into its on-page Log.
 - **FS must be exported** in the wasm build (`EXPORTED_RUNTIME_METHODS` += `FS`) — the default build omits it (models are
   meant to be baked in `.data`), which is why runtime `FS.writeFile` (Approach B) failed with `Module.FS undefined`.

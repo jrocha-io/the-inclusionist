@@ -47,8 +47,19 @@
   <label>High <span style="color:var(--warn)">(exige mais do equipamento)</span> <select id="voiceHigh"></select></label>
   <label>Kokoro <span style="color:var(--mut)">(int8 multi-lang)</span> <select id="voiceKokoro">
     <option value="">—</option>
-    <option value="kokoro:pb_dora:39">pb_dora (pt-BR F)</option>
-    <option value="kokoro:pb_alex:38">pb_alex (pt-BR M)</option>
+    <optgroup label="pt-BR">
+      <option value="kokoro:pf_dora:42:pt-br">pf_dora (F)</option>
+      <option value="kokoro:pm_alex:43:pt-br">pm_alex (M)</option>
+      <option value="kokoro:pm_santa:44:pt-br">pm_santa (M)</option>
+    </optgroup>
+    <optgroup label="es">
+      <option value="kokoro:ef_dora:28:es">ef_dora (F)</option>
+      <option value="kokoro:em_alex:29:es">em_alex (M)</option>
+    </optgroup>
+    <optgroup label="en-US">
+      <option value="kokoro:af_heart:3:en-us">af_heart (F)</option>
+      <option value="kokoro:am_adam:11:en-us">am_adam (M)</option>
+    </optgroup>
   </select></label>
   <button id="loadBtn" class="primary" disabled>Carregar</button>
   <button id="reloadBtn" disabled>Baixar novamente</button>
@@ -170,22 +181,24 @@ async function loadVoice(force){
   loadBtn.disabled=false; reloadBtn.disabled=false;
 }
 
-async function loadKokoro(x, force){                 // 1 modelo, várias vozes por sid; espeak-ng-data vem do build
-  const parts = x.split(':'); const name = parts[1], sid = Number(parts[2]);
-  curSid = sid; if (curLang !== 'pt') { curLang = 'pt'; fillSamples('pt'); }   // pb_* são pt-BR
+async function loadKokoro(x, force){                 // 1 modelo, várias vozes por sid; sessão por IDIOMA (multi-lang exige lang)
+  const parts = x.split(':'); const name = parts[1], sid = Number(parts[2]), lang = parts[3];
+  const uiLang = lang.slice(0,2) === 'pt' ? 'pt' : (lang.slice(0,2) === 'es' ? 'es' : 'en');
+  curSid = sid; if (curLang !== uiLang) { curLang = uiLang; fillSamples(uiLang); }
+  const key = 'kokoro-' + lang;                      // lang entra no init → 1 sessão por idioma; trocar sid no mesmo idioma reusa
   loadBtn.disabled = true; reloadBtn.disabled = true;
   const enablePlay = () => document.querySelectorAll('button[data-speak]').forEach(b => b.disabled=false);
-  if (!force && sessions['kokoro']) { tts = sessions['kokoro']; curVoice = 'kokoro-'+name; enablePlay(); setStatus('ok','pronto: kokoro '+name+' (sid '+sid+') — modelo já carregado'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
-  if (force && sessions['kokoro']) { try { sessions['kokoro'].free && sessions['kokoro'].free(); } catch(e){} delete sessions['kokoro']; }
+  if (!force && sessions[key]) { tts = sessions[key]; curVoice = 'kokoro-'+name; enablePlay(); setStatus('ok','pronto: kokoro '+name+' (sid '+sid+', '+lang+') — já carregado'); loadBtn.disabled=false; reloadBtn.disabled=false; return; }
+  if (force && sessions[key]) { try { sessions[key].free && sessions[key].free(); } catch(e){} delete sessions[key]; }
   setStatus('warn','baixando Kokoro int8 (~114 MB modelo + ~28 MB vozes; só na 1ª vez)…');
   try {
     const m = await getBytes(KOKORO_REPO, 'model.int8.onnx', force);
     const v = await getBytes(KOKORO_REPO, 'voices.bin', force);
     const t = await getBytes(KOKORO_REPO, 'tokens.txt', force);
     sherpaModule.FS.writeFile('kokoro.onnx', m.bytes); sherpaModule.FS.writeFile('kokoro-voices.bin', v.bytes); sherpaModule.FS.writeFile('kokoro-tokens.txt', t.bytes);
-    const cfg = { offlineTtsModelConfig: { offlineTtsKokoroModelConfig: { model:'./kokoro.onnx', voices:'./kokoro-voices.bin', tokens:'./kokoro-tokens.txt', dataDir:'./espeak-ng-data', lexicon:'', lang:'' }, numThreads:1, debug:1, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
-    const t0 = performance.now(); sessions['kokoro'] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
-    tts = sessions['kokoro']; curVoice = 'kokoro-'+name; enablePlay();
+    const cfg = { offlineTtsModelConfig: { offlineTtsKokoroModelConfig: { model:'./kokoro.onnx', voices:'./kokoro-voices.bin', tokens:'./kokoro-tokens.txt', dataDir:'./espeak-ng-data', lexicon:'', lang:lang }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
+    const t0 = performance.now(); sessions[key] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
+    tts = sessions[key]; curVoice = 'kokoro-'+name; enablePlay();
     const cacheInfo = m.cachedSince ? ('já em cache há '+humanAge(Date.now()-m.cachedSince)) : ('baixado agora em '+m.ms+' ms');
     setStatus('ok','pronto: kokoro '+name+' (sid '+sid+') — '+cacheInfo);
     labLog('[load kokoro '+name+' sid '+sid+'] modelo '+(m.bytes.length/1e6).toFixed(1)+' MB + voices '+(v.bytes.length/1e6).toFixed(1)+' MB · '+cacheInfo+' · init '+initMs+' ms');
