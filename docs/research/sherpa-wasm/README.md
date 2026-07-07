@@ -46,8 +46,23 @@ cp "$SRC"/{sherpa-onnx-wasm-main-tts.js,sherpa-onnx-wasm-main-tts.wasm,sherpa-on
 
 **2. Servir (Windows):**
 ```powershell
-npx serve docs/research   # single-thread: NÃO precisa de COOP/COEP (sem serve.json); abra /sherpa-lab.html
+npx serve docs/research   # lê o serve.json (COOP same-origin + COEP credentialless); abra /sherpa-lab.html
 ```
+O `serve.json` é **inofensivo** p/ single-thread e **necessário** p/ multi-thread (habilita `crossOriginIsolated` →
+SharedArrayBuffer/pthreads). Fetch CORS do HF **não** é bloqueado por COEP (o HF manda `Access-Control-Allow-Origin: *`).
+
+**3. Multi-thread (opcional — acelera Kokoro; Piper já é rápido single-thread):** gere um build **pthread** (igual ao
+passo 1, mas **NÃO** rode o `sed` que remove `-pthread`; só o FS export + o mock), com saída em `tts-multi-thread/`:
+```bash
+# 1) FS export + 2) mock 0-byte  (iguais ao passo 1) — PULE o "1b single-thread"
+rm -rf build-wasm-simd-tts && ./build-wasm-simd-tts.sh
+SRC=$(dirname "$(find build-wasm-simd-tts -name sherpa-onnx-wasm-main-tts.js | head -1)")
+mkdir -p "$INCLUSIONIST/docs/research/sherpa-wasm/tts-multi-thread"
+cp "$SRC"/* "$INCLUSIONIST/docs/research/sherpa-wasm/tts-multi-thread/"   # TUDO (inclui o .worker.js dos threads)
+```
+Teste em **`/sherpa-lab.html?engine=tts-multi-thread&threads=4`** — o Log deve dizer `crossOriginIsolated=true`. Só
+Chrome/Edge (COEP credentialless não existe no Safari; em produção hospedaríamos os modelos same-origin/R2 e usaríamos
+`require-corp`).
 
 Na página: escolha a voz no seletor → ▶ nas tarefas. Trocar para uma voz já carregada é **instantâneo** (sessão em memória).
 

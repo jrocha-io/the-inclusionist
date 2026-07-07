@@ -78,8 +78,11 @@
   ['error','warn','log'].forEach(function(k){ var o = console[k].bind(console); console[k] = function(){ try { window.labLog('[c.'+k+'] ' + Array.prototype.map.call(arguments, function(x){ return typeof x==='string' ? x : ((x && x.message) || String(x)); }).join(' ')); } catch(e){} return o.apply(console, arguments); }; });
 </script>
 <script type="module">
-import createSherpaModule from './sherpa-wasm/tts-single-thread/sherpa-onnx-wasm-main-tts.js';
-import { createOfflineTts } from './sherpa-wasm/tts-single-thread/sherpa-onnx-tts.js';
+const params = new URLSearchParams(location.search);
+const ENGINE = params.get('engine') || 'tts-single-thread';   // ?engine=tts-multi-thread p/ o build pthread
+const THREADS = Math.max(1, +(params.get('threads') || 1));   // ?threads=4 — só acelera com o build pthread + crossOriginIsolated
+const { default: createSherpaModule } = await import('./sherpa-wasm/' + ENGINE + '/sherpa-onnx-wasm-main-tts.js');
+const { createOfflineTts } = await import('./sherpa-wasm/' + ENGINE + '/sherpa-onnx-tts.js');
 const labLog = window.labLog;
 let sherpaModule = null;
 
@@ -187,7 +190,7 @@ async function loadVoice(force){
     const o = await getBytes('vits-piper-'+x, x+'.onnx', force);
     const t = await getBytes('vits-piper-'+x, 'tokens.txt', force);
     sherpaModule.FS.writeFile('model.onnx', o.bytes); sherpaModule.FS.writeFile('tokens.txt', t.bytes);
-    const cfg = { offlineTtsModelConfig: { offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
+    const cfg = { offlineTtsModelConfig: { offlineTtsVitsModelConfig: { model:'./model.onnx', lexicon:'', tokens:'./tokens.txt', dataDir:'./espeak-ng-data', noiseScale:0.667, noiseScaleW:0.8, lengthScale:1.0 }, numThreads:THREADS, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
     const t0 = performance.now(); sessions[x] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
     useSession(x);
     const cacheInfo = o.cachedSince ? ('já em cache há '+humanAge(Date.now()-o.cachedSince)) : ('baixado agora em '+o.ms+' ms');
@@ -212,7 +215,7 @@ async function loadKokoro(x, force){                 // 1 modelo, várias vozes 
     const v = await getBytes(kk.repo, 'voices.bin', force);
     const t = await getBytes(kk.repo, 'tokens.txt', force);
     sherpaModule.FS.writeFile('kokoro.onnx', m.bytes); sherpaModule.FS.writeFile('kokoro-voices.bin', v.bytes); sherpaModule.FS.writeFile('kokoro-tokens.txt', t.bytes);
-    const cfg = { offlineTtsModelConfig: { offlineTtsKokoroModelConfig: { model:'./kokoro.onnx', voices:'./kokoro-voices.bin', tokens:'./kokoro-tokens.txt', dataDir:'./espeak-ng-data', lexicon:'', lang:lang }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
+    const cfg = { offlineTtsModelConfig: { offlineTtsKokoroModelConfig: { model:'./kokoro.onnx', voices:'./kokoro-voices.bin', tokens:'./kokoro-tokens.txt', dataDir:'./espeak-ng-data', lexicon:'', lang:lang }, numThreads:THREADS, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
     const t0 = performance.now(); sessions[key] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
     tts = sessions[key]; curVoice = 'kokoro-'+name; enablePlay();
     const cacheInfo = m.cachedSince ? ('já em cache há '+humanAge(Date.now()-m.cachedSince)) : ('baixado agora em '+m.ms+' ms');
@@ -273,10 +276,11 @@ voiceKokoroFp32.onchange = () => { if (voiceKokoroFp32.value) { lastSel = voiceK
 
 // boot
 if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
+labLog('[cfg] engine=' + ENGINE + ' · numThreads=' + THREADS + ' · crossOriginIsolated=' + self.crossOriginIsolated + (THREADS > 1 && !self.crossOriginIsolated ? ' ⚠️ threads>1 SEM isolamento → não paraleliza (falta COOP/COEP)' : ''));
 labLog('carregando o motor WASM (módulo ESM)…');
 try {
   sherpaModule = await createSherpaModule({
-    locateFile: (p) => 'sherpa-wasm/tts-single-thread/' + p,
+    locateFile: (p) => 'sherpa-wasm/' + ENGINE + '/' + p,
     print:    (t) => labLog('[sherpa] ' + t),     // captura stdout do C++ no Log da página
     printErr: (t) => labLog('[sherpa!] ' + t),    // captura stderr/erros (o motivo do exit(-1) aparece aqui)
   });

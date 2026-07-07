@@ -89,10 +89,19 @@ just another config row. Whether the target hardware can actually run either is 
   ⇒ prosody/speed matter a lot; the phoneme layer wants `/x/`-style input at a slow `lengthScale`, or recorded/spliced clips.
 - The CDN-only `tts-engine-lab.html` was **deleted** (YAGNI). Neural A-B now lives in `sherpa-lab.html` (~50 vits-piper
   voices, split into **medium / high** blocks so the user picks by hardware; RTF per synthesis).
-- **RTF measured (Dev hardware, single-thread):** Piper medium/high ≈ **0.78**; Kokoro **int8** ≈ **4.83** (≈6× slower —
-  10–14 s to synth a 2–3 s clip). Kokoro fp32 will be worse. ⇒ single-thread Kokoro is likely too slow for real-time on
-  weak hardware; Piper leads on speed. Also fixed a "green but no sound" bug — the ~10 s synchronous synth staled the
-  click gesture, so a freshly-created AudioContext was autoplay-blocked; use one persistent AudioContext warmed on click.
+- **RTF measured (Dev hardware, single-thread):** **Piper faber-medium ≈ 0.28–0.34** (sub-second — the winner: fast,
+  good, 63 MB); miro/dii-high ≈ 0.30 (miro-high had audible hiss once). **Kokoro fp32 ≈ 2.5**, **int8 ≈ 5.6**.
+  ⇒ Piper leads decisively on speed; Kokoro is ~8× slower single-thread and its quality edge is **not yet confirmed**.
+- **Kokoro int8 is SILENT** (produces samples but no audio) — treat as broken; use **fp32** only. (Confirm in docs.)
+- **"Green but no sound" fixed:** the ~10 s synchronous Kokoro synth staled the click gesture → a freshly-created
+  AudioContext was autoplay-blocked. Use one persistent AudioContext, warmed on the click.
+- **Multi-thread IS viable (earlier COEP blame was wrong):** MDN — cross-origin **CORS** fetches are NOT blocked by COEP
+  (HF sends `ACAO:*`), and `COEP: credentialless` (Chrome) gives `crossOriginIsolated` without CORP. Lever = **pthread
+  build + `numThreads>1` + COOP/COEP** (I had `numThreads:1`). Lab now takes `?engine=tts-multi-thread&threads=4`.
+  Production: host models same-origin/R2 → `require-corp` works; Safari lacks credentialless.
+- **Kokoro phoneme input = Misaki G2P** (not espeak `[[...]]`): forcing phonemes uses Misaki syntax / `[brackets]`
+  (hexgrad/misaki, jaggzh/kokoro-tts `--phonemes`, `kokoro-phonemize`). BUT sherpa's Kokoro uses **espeak** (`has_espeak=1`,
+  our `lang`), not Misaki — so the Misaki `[bracket]` trick may not apply through sherpa; revisit if Kokoro is chosen.
 - **Nothing validated until a passing user test.**
 
 ## Still open
