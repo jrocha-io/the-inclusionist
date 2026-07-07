@@ -181,7 +181,7 @@ async function loadKokoro(x, force){                 // 1 modelo, várias vozes 
     const v = await getBytes(KOKORO_REPO, 'voices.bin', force);
     const t = await getBytes(KOKORO_REPO, 'tokens.txt', force);
     sherpaModule.FS.writeFile('kokoro.onnx', m.bytes); sherpaModule.FS.writeFile('kokoro-voices.bin', v.bytes); sherpaModule.FS.writeFile('kokoro-tokens.txt', t.bytes);
-    const cfg = { offlineTtsModelConfig: { offlineTtsKokoroModelConfig: { model:'./kokoro.onnx', voices:'./kokoro-voices.bin', tokens:'./kokoro-tokens.txt', dataDir:'./espeak-ng-data', lexicon:'', lang:'' }, numThreads:1, debug:0, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
+    const cfg = { offlineTtsModelConfig: { offlineTtsKokoroModelConfig: { model:'./kokoro.onnx', voices:'./kokoro-voices.bin', tokens:'./kokoro-tokens.txt', dataDir:'./espeak-ng-data', lexicon:'', lang:'' }, numThreads:1, debug:1, provider:'cpu' }, ruleFsts:'', ruleFars:'', maxNumSentences:1 };
     const t0 = performance.now(); sessions['kokoro'] = createOfflineTts(sherpaModule, cfg); const initMs = Math.round(performance.now()-t0);
     tts = sessions['kokoro']; curVoice = 'kokoro-'+name; enablePlay();
     const cacheInfo = m.cachedSince ? ('já em cache há '+humanAge(Date.now()-m.cachedSince)) : ('baixado agora em '+m.ms+' ms');
@@ -237,7 +237,11 @@ voiceKokoro.onchange = () => { if (voiceKokoro.value) { lastSel = voiceKokoro; l
 if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); labLog('[pwa] service worker registrado — motor + vozes persistem offline (como no jogo).'); } catch(e){ labLog('[pwa] SW falhou: '+(e.message||e)); } }
 labLog('carregando o motor WASM (módulo ESM)…');
 try {
-  sherpaModule = await createSherpaModule({ locateFile: (p) => 'sherpa-wasm/tts-single-thread/' + p });
+  sherpaModule = await createSherpaModule({
+    locateFile: (p) => 'sherpa-wasm/tts-single-thread/' + p,
+    print:    (t) => labLog('[sherpa] ' + t),     // captura stdout do C++ no Log da página
+    printErr: (t) => labLog('[sherpa!] ' + t),    // captura stderr/erros (o motivo do exit(-1) aparece aqui)
+  });
   labLog('[wasm] runtime pronto.');
   try { labLog('[wasm] FS "/" : ' + sherpaModule.FS.readdir('/').filter(x => x!=='.'&&x!=='..').join(', ')); } catch(e){ labLog('[wasm] FS: '+e.message); }
   loadBtn.disabled = false;
